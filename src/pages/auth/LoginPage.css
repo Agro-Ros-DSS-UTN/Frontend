@@ -1,0 +1,206 @@
+/* LoginPage.css - Agroquímica Rosario CRM */
+.login-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+/* Left Form Section */
+.login-left {
+  flex: 1;
+  max-width: 540px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3rem;
+  background-color: #ffffff;
+  z-index: 2;
+}
+
+.login-header-logo {
+  display: flex;
+  align-items: center;
+}
+
+.login-form-content {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-subtitle {
+  font-size: 0.95rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  text-align: center;
+}
+
+.login-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 2.25rem;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Fieldset / Outlined Floating Field Container */
+.input-fieldset {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 52px;
+  background-color: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.input-fieldset:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.input-label {
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  background-color: #ffffff;
+  padding: 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.input-fieldset:focus-within .input-label {
+  color: #2563eb;
+}
+
+.input-icon-left {
+  color: #94a3b8;
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.input-field {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #0f172a;
+  width: 100%;
+}
+
+.input-field::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.input-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  transition: color 0.15s ease;
+}
+
+.input-toggle-btn:hover {
+  color: #475569;
+}
+
+.login-btn {
+  width: 100%;
+  height: 48px;
+  background-color: #2563eb;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.login-btn:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+
+.login-btn:active {
+  transform: translateY(0);
+}
+
+/* Right Banner Section */
+.login-right {
+  flex: 1.4;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 2.5rem 3rem;
+}
+
+/* Gradient overlay for atmosphere */
+.login-right::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg, 
+    rgba(15, 23, 42, 0.35) 0%, 
+    rgba(15, 23, 42, 0.05) 50%, 
+    rgba(15, 23, 42, 0.25) 100%
+  );
+  z-index: 1;
+}
+
+.login-right-logo {
+  position: relative;
+  z-index: 2;
+}
+
+.login-footer-text {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: left;
+}
+
+/* Responsiveness */
+@media (max-width: 900px) {
+  .login-container {
+    flex-direction: column;
+  }
+  .login-right {
+    display: none;
+  }
+  .login-left {
+    max-width: 100%;
+    padding: 2rem;
+  }
+}
