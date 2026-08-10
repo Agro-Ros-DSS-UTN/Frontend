@@ -1,0 +1,369 @@
+/* ═══════════════════════════════════════════
+   Companies Page
+   ═══════════════════════════════════════════ */
+
+.companies-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.companies-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.companies-page__title {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.companies-page__subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.companies-page__add-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.companies-page__add-btn:hover {
+  background-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* ── Card ── */
+.companies-page__card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+
+.companies-page__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-light);
+  gap: var(--space-3);
+}
+
+.companies-page__search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--gray-50);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  min-width: 320px;
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+}
+
+.companies-page__search:focus-within {
+  border-color: var(--color-primary);
+  background: var(--bg-card);
+}
+
+.companies-page__search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.companies-page__search input::placeholder {
+  color: var(--text-muted);
+}
+
+.companies-page__toolbar-right {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.companies-page__filter-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.companies-page__filter-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+/* ── Table ── */
+.companies-page__table-wrapper {
+  overflow-x: auto;
+}
+
+.companies-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.companies-table thead {
+  background: var(--gray-50);
+}
+
+.companies-table th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.companies-table__sortable {
+  cursor: pointer;
+}
+
+.companies-table__sortable:hover {
+  color: var(--text-primary);
+}
+
+.companies-table__th-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.companies-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.companies-table__row {
+  transition: background-color var(--transition-fast);
+}
+
+.companies-table__row:hover {
+  background-color: var(--gray-50);
+}
+
+.companies-table__row--selected {
+  background-color: var(--color-primary-50) !important;
+}
+
+.companies-table__check-col {
+  width: 44px;
+  padding-left: var(--space-4) !important;
+}
+
+.companies-table__checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.companies-table__name-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.companies-table__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-100);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.companies-table__name {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.companies-table__desc {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.companies-table__mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.3px;
+}
+
+.companies-table__type-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.companies-table__type-badge--productor {
+  background-color: var(--color-secondary-light);
+  color: var(--color-secondary);
+}
+
+.companies-table__type-badge--distribuidor {
+  background-color: var(--color-primary-100);
+  color: var(--color-primary);
+}
+
+.companies-table__type-badge--cooperativa {
+  background-color: #f5f3ff;
+  color: #8b5cf6;
+}
+
+.companies-table__location {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+
+.companies-table__surface {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.companies-table__date {
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.companies-table__actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.companies-table__row:hover .companies-table__actions {
+  opacity: 1;
+}
+
+.companies-table__action-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.companies-table__action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.companies-table__action-btn--danger:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.companies-table__empty {
+  text-align: center;
+  padding: var(--space-12) var(--space-4) !important;
+  color: var(--text-muted);
+}
+
+/* ── Pagination ── */
+.companies-page__pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-light);
+}
+
+.companies-page__pagination-info {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.companies-page__pagination-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.companies-page__page-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.companies-page__page-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.companies-page__page-btn--active {
+  background: var(--color-primary) !important;
+  color: white !important;
+  border-color: var(--color-primary) !important;
+}
+
+.companies-page__page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { ArLogoHeader, ArLogoRight } from '../../components/common/ArLogo';
 import bgFieldUrl from '../../assets/field_sunset.jpg';
 import './LoginPage.css';
 
-export const LoginPage = ({ onLoginSuccess }) => {
+export const LoginPage = () => {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -22,9 +26,16 @@ export const LoginPage = ({ onLoginSuccess }) => {
     }
 
     setError('');
-    console.log('Iniciando sesión con ID:', userId);
-    if (onLoginSuccess) {
-      onLoginSuccess({ userId, role: userId.toLowerCase().includes('admin') ? 'admin' : 'vendedor' });
+    const result = login(userId, password);
+
+    if (result.success) {
+      if (result.user.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/seller/dashboard');
+      }
+    } else {
+      setError(result.error || 'Credenciales inválidas');
     }
   };
 
@@ -48,7 +59,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
               backgroundColor: '#fef2f2',
               border: '1px solid #fecaca',
               color: '#dc2626',
-              fontSize: '0.85rem',
+              fontSize: '0.9rem',
               marginBottom: '1rem',
               textAlign: 'center'
             }}>
@@ -66,7 +77,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
               <input
                 type="text"
                 className="input-field"
-                placeholder="Ingresa tu ID"
+                placeholder="Ingresa 1 o 2"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
                 autoFocus
@@ -98,6 +109,17 @@ export const LoginPage = ({ onLoginSuccess }) => {
               Log in
             </button>
           </form>
+
+          <p style={{
+            fontSize: '0.85rem',
+            color: '#94a3b8',
+            marginTop: '1.5rem',
+            textAlign: 'center',
+            lineHeight: 1.6,
+          }}>
+            Ingresá <strong style={{ color: '#0f172a' }}>1</strong> para acceder como Vendedor<br />
+            Ingresá <strong style={{ color: '#0f172a' }}>2</strong> para acceder como Administrador
+          </p>
         </div>
 
         <div className="login-footer-text">
@@ -106,7 +128,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
       </div>
 
       {/* Lado Derecho - Banner con Foto Agrícola */}
-      <div 
+      <div
         className="login-right"
         style={{ backgroundImage: `url(${bgFieldUrl})` }}
       >

@@ -1,0 +1,30 @@
+/* ═══════════════════════════════════════════
+   AdminLayout — Grid with sidebar + content
+   ═══════════════════════════════════════════ */
+
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-page);
+}
+
+.admin-layout__main {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  transition: margin-left var(--transition-slow);
+}
+
+/* When sidebar is collapsed, adjust the main area */
+.sidebar--collapsed ~ .admin-layout__main,
+.admin-layout:has(.sidebar--collapsed) .admin-layout__main {
+  margin-left: var(--sidebar-width-collapsed);
+}
+
+.admin-layout__content {
+  flex: 1;
+  padding: var(--space-6);
+  overflow-y: auto;
+}
