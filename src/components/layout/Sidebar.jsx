@@ -9,10 +9,10 @@ import {
   Target,
   Megaphone,
   ClipboardList,
-  ChevronLeft,
-  ChevronRight,
+  MapPin,
+  PanelLeftClose,
+  PanelLeftOpen,
   LogOut,
-  Settings,
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import './Sidebar.css';
@@ -23,13 +23,14 @@ const adminNavItems = [
   { path: '/admin/empresas',      icon: Building2,       label: 'Empresas' },
   { path: '/admin/oportunidades', icon: Handshake,       label: 'Oportunidades' },
   { path: '/admin/objetivos',     icon: Target,          label: 'Objetivos' },
+  { path: '/admin/rutas',         icon: MapPin,          label: 'Hojas de Ruta' },
   { path: '/admin/campañas',      icon: Megaphone,       label: 'Campañas' },
   { path: '/admin/actividades',   icon: ClipboardList,   label: 'Actividades' },
 ];
 
 export const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { logout, currentUser } = useAuth();
+  const { logout } = useAuth();
   const location = useLocation();
 
   return (
@@ -58,10 +59,10 @@ export const Sidebar = () => {
                 <NavLink
                   to={item.path}
                   className={`sidebar__link ${isActive ? 'sidebar__link--active' : ''}`}
-                  title={collapsed ? item.label : ''}
                 >
                   <Icon size={20} className="sidebar__link-icon" />
                   {!collapsed && <span className="sidebar__link-label">{item.label}</span>}
+                  {collapsed && <span className="sidebar__nav-tooltip">{item.label}</span>}
                 </NavLink>
               </li>
             );
@@ -69,25 +70,34 @@ export const Sidebar = () => {
         </ul>
       </nav>
 
-      {/* Footer */}
+      {/* Footer — Botón de colapsar a la izquierda sobre la línea + Cerrar sesión */}
       <div className="sidebar__footer">
-        <button
-          className="sidebar__link sidebar__link--footer"
-          onClick={() => setCollapsed(!collapsed)}
-          title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
-        >
-          {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-          {!collapsed && <span className="sidebar__link-label">Colapsar</span>}
-        </button>
+        <div className="sidebar__divider-line">
+          <div className="sidebar__collapse-wrapper">
+            <button
+              className="sidebar__collapse-btn"
+              onClick={() => setCollapsed(!collapsed)}
+              aria-label={collapsed ? 'Expandir navegación' : 'Contraer navegación'}
+            >
+              {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            </button>
+            <span className="sidebar__collapse-tooltip">
+              {collapsed ? 'Expandir navegación' : 'Contraer navegación'}
+            </span>
+          </div>
+        </div>
 
-        <button
-          className="sidebar__link sidebar__link--footer sidebar__link--logout"
-          onClick={logout}
-          title="Cerrar sesión"
-        >
-          <LogOut size={20} className="sidebar__link-icon" />
-          {!collapsed && <span className="sidebar__link-label">Cerrar sesión</span>}
-        </button>
+        {/* Logout Button with Tooltip */}
+        <div className="sidebar__logout-wrapper">
+          <button
+            className="sidebar__link sidebar__link--footer sidebar__link--logout"
+            onClick={logout}
+          >
+            <LogOut size={18} className="sidebar__link-icon" />
+            {!collapsed && <span className="sidebar__link-label">Cerrar sesión</span>}
+            {collapsed && <span className="sidebar__nav-tooltip">Cerrar sesión</span>}
+          </button>
+        </div>
       </div>
     </aside>
   );

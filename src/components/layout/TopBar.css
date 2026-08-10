@@ -44,12 +44,19 @@
   font-weight: 400;
 }
 
-/* ── Center: Search ── */
+/* ── Center: Search & Quick Add (+) ── */
 .topbar__center {
   flex: 1;
-  max-width: 480px;
+  max-width: 520px;
   display: flex;
   justify-content: center;
+}
+
+.topbar__search-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
 }
 
 .topbar__search {
@@ -60,7 +67,7 @@
   border: 1px solid #404040;
   border-radius: var(--radius-lg);
   padding: var(--space-2) var(--space-3);
-  width: 100%;
+  flex: 1;
   transition: all var(--transition-fast);
 }
 
@@ -86,6 +93,84 @@
 
 .topbar__search-input::placeholder {
   color: #888888;
+}
+
+/* Quick Add (+) Button */
+.topbar__quick-add-wrapper {
+  position: relative;
+}
+
+.topbar__quick-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  border: 1px solid #404040;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.topbar__quick-add-btn:hover,
+.topbar__quick-add-btn--active {
+  background-color: #383838;
+  border-color: #666666;
+  color: var(--color-primary-light);
+}
+
+.topbar__quick-add-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 220px;
+  background: #2a2a2a;
+  border: 1px solid #404040;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  padding: var(--space-1);
+  z-index: var(--z-dropdown);
+  animation: dropdownSlideIn var(--transition-base) ease;
+}
+
+.topbar__quick-add-title {
+  padding: 8px 12px 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #888888;
+  letter-spacing: 0.5px;
+}
+
+.topbar__quick-add-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: #e5e5e5;
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.topbar__quick-add-item:hover {
+  background: #3a3a3a;
+  color: #ffffff;
+}
+
+.quick-add-icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 /* ── Right: Icons & User ── */
@@ -168,6 +253,13 @@
   justify-content: center;
   flex-shrink: 0;
   letter-spacing: 0.5px;
+  overflow: hidden;
+}
+
+.topbar__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .topbar__avatar--lg {

@@ -371,7 +371,6 @@
 }
 
 .campaigns-modal__field input[type="text"],
-.campaigns-modal__field input[type="date"],
 .campaigns-modal__field textarea,
 .campaigns-modal__field select {
   padding: 10px 12px;
@@ -389,6 +388,7 @@
 .campaigns-modal__field textarea:focus,
 .campaigns-modal__field select:focus {
   border-color: var(--color-primary);
+  outline: none;
 }
 
 .campaigns-modal__field input::placeholder,
@@ -410,13 +410,14 @@
   border-radius: var(--radius-md);
   padding: 0 12px;
   transition: border-color 150ms ease;
+  position: relative;
 }
 
 .campaigns-modal__date-input:focus-within {
   border-color: var(--color-primary);
 }
 
-.campaigns-modal__date-input svg {
+.campaigns-modal__date-input > svg {
   color: var(--text-muted);
   flex-shrink: 0;
 }
@@ -424,31 +425,253 @@
 .campaigns-modal__date-input input {
   border: none !important;
   padding: 10px 0 !important;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  width: 100%;
 }
 
-/* Color swatches */
-.campaigns-modal__colors {
-  display: flex;
+.campaigns-modal__date-input input::placeholder {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ═══════════════════════════════════════════
+   Color Picker Dropdown (HubSpot-style)
+   ═══════════════════════════════════════════ */
+
+.color-picker {
+  position: relative;
+  display: inline-block;
+}
+
+.color-picker__toggle {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-}
-
-.campaigns-modal__color-swatch {
-  width: 28px;
-  height: 28px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-full);
-  border: 2px solid transparent;
+  background: #ffffff;
   cursor: pointer;
   transition: all 150ms ease;
 }
 
-.campaigns-modal__color-swatch:hover {
-  transform: scale(1.15);
+.color-picker__toggle:hover {
+  border-color: var(--border-dark);
 }
 
-.campaigns-modal__color-swatch--active {
-  border-color: var(--text-primary);
-  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--text-primary);
+.color-picker__preview {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.color-picker__chevron {
+  color: var(--text-muted);
+  transition: transform 200ms ease;
+}
+
+.color-picker__chevron--open {
+  transform: rotate(180deg);
+}
+
+.color-picker__dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 12px;
+  z-index: 10;
+  animation: colorPickerIn 180ms ease;
+}
+
+@keyframes colorPickerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.color-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.color-picker__swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 150ms ease;
+  padding: 0;
+}
+
+.color-picker__swatch:hover {
+  transform: scale(1.2);
+}
+
+.color-picker__swatch--active {
+  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-primary);
+}
+
+/* ═══════════════════════════════════════════
+   Custom Calendar (HubSpot-style)
+   ═══════════════════════════════════════════ */
+
+.custom-calendar {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: 16px;
+  z-index: 20;
+  width: 280px;
+  animation: calendarIn 200ms ease;
+}
+
+@keyframes calendarIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.custom-calendar__nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.custom-calendar__nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.custom-calendar__nav-btn:hover {
+  background: var(--gray-100);
+  color: var(--text-primary);
+}
+
+.custom-calendar__month-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.custom-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.custom-calendar__day-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 0;
+  text-transform: lowercase;
+}
+
+.custom-calendar__day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 100ms ease;
+  margin: 0 auto;
+}
+
+.custom-calendar__day:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.custom-calendar__day--other {
+  color: var(--gray-300);
+  cursor: default;
+}
+
+.custom-calendar__day--today {
+  background: var(--color-primary);
+  color: white;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+}
+
+.custom-calendar__day--today:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.custom-calendar__day--selected {
+  background: var(--color-primary-100);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.custom-calendar__footer {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.custom-calendar__footer-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.custom-calendar__footer-btn:hover {
+  background: var(--gray-50);
+  border-color: var(--border-dark);
+  color: var(--text-primary);
 }
 
 /* Actions */

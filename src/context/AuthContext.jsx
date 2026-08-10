@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { mockUsers } from '../data/mockData';
 
 const AuthContext = createContext(null);
 
@@ -17,6 +16,10 @@ export const AuthProvider = ({ children }) => {
     return stored ? JSON.parse(stored) : null;
   });
 
+  const [profileImage, setProfileImageState] = useState(() => {
+    return localStorage.getItem('agroros_profile_img') || null;
+  });
+
   useEffect(() => {
     if (currentUser) {
       sessionStorage.setItem('agroros_user', JSON.stringify(currentUser));
@@ -25,10 +28,16 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
+  const updateProfileImage = (imgData) => {
+    setProfileImageState(imgData);
+    if (imgData) {
+      localStorage.setItem('agroros_profile_img', imgData);
+    } else {
+      localStorage.removeItem('agroros_profile_img');
+    }
+  };
+
   const login = (userId, password) => {
-    // Login por ID:
-    //   "1" = Vendedor
-    //   "2" = Administrador
     if (userId === '1') {
       const sellerUser = {
         numDoc: '35123456',
@@ -55,7 +64,6 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: adminUser };
     }
 
-    // Si no es 1 ni 2, error
     return { success: false, error: 'ID inválido. Ingresá 1 (vendedor) o 2 (administrador).' };
   };
 
@@ -71,6 +79,8 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{
       currentUser,
+      profileImage,
+      updateProfileImage,
       login,
       logout,
       isAuthenticated,

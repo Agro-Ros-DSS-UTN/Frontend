@@ -1,13 +1,237 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, Search, X, Calendar } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Plus, Search, X, Calendar, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { mockPromotions } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import './CampaignsPage.css';
 
 const CAMPAIGN_COLORS = [
-  '#e8a735', '#4caf50', '#2196f3', '#9c27b0',
-  '#f44336', '#00bcd4', '#ff9800', '#607d8b',
+  { value: '#ffffff', border: '#d1d5db' },
+  { value: '#e8a735' },
+  { value: '#4caf50' },
+  { value: '#26c6da' },
+  { value: '#ff9800' },
+  { value: '#2196f3' },
+  { value: '#f44336' },
+  { value: '#9c27b0' },
+  { value: '#1c1c1c' },
+  { value: '#e91e63' },
 ];
+
+const MONTHS_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+const DAYS_ES = ['lu', 'ma', 'mi', 'ju', 'vi', 'sá', 'do'];
+
+/* ─────────────────────────────────────────────
+   Color Picker Dropdown (HubSpot-style)
+   ───────────────────────────────────────────── */
+const ColorPickerDropdown = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="color-picker" ref={ref}>
+      <button
+        type="button"
+        className="color-picker__toggle"
+        onClick={() => setOpen(!open)}
+      >
+        <span
+          className="color-picker__preview"
+          style={{
+            backgroundColor: value,
+            border: value === '#ffffff' ? '1px solid #d1d5db' : 'none',
+          }}
+        />
+        <ChevronDown size={14} className={`color-picker__chevron ${open ? 'color-picker__chevron--open' : ''}`} />
+      </button>
+      {open && (
+        <div className="color-picker__dropdown">
+          <div className="color-picker__grid">
+            {CAMPAIGN_COLORS.map(color => (
+              <button
+                key={color.value}
+                type="button"
+                className={`color-picker__swatch ${value === color.value ? 'color-picker__swatch--active' : ''}`}
+                style={{
+                  backgroundColor: color.value,
+                  border: color.border ? `1px solid ${color.border}` : 'none',
+                }}
+                onClick={() => { onChange(color.value); setOpen(false); }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Custom Calendar (HubSpot-style)
+   ───────────────────────────────────────────── */
+const CustomCalendar = ({ value, onChange, onClose }) => {
+  const today = new Date();
+  const selectedDate = value ? new Date(value + 'T00:00:00') : null;
+  const [viewMonth, setViewMonth] = useState(selectedDate ? selectedDate.getMonth() : today.getMonth());
+  const [viewYear, setViewYear] = useState(selectedDate ? selectedDate.getFullYear() : today.getFullYear());
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
+    else setViewMonth(viewMonth - 1);
+  };
+
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
+    else setViewMonth(viewMonth + 1);
+  };
+
+  // Build days grid (Monday start)
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
+  // Convert Sunday=0 to Monday-based (Mon=0, Sun=6)
+  const startDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+  const prevMonthDays = new Date(viewYear, viewMonth, 0).getDate();
+  const cells = [];
+
+  // Previous month trailing days
+  for (let i = startDay - 1; i >= 0; i--) {
+    cells.push({ day: prevMonthDays - i, isOtherMonth: true, date: null });
+  }
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    cells.push({ day: d, isOtherMonth: false, date: dateStr });
+  }
+  // Next month leading days
+  const remaining = 7 - (cells.length % 7);
+  if (remaining < 7) {
+    for (let d = 1; d <= remaining; d++) {
+      cells.push({ day: d, isOtherMonth: true, date: null });
+    }
+  }
+
+  const isToday = (dateStr) => {
+    if (!dateStr) return false;
+    const t = today;
+    return dateStr === `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  };
+
+  const isSelected = (dateStr) => {
+    return dateStr && value === dateStr;
+  };
+
+  const handleSelect = (dateStr) => {
+    if (!dateStr) return;
+    onChange(dateStr);
+    onClose();
+  };
+
+  const handleToday = () => {
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    onChange(todayStr);
+    onClose();
+  };
+
+  const handleClear = () => {
+    onChange('');
+    onClose();
+  };
+
+  return (
+    <div className="custom-calendar">
+      <div className="custom-calendar__nav">
+        <button type="button" className="custom-calendar__nav-btn" onClick={prevMonth}>
+          <ChevronLeft size={16} />
+        </button>
+        <span className="custom-calendar__month-label">
+          {MONTHS_ES[viewMonth]} de {viewYear}
+        </span>
+        <button type="button" className="custom-calendar__nav-btn" onClick={nextMonth}>
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div className="custom-calendar__grid">
+        {DAYS_ES.map(d => (
+          <span key={d} className="custom-calendar__day-header">{d}</span>
+        ))}
+        {cells.map((cell, idx) => (
+          <button
+            key={idx}
+            type="button"
+            className={`custom-calendar__day
+              ${cell.isOtherMonth ? 'custom-calendar__day--other' : ''}
+              ${isToday(cell.date) ? 'custom-calendar__day--today' : ''}
+              ${isSelected(cell.date) ? 'custom-calendar__day--selected' : ''}
+            `}
+            disabled={cell.isOtherMonth}
+            onClick={() => handleSelect(cell.date)}
+          >
+            {cell.day}
+          </button>
+        ))}
+      </div>
+      <div className="custom-calendar__footer">
+        <button type="button" className="custom-calendar__footer-btn" onClick={handleToday}>Hoy</button>
+        <button type="button" className="custom-calendar__footer-btn" onClick={handleClear}>Borrar</button>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Date Input with Custom Calendar
+   ───────────────────────────────────────────── */
+const DateInput = ({ value, onChange, placeholder = 'DD/MM/AAAA' }) => {
+  const [showCalendar, setShowCalendar] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setShowCalendar(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const formatDisplay = (val) => {
+    if (!val) return '';
+    const [y, m, d] = val.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
+  return (
+    <div className="campaigns-modal__date-input" ref={ref}>
+      <Calendar size={16} />
+      <input
+        type="text"
+        readOnly
+        value={formatDisplay(value)}
+        placeholder={placeholder}
+        onClick={() => setShowCalendar(!showCalendar)}
+        style={{ cursor: 'pointer' }}
+      />
+      {showCalendar && (
+        <CustomCalendar
+          value={value}
+          onChange={onChange}
+          onClose={() => setShowCalendar(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Campaigns Page
+   ───────────────────────────────────────────── */
 
 const emptyForm = {
   nombre: '',
@@ -48,8 +272,8 @@ export const CampaignsPage = () => {
 
   const formatDateShort = (dateStr) => {
     if (!dateStr) return '—';
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
   };
 
   const handleCreate = (e) => {
@@ -205,20 +429,13 @@ export const CampaignsPage = () => {
                 />
               </div>
 
-              {/* Color */}
+              {/* Color — Dropdown style */}
               <div className="campaigns-modal__field">
                 <label>Color de la campaña</label>
-                <div className="campaigns-modal__colors">
-                  {CAMPAIGN_COLORS.map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={`campaigns-modal__color-swatch ${form.color === color ? 'campaigns-modal__color-swatch--active' : ''}`}
-                      style={{ backgroundColor: color }}
-                      onClick={() => updateField('color', color)}
-                    />
-                  ))}
-                </div>
+                <ColorPickerDropdown
+                  value={form.color}
+                  onChange={(color) => updateField('color', color)}
+                />
               </div>
 
               {/* Propietario */}
@@ -235,27 +452,21 @@ export const CampaignsPage = () => {
               {/* Fecha inicio */}
               <div className="campaigns-modal__field">
                 <label>Fecha de inicio de la campaña</label>
-                <div className="campaigns-modal__date-input">
-                  <Calendar size={16} />
-                  <input
-                    type="date"
-                    value={form.fechaInicio}
-                    onChange={(e) => updateField('fechaInicio', e.target.value)}
-                  />
-                </div>
+                <DateInput
+                  value={form.fechaInicio}
+                  onChange={(val) => updateField('fechaInicio', val)}
+                  placeholder="DD/MM/AAAA"
+                />
               </div>
 
               {/* Fecha fin */}
               <div className="campaigns-modal__field">
                 <label>Fecha de finalización de la campaña</label>
-                <div className="campaigns-modal__date-input">
-                  <Calendar size={16} />
-                  <input
-                    type="date"
-                    value={form.fechaFin}
-                    onChange={(e) => updateField('fechaFin', e.target.value)}
-                  />
-                </div>
+                <DateInput
+                  value={form.fechaFin}
+                  onChange={(val) => updateField('fechaFin', val)}
+                  placeholder="DD/MM/AAAA"
+                />
               </div>
 
               {/* Público */}

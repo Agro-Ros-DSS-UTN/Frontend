@@ -17,8 +17,13 @@ import {
   Edit,
   Trash2,
   ExternalLink,
+  X,
+  User,
+  Building2,
+  MapPin,
+  FileText,
 } from 'lucide-react';
-import { mockClients, CONTACT_TYPES } from '../../data/mockData';
+import { mockClients, mockCompanies, CONTACT_TYPES } from '../../data/mockData';
 import './ContactsPage.css';
 
 const TABS = [
@@ -39,6 +44,7 @@ const COLUMNS = [
 const PAGE_SIZE = 10;
 
 export const ContactsPage = () => {
+  const [clients, setClients] = useState(mockClients);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('nombreApellido');
@@ -47,10 +53,24 @@ export const ContactsPage = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [typeFilter, setTypeFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+
+  // Form state
+  const [form, setForm] = useState({
+    numDoc: '',
+    nombreApellido: '',
+    direccionMail: '',
+    tipoClient: 'Productor',
+    localidad: 'Casilda',
+    codigoPostal: 'S2170',
+    telefono: '',
+    empresa: '',
+    nota: '',
+  });
 
   // Filter & Sort
   const filteredClients = useMemo(() => {
-    let result = [...mockClients];
+    let result = [...clients];
 
     // Search
     if (searchQuery) {
@@ -78,7 +98,7 @@ export const ContactsPage = () => {
     });
 
     return result;
-  }, [searchQuery, typeFilter, sortBy, sortDir]);
+  }, [clients, searchQuery, typeFilter, sortBy, sortDir]);
 
   // Pagination
   const totalPages = Math.ceil(filteredClients.length / PAGE_SIZE);
@@ -104,7 +124,7 @@ export const ContactsPage = () => {
     }
   };
 
-  const toggleSelect = (numDoc) => {
+  const toggleSelectRow = (numDoc) => {
     setSelectedRows(prev =>
       prev.includes(numDoc)
         ? prev.filter(id => id !== numDoc)
@@ -114,113 +134,148 @@ export const ContactsPage = () => {
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('es-AR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
-  const SortIcon = ({ columnKey }) => {
-    if (sortBy !== columnKey) return <ArrowUpDown size={13} className="sort-icon sort-icon--inactive" />;
-    return sortDir === 'asc'
-      ? <ArrowUp size={13} className="sort-icon" />
-      : <ArrowDown size={13} className="sort-icon" />;
+  const getInitials = (name) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  };
+
+  const handleCreate = (e) => {
+    e.preventDefault();
+    const newClient = {
+      numDoc: form.numDoc || `20-${Math.floor(10000000 + Math.random() * 90000000)}-4`,
+      nombreApellido: form.nombreApellido,
+      direccionMail: form.direccionMail,
+      tipoClient: form.tipoClient,
+      localidad: form.localidad,
+      codigoPostal: form.codigoPostal,
+      telefonos: form.telefono ? [form.telefono] : ['+54 341 456-7890'],
+      nota: form.nota,
+      fechaAgregado: new Date().toISOString(),
+    };
+
+    setClients(prev => [newClient, ...prev]);
+    setShowModal(false);
+    setForm({
+      numDoc: '',
+      nombreApellido: '',
+      direccionMail: '',
+      tipoClient: 'Productor',
+      localidad: 'Casilda',
+      codigoPostal: 'S2170',
+      telefono: '',
+      empresa: '',
+      nota: '',
+    });
   };
 
   return (
     <div className="contacts-page">
-      {/* Tabs Bar */}
-      <div className="contacts-page__tabs-bar">
-        <div className="contacts-page__tabs">
-          {TABS.map(tab => (
+      {/* Header */}
+      <div className="contacts-page__header">
+        <div>
+          <h1 className="contacts-page__title">Contactos</h1>
+          <p className="contacts-page__subtitle">
+            {clients.length} contactos registrados en el CRM
+          </p>
+        </div>
+        <div className="contacts-page__header-actions">
+          <button className="contacts-page__export-btn">
+            <Download size={16} />
+            Exportar
+          </button>
+          <button className="contacts-page__add-btn" onClick={() => setShowModal(true)}>
+            <Plus size={16} />
+            Agregar contacto
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="contacts-page__tabs">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            className={`contacts-page__tab ${activeTab === tab.key ? 'contacts-page__tab--active' : ''}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+            {tab.key === 'all' && (
+              <span className="contacts-page__tab-badge">{clients.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Toolbar / Search & Filters */}
+      <div className="contacts-page__toolbar">
+        <div className="contacts-page__search">
+          <Search size={16} />
+          <input
+            type="text"
+            placeholder="Buscar por nombre, correo, documento o localidad..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+        </div>
+
+        <div className="contacts-page__toolbar-actions">
+          <button
+            className={`contacts-page__filter-btn ${showFilters || typeFilter ? 'contacts-page__filter-btn--active' : ''}`}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Filter size={16} />
+            Tipo de contacto
+            {typeFilter && <span className="contacts-page__filter-active-dot" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Dropdown Row */}
+      {showFilters && (
+        <div className="contacts-page__filter-panel">
+          <span className="contacts-page__filter-panel-label">Filtrar por tipo:</span>
+          <button
+            className={`contacts-page__filter-chip ${!typeFilter ? 'contacts-page__filter-chip--active' : ''}`}
+            onClick={() => setTypeFilter('')}
+          >
+            Todos
+          </button>
+          {CONTACT_TYPES.map(type => (
             <button
-              key={tab.key}
-              className={`contacts-page__tab ${activeTab === tab.key ? 'contacts-page__tab--active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
+              key={type}
+              className={`contacts-page__filter-chip ${typeFilter === type ? 'contacts-page__filter-chip--active' : ''}`}
+              onClick={() => setTypeFilter(typeFilter === type ? '' : type)}
             >
-              {tab.label}
-              {tab.count !== null && (
-                <span className="contacts-page__tab-count">{tab.count}</span>
-              )}
+              {type}
             </button>
           ))}
         </div>
-
-        <button className="contacts-page__add-btn">
-          <Plus size={16} />
-          Agregar contacto
-        </button>
-      </div>
-
-      {/* Toolbar */}
-      <div className="contacts-page__toolbar">
-        <div className="contacts-page__toolbar-left">
-          <div className="contacts-page__search">
-            <Search size={16} />
-            <input
-              type="text"
-              placeholder="Buscar"
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            />
-          </div>
-
-          <button
-            className={`contacts-page__filter-btn ${showFilters ? 'contacts-page__filter-btn--active' : ''}`}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <Filter size={14} />
-            Filtros
-          </button>
-
-          <button className="contacts-page__filter-btn">
-            <SlidersHorizontal size={14} />
-            Ordenar
-          </button>
-        </div>
-
-        <div className="contacts-page__toolbar-right">
-          <button className="contacts-page__filter-btn">
-            <Download size={14} />
-            Exportar
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Row */}
-      {showFilters && (
-        <div className="contacts-page__filters-row">
-          <div className="contacts-page__filter-group">
-            <label>Tipo de contacto</label>
-            <select
-              value={typeFilter}
-              onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="">Todos</option>
-              {CONTACT_TYPES.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          {typeFilter && (
-            <button
-              className="contacts-page__clear-filters"
-              onClick={() => { setTypeFilter(''); setCurrentPage(1); }}
-            >
-              Limpiar filtros
-            </button>
-          )}
-        </div>
       )}
 
-      {/* Data Table */}
+      {/* Table */}
       <div className="contacts-page__table-wrapper">
         <table className="contacts-table">
           <thead>
             <tr>
-              <th className="contacts-table__check-col">
+              <th className="contacts-table__checkbox-col">
                 <input
                   type="checkbox"
-                  checked={selectedRows.length === paginatedClients.length && paginatedClients.length > 0}
+                  checked={paginatedClients.length > 0 && selectedRows.length === paginatedClients.length}
                   onChange={toggleSelectAll}
-                  className="contacts-table__checkbox"
                 />
               </th>
               {COLUMNS.map(col => (
@@ -230,39 +285,46 @@ export const ContactsPage = () => {
                   onClick={() => col.sortable && handleSort(col.key)}
                 >
                   <div className="contacts-table__th-content">
-                    {col.label}
-                    {col.sortable && <SortIcon columnKey={col.key} />}
+                    <span>{col.label}</span>
+                    {col.sortable && (
+                      <span className="contacts-table__sort-icon">
+                        {sortBy === col.key ? (
+                          sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                        ) : (
+                          <ArrowUpDown size={14} />
+                        )}
+                      </span>
+                    )}
                   </div>
                 </th>
               ))}
-              <th className="contacts-table__actions-col"></th>
+              <th className="contacts-table__actions-col">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {paginatedClients.length === 0 ? (
               <tr>
                 <td colSpan={COLUMNS.length + 2} className="contacts-table__empty">
-                  No se encontraron contactos
+                  No se encontraron contactos que coincidan con la búsqueda.
                 </td>
               </tr>
             ) : (
               paginatedClients.map(client => (
                 <tr
                   key={client.numDoc}
-                  className={`contacts-table__row ${selectedRows.includes(client.numDoc) ? 'contacts-table__row--selected' : ''}`}
+                  className={selectedRows.includes(client.numDoc) ? 'contacts-table__row--selected' : ''}
                 >
-                  <td className="contacts-table__check-col">
+                  <td className="contacts-table__checkbox-col">
                     <input
                       type="checkbox"
                       checked={selectedRows.includes(client.numDoc)}
-                      onChange={() => toggleSelect(client.numDoc)}
-                      className="contacts-table__checkbox"
+                      onChange={() => toggleSelectRow(client.numDoc)}
                     />
                   </td>
                   <td>
                     <div className="contacts-table__name-cell">
                       <div className="contacts-table__avatar">
-                        {client.nombreApellido.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {getInitials(client.nombreApellido)}
                       </div>
                       <div>
                         <span className="contacts-table__name">{client.nombreApellido}</span>
@@ -334,6 +396,144 @@ export const ContactsPage = () => {
             >
               <ChevronRight size={16} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Agregar Contacto (Dominio) ── */}
+      {showModal && (
+        <div className="contact-modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="contact-modal" onClick={e => e.stopPropagation()}>
+            <div className="contact-modal__header">
+              <h2>Registrar Nuevo Contacto / Cliente</h2>
+              <button className="contact-modal__close" onClick={() => setShowModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form className="contact-modal__form" onSubmit={handleCreate}>
+              {/* Nombre y Apellido */}
+              <div className="contact-field">
+                <label><User size={14} /> Nombre y Apellido / Razón Social *</label>
+                <input
+                  type="text"
+                  className="contact-input"
+                  placeholder="Ej: Roberto Aguilar"
+                  value={form.nombreApellido}
+                  onChange={(e) => setForm(prev => ({ ...prev, nombreApellido: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {/* DNI / CUIT */}
+              <div className="contact-field">
+                <label><FileText size={14} /> DNI / CUIT *</label>
+                <input
+                  type="text"
+                  className="contact-input"
+                  placeholder="Ej: 20-27845631-4"
+                  value={form.numDoc}
+                  onChange={(e) => setForm(prev => ({ ...prev, numDoc: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {/* Email */}
+              <div className="contact-field">
+                <label><Mail size={14} /> Correo Electrónico *</label>
+                <input
+                  type="email"
+                  className="contact-input"
+                  placeholder="cliente@dominio.com.ar"
+                  value={form.direccionMail}
+                  onChange={(e) => setForm(prev => ({ ...prev, direccionMail: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {/* Tipo de Cliente */}
+              <div className="contact-field">
+                <label>Tipo de Cliente *</label>
+                <select
+                  className="contact-select"
+                  value={form.tipoClient}
+                  onChange={(e) => setForm(prev => ({ ...prev, tipoClient: e.target.value }))}
+                  required
+                >
+                  {CONTACT_TYPES.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Localidad & Código Postal */}
+              <div className="contact-field-row">
+                <div className="contact-field" style={{ flex: 2 }}>
+                  <label><MapPin size={14} /> Localidad *</label>
+                  <input
+                    type="text"
+                    className="contact-input"
+                    value={form.localidad}
+                    onChange={(e) => setForm(prev => ({ ...prev, localidad: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="contact-field" style={{ flex: 1 }}>
+                  <label>Cód. Postal</label>
+                  <input
+                    type="text"
+                    className="contact-input"
+                    value={form.codigoPostal}
+                    onChange={(e) => setForm(prev => ({ ...prev, codigoPostal: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Teléfono */}
+              <div className="contact-field">
+                <label><Phone size={14} /> Teléfono Principal</label>
+                <input
+                  type="text"
+                  className="contact-input"
+                  placeholder="+54 341 456-7890"
+                  value={form.telefono}
+                  onChange={(e) => setForm(prev => ({ ...prev, telefono: e.target.value }))}
+                />
+              </div>
+
+              {/* Empresa Cliente Vinculada */}
+              <div className="contact-field">
+                <label><Building2 size={14} /> Empresa Cliente Vinculada</label>
+                <select
+                  className="contact-select"
+                  value={form.empresa}
+                  onChange={(e) => setForm(prev => ({ ...prev, empresa: e.target.value }))}
+                >
+                  <option value="">Ninguna / Productor Directo</option>
+                  {mockCompanies.map(c => (
+                    <option key={c.id} value={c.nombreEmpresa}>{c.nombreEmpresa}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Notas */}
+              <div className="contact-field">
+                <label>Notas Iniciales</label>
+                <textarea
+                  className="contact-textarea"
+                  rows={2}
+                  placeholder="Información sobre campo, hectáreas o preferencias..."
+                  value={form.nota}
+                  onChange={(e) => setForm(prev => ({ ...prev, nota: e.target.value }))}
+                />
+              </div>
+
+              {/* Acciones */}
+              <div className="contact-modal__actions">
+                <button type="submit" className="contact-btn-primary">Registrar Contacto</button>
+                <button type="button" className="contact-btn-outline" onClick={() => setShowModal(false)}>Cancelar</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -6,15 +6,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* ── Colores Primarios ── */
-  --color-primary:        #2563eb;
-  --color-primary-hover:  #1d4ed8;
-  --color-primary-light:  #dbeafe;
-  --color-primary-50:     #eff6ff;
-  --color-primary-100:    #dbeafe;
-  --color-primary-600:    #2563eb;
-  --color-primary-700:    #1d4ed8;
-  --color-primary-800:    #1e40af;
+  /* ── Colores Primarios (Verde Agua / Teal) ── */
+  --color-primary:        #1a7d6b;
+  --color-primary-hover:  #15685a;
+  --color-primary-light:  #d1fae5;
+  --color-primary-50:     #ecfdf5;
+  --color-primary-100:    #d1fae5;
+  --color-primary-600:    #1a7d6b;
+  --color-primary-700:    #15685a;
+  --color-primary-800:    #115e52;
 
   /* ── Colores Secundarios (Verde Agrícola) ── */
   --color-secondary:      #059669;

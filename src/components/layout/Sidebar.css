@@ -13,7 +13,6 @@
   top: 0;
   z-index: var(--z-sidebar);
   transition: width var(--transition-slow);
-  overflow: hidden;
   border-right: 1px solid var(--sidebar-border);
 }
 
@@ -28,6 +27,7 @@
   min-height: 68px;
   display: flex;
   align-items: center;
+  overflow: hidden;
 }
 
 .sidebar__logo {
@@ -93,6 +93,10 @@
   gap: 2px;
 }
 
+.sidebar__item {
+  position: relative;
+}
+
 .sidebar__link {
   display: flex;
   align-items: center;
@@ -110,7 +114,6 @@
   width: 100%;
   text-align: left;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .sidebar__link:hover {
@@ -139,20 +142,124 @@
 
 /* ── Footer ── */
 .sidebar__footer {
-  padding: var(--space-2);
-  border-top: 1px solid var(--sidebar-border);
+  padding: 0 var(--space-2) var(--space-3) var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: stretch;
+  position: relative;
+}
+
+.sidebar__divider-line {
+  position: relative;
+  height: 1px;
+  background-color: var(--sidebar-border);
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+}
+
+.sidebar__logout-wrapper {
+  position: relative;
 }
 
 .sidebar__link--footer {
   font-size: var(--text-sm);
+  padding: 10px var(--space-3);
+}
+
+.sidebar--collapsed .sidebar__link--footer {
+  justify-content: center;
+  padding: 10px 0;
 }
 
 .sidebar__link--logout:hover {
   color: var(--color-danger);
   background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* ── Circular Collapse Button on Divider Line ── */
+.sidebar__collapse-wrapper {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  z-index: 10;
+}
+
+.sidebar--collapsed .sidebar__collapse-wrapper {
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.sidebar__collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  cursor: pointer;
+  transition: all 200ms ease;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar__collapse-btn:hover {
+  background: var(--sidebar-bg-hover);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: var(--sidebar-text-active);
+  transform: scale(1.05);
+}
+
+/* ── Tooltips (Contraer, Expandir, Cerrar sesión, Nav items) ── */
+.sidebar__collapse-tooltip,
+.sidebar__nav-tooltip {
+  position: absolute;
+  left: calc(100% + 14px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 180ms ease;
+  pointer-events: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  z-index: 99999;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar__collapse-tooltip::before,
+.sidebar__nav-tooltip::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: #1f2937;
+}
+
+.sidebar__collapse-btn:hover + .sidebar__collapse-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.sidebar__link:hover .sidebar__nav-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* ── Animations ── */
