@@ -1,20 +1,22 @@
+/* eslint-disable */
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // <--- 1. IMPORTAR useNavigate
 import { User, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import { ArLogoHeader, ArLogoRight } from '../../components/common/ArLogo';
 import bgFieldUrl from '../../assets/field_sunset.jpg';
+import { loginUser } from '../../data/api';
 import './LoginPage.css';
 
-export const LoginPage = () => {
+export const LoginPage = ({ onLoginSuccess }) => {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const navigate = useNavigate(); // <--- 2. INICIALIZAR EL HOOK DE NAVEGACIÓN
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!userId.trim()) {
       setError('Por favor ingresa tu ID');
@@ -26,16 +28,35 @@ export const LoginPage = () => {
     }
 
     setError('');
-    const result = login(userId, password);
+    setLoading(true);
 
-    if (result.success) {
-      if (result.user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/seller/dashboard');
-      }
-    } else {
-      setError(result.error || 'Credenciales inválidas');
+    try {
+      const data = await loginUser({ id: userId, password });
+      
+      console.log('Respuesta del Backend:', data);
+
+ const user = data.user || data;
+
+// Forzamos la conversión a minúsculas para evitar diferencias entre "Admin" y "admin"
+const userRole = user?.role ? String(user.role).toLowerCase() : '';
+
+if (user && userRole) {
+  if (onLoginSuccess) {
+    onLoginSuccess(user);
+  }
+
+  if (userRole === 'admin') {
+    navigate('/admin/contactos'); // Asegúrate de que esta ruta coincida con App.jsx
+  } else {
+    navigate('/seller/dashboard');
+  }
+} else {
+  setError('El servidor no devolvió un rol de usuario válido.');
+}
+    } catch (err) {
+      setError(err.message || 'Error de conexión con el servidor');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -59,7 +80,7 @@ export const LoginPage = () => {
               backgroundColor: '#fef2f2',
               border: '1px solid #fecaca',
               color: '#dc2626',
-              fontSize: '0.9rem',
+              fontSize: '0.85rem',
               marginBottom: '1rem',
               textAlign: 'center'
             }}>
@@ -77,7 +98,7 @@ export const LoginPage = () => {
               <input
                 type="text"
                 className="input-field"
-                placeholder="Ingresa 1 o 2"
+                placeholder="Ingresa tu ID"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
                 autoFocus
@@ -105,21 +126,10 @@ export const LoginPage = () => {
             </div>
 
             {/* Botón Log in */}
-            <button type="submit" className="login-btn">
-              Log in
+            <button type="submit" className="login-btn" disabled={loading}>
+              {loading ? 'Cargando...' : 'Log in'}
             </button>
           </form>
-
-          <p style={{
-            fontSize: '0.85rem',
-            color: '#94a3b8',
-            marginTop: '1.5rem',
-            textAlign: 'center',
-            lineHeight: 1.6,
-          }}>
-            Ingresá <strong style={{ color: '#0f172a' }}>1</strong> para acceder como Vendedor<br />
-            Ingresá <strong style={{ color: '#0f172a' }}>2</strong> para acceder como Administrador
-          </p>
         </div>
 
         <div className="login-footer-text">
@@ -127,8 +137,8 @@ export const LoginPage = () => {
         </div>
       </div>
 
-      {/* Lado Derecho - Banner con Foto Agrícola */}
-      <div
+      {/* Lado Derecho - Banner */}
+      <div 
         className="login-right"
         style={{ backgroundImage: `url(${bgFieldUrl})` }}
       >

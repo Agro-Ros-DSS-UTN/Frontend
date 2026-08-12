@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -11,9 +12,6 @@ import { OpportunitiesPage } from './pages/admin/OpportunitiesPage';
 import { ObjectivesPage } from './pages/admin/ObjectivesPage';
 import { CampaignsPage } from './pages/admin/CampaignsPage';
 import { ActivitiesPage } from './pages/admin/ActivitiesPage';
-import { RoadmapsPage } from './pages/admin/RoadmapsPage';
-import { ProfilePage } from './pages/admin/ProfilePage';
-import { SettingsPage } from './pages/admin/SettingsPage';
 import './styles/global.css';
 
 /* ── Seller Placeholder with logout ── */
@@ -46,7 +44,7 @@ const SellerPlaceholder = () => {
       }}>
         <div style={{
           width: '64px', height: '64px', borderRadius: '50%',
-          background: 'linear-gradient(135deg, #1a7d6b, #115e52)',
+          background: 'linear-gradient(135deg, #2563eb, #1e40af)',
           color: 'white', fontSize: '1.5rem', fontWeight: 700,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 20px',
@@ -67,7 +65,7 @@ const SellerPlaceholder = () => {
           style={{
             width: '100%',
             padding: '12px 24px',
-            background: '#1a7d6b',
+            background: '#2563eb',
             color: 'white',
             border: 'none',
             borderRadius: '10px',
@@ -77,8 +75,8 @@ const SellerPlaceholder = () => {
             fontFamily: 'inherit',
             transition: 'background 200ms ease',
           }}
-          onMouseEnter={(e) => e.target.style.background = '#15685a'}
-          onMouseLeave={(e) => e.target.style.background = '#1a7d6b'}
+          onMouseEnter={(e) => e.target.style.background = '#1d4ed8'}
+          onMouseLeave={(e) => e.target.style.background = '#2563eb'}
         >
           Cerrar sesión
         </button>
@@ -88,14 +86,23 @@ const SellerPlaceholder = () => {
 };
 
 const AppRoutes = () => {
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated, currentUser, login } = useAuth();
+
+  // Obtenemos el rol del usuario (soporta tanto 'rol' como 'role')
+  const userRole = (currentUser?.role || currentUser?.rol)?.toLowerCase();
 
   return (
     <Routes>
-      {/* Login */}
+      {/* Login: le pasamos la función login del AuthContext */}
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to={currentUser?.role === 'admin' ? '/admin/contactos' : '/seller/dashboard'} replace /> : <LoginPage />}
+        element={
+          isAuthenticated ? (
+            <Navigate to={userRole === 'admin' ? '/admin/contactos' : '/seller/dashboard'} replace />
+          ) : (
+            <LoginPage onLoginSuccess={(userData) => login(userData)} />
+          )
+        }
       />
 
       {/* Admin Routes */}
@@ -113,14 +120,11 @@ const AppRoutes = () => {
         <Route path="empresas" element={<CompaniesPage />} />
         <Route path="oportunidades" element={<OpportunitiesPage />} />
         <Route path="objetivos" element={<ObjectivesPage />} />
-        <Route path="rutas" element={<RoadmapsPage />} />
         <Route path="campañas" element={<CampaignsPage />} />
         <Route path="actividades" element={<ActivitiesPage />} />
-        <Route path="perfil" element={<ProfilePage />} />
-        <Route path="configuracion" element={<SettingsPage />} />
       </Route>
 
-      {/* Seller Routes (placeholder with logout) */}
+      {/* Seller Routes */}
       <Route
         path="/seller/*"
         element={

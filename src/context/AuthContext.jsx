@@ -37,34 +37,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = (userId, password) => {
-    if (userId === '1') {
-      const sellerUser = {
-        numDoc: '35123456',
-        nombreApellido: 'Martín Gutiérrez',
-        direccionMail: 'martin.gutierrez@agroros.com.ar',
-        role: 'vendedor',
-        antiguedad: 3,
-        direccion: 'Calle San Martín 890, Casilda',
-      };
-      setCurrentUser(sellerUser);
-      return { success: true, user: sellerUser };
-    }
-
-    if (userId === '2') {
-      const adminUser = {
-        numDoc: '30456789',
-        nombreApellido: 'Manuel Fernández',
-        direccionMail: 'manuel.fernandez@agroros.com.ar',
-        role: 'admin',
-        antiguedad: 8,
-        direccion: 'Av. Pellegrini 1250, Rosario',
-      };
-      setCurrentUser(adminUser);
-      return { success: true, user: adminUser };
-    }
-
-    return { success: false, error: 'ID inválido. Ingresá 1 (vendedor) o 2 (administrador).' };
+  // El login "real" ya lo hizo el backend (loginUser en LoginPage.jsx).
+  // Acá solo guardamos el usuario que ya vino autenticado.
+  const login = (userData) => {
+    setCurrentUser(userData);
+    return { success: true, user: userData };
   };
 
   const logout = () => {

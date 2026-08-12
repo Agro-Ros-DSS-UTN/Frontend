@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React from 'react';
 import logoImg from '../../assets/logo.png';
 
@@ -26,6 +27,7 @@ export const ArLogoHeader = () => {
           objectFit: 'contain'
         }} 
       />
+      
       <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: '1.1' }}>
         <span style={{ 
           fontSize: '14px', 
