@@ -1,6 +1,5 @@
 /* eslint-disable */
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // <--- 1. IMPORTAR useNavigate
 import { User, Eye, EyeOff } from 'lucide-react';
 import { ArLogoHeader, ArLogoRight } from '../../components/common/ArLogo';
 import bgFieldUrl from '../../assets/field_sunset.jpg';
@@ -13,8 +12,6 @@ export const LoginPage = ({ onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const navigate = useNavigate(); // <--- 2. INICIALIZAR EL HOOK DE NAVEGACIÓN
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,27 +29,25 @@ export const LoginPage = ({ onLoginSuccess }) => {
 
     try {
       const data = await loginUser({ id: userId, password });
-      
+
       console.log('Respuesta del Backend:', data);
 
- const user = data.user || data;
+      const user = data.user || data;
 
-// Forzamos la conversión a minúsculas para evitar diferencias entre "Admin" y "admin"
-const userRole = user?.role ? String(user.role).toLowerCase() : '';
+      // Forzamos la conversión a minúsculas para evitar diferencias entre "Admin" y "admin"
+      const userRole = user?.role ? String(user.role).toLowerCase() : '';
 
-if (user && userRole) {
-  if (onLoginSuccess) {
-    onLoginSuccess(user);
-  }
-
-  if (userRole === 'admin') {
-    navigate('/admin/contactos'); // Asegúrate de que esta ruta coincida con App.jsx
-  } else {
-    navigate('/seller/dashboard');
-  }
-} else {
-  setError('El servidor no devolvió un rol de usuario válido.');
-}
+      if (user && userRole) {
+        if (onLoginSuccess) {
+          onLoginSuccess(user);
+        }
+        // No navegamos manualmente acá: en cuanto isAuthenticated pasa a true,
+        // la ruta "/login" en App.jsx redirige sola a /admin/contactos o /seller/dashboard.
+        // Llamar a navigate() acá generaba una carrera de estado con ProtectedRoute
+        // (currentUser todavía era null en el primer render) y te devolvía al login.
+      } else {
+        setError('El servidor no devolvió un rol de usuario válido.');
+      }
     } catch (err) {
       setError(err.message || 'Error de conexión con el servidor');
     } finally {
@@ -138,7 +133,7 @@ if (user && userRole) {
       </div>
 
       {/* Lado Derecho - Banner */}
-      <div 
+      <div
         className="login-right"
         style={{ backgroundImage: `url(${bgFieldUrl})` }}
       >

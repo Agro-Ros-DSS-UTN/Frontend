@@ -3,26 +3,26 @@
    ═══════════════════════════════════════════ */
 
 .sidebar {
-  width: var(--sidebar-width);
+  width: var(--sidebar-width, 260px);
   height: 100vh;
-  background-color: var(--sidebar-bg);
+  background-color: var(--sidebar-bg, #1c1c1c);
   display: flex;
   flex-direction: column;
   position: fixed;
   left: 0;
   top: 0;
-  z-index: var(--z-sidebar);
-  transition: width var(--transition-slow);
-  border-right: 1px solid var(--sidebar-border);
+  z-index: var(--z-sidebar, 100);
+  transition: width var(--transition-slow, 200ms ease);
+  border-right: 1px solid var(--sidebar-border, rgba(255, 255, 255, 0.06));
 }
 
 .sidebar--collapsed {
-  width: var(--sidebar-width-collapsed);
+  width: var(--sidebar-width-collapsed, 68px);
 }
 
 /* ── Header / Logo ── */
 .sidebar__header {
-  padding: var(--space-5) var(--space-4);
+  padding: var(--space-5, 20px) var(--space-4, 16px);
   border-bottom: 1px solid var(--sidebar-border);
   min-height: 68px;
   display: flex;

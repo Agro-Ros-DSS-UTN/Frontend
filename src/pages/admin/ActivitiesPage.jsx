@@ -16,6 +16,10 @@ import {
   CheckSquare,
   X,
   FileText,
+  Mic,
+  Camera,
+  Paperclip,
+  Download,
 } from 'lucide-react';
 import { mockActivities, mockSellers, mockCompanies } from '../../data/mockData';
 import './ActivitiesPage.css';
@@ -191,6 +195,21 @@ export const ActivitiesPage = () => {
                 {act.servicio && (
                   <div className="activity-service">
                     <strong>Servicio:</strong> {act.servicio}
+                  </div>
+                )}
+
+                {/* Adjuntos (Audios, Fotos, Remitos) */}
+                {act.adjuntos && act.adjuntos.length > 0 && (
+                  <div className="activity-attachments-row">
+                    {act.adjuntos.map(att => (
+                      <span key={att.id || att.nombre} className="activity-att-chip">
+                        {att.tipo === 'audio' && <Mic size={12} style={{ color: '#25d366' }} />}
+                        {att.tipo === 'imagen' && <Camera size={12} style={{ color: '#0284c7' }} />}
+                        {att.tipo === 'documento' && <FileText size={12} style={{ color: '#dc2626' }} />}
+                        <span>{att.nombre}</span>
+                        {att.duracion && <em>({att.duracion})</em>}
+                      </span>
+                    ))}
                   </div>
                 )}
 

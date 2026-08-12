@@ -3,38 +3,30 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard,
-  Users,
-  Building2,
-  Handshake,
-  Target,
-  Megaphone,
-  ClipboardList,
   MapPin,
+  Users,
+  ClipboardList,
+  Sparkles,
+  User,
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
-  CheckSquare,
-  Package,
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import './Sidebar.css';
 
-const adminNavItems = [
-  { path: '/admin/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/admin/contactos',     icon: Users,           label: 'Contactos' },
-  { path: '/admin/empresas',      icon: Building2,       label: 'Empresas' },
-  { path: '/admin/negocios',      icon: Handshake,       label: 'Negocios' },
-  { path: '/admin/tareas',        icon: CheckSquare,     label: 'Tareas' },
-  { path: '/admin/productos',     icon: Package,         label: 'Productos' },
-  { path: '/admin/objetivos',     icon: Target,          label: 'Objetivos' },
-  { path: '/admin/rutas',         icon: MapPin,          label: 'Hojas de Ruta' },
-  { path: '/admin/campañas',      icon: Megaphone,       label: 'Campañas' },
-  { path: '/admin/actividades',   icon: ClipboardList,   label: 'Actividades' },
+const sellerNavItems = [
+  { path: '/seller/dashboard',    icon: LayoutDashboard, label: 'Inicio / Metas' },
+  { path: '/seller/hoja-de-ruta', icon: MapPin,          label: 'Hoja de Ruta' },
+  { path: '/seller/clientes',     icon: Users,           label: 'Mis Clientes' },
+  { path: '/seller/actividades',  icon: ClipboardList,   label: 'Mis Actividades' },
+  { path: '/seller/promociones',  icon: Sparkles,        label: 'Promociones' },
+  { path: '/seller/perfil',       icon: User,            label: 'Mi Perfil' },
 ];
 
-export const Sidebar = () => {
+export const SellerSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { logout } = useAuth();
+  const { logout, currentUser } = useAuth();
   const location = useLocation();
 
   return (
@@ -46,7 +38,9 @@ export const Sidebar = () => {
           {!collapsed && (
             <div className="sidebar__logo-text">
               <span className="sidebar__logo-title">Agroquímica Rosario</span>
-              <span className="sidebar__logo-subtitle">CRM</span>
+              <span className="sidebar__logo-subtitle" style={{ color: 'var(--color-primary-light)' }}>
+                Portal Vendedor
+              </span>
             </div>
           )}
         </div>
@@ -55,7 +49,7 @@ export const Sidebar = () => {
       {/* Navigation */}
       <nav className="sidebar__nav">
         <ul className="sidebar__list">
-          {adminNavItems.map((item) => {
+          {sellerNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname.startsWith(item.path);
             return (
@@ -74,7 +68,7 @@ export const Sidebar = () => {
         </ul>
       </nav>
 
-      {/* Footer — Botón de colapsar a la izquierda sobre la línea + Cerrar sesión */}
+      {/* Footer */}
       <div className="sidebar__footer">
         <div className="sidebar__divider-line">
           <div className="sidebar__collapse-wrapper">
@@ -91,7 +85,7 @@ export const Sidebar = () => {
           </div>
         </div>
 
-        {/* Logout Button with Tooltip */}
+        {/* Logout Button */}
         <div className="sidebar__logout-wrapper">
           <button
             className="sidebar__link sidebar__link--footer sidebar__link--logout"

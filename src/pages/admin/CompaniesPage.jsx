@@ -151,6 +151,40 @@ export const CompaniesPage = () => {
     });
   };
 
+  const handleExportCompanies = () => {
+    const headers = [
+      { key: 'nombreEmpresa', label: 'Empresa / Razón Social' },
+      { key: 'cuit', label: 'CUIT' },
+      { key: 'tipoEmpresa', label: 'Tipo de Empresa' },
+      { key: 'superficieHa', label: 'Superficie (ha)' },
+      { key: 'proveedorActual', label: 'Proveedor Actual' },
+      { key: 'localidad', label: 'Localidad' },
+      { key: 'direccionEmpresa', label: 'Dirección' },
+    ];
+
+    const csvRows = [];
+    csvRows.push(headers.map(h => `"${h.label}"`).join(','));
+
+    filteredCompanies.forEach(comp => {
+      const row = headers.map(h => {
+        let val = comp[h.key];
+        if (val === null || val === undefined) val = '';
+        return `"${String(val).replace(/"/g, '""')}"`;
+      });
+      csvRows.push(row.join(','));
+    });
+
+    const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `empresas_agroros_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="companies-page">
       {/* Header */}
@@ -158,175 +192,182 @@ export const CompaniesPage = () => {
         <div>
           <h1 className="companies-page__title">Empresas Clientes</h1>
           <p className="companies-page__subtitle">
-            {companies.length} empresas registradas
+            {companies.length} empresas registradas en el CRM
           </p>
         </div>
         <div className="companies-page__header-actions">
-          <button className="companies-page__export-btn">
-            <Download size={16} />
-            Exportar
-          </button>
           <button className="companies-page__add-btn" onClick={() => setShowModal(true)}>
             <Plus size={16} />
             Agregar empresa
           </button>
+          <button
+            className="companies-page__export-btn"
+            onClick={handleExportCompanies}
+            title="Exportar empresas a planilla CSV/Excel"
+          >
+            <Download size={16} />
+            Exportar
+          </button>
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="companies-page__toolbar">
-        <div className="companies-page__search">
-          <Search size={16} />
-          <input
-            type="text"
-            placeholder="Buscar por empresa, CUIT, localidad o tipo..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="companies-page__table-wrapper">
-        <table className="companies-table">
-          <thead>
-            <tr>
-              <th className="companies-table__checkbox-col">
-                <input
-                  type="checkbox"
-                  checked={paginatedCompanies.length > 0 && selectedRows.length === paginatedCompanies.length}
-                  onChange={toggleSelectAll}
-                />
-              </th>
-              {COLUMNS.map(col => (
-                <th
-                  key={col.key}
-                  className={col.sortable ? 'companies-table__sortable' : ''}
-                  onClick={() => col.sortable && handleSort(col.key)}
-                >
-                  <div className="companies-table__th-content">
-                    <span>{col.label}</span>
-                    {col.sortable && (
-                      <span className="companies-table__sort-icon">
-                        {sortBy === col.key ? (
-                          sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
-                        ) : (
-                          <ArrowUpDown size={14} />
-                        )}
-                      </span>
-                    )}
-                  </div>
-                </th>
-              ))}
-              <th className="companies-table__actions-col">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedCompanies.length === 0 ? (
-              <tr>
-                <td colSpan={COLUMNS.length + 2} className="companies-table__empty">
-                  No se encontraron empresas que coincidan con la búsqueda.
-                </td>
-              </tr>
-            ) : (
-              paginatedCompanies.map(company => (
-                <tr
-                  key={company.id}
-                  className={selectedRows.includes(company.id) ? 'companies-table__row--selected' : ''}
-                >
-                  <td className="companies-table__checkbox-col">
-                    <input
-                      type="checkbox"
-                      checked={selectedRows.includes(company.id)}
-                      onChange={() => toggleSelect(company.id)}
-                    />
-                  </td>
-                  <td>
-                    <div className="companies-table__name-cell">
-                      <div className="companies-table__icon">
-                        <Building2 size={16} />
-                      </div>
-                      <div>
-                        <span className="companies-table__name">{company.nombreEmpresa}</span>
-                        {company.direccionEmpresa && (
-                          <span className="companies-table__address">{company.direccionEmpresa}</span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="companies-table__cuit">{company.cuit}</td>
-                  <td>
-                    <span className={`companies-table__type-badge companies-table__type-badge--${company.tipoEmpresa?.toLowerCase() || 'productor'}`}>
-                      {company.tipoEmpresa}
-                    </span>
-                  </td>
-                  <td>{company.localidad}</td>
-                  <td className="companies-table__surface">
-                    <Ruler size={13} className="inline-icon" />
-                    {formatSurface(company.superficieHa)}
-                  </td>
-                  <td>
-                    <span className="companies-table__provider">
-                      {company.proveedorActual || 'Sin especificar'}
-                    </span>
-                  </td>
-                  <td className="companies-table__date">{formatDate(company.fechaRegistro)}</td>
-                  <td className="companies-table__actions-col">
-                    <div className="companies-table__actions">
-                      <button className="companies-table__action-btn" title="Ver detalle">
-                        <Eye size={15} />
-                      </button>
-                      <button className="companies-table__action-btn" title="Editar">
-                        <Edit size={15} />
-                      </button>
-                      <button className="companies-table__action-btn companies-table__action-btn--danger" title="Eliminar">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="companies-page__pagination">
-          <span className="companies-page__pagination-info">
-            {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredCompanies.length)} de {filteredCompanies.length} empresas
-          </span>
-          <div className="companies-page__pagination-controls">
-            <button
-              className="companies-page__page-btn"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(p => p - 1)}
-            >
-              <ChevronLeft size={16} />
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                className={`companies-page__page-btn ${currentPage === page ? 'companies-page__page-btn--active' : ''}`}
-                onClick={() => setCurrentPage(page)}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              className="companies-page__page-btn"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(p => p + 1)}
-            >
-              <ChevronRight size={16} />
-            </button>
+      {/* Card */}
+      <div className="companies-page__card">
+        {/* Toolbar */}
+        <div className="companies-page__toolbar">
+          <div className="companies-page__search">
+            <Search size={16} />
+            <input
+              type="text"
+              placeholder="Buscar por empresa, CUIT, localidad o tipo..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
           </div>
         </div>
-      )}
+
+        {/* Table */}
+        <div className="companies-page__table-wrapper">
+          <table className="companies-table">
+            <thead>
+              <tr>
+                <th className="companies-table__checkbox-col">
+                  <input
+                    type="checkbox"
+                    checked={paginatedCompanies.length > 0 && selectedRows.length === paginatedCompanies.length}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
+                {COLUMNS.map(col => (
+                  <th
+                    key={col.key}
+                    className={col.sortable ? 'companies-table__sortable' : ''}
+                    onClick={() => col.sortable && handleSort(col.key)}
+                  >
+                    <div className="companies-table__th-content">
+                      <span>{col.label}</span>
+                      {col.sortable && (
+                        <span className="companies-table__sort-icon">
+                          {sortBy === col.key ? (
+                            sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} />
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                ))}
+                <th className="companies-table__actions-col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedCompanies.length === 0 ? (
+                <tr>
+                  <td colSpan={COLUMNS.length + 2} className="companies-table__empty">
+                    No se encontraron empresas que coincidan con la búsqueda.
+                  </td>
+                </tr>
+              ) : (
+                paginatedCompanies.map(company => (
+                  <tr
+                    key={company.id}
+                    className={selectedRows.includes(company.id) ? 'companies-table__row--selected' : ''}
+                  >
+                    <td className="companies-table__checkbox-col">
+                      <input
+                        type="checkbox"
+                        checked={selectedRows.includes(company.id)}
+                        onChange={() => toggleSelect(company.id)}
+                      />
+                    </td>
+                    <td>
+                      <div className="companies-table__name-cell">
+                        <div className="companies-table__icon">
+                          <Building2 size={16} />
+                        </div>
+                        <div>
+                          <span className="companies-table__name">{company.nombreEmpresa}</span>
+                          {company.direccionEmpresa && (
+                            <span className="companies-table__address">{company.direccionEmpresa}</span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="companies-table__cuit">{company.cuit}</td>
+                    <td>
+                      <span className={`companies-table__type-badge companies-table__type-badge--${company.tipoEmpresa?.toLowerCase() || 'productor'}`}>
+                        {company.tipoEmpresa}
+                      </span>
+                    </td>
+                    <td>{company.localidad}</td>
+                    <td className="companies-table__surface">
+                      <Ruler size={13} className="inline-icon" />
+                      {formatSurface(company.superficieHa)}
+                    </td>
+                    <td>
+                      <span className="companies-table__provider">
+                        {company.proveedorActual || 'Sin especificar'}
+                      </span>
+                    </td>
+                    <td className="companies-table__date">{formatDate(company.fechaRegistro)}</td>
+                    <td className="companies-table__actions-col">
+                      <div className="companies-table__actions">
+                        <button className="companies-table__action-btn" title="Ver detalle">
+                          <Eye size={15} />
+                        </button>
+                        <button className="companies-table__action-btn" title="Editar">
+                          <Edit size={15} />
+                        </button>
+                        <button className="companies-table__action-btn companies-table__action-btn--danger" title="Eliminar">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="companies-page__pagination">
+            <span className="companies-page__pagination-info">
+              {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredCompanies.length)} de {filteredCompanies.length} empresas
+            </span>
+            <div className="companies-page__pagination-controls">
+              <button
+                className="companies-page__page-btn"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => p - 1)}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  className={`companies-page__page-btn ${currentPage === page ? 'companies-page__page-btn--active' : ''}`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                className="companies-page__page-btn"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => p + 1)}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Modal: Registrar Empresa Cliente ── */}
       {showModal && (

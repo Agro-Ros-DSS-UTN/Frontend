@@ -3,17 +3,17 @@
    ═══════════════════════════════════════════ */
 
 .topbar {
-  height: var(--topbar-height);
-  background-color: var(--topbar-bg);
-  border-bottom: 1px solid var(--topbar-border);
+  height: var(--topbar-height, 52px);
+  background-color: var(--topbar-bg, #1c1c1c);
+  border-bottom: 1px solid var(--topbar-border, #333333);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-6, 24px);
   position: sticky;
   top: 0;
-  z-index: var(--z-topbar);
-  gap: var(--space-4);
+  z-index: var(--z-topbar, 90);
+  gap: var(--space-4, 16px);
 }
 
 /* ── Left: Title ── */
