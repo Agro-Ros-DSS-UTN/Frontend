@@ -12,6 +12,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-4);
 }
 
 .companies-page__title {
@@ -28,11 +29,17 @@
   margin-top: 2px;
 }
 
-.companies-page__add-btn {
+.companies-page__header-actions {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
+}
+
+.companies-page__add-btn {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-5);
+  padding: 8px 16px;
   background-color: var(--color-primary);
   color: white;
   border: none;
@@ -42,12 +49,39 @@
   font-family: var(--font-sans);
   cursor: pointer;
   transition: all var(--transition-fast);
+  white-space: nowrap;
+  box-shadow: var(--shadow-xs);
 }
 
 .companies-page__add-btn:hover {
   background-color: var(--color-primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 12px rgba(26, 125, 107, 0.25);
+}
+
+.companies-page__export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 16px;
+  background-color: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-medium, #e2e8f0);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  box-shadow: var(--shadow-xs);
+}
+
+.companies-page__export-btn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-50, rgba(26, 125, 107, 0.06));
+  transform: translateY(-1px);
 }
 
 /* ── Card ── */

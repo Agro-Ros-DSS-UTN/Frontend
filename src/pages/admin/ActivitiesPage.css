@@ -200,6 +200,32 @@
   margin: 4px 0;
 }
 
+.activity-attachments-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+
+.activity-att-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: var(--gray-50);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.activity-att-chip em {
+  color: var(--text-muted);
+  font-style: normal;
+  font-size: 10px;
+}
+
 .activity-footer {
   display: flex;
   align-items: center;

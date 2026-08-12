@@ -16,6 +16,8 @@ import {
   Target,
   Megaphone,
   MapPin,
+  CheckSquare,
+  Package,
 } from 'lucide-react';
 import './TopBar.css';
 
@@ -105,10 +107,24 @@ export const TopBar = ({ title, subtitle }) => {
                 </button>
                 <button
                   className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/oportunidades')}
+                  onClick={() => handleQuickNavigate('/admin/negocios')}
                 >
                   <Handshake size={16} className="quick-add-icon" />
-                  <span>Negocio / Oportunidad</span>
+                  <span>Negocio</span>
+                </button>
+                <button
+                  className="topbar__quick-add-item"
+                  onClick={() => handleQuickNavigate('/admin/tareas')}
+                >
+                  <CheckSquare size={16} className="quick-add-icon" />
+                  <span>Tarea</span>
+                </button>
+                <button
+                  className="topbar__quick-add-item"
+                  onClick={() => handleQuickNavigate('/admin/productos')}
+                >
+                  <Package size={16} className="quick-add-icon" />
+                  <span>Producto</span>
                 </button>
                 <button
                   className="topbar__quick-add-item"
