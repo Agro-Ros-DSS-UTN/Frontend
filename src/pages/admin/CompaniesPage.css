@@ -525,3 +525,198 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* ── 360° Ficha Relacional de Empresa (1:N) ── */
+.comp-modal--wide {
+  max-width: 680px;
+  width: 95%;
+}
+
+.comp-detail-header-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.comp-detail-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.comp-detail-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-light, #e2e8f0);
+  margin-bottom: 16px;
+  padding-bottom: 4px;
+}
+
+.comp-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.comp-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.comp-tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.comp-detail-body {
+  min-height: 220px;
+  max-height: 380px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.relational-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.relational-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--bg-hover, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.relational-card:hover {
+  border-color: var(--color-primary);
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.relational-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.relational-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.contact-avatar-mini {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.deal-icon-mini {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.act-type-mini {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.relational-name {
+  font-size: 14px;
+  color: var(--text-primary);
+  display: block;
+}
+
+.relational-sub {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.relational-sub span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.relational-badge {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+}
+
+.deal-amount-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.deal-stage-mini-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.relational-desc-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 4px 0 2px 0;
+  line-height: 1.4;
+}
+
+.relational-date-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.relational-empty {
+  text-align: center;
+  padding: 36px 16px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+

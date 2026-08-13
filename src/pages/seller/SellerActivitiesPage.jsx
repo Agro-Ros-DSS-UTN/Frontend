@@ -29,6 +29,7 @@ import {
   Sprout,
 } from 'lucide-react';
 import { mockCompanies } from '../../data/mockData';
+import { createActivity } from '../../data/api';
 import fieldPhoto01 from '../../assets/crop_field_01.png';
 import fieldPhoto02 from '../../assets/crop_field_02.png';
 import './SellerActivitiesPage.css';
@@ -506,8 +507,18 @@ export const SellerActivitiesPage = () => {
   };
 
   // Submit Activity Form
-  const handleCreateActivity = (e) => {
+  const handleCreateActivity = async (e) => {
     e.preventDefault();
+
+    const actPayload = {
+      tipoContacto: form.tipoContacto,
+      descripcion: form.descripcion,
+      montoVenta: form.montoVenta ? Number(form.montoVenta) : 0,
+      fechaHora: form.fechaHora,
+      sellerId: 1,
+      opportunityId: null,
+    };
+
     const newAct = {
       idFormulario: Date.now(),
       tipoContacto: form.tipoContacto,
@@ -530,7 +541,12 @@ export const SellerActivitiesPage = () => {
       } : null,
     };
 
-    setActivities(prev => [newAct, ...prev]);
+    try {
+      const created = await createActivity(actPayload);
+      setActivities(prev => [{ ...newAct, idFormulario: created?.idFormulario || newAct.idFormulario }, ...prev]);
+    } catch (err) {
+      setActivities(prev => [newAct, ...prev]);
+    }
     setShowModal(false);
 
     // Reset Form

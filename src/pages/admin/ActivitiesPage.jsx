@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ClipboardList,
   Phone,
@@ -22,6 +22,7 @@ import {
   Download,
 } from 'lucide-react';
 import { mockActivities, mockSellers, mockCompanies } from '../../data/mockData';
+import { getActivities, createActivity } from '../../data/api';
 import './ActivitiesPage.css';
 
 export const ActivitiesPage = () => {
@@ -29,6 +30,21 @@ export const ActivitiesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
+
+  // Load activities from API
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const data = await getActivities();
+        if (Array.isArray(data) && data.length > 0) {
+          setActivities(data);
+        }
+      } catch (err) {
+        console.error('Error fetching activities:', err);
+      }
+    };
+    fetchActivities();
+  }, []);
 
   // Form state
   const [form, setForm] = useState({
@@ -48,9 +64,9 @@ export const ActivitiesPage = () => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(a =>
-        a.empresa.toLowerCase().includes(q) ||
-        a.vendedor.toLowerCase().includes(q) ||
-        a.descripcion.toLowerCase().includes(q)
+        a.empresa?.toLowerCase().includes(q) ||
+        a.vendedor?.toLowerCase().includes(q) ||
+        a.descripcion?.toLowerCase().includes(q)
       );
     }
     if (typeFilter) {
@@ -60,6 +76,7 @@ export const ActivitiesPage = () => {
   }, [activities, searchQuery, typeFilter]);
 
   const formatDate = (dateStr) => {
+    if (!dateStr) return '--';
     const d = new Date(dateStr);
     return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
@@ -69,13 +86,13 @@ export const ActivitiesPage = () => {
     return `$${Number(val).toLocaleString('es-AR')}`;
   };
 
-  const getIcon = (tipo) => {
+  const getTypeIcon = (tipo) => {
     switch(tipo) {
       case 'Visita': return <MapPin size={16} />;
       case 'Llamada': return <Phone size={16} />;
       case 'Email': return <Mail size={16} />;
       case 'WhatsApp': return <MessageSquare size={16} />;
-      default: return <ClipboardList size={16} />;
+      default: return <FileText size={16} />;
     }
   };
 
@@ -89,23 +106,38 @@ export const ActivitiesPage = () => {
     }
   };
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     const seller = mockSellers.find(s => s.id === Number(form.sellerId));
+
+    const actPayload = {
+      tipoContacto: form.tipoContacto,
+      descripcion: form.descripcion,
+      montoVenta: form.montoVenta ? Number(form.montoVenta) : 0,
+      fechaHora: form.fechaHora,
+      sellerId: Number(form.sellerId) || 1,
+      opportunityId: null,
+    };
 
     const newAct = {
       idFormulario: Date.now(),
       tipoContacto: form.tipoContacto,
       empresa: form.empresa,
       descripcion: form.descripcion,
-      vendedor: seller?.user.nombreApellido || 'Vendedor',
+      vendedor: seller?.user?.nombreApellido || 'Vendedor',
       fechaHora: form.fechaHora,
       montoVenta: form.montoVenta ? Number(form.montoVenta) : null,
       servicio: form.servicio,
       tareaSeguimiento: form.crearTareaSeguimiento ? `Seguimiento programado para ${form.fechaSeguimiento}` : null,
     };
 
-    setActivities(prev => [newAct, ...prev]);
+    try {
+      const created = await createActivity(actPayload);
+      setActivities(prev => [{ ...newAct, idFormulario: created?.idFormulario || newAct.idFormulario }, ...prev]);
+    } catch (err) {
+      setActivities(prev => [newAct, ...prev]);
+    }
+
     setShowModal(false);
     setForm({
       sellerId: '1',

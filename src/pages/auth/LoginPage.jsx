@@ -28,25 +28,28 @@ export const LoginPage = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const data = await loginUser({ id: userId, password });
+      const data = await loginUser({ idUser: userId, password });
 
       console.log('Respuesta del Backend:', data);
 
       const user = data.user || data;
+      const token = data.token || data.jwt || null;
 
-      // Forzamos la conversión a minúsculas para evitar diferencias entre "Admin" y "admin"
-      const userRole = user?.role ? String(user.role).toLowerCase() : '';
+      // Unificamos el objeto de usuario con su token
+      const authenticatedUser = {
+        ...user,
+        token: token || user.token,
+      };
 
-      if (user && userRole) {
+      const rawRole = authenticatedUser?.role || authenticatedUser?.rol || '';
+      const userRole = String(rawRole).toLowerCase();
+
+      if (authenticatedUser && (userRole.includes('admin') || userRole.includes('vendedor'))) {
         if (onLoginSuccess) {
-          onLoginSuccess(user);
+          onLoginSuccess(authenticatedUser);
         }
-        // No navegamos manualmente acá: en cuanto isAuthenticated pasa a true,
-        // la ruta "/login" en App.jsx redirige sola a /admin/contactos o /seller/dashboard.
-        // Llamar a navigate() acá generaba una carrera de estado con ProtectedRoute
-        // (currentUser todavía era null en el primer render) y te devolvía al login.
       } else {
-        setError('El servidor no devolvió un rol de usuario válido.');
+        setError('El servidor no devolvió un rol de usuario válido (administrador / vendedor).');
       }
     } catch (err) {
       setError(err.message || 'Error de conexión con el servidor');

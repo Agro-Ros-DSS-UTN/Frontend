@@ -39,6 +39,7 @@ import {
   DEAL_PIPELINES,
   DEAL_PRODUCTS,
 } from '../../data/mockData';
+import { getOpportunities, createOpportunity, getClientCompanies, getClients } from '../../data/api';
 import './OpportunitiesPage.css';
 
 /* ─────────────────────────────────────────────────────────────
@@ -179,6 +180,8 @@ const AssociationSearchPicker = ({
 
 export const OpportunitiesPage = () => {
   const [deals, setDeals] = useState(mockOpportunities);
+  const [apiCompanies, setApiCompanies] = useState(mockCompanies);
+  const [apiClients, setApiClients] = useState(mockClients);
   const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'mis_negocios' | 'ganados' | 'negociacion'
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'kanban'
   const [searchQuery, setSearchQuery] = useState('');
@@ -186,6 +189,31 @@ export const OpportunitiesPage = () => {
   const [stageFilter, setStageFilter] = useState('all');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+
+  // Load Opportunities from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [oppsData, compData, clientData] = await Promise.all([
+          getOpportunities(),
+          getClientCompanies(),
+          getClients(),
+        ]);
+        if (Array.isArray(oppsData) && oppsData.length > 0) {
+          setDeals(oppsData);
+        }
+        if (Array.isArray(compData) && compData.length > 0) {
+          setApiCompanies(compData);
+        }
+        if (Array.isArray(clientData) && clientData.length > 0) {
+          setApiClients(clientData);
+        }
+      } catch (err) {
+        console.error('Error fetching opportunities:', err);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Drag and drop in Kanban
   const [draggedItem, setDraggedItem] = useState(null);
@@ -219,23 +247,23 @@ export const OpportunitiesPage = () => {
 
   // Contacts formatted for picker
   const contactsListForPicker = useMemo(() => {
-    return mockClients.map(c => ({
+    return (apiClients.length > 0 ? apiClients : mockClients).map(c => ({
       id: c.id,
-      label: `${c.nombre} ${c.apellido}`,
-      subLabel: c.email || 'Productor',
+      label: c.nombreApellido || `${c.nombre || ''} ${c.apellido || ''}`.trim() || 'Productor',
+      subLabel: c.direccionMail || c.email || 'Productor',
       empresa: c.empresa,
     }));
-  }, []);
+  }, [apiClients]);
 
   // Companies formatted for picker
   const companiesListForPicker = useMemo(() => {
-    return mockCompanies.map(c => ({
+    return (apiCompanies.length > 0 ? apiCompanies : mockCompanies).map(c => ({
       id: c.id,
       label: c.nombreEmpresa,
       subLabel: c.localidad,
       contacto: c.contacto,
     }));
-  }, []);
+  }, [apiCompanies]);
 
   // Filtered deals
   const filteredDeals = useMemo(() => {
@@ -404,11 +432,27 @@ export const OpportunitiesPage = () => {
   };
 
   // Submit Deal Form
-  const handleCreateDeal = (e, andAddAnother = false) => {
+  const handleCreateDeal = async (e, andAddAnother = false) => {
     e.preventDefault();
 
     const selectedContactObj = contactsListForPicker.find(c => form.contactosIds.includes(c.id));
     const selectedCompanyObj = companiesListForPicker.find(c => form.empresasIds.includes(c.id));
+
+    // Homologated backend states: Prospecto, Negociación, Activo, Inactivo, Perdido, Lead
+    let backendEstado = 'Lead';
+    if (form.etapaKey === 'cita_programada' || form.etapaKey === 'calificado_comprar') backendEstado = 'Prospecto';
+    else if (form.etapaKey === 'presentacion_programada' || form.etapaKey === 'decisor_convencido') backendEstado = 'Negociación';
+    else if (form.etapaKey === 'contrato_enviado' || form.etapaKey === 'cierre_ganado') backendEstado = 'Activo';
+    else if (form.etapaKey === 'cierre_perdido') backendEstado = 'Perdido';
+
+    const oppPayload = {
+      estado: backendEstado,
+      potencialidadCliente: 'Alta',
+      volumenPotencial: Number(form.valor) || 322200,
+      volumenFacturado: form.etapaKey === 'cierre_ganado' ? (Number(form.valor) || 322200) : 0,
+      clientCompanyId: form.empresasIds[0] ? Number(form.empresasIds[0]) : 1,
+      sellerId: 1,
+    };
 
     const newDeal = {
       id: Date.now(),
@@ -436,7 +480,12 @@ export const OpportunitiesPage = () => {
       elementosPedido: form.elementosPedido,
     };
 
-    setDeals(prev => [newDeal, ...prev]);
+    try {
+      const created = await createOpportunity(oppPayload);
+      setDeals(prev => [{ ...newDeal, id: created?.id || newDeal.id }, ...prev]);
+    } catch (err) {
+      setDeals(prev => [newDeal, ...prev]);
+    }
 
     if (andAddAnother) {
       setForm(prev => ({

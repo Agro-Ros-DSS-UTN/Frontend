@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -25,6 +25,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { mockClients, mockCompanies, CONTACT_TYPES } from '../../data/mockData';
+import { getClients, createClient, getClientCompanies } from '../../data/api';
 import './ContactsPage.css';
 
 const TABS = [
@@ -46,6 +47,7 @@ const PAGE_SIZE = 10;
 
 export const ContactsPage = () => {
   const [clients, setClients] = useState(mockClients);
+  const [companies, setCompanies] = useState(mockCompanies);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('nombreApellido');
@@ -56,16 +58,37 @@ export const ContactsPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
-  // Form state
+  // Load clients and companies from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [clientsData, companiesData] = await Promise.all([
+          getClients(),
+          getClientCompanies(),
+        ]);
+        if (Array.isArray(clientsData) && clientsData.length > 0) {
+          setClients(clientsData);
+        }
+        if (Array.isArray(companiesData) && companiesData.length > 0) {
+          setCompanies(companiesData);
+        }
+      } catch (err) {
+        console.error('Error fetching contacts data:', err);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Form state: { numDoc, nombreApellido, direccionMail, tipoClient, codigoPostal, clientCompanyId }
   const [form, setForm] = useState({
     numDoc: '',
     nombreApellido: '',
     direccionMail: '',
     tipoClient: 'Productor',
     localidad: 'Casilda',
-    codigoPostal: 'S2170',
+    codigoPostal: '2170',
     telefono: '',
-    empresa: '',
+    clientCompanyId: mockCompanies[0]?.id || '',
     nota: '',
   });
 
@@ -77,9 +100,9 @@ export const ContactsPage = () => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(c =>
-        c.nombreApellido.toLowerCase().includes(q) ||
-        c.direccionMail.toLowerCase().includes(q) ||
-        c.numDoc.includes(q) ||
+        c.nombreApellido?.toLowerCase().includes(q) ||
+        c.direccionMail?.toLowerCase().includes(q) ||
+        c.numDoc?.includes(q) ||
         c.localidad?.toLowerCase().includes(q)
       );
     }
@@ -121,51 +144,54 @@ export const ContactsPage = () => {
     if (selectedRows.length === paginatedClients.length) {
       setSelectedRows([]);
     } else {
-      setSelectedRows(paginatedClients.map(c => c.numDoc));
+      setSelectedRows(paginatedClients.map(c => c.id || c.numDoc));
     }
   };
 
-  const toggleSelectRow = (numDoc) => {
+  const toggleSelect = (id) => {
     setSelectedRows(prev =>
-      prev.includes(numDoc)
-        ? prev.filter(id => id !== numDoc)
-        : [...prev, numDoc]
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
   const formatDate = (dateStr) => {
+    if (!dateStr) return '--';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('es-AR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+    return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const getInitials = (name) => {
+    if (!name) return '??';
     return name
       .split(' ')
-      .map(n => n[0])
-      .join('')
+      .map(w => w[0])
+      .filter(Boolean)
       .slice(0, 2)
       .toUpperCase();
   };
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
-    const newClient = {
+    const newClientPayload = {
       numDoc: form.numDoc || `20-${Math.floor(10000000 + Math.random() * 90000000)}-4`,
       nombreApellido: form.nombreApellido,
       direccionMail: form.direccionMail,
       tipoClient: form.tipoClient,
       localidad: form.localidad,
-      codigoPostal: form.codigoPostal,
+      codigoPostal: form.codigoPostal || '2170',
+      clientCompanyId: form.clientCompanyId ? Number(form.clientCompanyId) : null,
       telefonos: form.telefono ? [form.telefono] : ['+54 341 456-7890'],
       nota: form.nota,
       fechaAgregado: new Date().toISOString(),
     };
 
-    setClients(prev => [newClient, ...prev]);
+    try {
+      const created = await createClient(newClientPayload);
+      setClients(prev => [created || { id: Date.now(), ...newClientPayload }, ...prev]);
+    } catch (err) {
+      setClients(prev => [{ id: Date.now(), ...newClientPayload }, ...prev]);
+    }
+
     setShowModal(false);
     setForm({
       numDoc: '',
@@ -173,9 +199,9 @@ export const ContactsPage = () => {
       direccionMail: '',
       tipoClient: 'Productor',
       localidad: 'Casilda',
-      codigoPostal: 'S2170',
+      codigoPostal: '2170',
       telefono: '',
-      empresa: '',
+      clientCompanyId: mockCompanies[0]?.id || '',
       nota: '',
     });
   };
@@ -375,7 +401,15 @@ export const ContactsPage = () => {
                           <div className="contacts-table__avatar">{initials}</div>
                           <div>
                             <span className="contacts-table__name">{client.nombreApellido}</span>
-                            <span className="contacts-table__doc">{client.numDoc}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              <span className="contacts-table__doc">{client.numDoc}</span>
+                              {(client.empresa || client.clientCompanyId) && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: 'var(--color-primary, #1a7d6b)', background: 'var(--color-primary-50, #f0fdfa)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(26,125,107,0.2)', fontWeight: 500 }}>
+                                  <Building2 size={10} />
+                                  {client.empresa || companies.find(c => c.id === client.clientCompanyId)?.nombreEmpresa || 'Empresa'}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -552,17 +586,24 @@ export const ContactsPage = () => {
                 />
               </div>
 
-              {/* Empresa Cliente Vinculada */}
+              {/* Empresa Cliente Vinculada (Relación 1:N) */}
               <div className="contact-field">
                 <label><Building2 size={14} /> Empresa Cliente Vinculada</label>
                 <select
                   className="contact-select"
-                  value={form.empresa}
-                  onChange={(e) => setForm(prev => ({ ...prev, empresa: e.target.value }))}
+                  value={form.clientCompanyId || ''}
+                  onChange={(e) => {
+                    const selComp = companies.find(c => c.id === Number(e.target.value));
+                    setForm(prev => ({
+                      ...prev,
+                      clientCompanyId: e.target.value ? Number(e.target.value) : null,
+                      empresa: selComp ? selComp.nombreEmpresa : '',
+                    }));
+                  }}
                 >
                   <option value="">Ninguna / Productor Directo</option>
-                  {mockCompanies.map(c => (
-                    <option key={c.id} value={c.nombreEmpresa}>{c.nombreEmpresa}</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.id}>{c.nombreEmpresa} ({c.localidad || 'Santa Fe'})</option>
                   ))}
                 </select>
               </div>

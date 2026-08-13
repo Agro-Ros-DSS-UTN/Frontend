@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -20,8 +20,23 @@ import {
   Truck,
   Layers,
   Sparkles,
+  Users,
+  Handshake,
+  ClipboardList,
+  Phone,
+  Mail,
+  Calendar,
+  ExternalLink,
+  DollarSign,
 } from 'lucide-react';
-import { mockCompanies } from '../../data/mockData';
+import { mockCompanies, mockClients, mockOpportunities, mockActivities } from '../../data/mockData';
+import {
+  getClientCompanies,
+  createClientCompany,
+  getClients,
+  getOpportunities,
+  getActivities,
+} from '../../data/api';
 import './CompaniesPage.css';
 
 const COLUMNS = [
@@ -38,20 +53,48 @@ const PAGE_SIZE = 10;
 
 export const CompaniesPage = () => {
   const [companies, setCompanies] = useState(mockCompanies);
+  const [clients, setClients] = useState(mockClients);
+  const [opportunities, setOpportunities] = useState(mockOpportunities);
+  const [activities, setActivities] = useState(mockActivities);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('nombreEmpresa');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [selectedCompanyForDetail, setSelectedCompanyForDetail] = useState(null);
+  const [detailActiveTab, setDetailActiveTab] = useState('contactos'); // 'contactos' | 'negocios' | 'actividades'
 
-  // Form state
+  // Load companies, clients, opps and activities from Backend API
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const [compData, clientData, oppData, actData] = await Promise.all([
+          getClientCompanies(),
+          getClients(),
+          getOpportunities(),
+          getActivities(),
+        ]);
+        if (Array.isArray(compData) && compData.length > 0) setCompanies(compData);
+        if (Array.isArray(clientData) && clientData.length > 0) setClients(clientData);
+        if (Array.isArray(oppData) && oppData.length > 0) setOpportunities(oppData);
+        if (Array.isArray(actData) && actData.length > 0) setActivities(actData);
+      } catch (err) {
+        console.error('Error fetching data in CompaniesPage:', err);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  // Form state matching backend payload: { nombreEmpresa, cuit, direccionEmpresa, tipoEmpresa, superficieHa, localityCodPostal }
   const [form, setForm] = useState({
     nombreEmpresa: '',
     cuit: '',
     tipoEmpresa: 'Productor',
     direccionEmpresa: '',
     localidad: 'Casilda',
+    localityCodPostal: '2170',
     superficieHa: 450,
     proveedorActual: 'Syngenta',
     cultivoPrincipal: 'Soja / Maíz',
@@ -112,6 +155,7 @@ export const CompaniesPage = () => {
   };
 
   const formatDate = (dateStr) => {
+    if (!dateStr) return '--';
     const d = new Date(dateStr);
     return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
@@ -121,22 +165,33 @@ export const CompaniesPage = () => {
     return `${Number(val).toLocaleString('es-AR')} ha`;
   };
 
-  const handleCreate = (e) => {
+  const formatCurrency = (val) => {
+    if (!val) return '$0';
+    return `$${Number(val).toLocaleString('es-AR')}`;
+  };
+
+  const handleCreate = async (e) => {
     e.preventDefault();
-    const newComp = {
-      id: Date.now(),
+    const newCompPayload = {
       nombreEmpresa: form.nombreEmpresa,
       cuit: form.cuit || `30-${Math.floor(10000000 + Math.random() * 90000000)}-9`,
       tipoEmpresa: form.tipoEmpresa,
       direccionEmpresa: form.direccionEmpresa || 'Ruta Provincial',
       localidad: form.localidad,
+      localityCodPostal: form.localityCodPostal || '2170',
       superficieHa: Number(form.superficieHa) || 0,
       proveedorActual: form.proveedorActual,
       descEmpresa: form.descEmpresa,
       fechaRegistro: new Date().toISOString(),
     };
 
-    setCompanies(prev => [newComp, ...prev]);
+    try {
+      const created = await createClientCompany(newCompPayload);
+      setCompanies(prev => [created || { id: Date.now(), ...newCompPayload }, ...prev]);
+    } catch (err) {
+      setCompanies(prev => [{ id: Date.now(), ...newCompPayload }, ...prev]);
+    }
+
     setShowModal(false);
     setForm({
       nombreEmpresa: '',
@@ -144,6 +199,7 @@ export const CompaniesPage = () => {
       tipoEmpresa: 'Productor',
       direccionEmpresa: '',
       localidad: 'Casilda',
+      localityCodPostal: '2170',
       superficieHa: 450,
       proveedorActual: 'Syngenta',
       cultivoPrincipal: 'Soja / Maíz',
@@ -185,6 +241,30 @@ export const CompaniesPage = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Helper to get related data for selected company (1:N)
+  const relatedContacts = useMemo(() => {
+    if (!selectedCompanyForDetail) return [];
+    return clients.filter(c =>
+      c.clientCompanyId === selectedCompanyForDetail.id ||
+      c.empresa?.toLowerCase() === selectedCompanyForDetail.nombreEmpresa?.toLowerCase()
+    );
+  }, [clients, selectedCompanyForDetail]);
+
+  const relatedOpportunities = useMemo(() => {
+    if (!selectedCompanyForDetail) return [];
+    return opportunities.filter(o =>
+      o.clientCompanyId === selectedCompanyForDetail.id ||
+      o.empresa?.toLowerCase() === selectedCompanyForDetail.nombreEmpresa?.toLowerCase()
+    );
+  }, [opportunities, selectedCompanyForDetail]);
+
+  const relatedActivities = useMemo(() => {
+    if (!selectedCompanyForDetail) return [];
+    return activities.filter(a =>
+      a.empresa?.toLowerCase() === selectedCompanyForDetail.nombreEmpresa?.toLowerCase()
+    );
+  }, [activities, selectedCompanyForDetail]);
+
   return (
     <div className="companies-page">
       {/* Header */}
@@ -192,7 +272,7 @@ export const CompaniesPage = () => {
         <div>
           <h1 className="companies-page__title">Empresas Clientes</h1>
           <p className="companies-page__subtitle">
-            {companies.length} empresas registradas en el CRM
+            {companies.length} empresas registradas en el CRM con sus contactos y negocios asociados
           </p>
         </div>
         <div className="companies-page__header-actions">
@@ -244,40 +324,35 @@ export const CompaniesPage = () => {
                 {COLUMNS.map(col => (
                   <th
                     key={col.key}
-                    className={col.sortable ? 'companies-table__sortable' : ''}
                     onClick={() => col.sortable && handleSort(col.key)}
+                    className={col.sortable ? 'sortable' : ''}
                   >
-                    <div className="companies-table__th-content">
-                      <span>{col.label}</span>
-                      {col.sortable && (
-                        <span className="companies-table__sort-icon">
-                          {sortBy === col.key ? (
-                            sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
-                          ) : (
-                            <ArrowUpDown size={14} />
-                          )}
-                        </span>
+                    <div className="th-content">
+                      {col.label}
+                      {col.sortable && sortBy === col.key && (
+                        sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
                       )}
                     </div>
                   </th>
                 ))}
-                <th className="companies-table__actions-col">Acciones</th>
+                <th className="companies-table__actions-header">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {paginatedCompanies.length === 0 ? (
                 <tr>
                   <td colSpan={COLUMNS.length + 2} className="companies-table__empty">
-                    No se encontraron empresas que coincidan con la búsqueda.
+                    No se encontraron empresas
                   </td>
                 </tr>
               ) : (
                 paginatedCompanies.map(company => (
                   <tr
                     key={company.id}
-                    className={selectedRows.includes(company.id) ? 'companies-table__row--selected' : ''}
+                    className={`companies-table__row ${selectedRows.includes(company.id) ? 'selected' : ''}`}
+                    onClick={() => setSelectedCompanyForDetail(company)}
                   >
-                    <td className="companies-table__checkbox-col">
+                    <td className="companies-table__checkbox-col" onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedRows.includes(company.id)}
@@ -286,20 +361,20 @@ export const CompaniesPage = () => {
                     </td>
                     <td>
                       <div className="companies-table__name-cell">
-                        <div className="companies-table__icon">
+                        <div className="companies-table__avatar">
                           <Building2 size={16} />
                         </div>
                         <div>
                           <span className="companies-table__name">{company.nombreEmpresa}</span>
-                          {company.direccionEmpresa && (
-                            <span className="companies-table__address">{company.direccionEmpresa}</span>
+                          {company.descEmpresa && (
+                            <span className="companies-table__desc">{company.descEmpresa}</span>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="companies-table__cuit">{company.cuit}</td>
                     <td>
-                      <span className={`companies-table__type-badge companies-table__type-badge--${company.tipoEmpresa?.toLowerCase() || 'productor'}`}>
+                      <span className={`companies-table__badge companies-table__badge--${(company.tipoEmpresa || 'productor').toLowerCase()}`}>
                         {company.tipoEmpresa}
                       </span>
                     </td>
@@ -314,15 +389,20 @@ export const CompaniesPage = () => {
                       </span>
                     </td>
                     <td className="companies-table__date">{formatDate(company.fechaRegistro)}</td>
-                    <td className="companies-table__actions-col">
+                    <td className="companies-table__actions-col" onClick={e => e.stopPropagation()}>
                       <div className="companies-table__actions">
-                        <button className="companies-table__action-btn" title="Ver detalle">
+                        <button
+                          className="companies-table__action-btn"
+                          title="Ver ficha relacional"
+                          onClick={() => setSelectedCompanyForDetail(company)}
+                        >
                           <Eye size={15} />
                         </button>
-                        <button className="companies-table__action-btn" title="Editar">
-                          <Edit size={15} />
-                        </button>
-                        <button className="companies-table__action-btn companies-table__action-btn--danger" title="Eliminar">
+                        <button
+                          className="companies-table__action-btn companies-table__action-btn--danger"
+                          title="Eliminar"
+                          onClick={() => setCompanies(prev => prev.filter(c => c.id !== company.id))}
+                        >
                           <Trash2 size={15} />
                         </button>
                       </div>
@@ -429,51 +509,45 @@ export const CompaniesPage = () => {
                   <input
                     type="text"
                     className="comp-input"
-                    placeholder="Ruta 33 Km 45"
+                    placeholder="Ruta 33 Km 748"
                     value={form.direccionEmpresa}
                     onChange={(e) => setForm(prev => ({ ...prev, direccionEmpresa: e.target.value }))}
                   />
                 </div>
                 <div className="comp-field" style={{ flex: 1 }}>
-                  <label>Localidad *</label>
+                  <label>Localidad</label>
                   <input
                     type="text"
                     className="comp-input"
+                    placeholder="Casilda"
                     value={form.localidad}
                     onChange={(e) => setForm(prev => ({ ...prev, localidad: e.target.value }))}
-                    required
                   />
                 </div>
               </div>
 
-              {/* Superficie Ha */}
-              <div className="comp-field">
-                <label><Ruler size={14} /> Superficie Agrícola (Hectáreas)</label>
-                <input
-                  type="number"
-                  className="comp-input"
-                  value={form.superficieHa}
-                  onChange={(e) => setForm(prev => ({ ...prev, superficieHa: e.target.value }))}
-                  min={0}
-                />
-              </div>
-
-              {/* Proveedor Actual */}
-              <div className="comp-field">
-                <label><Truck size={14} /> Proveedor Actual de Insumos</label>
-                <select
-                  className="comp-select"
-                  value={form.proveedorActual}
-                  onChange={(e) => setForm(prev => ({ ...prev, proveedorActual: e.target.value }))}
-                >
-                  <option value="Syngenta">Syngenta</option>
-                  <option value="Bayer Crop Science">Bayer Crop Science</option>
-                  <option value="BASF">BASF</option>
-                  <option value="Corteva Agriscience">Corteva Agriscience</option>
-                  <option value="FMC">FMC</option>
-                  <option value="ADAMA">ADAMA</option>
-                  <option value="Otro / Sin proveedor exclusivo">Otro / Sin proveedor exclusivo</option>
-                </select>
+              {/* Superficie Ha & Proveedor Actual */}
+              <div className="comp-field-row">
+                <div className="comp-field" style={{ flex: 1 }}>
+                  <label><Ruler size={14} /> Superficie (Ha)</label>
+                  <input
+                    type="number"
+                    className="comp-input"
+                    placeholder="450"
+                    value={form.superficieHa}
+                    onChange={(e) => setForm(prev => ({ ...prev, superficieHa: e.target.value }))}
+                  />
+                </div>
+                <div className="comp-field" style={{ flex: 1 }}>
+                  <label><Truck size={14} /> Proveedor Actual</label>
+                  <input
+                    type="text"
+                    className="comp-input"
+                    placeholder="Syngenta, Bayer..."
+                    value={form.proveedorActual}
+                    onChange={(e) => setForm(prev => ({ ...prev, proveedorActual: e.target.value }))}
+                  />
+                </div>
               </div>
 
               {/* Descripción */}
@@ -481,19 +555,178 @@ export const CompaniesPage = () => {
                 <label>Descripción / Observaciones</label>
                 <textarea
                   className="comp-textarea"
-                  rows={2}
-                  placeholder="Información sobre lotes, cultivos o necesidades de fertilización..."
+                  rows={3}
+                  placeholder="Información adicional sobre la empresa o tipo de explotación..."
                   value={form.descEmpresa}
                   onChange={(e) => setForm(prev => ({ ...prev, descEmpresa: e.target.value }))}
                 />
               </div>
 
-              {/* Acciones */}
+              {/* Botones */}
               <div className="comp-modal__actions">
-                <button type="submit" className="comp-btn-primary">Registrar Empresa</button>
-                <button type="button" className="comp-btn-outline" onClick={() => setShowModal(false)}>Cancelar</button>
+                <button type="button" className="comp-modal__cancel-btn" onClick={() => setShowModal(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="comp-modal__submit-btn">
+                  Registrar Empresa
+                </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── 360° Drawer / Ficha Relacional de Empresa (1:N) ── */}
+      {selectedCompanyForDetail && (
+        <div className="comp-modal-overlay" onClick={() => setSelectedCompanyForDetail(null)}>
+          <div className="comp-modal comp-modal--wide" onClick={e => e.stopPropagation()}>
+            <div className="comp-modal__header">
+              <div className="comp-detail-header-box">
+                <div className="companies-table__avatar" style={{ width: '40px', height: '40px' }}>
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h2>{selectedCompanyForDetail.nombreEmpresa}</h2>
+                  <span className="comp-detail-sub">
+                    CUIT: {selectedCompanyForDetail.cuit} · {selectedCompanyForDetail.localidad} ({selectedCompanyForDetail.tipoEmpresa})
+                  </span>
+                </div>
+              </div>
+              <button className="comp-modal__close" onClick={() => setSelectedCompanyForDetail(null)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Relational Tabs */}
+            <div className="comp-detail-tabs">
+              <button
+                type="button"
+                className={`comp-tab-btn ${detailActiveTab === 'contactos' ? 'active' : ''}`}
+                onClick={() => setDetailActiveTab('contactos')}
+              >
+                <Users size={15} />
+                <span>Contactos Vinculados ({relatedContacts.length})</span>
+              </button>
+              <button
+                type="button"
+                className={`comp-tab-btn ${detailActiveTab === 'negocios' ? 'active' : ''}`}
+                onClick={() => setDetailActiveTab('negocios')}
+              >
+                <Handshake size={15} />
+                <span>Negocios / Oportunidades ({relatedOpportunities.length})</span>
+              </button>
+              <button
+                type="button"
+                className={`comp-tab-btn ${detailActiveTab === 'actividades' ? 'active' : ''}`}
+                onClick={() => setDetailActiveTab('actividades')}
+              >
+                <ClipboardList size={15} />
+                <span>Actividades en Campo ({relatedActivities.length})</span>
+              </button>
+            </div>
+
+            {/* Detail Body */}
+            <div className="comp-detail-body">
+              {/* TAB 1: Contactos (1:N ClientCompany -> Clients) */}
+              {detailActiveTab === 'contactos' && (
+                <div className="relational-list">
+                  {relatedContacts.length === 0 ? (
+                    <div className="relational-empty">
+                      <Users size={32} className="text-muted" />
+                      <p>No hay contactos vinculados a esta empresa aún.</p>
+                    </div>
+                  ) : (
+                    relatedContacts.map(c => (
+                      <div key={c.id || c.numDoc} className="relational-card">
+                        <div className="relational-card-left">
+                          <div className="contact-avatar-mini">
+                            {(c.nombreApellido || c.nombre || 'U').charAt(0)}
+                          </div>
+                          <div>
+                            <strong className="relational-name">{c.nombreApellido || `${c.nombre || ''} ${c.apellido || ''}`}</strong>
+                            <div className="relational-sub">
+                              <span><Mail size={12} /> {c.direccionMail || c.email}</span>
+                              {c.telefonos && <span><Phone size={12} /> {Array.isArray(c.telefonos) ? c.telefonos[0] : c.telefonos}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="relational-badge">{c.tipoClient || 'Socio'}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* TAB 2: Negocios (1:N ClientCompany -> Opportunities) */}
+              {detailActiveTab === 'negocios' && (
+                <div className="relational-list">
+                  {relatedOpportunities.length === 0 ? (
+                    <div className="relational-empty">
+                      <Handshake size={32} className="text-muted" />
+                      <p>No hay negocios abiertos para esta empresa.</p>
+                    </div>
+                  ) : (
+                    relatedOpportunities.map(o => (
+                      <div key={o.id} className="relational-card">
+                        <div className="relational-card-left">
+                          <div className="deal-icon-mini">
+                            <DollarSign size={16} />
+                          </div>
+                          <div>
+                            <strong className="relational-name">{o.nombreNegocio || o.pipeline || 'Oportunidad'}</strong>
+                            <div className="relational-sub">
+                              <span>Vendedor: {o.propietario || o.vendedor || 'Equipo AgroRos'}</span>
+                              <span>· Cierre: {o.fechaCierre || o.fechaInicio}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="relational-card-right">
+                          <strong className="deal-amount-text">{formatCurrency(o.valor || o.volumenPotencial)}</strong>
+                          <span className="deal-stage-mini-pill">{o.estado}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* TAB 3: Actividades (1:N ClientCompany -> Activities) */}
+              {detailActiveTab === 'actividades' && (
+                <div className="relational-list">
+                  {relatedActivities.length === 0 ? (
+                    <div className="relational-empty">
+                      <ClipboardList size={32} className="text-muted" />
+                      <p>No hay registro de visitas o llamadas recientes con esta empresa.</p>
+                    </div>
+                  ) : (
+                    relatedActivities.map(a => (
+                      <div key={a.idFormulario || a.id} className="relational-card">
+                        <div className="relational-card-left">
+                          <div className="act-type-mini">
+                            {a.tipoContacto === 'Visita' ? <MapPin size={15} /> : <Phone size={15} />}
+                          </div>
+                          <div>
+                            <strong className="relational-name">{a.tipoContacto} por {a.vendedor}</strong>
+                            <p className="relational-desc-text">{a.descripcion}</p>
+                            <span className="relational-date-sub">{formatDate(a.fechaHora)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="comp-modal__actions">
+              <button
+                type="button"
+                className="comp-modal__submit-btn"
+                onClick={() => setSelectedCompanyForDetail(null)}
+              >
+                Cerrar Ficha
+              </button>
+            </div>
           </div>
         </div>
       )}

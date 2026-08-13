@@ -1,104 +1,47 @@
 /* eslint-disable */
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { AdminLayout } from './components/layout/AdminLayout';
+import { SellerLayout } from './components/layout/SellerLayout';
 import { LoginPage } from './pages/auth/LoginPage';
+
+// Admin Pages
 import { AdminDashboardPage } from './pages/admin/AdminDashboard';
 import { ContactsPage } from './pages/admin/ContactsPage';
 import { CompaniesPage } from './pages/admin/CompaniesPage';
 import { OpportunitiesPage } from './pages/admin/OpportunitiesPage';
+import { TasksPage } from './pages/admin/TasksPage';
+import { ProductsPage } from './pages/admin/ProductsPage';
 import { ObjectivesPage } from './pages/admin/ObjectivesPage';
+import { RoadmapsPage } from './pages/admin/RoadmapsPage';
 import { CampaignsPage } from './pages/admin/CampaignsPage';
 import { ActivitiesPage } from './pages/admin/ActivitiesPage';
+import { ProfilePage } from './pages/admin/ProfilePage';
+import { SettingsPage } from './pages/admin/SettingsPage';
+
+// Seller Portal Pages
+import { SellerDashboardPage } from './pages/seller/SellerDashboardPage';
+import { SellerRoadmapPage } from './pages/seller/SellerRoadmapPage';
+import { SellerClientsPage } from './pages/seller/SellerClientsPage';
+import { SellerActivitiesPage } from './pages/seller/SellerActivitiesPage';
+import { SellerPromotionsPage } from './pages/seller/SellerPromotionsPage';
+
 import './styles/global.css';
-
-/* ── Seller Placeholder with logout ── */
-const SellerPlaceholder = () => {
-  const { logout, currentUser } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-      fontFamily: 'var(--font-sans)',
-    }}>
-      <div style={{
-        background: '#ffffff',
-        borderRadius: '16px',
-        padding: '48px',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
-        textAlign: 'center',
-        maxWidth: '420px',
-        width: '100%',
-      }}>
-        <div style={{
-          width: '64px', height: '64px', borderRadius: '50%',
-          background: 'linear-gradient(135deg, #2563eb, #1e40af)',
-          color: 'white', fontSize: '1.5rem', fontWeight: 700,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 20px',
-        }}>
-          {currentUser?.nombreApellido?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'VE'}
-        </div>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
-          Panel del Vendedor
-        </h2>
-        <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '8px' }}>
-          {currentUser?.nombreApellido}
-        </p>
-        <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '32px' }}>
-          🚧 En construcción — Próximamente
-        </p>
-        <button
-          onClick={handleLogout}
-          style={{
-            width: '100%',
-            padding: '12px 24px',
-            background: '#2563eb',
-            color: 'white',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            transition: 'background 200ms ease',
-          }}
-          onMouseEnter={(e) => e.target.style.background = '#1d4ed8'}
-          onMouseLeave={(e) => e.target.style.background = '#2563eb'}
-        >
-          Cerrar sesión
-        </button>
-      </div>
-    </div>
-  );
-};
 
 const AppRoutes = () => {
   const { isAuthenticated, currentUser, login } = useAuth();
-
-  // Obtenemos el rol del usuario (soporta tanto 'rol' como 'role')
   const userRole = (currentUser?.role || currentUser?.rol)?.toLowerCase();
 
   return (
     <Routes>
-      {/* Login: le pasamos la función login del AuthContext */}
+      {/* Login */}
       <Route
         path="/login"
         element={
           isAuthenticated ? (
-            <Navigate to={userRole === 'admin' ? '/admin/contactos' : '/seller/dashboard'} replace />
+            <Navigate to={userRole === 'admin' ? '/admin/dashboard' : '/seller/dashboard'} replace />
           ) : (
             <LoginPage onLoginSuccess={(userData) => login(userData)} />
           )
@@ -114,28 +57,56 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="contactos" replace />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
         <Route path="contactos" element={<ContactsPage />} />
         <Route path="empresas" element={<CompaniesPage />} />
-        <Route path="oportunidades" element={<OpportunitiesPage />} />
+        <Route path="negocios" element={<OpportunitiesPage />} />
+        <Route path="oportunidades" element={<Navigate to="/admin/negocios" replace />} />
+        <Route path="tareas" element={<TasksPage />} />
+        <Route path="productos" element={<ProductsPage />} />
         <Route path="objetivos" element={<ObjectivesPage />} />
+        <Route path="rutas" element={<RoadmapsPage />} />
         <Route path="campañas" element={<CampaignsPage />} />
         <Route path="actividades" element={<ActivitiesPage />} />
+        <Route path="perfil" element={<ProfilePage />} />
+        <Route path="configuracion" element={<SettingsPage />} />
       </Route>
 
-      {/* Seller Routes */}
+      {/* Seller Routes (Field Commercial Portal) */}
       <Route
-        path="/seller/*"
+        path="/seller"
         element={
           <ProtectedRoute allowedRoles={['vendedor']}>
-            <SellerPlaceholder />
+            <SellerLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<SellerDashboardPage />} />
+        <Route path="hoja-de-ruta" element={<SellerRoadmapPage />} />
+        <Route path="clientes" element={<SellerClientsPage />} />
+        <Route path="actividades" element={<SellerActivitiesPage />} />
+        <Route path="promociones" element={<SellerPromotionsPage />} />
+        <Route path="perfil" element={<ProfilePage />} />
+      </Route>
 
       {/* Default redirect */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route
+        path="*"
+        element={
+          <Navigate
+            to={
+              !isAuthenticated
+                ? '/login'
+                : userRole === 'admin'
+                ? '/admin/dashboard'
+                : '/seller/dashboard'
+            }
+            replace
+          />
+        }
+      />
     </Routes>
   );
 };

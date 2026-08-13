@@ -10,10 +10,29 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper to normalize user object from backend (handling 'administrador' / 'admin' and 'vendedor')
+const normalizeUser = (user) => {
+  if (!user) return null;
+  const rawRole = user.role || user.rol || user.tipoUsuario || '';
+  let role = String(rawRole).trim().toLowerCase();
+  if (role === 'administrador') {
+    role = 'admin';
+  }
+  return {
+    ...user,
+    role,
+    rol: role,
+  };
+};
+
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(() => {
-    const stored = sessionStorage.getItem('agroros_user');
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = sessionStorage.getItem('agroros_user');
+      return stored ? normalizeUser(JSON.parse(stored)) : null;
+    } catch {
+      return null;
+    }
   });
 
   const [profileImage, setProfileImageState] = useState(() => {
@@ -37,11 +56,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // El login "real" ya lo hizo el backend (loginUser en LoginPage.jsx).
-  // Acá solo guardamos el usuario que ya vino autenticado.
+  // Login action storing the backend-authenticated user
   const login = (userData) => {
-    setCurrentUser(userData);
-    return { success: true, user: userData };
+    const normalized = normalizeUser(userData);
+    setCurrentUser(normalized);
+    return { success: true, user: normalized };
   };
 
   const logout = () => {
@@ -50,8 +69,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAuthenticated = !!currentUser;
-  const isAdmin = currentUser?.role === 'admin';
-  const isSeller = currentUser?.role === 'vendedor';
+  const userRole = (currentUser?.role || currentUser?.rol || '').toLowerCase();
+  const isAdmin = userRole === 'admin';
+  const isSeller = userRole === 'vendedor';
 
   return (
     <AuthContext.Provider value={{
