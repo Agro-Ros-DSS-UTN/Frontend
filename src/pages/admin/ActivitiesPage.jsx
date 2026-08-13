@@ -205,7 +205,7 @@ export const ActivitiesPage = () => {
           return (
             <div key={act.idFormulario} className="activity-card">
               <div className="activity-card__icon-wrapper" style={{ backgroundColor: colors.bg, color: colors.color }}>
-                {getIcon(act.tipoContacto)}
+                {getTypeIcon(act.tipoContacto)}
               </div>
 
               <div className="activity-card__body">
