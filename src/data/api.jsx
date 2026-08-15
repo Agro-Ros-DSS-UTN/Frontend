@@ -142,7 +142,7 @@ export const deleteClientCompany = async (id) => {
    ═══════════════════════════════════════════════════════════════ */
 export const getClients = async () => {
   try {
-    const res = await request('/clients');
+    const res = await request('/clientes');
     return Array.isArray(res) ? res : res.data || res.clients || [];
   } catch (err) {
     console.info('[API Fallback] Usando mockClients como respaldo.');
@@ -161,7 +161,7 @@ export const createClient = async (clientData) => {
   };
 
   try {
-    return await request('/clients', {
+    return await request('/clientes', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -173,7 +173,7 @@ export const createClient = async (clientData) => {
 
 export const updateClient = async (id, clientData) => {
   try {
-    return await request(`/clients/${id}`, {
+    return await request(`/clientes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(clientData),
     });
@@ -184,7 +184,7 @@ export const updateClient = async (id, clientData) => {
 
 export const deleteClient = async (id) => {
   try {
-    return await request(`/clients/${id}`, { method: 'DELETE' });
+    return await request(`/clientes/${id}`, { method: 'DELETE' });
   } catch (err) {
     return { success: true, id };
   }
@@ -197,7 +197,7 @@ export const deleteClient = async (id) => {
    ═══════════════════════════════════════════════════════════════ */
 export const getOpportunities = async () => {
   try {
-    const res = await request('/opportunities');
+    const res = await request('/oportunidades');
     return Array.isArray(res) ? res : res.data || res.opportunities || [];
   } catch (err) {
     console.info('[API Fallback] Usando mockOpportunities como respaldo.');
@@ -216,7 +216,7 @@ export const createOpportunity = async (oppData) => {
   };
 
   try {
-    return await request('/opportunities', {
+    return await request('/oportunidades', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -228,7 +228,7 @@ export const createOpportunity = async (oppData) => {
 
 export const updateOpportunity = async (id, oppData) => {
   try {
-    return await request(`/opportunities/${id}`, {
+    return await request(`/oportunidades/${id}`, {
       method: 'PUT',
       body: JSON.stringify(oppData),
     });
@@ -239,7 +239,7 @@ export const updateOpportunity = async (id, oppData) => {
 
 export const deleteOpportunity = async (id) => {
   try {
-    return await request(`/opportunities/${id}`, { method: 'DELETE' });
+    return await request(`/oportunidades/${id}`, { method: 'DELETE' });
   } catch (err) {
     return { success: true, id };
   }
@@ -251,7 +251,7 @@ export const deleteOpportunity = async (id) => {
    ═══════════════════════════════════════════════════════════════ */
 export const getActivities = async () => {
   try {
-    const res = await request('/formulario-actividad');
+    const res = await request('/formularios-actividad');
     return Array.isArray(res) ? res : res.data || res.activities || [];
   } catch (err) {
     console.info('[API Fallback] Usando mockActivities como respaldo.');
@@ -270,7 +270,7 @@ export const createActivity = async (activityData) => {
   };
 
   try {
-    return await request('/formulario-actividad', {
+    return await request('/formularios-actividad', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
