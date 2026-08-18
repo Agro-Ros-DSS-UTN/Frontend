@@ -22,8 +22,10 @@ import {
   Layers,
   CheckCircle2,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
-import { mockOpportunities, mockClients, mockCompanies, mockActivities, mockSellers, mockObjectives, OPPORTUNITY_STATES } from '../../data/mockData';
+// IMPORTANTE: Reemplazamos las funciones mock por nuestra API real
+import { getDashboardData, OPPORTUNITY_STATES } from '../../data/api';
 import './AdminDashboard.css';
 
 /* ─────────────────────────────────────────────
@@ -111,14 +113,14 @@ const BarChart = ({ data, width = '100%', height = 260 }) => {
   return <canvas ref={canvasRef} className="chart-canvas" style={{ width, height }} />;
 };
 
-/* ── Monthly Sales & Interactions Chart (from Excel) ── */
+/* ── Monthly Sales Chart ── */
 const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
   const canvasRef = useCanvas((ctx, w, h) => {
     if (!data || data.length === 0) return;
     const padding = { top: 25, right: 30, bottom: 45, left: 55 };
     const chartW = w - padding.left - padding.right;
     const chartH = h - padding.top - padding.bottom;
-    const maxVal = Math.max(...data.map(d => d.ventas), 1000000);
+    const maxVal = Math.max(...data.map(d => d.ventas), 1000);
     const stepX = chartW / Math.max(data.length - 1, 1);
 
     // Grid lines
@@ -185,7 +187,7 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
   return <canvas ref={canvasRef} className="chart-canvas" style={{ width, height }} />;
 };
 
-/* ── Product Lines Horizontal Bar Chart (from Excel) ── */
+/* ── Product Lines Horizontal Bar Chart ── */
 const ProductLinesChart = ({ data, width = '100%', height = 260 }) => {
   const canvasRef = useCanvas((ctx, w, h) => {
     if (!data || data.length === 0) return;
@@ -269,104 +271,167 @@ const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
 };
 
 /* ─────────────────────────────────────────────
-   Admin Dashboard Page
+   Admin Dashboard Page (Real DB Integration)
    ───────────────────────────────────────────── */
 
 export const AdminDashboardPage = () => {
+  // Estados de datos reales
+  const [clients, setClients] = useState([]);
+  const [opportunities, setOpportunities] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [sellers, setSellers] = useState([]);
+  const [objectives, setObjectives] = useState([]);
+  const [monthlySales, setMonthlySales] = useState([]);
+  const [productLines, setProductLines] = useState([]);
+  
+  // Estados de carga y error
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Filtros
   const [filterOwner, setFilterOwner] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('');
 
-  const ownerOptions = useMemo(() => [...new Set(mockSellers.map(s => s.user.nombreApellido))], []);
+  // 1. Cargar datos de la base de datos
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Llamada a la API real
+        const data = await getDashboardData();
+        
+        setClients(data.clients || []);
+        setOpportunities(data.opportunities || []);
+        setActivities(data.activities || []);
+        setSellers(data.sellers || []);
+        setObjectives(data.objectives || []);
+        setMonthlySales(data.monthlySales || []);
+        setProductLines(data.productLines || []);
+      } catch (err) {
+        console.error("Error al cargar datos del Dashboard:", err);
+        setError(err.message || 'Error al conectar con la base de datos');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  const ownerOptions = useMemo(() => [
+    ...new Set(sellers.map(s => s.nombreApellido || s.user?.nombreApellido).filter(Boolean))
+  ], [sellers]);
+
   const periodOptions = ['Últimos 7 días', 'Últimos 30 días', 'Este trimestre', 'Año actual 2026'];
 
-  // Filtered data
+  // Datos Filtrados
   const filteredOpps = useMemo(() => {
-    let opps = mockOpportunities;
-    if (filterOwner) opps = opps.filter(o => o.vendedor === filterOwner);
+    let opps = opportunities;
+    if (filterOwner) {
+      opps = opps.filter(o => o.vendedor === filterOwner || o.vendedorNombre === filterOwner);
+    }
     return opps;
-  }, [filterOwner]);
+  }, [opportunities, filterOwner]);
 
   const filteredActivities = useMemo(() => {
-    let acts = mockActivities;
-    if (filterOwner) acts = acts.filter(a => a.vendedor === filterOwner);
+    let acts = activities;
+    if (filterOwner) {
+      acts = acts.filter(a => a.vendedor === filterOwner || a.vendedorNombre === filterOwner);
+    }
     return acts;
-  }, [filterOwner]);
+  }, [activities, filterOwner]);
 
-  // Executive KPIs (Matching the Excel Executive Summary)
-  const totalClientsCount = mockClients.length;
-  const totalVentasHistoricas = filteredOpps.reduce((sum, o) => sum + (o.volumenFacturado || 0), 0);
-  const totalInteractions = filteredActivities.length + 18; // historical count
-  const activeClientsCount = mockClients.filter(c => c.tipoClient !== 'Inactivo').length;
-  const avgTicket = totalVentasHistoricas > 0 && filteredOpps.length > 0
-    ? totalVentasHistoricas / filteredOpps.filter(o => o.volumenFacturado > 0).length
-    : 0;
-  const nextActionsCount = 6; // 7 days upcoming tasks
+  // KPIs Calculados Dinámicamente desde la BD
+  const totalClientsCount = clients.length;
+  const totalVentasHistoricas = filteredOpps.reduce((sum, o) => sum + (Number(o.volumenFacturado) || 0), 0);
+  const totalInteractions = filteredActivities.length;
+  const activeClientsCount = clients.filter(c => c.estado === 'Activo' || c.tipoCliente !== 'Inactivo').length;
+  
+  const oppsConVentas = filteredOpps.filter(o => Number(o.volumenFacturado) > 0);
+  const avgTicket = oppsConVentas.length > 0 ? totalVentasHistoricas / oppsConVentas.length : 0;
+  
+  // Próximas acciones en los siguientes 7 días
+  const nextActionsCount = useMemo(() => {
+    const now = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(now.getDate() + 7);
+    return filteredActivities.filter(a => {
+      const actDate = new Date(a.fecha);
+      return actDate >= now && actDate <= nextWeek && !a.completada;
+    }).length;
+  }, [filteredActivities]);
 
   const formatCurrency = (val) => {
-    if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
-    if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
-    return `$${Math.round(val || 0)}`;
+    const num = Number(val) || 0;
+    if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `$${(num / 1000).toFixed(0)}K`;
+    return `$${Math.round(num)}`;
   };
 
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  };
+  // Pipeline Chart Data
+  const pipelineChartData = useMemo(() => {
+    const states = OPPORTUNITY_STATES || [
+      { key: 'prospecto', label: 'Prospecto', color: '#64748b' },
+      { key: 'negociacion', label: 'Negociación', color: '#f59e0b' },
+      { key: 'ganada', label: 'Ganada', color: '#16a34a' },
+      { key: 'perdida', label: 'Perdida', color: '#dc2626' }
+    ];
 
-  const activityIcon = (tipo) => {
-    switch(tipo) {
-      case 'Visita': return <MapPin size={14} />;
-      case 'Llamada': return <Phone size={14} />;
-      case 'Email': return <Mail size={14} />;
-      default: return <Activity size={14} />;
-    }
-  };
-
-  // 1. Pipeline chart data
-  const pipelineChartData = useMemo(() =>
-    OPPORTUNITY_STATES.map(state => ({
+    return states.map(state => ({
       label: state.label,
-      value: filteredOpps.filter(o => o.estado === state.key).length,
+      value: filteredOpps.filter(o => o.estado === state.key || o.estado === state.label).length,
       color: state.color,
-    }))
-  , [filteredOpps]);
+    }));
+  }, [filteredOpps]);
 
-  // 2. Top 5 Clientes por Ventas (from Excel)
-  const top5Clients = useMemo(() => [
-    { rank: 1, medal: '🥇', empresa: 'Cooperativa Agrícola del Sur', tipo: 'Cooperativa', ventas: 1420000, interacciones: 8, estado: 'Activo', diasSinCtcto: 2 },
-    { rank: 2, medal: '🥈', empresa: 'Los Álamos S.A.', tipo: 'Productor', ventas: 980000, interacciones: 6, estado: 'Activo', diasSinCtcto: 3 },
-    { rank: 3, medal: '🥉', empresa: 'Campo Grande S.R.L.', tipo: 'Productor', ventas: 650000, interacciones: 5, estado: 'En seguimiento', diasSinCtcto: 5 },
-    { rank: 4, medal: '4°', empresa: 'Distribuidora Paraná', tipo: 'Distribuidor', ventas: 420000, interacciones: 4, estado: 'En negociación', diasSinCtcto: 7 },
-    { rank: 5, medal: '5°', empresa: 'AgroSur Distribuciones', tipo: 'Distribuidor', ventas: 350000, interacciones: 3, estado: 'Prospecto', diasSinCtcto: 12 },
-  ], []);
-
-  // 3. Monthly Sales & Interactions Data (from Excel)
-  const monthlySalesData = useMemo(() => [
-    { mes: 'Enero', ventas: 320000, interacciones: 2 },
-    { mes: 'Febrero', ventas: 450000, interacciones: 4 },
-    { mes: 'Marzo', ventas: 780000, interacciones: 6 },
-    { mes: 'Abril', ventas: 620000, interacciones: 5 },
-    { mes: 'Mayo', ventas: 890000, interacciones: 7 },
-    { mes: 'Junio', ventas: 1100000, interacciones: 8 },
-    { mes: 'Julio', ventas: 1350000, interacciones: 10 },
-    { mes: 'Agosto', ventas: 1420000, interacciones: 12 },
-    { mes: 'Septiembre', ventas: 0, interacciones: 0 },
-    { mes: 'Octubre', ventas: 0, interacciones: 0 },
-    { mes: 'Noviembre', ventas: 0, interacciones: 0 },
-    { mes: 'Diciembre', ventas: 0, interacciones: 0 },
-  ], []);
-
-  // 4. Product Lines Data (from Excel)
-  const productLinesData = useMemo(() => [
-    { linea: 'Herbicidas', interacciones: 12, pct: 40, color: '#1a7d6b' },
-    { linea: 'Fungicidas', interacciones: 6, pct: 20, color: '#0ea5e9' },
-    { linea: 'Insecticidas', interacciones: 6, pct: 20, color: '#f59e0b' },
-    { linea: 'Fertilizantes', interacciones: 4, pct: 15, color: '#16a34a' },
-    { linea: 'Coadyuvante', interacciones: 2, pct: 5, color: '#8b5cf6' },
-    { linea: 'Mantenimiento silos', interacciones: 1, pct: 3, color: '#64748b' },
-  ], []);
+  // Top 5 Clientes por Ventas
+  const top5Clients = useMemo(() => {
+    const medals = ['🥇', '🥈', '🥉', '4°', '5°'];
+    return [...clients]
+      .map(c => {
+        const clientOpps = filteredOpps.filter(o => o.clienteId === c.id || o.empresa === c.empresa);
+        const ventasTotal = clientOpps.reduce((sum, o) => sum + (Number(o.volumenFacturado) || 0), 0);
+        const interacciones = filteredActivities.filter(a => a.clienteId === c.id || a.empresa === c.empresa).length;
+        
+        return {
+          empresa: c.empresa || c.nombre,
+          tipo: c.tipo || c.tipoCliente || 'Cliente',
+          ventas: ventasTotal,
+          interacciones: interacciones,
+          estado: c.estado || 'Activo',
+          diasSinCtcto: c.diasSinContacto || 0
+        };
+      })
+      .sort((a, b) => b.ventas - a.ventas)
+      .slice(0, 5)
+      .map((item, idx) => ({ ...item, rank: idx + 1, medal: medals[idx] || `${idx + 1}°` }));
+  }, [clients, filteredOpps, filteredActivities]);
 
   const activeFilters = [filterOwner, filterPeriod].filter(Boolean).length;
+
+  if (loading) {
+    return (
+      <div className="dashboard-loading" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '1rem', color: '#64748b' }}>
+        <Loader2 className="animate-spin" size={36} color="#1a7d6b" />
+        <p>Cargando información desde la base de datos...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-error" style={{ padding: '2rem', textAlign: 'center', background: '#fef2f2', borderRadius: '12px', border: '1px solid #fecaca', margin: '2rem', color: '#dc2626' }}>
+        <AlertCircle size={32} style={{ marginBottom: '0.5rem' }} />
+        <h3>Error al obtener los datos</h3>
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()} style={{ marginTop: '1rem', padding: '8px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+          Reintentar
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard">
@@ -414,7 +479,7 @@ export const AdminDashboardPage = () => {
         )}
       </div>
 
-      {/* Resumen Ejecutivo — 6 KPI Cards (from Excel) */}
+      {/* Resumen Ejecutivo — 6 KPI Cards */}
       <div className="dashboard__exec-kpis">
         <div className="exec-kpi-card">
           <div className="exec-kpi-header">
@@ -471,7 +536,7 @@ export const AdminDashboardPage = () => {
         </div>
       </div>
 
-      {/* Row 2: Top 5 Clientes por Ventas + Estado de Oportunidades (from Excel) */}
+      {/* Row 2: Top 5 Clientes por Ventas + Estado de Oportunidades */}
       <div className="dashboard__grid">
         {/* Top 5 Clientes por Ventas Table */}
         <div className="dashboard__card">
@@ -496,23 +561,31 @@ export const AdminDashboardPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {top5Clients.map(c => (
-                  <tr key={c.empresa}>
-                    <td className="rank-cell"><strong>{c.medal}</strong></td>
-                    <td className="name-cell"><strong>{c.empresa}</strong></td>
-                    <td><span className="client-type-tag">{c.tipo}</span></td>
-                    <td className="amount-cell"><strong>{formatCurrency(c.ventas)}</strong></td>
-                    <td>{c.interacciones}</td>
-                    <td><span className="client-status-badge">{c.estado}</span></td>
-                    <td className="text-muted">{c.diasSinCtcto} días</td>
+                {top5Clients.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>
+                      No hay suficientes datos registrados
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  top5Clients.map(c => (
+                    <tr key={c.empresa}>
+                      <td className="rank-cell"><strong>{c.medal}</strong></td>
+                      <td className="name-cell"><strong>{c.empresa}</strong></td>
+                      <td><span className="client-type-tag">{c.tipo}</span></td>
+                      <td className="amount-cell"><strong>{formatCurrency(c.ventas)}</strong></td>
+                      <td>{c.interacciones}</td>
+                      <td><span className="client-status-badge">{c.estado}</span></td>
+                      <td className="text-muted">{c.diasSinCtcto} días</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Estado de Oportunidades / Pipeline Summary */}
+        {/* Estado de Oportunidades */}
         <div className="dashboard__chart-card">
           <div className="dashboard__chart-header">
             <div>
@@ -527,7 +600,7 @@ export const AdminDashboardPage = () => {
         </div>
       </div>
 
-      {/* Row 3: Ventas por Mes — Año Actual + Líneas de Producto (from Excel) */}
+      {/* Row 3: Ventas por Mes + Líneas de Producto */}
       <div className="dashboard__grid">
         {/* Ventas por Mes */}
         <div className="dashboard__chart-card">
@@ -540,10 +613,10 @@ export const AdminDashboardPage = () => {
               <p className="dashboard__chart-subtitle">Evolución mensual de facturación comercial ($)</p>
             </div>
           </div>
-          <MonthlySalesChart data={monthlySalesData} height={260} />
+          <MonthlySalesChart data={monthlySales} height={260} />
         </div>
 
-        {/* Líneas de Producto / Servicios */}
+        {/* Líneas de Producto */}
         <div className="dashboard__chart-card">
           <div className="dashboard__chart-header">
             <div>
@@ -554,7 +627,7 @@ export const AdminDashboardPage = () => {
               <p className="dashboard__chart-subtitle">Participación e interacciones por categoría</p>
             </div>
           </div>
-          <ProductLinesChart data={productLinesData} height={260} />
+          <ProductLinesChart data={productLines} height={260} />
         </div>
       </div>
 
@@ -564,21 +637,24 @@ export const AdminDashboardPage = () => {
           <h2 className="dashboard__card-title">Rendimiento del Equipo Comercial</h2>
         </div>
         <div className="sellers-grid">
-          {mockSellers.map(seller => {
-            const sellerOpps = filteredOpps.filter(o => o.sellerId === seller.id);
-            const sellerVol = sellerOpps.reduce((sum, o) => sum + (o.volumenFacturado || 0), 0);
-            const sellerObj = mockObjectives.find(o => o.sellerId === seller.id);
-            const progress = sellerObj ? Math.min(100, ((sellerObj.cumplido / sellerObj.cantidadMeta) * 100)) : 0;
+          {sellers.map(seller => {
+            const name = seller.nombreApellido || seller.user?.nombreApellido || 'Sin nombre';
+            const sellerOpps = filteredOpps.filter(o => o.sellerId === seller.id || o.vendedor === name);
+            const sellerVol = sellerOpps.reduce((sum, o) => sum + (Number(o.volumenFacturado) || 0), 0);
+            const sellerObj = objectives.find(o => o.sellerId === seller.id || o.vendedor === name);
+            
+            const progress = (sellerObj && sellerObj.cantidadMeta > 0)
+              ? Math.min(100, ((sellerObj.cumplido / sellerObj.cantidadMeta) * 100))
+              : 0;
 
             return (
-              <div key={seller.id} className="seller-card">
+              <div key={seller.id || name} className="seller-card">
                 <div className="seller-card__header">
                   <div className="seller-card__avatar">
-                    {seller.user.nombreApellido.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    {name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                   </div>
                   <div>
-                    <div className="seller-card__name">{seller.user.nombreApellido}</div>
-                    <div className="seller-card__zone">{seller.zonaAsignada}</div>
+                    <div className="seller-card__name">{name}</div>
                   </div>
                 </div>
                 <div className="seller-card__stats">
@@ -594,7 +670,7 @@ export const AdminDashboardPage = () => {
                 {sellerObj && (
                   <div className="seller-card__objective">
                     <div className="seller-card__obj-header">
-                      <span className="seller-card__obj-label">{sellerObj.descripcion.slice(0, 40)}...</span>
+                      <span className="seller-card__obj-label">{sellerObj.descripcion?.slice(0, 40)}...</span>
                       <span className="seller-card__obj-pct">{progress.toFixed(0)}%</span>
                     </div>
                     <div className="seller-card__progress-track">

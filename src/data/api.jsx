@@ -279,3 +279,21 @@ export const createActivity = async (activityData) => {
     return { id: Date.now(), ...payload };
   }
 };
+
+
+export const OPPORTUNITY_STATES = [
+  { key: 'prospecto', label: 'Prospecto', color: '#64748b' },
+  { key: 'contacto', label: 'En Contacto', color: '#0ea5e9' },
+  { key: 'cotizacion', label: 'Cotización', color: '#8b5cf6' },
+  { key: 'negociacion', label: 'Negociación', color: '#f59e0b' },
+  { key: 'ganada', label: 'Ganada', color: '#16a34a' },
+  { key: 'perdida', label: 'Perdida', color: '#dc2626' }
+];
+
+export async function getDashboardData() {
+  const response = await fetch(`${API_BASE_URL}/dashboard`);
+  if (!response.ok) {
+    throw new Error('Error al obtener los datos del dashboard');
+  }
+  return await response.json();
+}
