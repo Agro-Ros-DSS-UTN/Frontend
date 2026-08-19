@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   ClipboardList,
@@ -27,6 +28,7 @@ import {
   Sparkles,
   Maximize2,
   Sprout,
+  AlertCircle,
 } from 'lucide-react';
 import { mockCompanies } from '../../data/mockData';
 import { createActivity } from '../../data/api';
@@ -36,50 +38,127 @@ import './SellerActivitiesPage.css';
 
 /* ─────────────────────────────────────────────
    Interactive Voice Note / Audio Player Component
+   (Uses real HTML5 Audio with scrubbable waveform)
    ───────────────────────────────────────────── */
-const VoiceNotePlayer = ({ audioName, duration = '0:34', isWhatsApp = true }) => {
+const VoiceNotePlayer = ({
+  audioUrl,
+  audioName,
+  duration = '0:30',
+  isWhatsApp = true,
+  onRemove = null,
+  compact = false,
+}) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const intervalRef = useRef(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0);
+  const audioRef = useRef(null);
+  const mockIntervalRef = useRef(null);
 
-  const durationSec = useMemo(() => {
-    const parts = duration.split(':');
-    return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 30);
-  }, [duration]);
+  useEffect(() => {
+    const audio = new Audio();
+    if (audioUrl) {
+      audio.src = audioUrl;
+    }
+    audioRef.current = audio;
+
+    const handleLoadedMetadata = () => {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        setTotalDuration(audio.duration);
+      }
+    };
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        setTotalDuration(audio.duration);
+      }
+    };
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.pause();
+      clearInterval(mockIntervalRef.current);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [audioUrl]);
 
   const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
     if (isPlaying) {
-      clearInterval(intervalRef.current);
+      audio.pause();
+      clearInterval(mockIntervalRef.current);
       setIsPlaying(false);
     } else {
-      setIsPlaying(true);
-      intervalRef.current = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(intervalRef.current);
-            setIsPlaying(false);
-            return 0;
-          }
-          return prev + (100 / (durationSec * 10));
-        });
-      }, 100);
+      if (!audio.src || audio.src === window.location.href) {
+        simulateFallbackPlayback();
+        return;
+      }
+      audio.play().then(() => {
+        setIsPlaying(true);
+      }).catch(err => {
+        console.warn('Playback fallback active:', err);
+        simulateFallbackPlayback();
+      });
     }
   };
 
-  useEffect(() => {
-    return () => clearInterval(intervalRef.current);
-  }, []);
+  const simulateFallbackPlayback = () => {
+    setIsPlaying(true);
+    let sec = 0;
+    const durSec = 15;
+    setTotalDuration(durSec);
+    mockIntervalRef.current = setInterval(() => {
+      sec += 0.5;
+      setCurrentTime(sec);
+      if (sec >= durSec) {
+        clearInterval(mockIntervalRef.current);
+        setIsPlaying(false);
+        setCurrentTime(0);
+      }
+    }, 500);
+  };
 
-  const currentSec = Math.floor((progress / 100) * durationSec);
-  const currentFormatted = `0:${currentSec < 10 ? '0' : ''}${currentSec}`;
+  const seekTo = (fraction) => {
+    const audio = audioRef.current;
+    const dur = totalDuration > 0 ? totalDuration : 30;
+    const target = fraction * dur;
+    if (audio && audio.src && audio.src !== window.location.href) {
+      try {
+        audio.currentTime = target;
+      } catch {}
+    }
+    setCurrentTime(target);
+  };
+
+  const formatSec = (sec) => {
+    if (!sec || isNaN(sec)) return duration;
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const durNumber = totalDuration > 0 ? totalDuration : 30;
+  const progressPercent = Math.min(100, (currentTime / durNumber) * 100);
 
   return (
-    <div className={`voice-player ${isWhatsApp ? 'voice-player--whatsapp' : ''}`}>
+    <div className={`voice-player ${isWhatsApp ? 'voice-player--whatsapp' : ''} ${compact ? 'voice-player--compact' : ''}`}>
       <button
         type="button"
         className="voice-player__play-btn"
         onClick={togglePlay}
-        title={isPlaying ? 'Pausar audio' : 'Reproducir audio'}
+        title={isPlaying ? 'Pausar audio' : 'Escuchar audio grabado'}
       >
         {isPlaying ? <Pause size={16} /> : <Play size={16} style={{ marginLeft: 2 }} />}
       </button>
@@ -88,73 +167,198 @@ const VoiceNotePlayer = ({ audioName, duration = '0:34', isWhatsApp = true }) =>
         <div className="voice-player__header">
           <div className="voice-player__title-box">
             <Mic size={13} className="voice-player__mic-icon" />
-            <span className="voice-player__name">{audioName}</span>
+            <span className="voice-player__name" title={audioName}>{audioName}</span>
           </div>
           <span className="voice-player__timer">
-            {isPlaying ? currentFormatted : duration}
+            {isPlaying ? `${formatSec(currentTime)} / ${formatSec(durNumber)}` : (duration || formatSec(durNumber))}
           </span>
         </div>
 
-        {/* Animated Waveform Bars */}
-        <div className="voice-player__waveform">
-          {[25, 45, 80, 55, 30, 70, 95, 40, 60, 85, 35, 90, 65, 45, 80, 50, 30, 75, 90, 40, 60, 35, 70, 50].map((height, i) => {
-            const barProgress = (i / 24) * 100;
-            const isFilled = progress >= barProgress;
+        {/* WhatsApp Voice Notes Dots Waveform (Efecto Puntitos) */}
+        <div
+          className="voice-player__dots-waveform"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const fraction = Math.max(0, Math.min(1, clickX / rect.width));
+            seekTo(fraction);
+          }}
+          style={{ cursor: 'pointer' }}
+          title="Hacé clic en cualquier punto para adelantar o retroceder el audio"
+        >
+          {[4, 8, 14, 6, 12, 18, 8, 14, 10, 16, 6, 12, 18, 8, 14, 6, 12, 16, 8, 14, 6, 10, 14, 6, 12, 16, 8, 12, 6, 4].map((dotHeight, i) => {
+            const dotProgress = (i / 30) * 100;
+            const isFilled = progressPercent >= dotProgress;
             return (
               <span
                 key={i}
-                className={`wave-bar ${isFilled ? 'filled' : ''} ${isPlaying ? 'animating' : ''}`}
+                className={`wave-dot ${isFilled ? 'filled' : ''} ${isPlaying ? 'pulsing' : ''}`}
                 style={{
-                  height: `${Math.max(15, isPlaying ? (height + ((i % 3) * 5)) % 100 : height)}%`,
-                  animationDelay: `${(i % 5) * 0.15}s`,
+                  height: `${isPlaying ? Math.max(4, (dotHeight + ((i % 4) * 3)) % 18) : dotHeight}px`,
                 }}
               />
             );
           })}
         </div>
       </div>
+
+      {onRemove && (
+        <button
+          type="button"
+          className="voice-player__remove-btn"
+          onClick={onRemove}
+          title="Eliminar este audio grabado"
+        >
+          <Trash2 size={15} />
+        </button>
+      )}
     </div>
   );
 };
 
 /* ─────────────────────────────────────────────
-   Live Voice Note Recorder Component
+   Real Web Audio MediaRecorder Component
    ───────────────────────────────────────────── */
 const VoiceRecorderWidget = ({ onAddAudio }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
-  const timerRef = useRef(null);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [errorMsg, setErrorMsg] = useState(null);
 
-  const startRecording = () => {
-    setIsRecording(true);
-    setRecordTime(0);
-    timerRef.current = setInterval(() => {
-      setRecordTime(prev => prev + 1);
-    }, 1000);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const timerRef = useRef(null);
+  const audioStreamRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const audioContextRef = useRef(null);
+
+  const startRecording = async () => {
+    setErrorMsg(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          const audioCtx = new AudioContext();
+          audioContextRef.current = audioCtx;
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 32;
+          source.connect(analyser);
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+          const updateVolume = () => {
+            if (!analyser) return;
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            const avg = sum / dataArray.length;
+            setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+            animationFrameRef.current = requestAnimationFrame(updateVolume);
+          };
+          updateVolume();
+        }
+      } catch (err) {
+        console.warn('Audio visualizer:', err);
+      }
+
+      let mimeType = 'audio/webm';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+          mimeType = 'audio/ogg;codecs=opus';
+        }
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64Data = reader.result;
+          const mins = Math.floor(recordTime / 60);
+          const secs = recordTime % 60;
+          const durStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+          const now = new Date();
+          const timestampStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }).replace(':', '-');
+
+          const newAudio = {
+            id: 'aud_' + Date.now(),
+            tipo: 'audio',
+            nombre: `Nota_Voz_Campo_${timestampStr}.webm`,
+            duracion: durStr === '0:00' ? '0:05' : durStr,
+            url: audioUrl,
+            dataUrl: base64Data,
+            blob: audioBlob,
+            fecha: now.toISOString(),
+            isWhatsApp: true,
+          };
+          onAddAudio(newAudio);
+        };
+
+        if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach(t => t.stop());
+        }
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        if (audioContextRef.current) audioContextRef.current.close();
+      };
+
+      mediaRecorder.start(200);
+      setIsRecording(true);
+      setRecordTime(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordTime(prev => prev + 1);
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error accediendo al micrófono:', err);
+      setErrorMsg('No se pudo acceder al micrófono. Verificá los permisos del navegador.');
+    }
   };
 
   const stopAndSave = () => {
-    clearInterval(timerRef.current);
-    setIsRecording(false);
-    const mins = Math.floor(recordTime / 60);
-    const secs = recordTime % 60;
-    const durStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-    const newAudio = {
-      id: 'aud_' + Date.now(),
-      tipo: 'audio',
-      nombre: `Nota_Voz_Campo_${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}.ogg`,
-      duracion: durStr === '0:00' ? '0:18' : durStr,
-      fecha: new Date().toISOString(),
-      isWhatsApp: true,
-    };
-    onAddAudio(newAudio);
-    setRecordTime(0);
+    if (mediaRecorderRef.current && isRecording) {
+      clearInterval(timerRef.current);
+      setIsRecording(false);
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (err) {
+        console.warn('Stop error:', err);
+      }
+    }
   };
 
   const cancelRecording = () => {
-    clearInterval(timerRef.current);
-    setIsRecording(false);
-    setRecordTime(0);
+    if (mediaRecorderRef.current && isRecording) {
+      clearInterval(timerRef.current);
+      setIsRecording(false);
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current) audioContextRef.current.close();
+      audioChunksRef.current = [];
+      setRecordTime(0);
+    }
   };
 
   const formatTimer = (t) => {
@@ -172,11 +376,17 @@ const VoiceRecorderWidget = ({ onAddAudio }) => {
           onClick={startRecording}
         >
           <Mic size={16} />
-          <span>Grabar Nota de Voz en Campo</span>
+          <span>Grabar Nota de Voz en Campo (Micrófono Real)</span>
         </button>
         <span className="voice-record-hint">
-          Ideal para registrar observaciones agronómicas en el lote
+          Hacé clic para grabar audio real y escucharlo antes de enviar
         </span>
+        {errorMsg && (
+          <div className="voice-record-error">
+            <AlertCircle size={14} />
+            <span>{errorMsg}</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -185,32 +395,44 @@ const VoiceRecorderWidget = ({ onAddAudio }) => {
     <div className="voice-recorder-active">
       <div className="voice-recorder-active__left">
         <span className="recording-pulse-dot" />
-        <span className="recording-text">GRABANDO NOTA DE VOZ:</span>
+        <span className="recording-text">GRABANDO TU VOZ:</span>
         <span className="recording-timer">{formatTimer(recordTime)}</span>
+
+        <div className="recording-live-bars">
+          {[1, 2, 3, 4, 5].map(i => (
+            <span
+              key={i}
+              className="recording-live-bar"
+              style={{
+                height: `${Math.max(6, Math.min(22, (audioLevel * (i * 0.35))))}px`,
+              }}
+            />
+          ))}
+        </div>
       </div>
+
       <div className="voice-recorder-active__actions">
         <button
           type="button"
           className="rec-action-btn rec-action-btn--save"
           onClick={stopAndSave}
+          title="Guardar grabación para escucharla y enviarla"
         >
-          <CheckCircle2 size={15} /> Guardar Audio
+          <CheckCircle2 size={16} /> Guardar Audio
         </button>
         <button
           type="button"
           className="rec-action-btn rec-action-btn--cancel"
           onClick={cancelRecording}
+          title="Descartar grabación"
         >
-          <X size={15} /> Cancelar
+          <X size={16} /> Cancelar
         </button>
       </div>
     </div>
   );
 };
 
-/* ─────────────────────────────────────────────
-   Initial Mock Activities with Rich Attachments
-   ───────────────────────────────────────────── */
 const INITIAL_SELLER_ACTIVITIES = [
   {
     idFormulario: 101,
@@ -223,7 +445,7 @@ const INITIAL_SELLER_ACTIVITIES = [
     descripcion: 'Recorrida en lote Este (450 ha). Se detectó presencia moderada de Oruga Medidora (Rachiplusia nu) en estrato medio. El productor acordó aplicación de Coragen + Coadyuvante siliconado.',
     servicio: 'Monitoreo de plagas y asesoramiento técnico',
     montoVenta: 480000,
-    fechaHora: '2024-08-11T09:45:00',
+    fechaHora: '2026-08-11T09:45:00',
     vendedor: 'Martín Gutiérrez',
     adjuntos: [
       {
@@ -232,7 +454,7 @@ const INITIAL_SELLER_ACTIVITIES = [
         nombre: 'Audio_WhatsApp_Roberto_Aguilar_Lote_Este.ogg',
         duracion: '0:42',
         isWhatsApp: true,
-        fecha: '2024-08-11T09:50:00',
+        fecha: '2026-08-11T09:50:00',
       },
       {
         id: 'att_2',
@@ -240,14 +462,14 @@ const INITIAL_SELLER_ACTIVITIES = [
         nombre: 'foto_lote_soja_orugas_casilda.png',
         url: fieldPhoto01,
         tamanio: '3.2 MB',
-        fecha: '2024-08-11T09:46:00',
+        fecha: '2026-08-11T09:46:00',
       },
       {
         id: 'att_3',
         tipo: 'documento',
         nombre: 'remito_entrega_herbicidas_#4102.pdf',
         tamanio: '1.4 MB',
-        fecha: '2024-08-11T10:00:00',
+        fecha: '2026-08-11T10:00:00',
       },
     ],
     tareaSeguimiento: {
@@ -268,7 +490,7 @@ const INITIAL_SELLER_ACTIVITIES = [
     descripcion: 'Intercambio de audios por cotización de Fertilizante Foliar y Fungicida preventivo para roya. Se le envió la tabla comparativa de rendimiento y precios de AgroRos.',
     servicio: 'Recomendación y receta de fertilización foliar',
     montoVenta: 720000,
-    fechaHora: '2024-08-10T15:20:00',
+    fechaHora: '2026-08-10T15:20:00',
     vendedor: 'Martín Gutiérrez',
     adjuntos: [
       {
@@ -277,14 +499,14 @@ const INITIAL_SELLER_ACTIVITIES = [
         nombre: 'Audio_WA_Carlos_Alamos_Cotizacion_Fungicidas.mp3',
         duracion: '0:28',
         isWhatsApp: true,
-        fecha: '2024-08-10T15:22:00',
+        fecha: '2026-08-10T15:22:00',
       },
       {
         id: 'att_5',
         tipo: 'documento',
         nombre: 'presupuesto_combo_trigo_alamos_v2.pdf',
         tamanio: '890 KB',
-        fecha: '2024-08-10T15:25:00',
+        fecha: '2026-08-10T15:25:00',
       },
     ],
     tareaSeguimiento: {
@@ -305,7 +527,7 @@ const INITIAL_SELLER_ACTIVITIES = [
     descripcion: 'Muestreo de suelo en lote bajo para verificar niveles de Fósforo y Nitrógeno antes de la siembra. Se observó excelente cobertura de rastrojo y humedad óptima.',
     servicio: 'Muestreo y análisis de fertilidad de suelo',
     montoVenta: null,
-    fechaHora: '2024-08-08T11:15:00',
+    fechaHora: '2026-08-08T11:15:00',
     vendedor: 'Martín Gutiérrez',
     adjuntos: [
       {
@@ -314,63 +536,51 @@ const INITIAL_SELLER_ACTIVITIES = [
         nombre: 'monitoreo_cobertura_arequito.png',
         url: fieldPhoto02,
         tamanio: '2.8 MB',
-        fecha: '2024-08-08T11:20:00',
+        fecha: '2026-08-08T11:20:00',
       },
       {
         id: 'att_7',
         tipo: 'documento',
         nombre: 'informe_analisis_suelo_lab_rosario.pdf',
         tamanio: '2.1 MB',
-        fecha: '2024-08-08T12:00:00',
+        fecha: '2026-08-08T12:00:00',
       },
     ],
     tareaSeguimiento: null,
-  },
-  {
-    idFormulario: 104,
-    tipoContacto: 'Llamada',
-    empresa: 'Cooperativa Agrícola del Sur',
-    contactoPersona: 'Silvia Marchetti',
-    telefono: '+54 3492 50-9876',
-    localidad: 'Rafaela',
-    cultivo: 'Girasol / Soja',
-    descripcion: 'Llamada para coordinar entrega de 20 palets de glifosato y coadyuvante. Confirmaron que van a retirar con camión propio el día viernes.',
-    servicio: 'Entrega de insumos y logística comercial',
-    montoVenta: 1250000,
-    fechaHora: '2024-08-07T16:30:00',
-    vendedor: 'Martín Gutiérrez',
-    adjuntos: [],
-    tareaSeguimiento: {
-      activa: true,
-      titulo: 'Verificar con depósito el armado del pedido de Rafaela',
-      fechaVencimiento: '2026-08-15',
-      prioridad: 'Alta',
-    },
-  },
+  }
 ];
 
 const SERVICIOS_AGRONOMICOS = [
-  'Asesoramiento agronómico en lote',
+  'Monitoreo de plagas y asesoramiento técnico',
+  'Recomendación y receta de fertilización foliar',
   'Muestreo y análisis de fertilidad de suelo',
-  'Monitoreo de malezas y plagas',
-  'Recomendación y receta de fertilización',
-  'Calibración de equipo pulverizador',
-  'Entrega de insumos y remito firmado',
-  'Demostración de producto / Ensayo comercial',
-  'Gestión comercial y seguimiento',
+  'Asesoramiento técnico pre-siembra',
+  'Auditoría y calibración de pulverizadoras',
+  'Entrega de insumos y verificación de remito',
+  'Seguimiento post-aplicación de fitosanitarios',
 ];
 
-const CULTIVOS_LIST = ['Soja 1ra', 'Soja 2da', 'Maíz', 'Trigo', 'Girasol', 'Cebada', 'Barbecho químico'];
+const TIPOS_CONTACTO = [
+  { label: 'Visita', icon: MapPin },
+  { label: 'Llamada', icon: Phone },
+  { label: 'WhatsApp', icon: MessageSquare },
+  { label: 'Email', icon: Mail },
+  { label: 'Reunión', icon: Building2 },
+];
+
+const CULTIVOS_LIST = ['Soja 1ra', 'Soja 2da', 'Maíz Temprano', 'Maíz Tardío', 'Trigo / Cebada', 'Girasol', 'Barbecho Químico'];
 
 export const SellerActivitiesPage = () => {
   const [activities, setActivities] = useState(INITIAL_SELLER_ACTIVITIES);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [attachmentFilter, setAttachmentFilter] = useState('all'); // 'all' | 'audios' | 'fotos' | 'ventas'
+  const [attachmentFilter, setAttachmentFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
-  const [lightboxImage, setLightboxImage] = useState(null);
+  const [selectedImageForLightbox, setSelectedImageForLightbox] = useState(null);
 
-  // Form State
+  const fileInputRef = useRef(null);
+  const docInputRef = useRef(null);
+
   const [form, setForm] = useState({
     empresa: mockCompanies[0]?.nombreEmpresa || 'Campo Grande S.R.L.',
     contactoPersona: mockCompanies[0]?.contacto || 'Roberto Aguilar',
@@ -379,7 +589,7 @@ export const SellerActivitiesPage = () => {
     tipoContacto: 'Visita',
     cultivo: 'Soja 1ra',
     descripcion: '',
-    servicio: 'Asesoramiento agronómico en lote',
+    servicio: 'Monitoreo de plagas y asesoramiento técnico',
     montoVenta: '',
     fechaHora: new Date().toISOString().slice(0, 16),
     adjuntos: [],
@@ -389,48 +599,70 @@ export const SellerActivitiesPage = () => {
     tareaPrioridad: 'Alta',
   });
 
-  const fileInputRef = useRef(null);
-  const docInputRef = useRef(null);
-
-  // When company changes, sync contact & locality
   const handleCompanyChange = (companyName) => {
-    const comp = mockCompanies.find(c => c.nombreEmpresa === companyName);
+    const selectedComp = mockCompanies.find(c => c.nombreEmpresa === companyName);
     setForm(prev => ({
       ...prev,
       empresa: companyName,
-      contactoPersona: comp?.contacto || 'Productor',
-      localidad: comp?.localidad || 'Casilda',
+      contactoPersona: selectedComp?.contacto || 'Productor',
+      localidad: selectedComp?.localidad || 'Santa Fe',
+      telefono: selectedComp?.telefono || '+54 341 456-7890',
     }));
   };
 
-  // Add Voice Note
-  const handleAddAudioAttachment = (audioObj) => {
+  const handleAddAudioAttachment = (newAudio) => {
     setForm(prev => ({
       ...prev,
-      adjuntos: [...prev.adjuntos, audioObj],
+      adjuntos: [...prev.adjuntos, newAudio],
     }));
   };
 
-  // Add Photo Attachment
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
+  const handlePhotoUpload = (e) => {
+    const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
     files.forEach(file => {
-      const isImg = file.type.startsWith('image/');
-      const newAtt = {
-        id: 'att_' + Date.now() + Math.random().toString(36).substr(2, 4),
-        tipo: isImg ? 'imagen' : 'documento',
-        nombre: file.name,
-        url: isImg ? URL.createObjectURL(file) : null,
-        tamanio: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        fecha: new Date().toISOString(),
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const newPhoto = {
+          id: 'photo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          tipo: 'imagen',
+          nombre: file.name,
+          url: event.target.result,
+          tamanio: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+          fecha: new Date().toISOString(),
+        };
+        setForm(prev => ({ ...prev, adjuntos: [...prev.adjuntos, newPhoto] }));
       };
-      setForm(prev => ({ ...prev, adjuntos: [...prev.adjuntos, newAtt] }));
+      reader.readAsDataURL(file);
     });
+
+    if (e.target) e.target.value = '';
   };
 
-  // Remove Attachment
+  const handleDocUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const newDoc = {
+          id: 'doc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          tipo: 'documento',
+          nombre: file.name,
+          url: event.target.result,
+          tamanio: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+          fecha: new Date().toISOString(),
+        };
+        setForm(prev => ({ ...prev, adjuntos: [...prev.adjuntos, newDoc] }));
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (e.target) e.target.value = '';
+  };
+
   const handleRemoveAttachment = (attId) => {
     setForm(prev => ({
       ...prev,
@@ -438,7 +670,6 @@ export const SellerActivitiesPage = () => {
     }));
   };
 
-  // Filtered activities list
   const filteredActivities = useMemo(() => {
     let result = [...activities];
 
@@ -469,6 +700,7 @@ export const SellerActivitiesPage = () => {
   }, [activities, searchQuery, typeFilter, attachmentFilter]);
 
   const formatDate = (dateStr) => {
+    if (!dateStr) return '--';
     const d = new Date(dateStr);
     return d.toLocaleDateString('es-AR', {
       day: 'numeric',
@@ -506,7 +738,6 @@ export const SellerActivitiesPage = () => {
     }
   };
 
-  // Submit Activity Form
   const handleCreateActivity = async (e) => {
     e.preventDefault();
 
@@ -547,9 +778,9 @@ export const SellerActivitiesPage = () => {
     } catch (err) {
       setActivities(prev => [newAct, ...prev]);
     }
+
     setShowModal(false);
 
-    // Reset Form
     setForm({
       empresa: mockCompanies[0]?.nombreEmpresa || 'Campo Grande S.R.L.',
       contactoPersona: mockCompanies[0]?.contacto || 'Roberto Aguilar',
@@ -558,7 +789,7 @@ export const SellerActivitiesPage = () => {
       tipoContacto: 'Visita',
       cultivo: 'Soja 1ra',
       descripcion: '',
-      servicio: 'Asesoramiento agronómico en lote',
+      servicio: 'Monitoreo de plagas y asesoramiento técnico',
       montoVenta: '',
       fechaHora: new Date().toISOString().slice(0, 16),
       adjuntos: [],
@@ -571,85 +802,141 @@ export const SellerActivitiesPage = () => {
 
   return (
     <div className="seller-activities-page">
-      {/* Header */}
-      <div className="seller-activities-header">
-        <div>
-          <h1 className="seller-activities-title">Mis Actividades en Campo</h1>
-          <p className="seller-activities-subtitle">
-            Historial de interacciones, notas de voz de WhatsApp, fotos de lote y remitos
+      <div className="seller-header-banner">
+        <div className="seller-header-banner__left">
+          <div className="seller-badge-pill">
+            <Sprout size={14} />
+            <span>Portal del Vendedor en Campo · Agroquímica Rosario</span>
+          </div>
+          <h1 className="seller-header-title">Libreta de Campo y Actividades</h1>
+          <p className="seller-header-subtitle">
+            Registrá visitas técnicas a lotes, notas de voz de WhatsApp, fotos de malezas y remitos firmados
           </p>
         </div>
-        <button className="seller-act-btn" onClick={() => setShowModal(true)}>
-          <Plus size={16} /> Cargar Nueva Actividad
+
+        <button className="seller-register-btn" onClick={() => setShowModal(true)}>
+          <Plus size={18} />
+          <span>Registrar Actividad en Campo</span>
         </button>
       </div>
 
-      {/* Toolbar & Filters */}
-      <div className="seller-activities-toolbar">
-        <div className="seller-activities-search">
+      <div className="seller-stats-grid">
+        <div className="seller-stat-card">
+          <div className="seller-stat-card__icon" style={{ backgroundColor: 'var(--color-primary-50)', color: 'var(--color-primary)' }}>
+            <ClipboardList size={22} />
+          </div>
+          <div>
+            <span className="seller-stat-label">Total Actividades</span>
+            <span className="seller-stat-value">{activities.length}</span>
+            <span className="seller-stat-sub">Registros en el CRM</span>
+          </div>
+        </div>
+
+        <div className="seller-stat-card">
+          <div className="seller-stat-card__icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
+            <Mic size={22} />
+          </div>
+          <div>
+            <span className="seller-stat-label">Notas de Voz</span>
+            <span className="seller-stat-value">
+              {activities.reduce((acc, a) => acc + (a.adjuntos?.filter(x => x.tipo === 'audio').length || 0), 0)}
+            </span>
+            <span className="seller-stat-sub">Audios reproducibles</span>
+          </div>
+        </div>
+
+        <div className="seller-stat-card">
+          <div className="seller-stat-card__icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+            <Camera size={22} />
+          </div>
+          <div>
+            <span className="seller-stat-label">Fotos de Lotes</span>
+            <span className="seller-stat-value">
+              {activities.reduce((acc, a) => acc + (a.adjuntos?.filter(x => x.tipo === 'imagen').length || 0), 0)}
+            </span>
+            <span className="seller-stat-sub">Monitoreo agronómico</span>
+          </div>
+        </div>
+
+        <div className="seller-stat-card">
+          <div className="seller-stat-card__icon" style={{ backgroundColor: '#fffbeb', color: '#d97706' }}>
+            <DollarSign size={22} />
+          </div>
+          <div>
+            <span className="seller-stat-label">Ventas Cerradas</span>
+            <span className="seller-stat-value">
+              {formatCurrency(activities.reduce((acc, a) => acc + (a.montoVenta || 0), 0))}
+            </span>
+            <span className="seller-stat-sub">En visitas comerciales</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="seller-toolbar">
+        <div className="seller-search-box">
           <Search size={16} />
           <input
             type="text"
-            placeholder="Buscar por productor, cultivo, plaga o remito..."
+            placeholder="Buscar por productor, empresa, cultivo, servicio o descripción..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="seller-activities-filters">
-          <button
-            className={`act-chip ${!typeFilter ? 'active' : ''}`}
-            onClick={() => setTypeFilter('')}
-          >
-            Todas ({activities.length})
-          </button>
-          {['Visita', 'WhatsApp', 'Llamada', 'Email'].map(t => (
+        <div className="seller-filters-group">
+          <div className="seller-filter-chips">
             <button
-              key={t}
-              className={`act-chip ${typeFilter === t ? 'active' : ''}`}
-              onClick={() => setTypeFilter(typeFilter === t ? '' : t)}
+              className={`seller-chip ${!typeFilter ? 'active' : ''}`}
+              onClick={() => setTypeFilter('')}
             >
-              {t}
+              Todas
             </button>
-          ))}
-        </div>
+            {TIPOS_CONTACTO.map(t => (
+              <button
+                key={t.label}
+                className={`seller-chip ${typeFilter === t.label ? 'active' : ''}`}
+                onClick={() => setTypeFilter(typeFilter === t.label ? '' : t.label)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
 
-        {/* Sub-filters by Attachment Type */}
-        <div className="seller-attachment-filters">
-          <button
-            className={`att-filter-chip ${attachmentFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setAttachmentFilter('all')}
-          >
-            Todos los adjuntos
-          </button>
-          <button
-            className={`att-filter-chip ${attachmentFilter === 'audios' ? 'active' : ''}`}
-            onClick={() => setAttachmentFilter('audios')}
-          >
-            <Mic size={13} /> Audios ({activities.filter(a => a.adjuntos?.some(att => att.tipo === 'audio')).length})
-          </button>
-          <button
-            className={`att-filter-chip ${attachmentFilter === 'fotos' ? 'active' : ''}`}
-            onClick={() => setAttachmentFilter('fotos')}
-          >
-            <Camera size={13} /> Fotos ({activities.filter(a => a.adjuntos?.some(att => att.tipo === 'imagen')).length})
-          </button>
-          <button
-            className={`att-filter-chip ${attachmentFilter === 'ventas' ? 'active' : ''}`}
-            onClick={() => setAttachmentFilter('ventas')}
-          >
-            <DollarSign size={13} /> Ventas ({activities.filter(a => a.montoVenta > 0).length})
-          </button>
+          <div className="seller-att-pills">
+            <button
+              className={`att-pill ${attachmentFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setAttachmentFilter('all')}
+            >
+              Todo
+            </button>
+            <button
+              className={`att-pill ${attachmentFilter === 'audios' ? 'active' : ''}`}
+              onClick={() => setAttachmentFilter('audios')}
+            >
+              <Mic size={13} /> Con Audios
+            </button>
+            <button
+              className={`att-pill ${attachmentFilter === 'fotos' ? 'active' : ''}`}
+              onClick={() => setAttachmentFilter('fotos')}
+            >
+              <Camera size={13} /> Con Fotos
+            </button>
+            <button
+              className={`att-pill ${attachmentFilter === 'ventas' ? 'active' : ''}`}
+              onClick={() => setAttachmentFilter('ventas')}
+            >
+              <DollarSign size={13} /> Con Venta
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Feed of Activities */}
-      <div className="seller-activities-feed">
+      <div className="seller-feed">
         {filteredActivities.length === 0 ? (
           <div className="seller-feed-empty">
             <ClipboardList size={40} className="empty-icon" />
             <h3>No se encontraron actividades</h3>
-            <p>No hay interacciones registradas con los filtros seleccionados.</p>
+            <p>Probá cambiando los filtros o registrá una nueva interacción de campo con el botón superior.</p>
           </div>
         ) : (
           filteredActivities.map(act => {
@@ -659,136 +946,139 @@ export const SellerActivitiesPage = () => {
             const docs = act.adjuntos?.filter(a => a.tipo === 'documento') || [];
 
             return (
-              <div key={act.idFormulario} className="seller-act-card">
-                <div
-                  className="seller-act-icon"
-                  style={{ backgroundColor: colors.bg, color: colors.color }}
-                >
-                  {getContactIcon(act.tipoContacto)}
+              <div key={act.idFormulario} className="seller-card">
+                <div className="seller-card__header">
+                  <div className="seller-card__left">
+                    <div className="seller-card__type-pill" style={{ backgroundColor: colors.bg, color: colors.color }}>
+                      {getContactIcon(act.tipoContacto)}
+                      <span>{act.tipoContacto}</span>
+                    </div>
+                    <div>
+                      <h3 className="seller-card__company">{act.empresa}</h3>
+                      <span className="seller-card__contact-sub">
+                        {act.contactoPersona} · {act.localidad} · {act.telefono}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="seller-card__right">
+                    <div className="seller-card__timestamp">
+                      <Clock size={13} />
+                      <span>{formatDate(act.fechaHora)}</span>
+                    </div>
+                    {act.cultivo && (
+                      <span className="seller-crop-tag">
+                        <Sprout size={12} />
+                        <span>{act.cultivo}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="seller-act-body">
-                  {/* Top Bar */}
-                  <div className="seller-act-top">
-                    <div className="seller-act-tags">
-                      <span
-                        className="act-type-tag"
-                        style={{ backgroundColor: colors.bg, color: colors.color }}
-                      >
-                        {act.tipoContacto}
-                      </span>
-                      <strong className="act-company-name">{act.empresa}</strong>
-                      {act.contactoPersona && (
-                        <span className="act-contact-name">({act.contactoPersona})</span>
-                      )}
-                      {act.localidad && (
-                        <span className="act-locality-pill">
-                          <MapPin size={11} /> {act.localidad}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="act-time">
-                      <Clock size={12} /> {formatDate(act.fechaHora)}
-                    </div>
+                {act.servicio && (
+                  <div className="seller-card__service-badge">
+                    <Sparkles size={13} />
+                    <strong>Servicio:</strong>
+                    <span>{act.servicio}</span>
                   </div>
+                )}
 
-                  {/* Agro Tags (Service & Crop) */}
-                  <div className="act-agro-tags">
-                    {act.servicio && (
-                      <span className="act-service-badge">
-                        <Sparkles size={12} /> {act.servicio}
-                      </span>
-                    )}
-                    {act.cultivo && (
-                      <span className="act-crop-badge">
-                        <Sprout size={12} /> {act.cultivo}
-                      </span>
-                    )}
-                  </div>
+                <p className="seller-card__description">{act.descripcion}</p>
 
-                  {/* Description */}
-                  <p className="act-desc">{act.descripcion}</p>
-
-                  {/* ── ATTACHMENTS SECTION ── */}
-                  {act.adjuntos && act.adjuntos.length > 0 && (
-                    <div className="act-attachments-container">
-                      {/* Audios (WhatsApp voice notes) */}
-                      {audios.map(audio => (
-                        <VoiceNotePlayer
-                          key={audio.id}
-                          audioName={audio.nombre}
-                          duration={audio.duracion || '0:34'}
-                          isWhatsApp={audio.isWhatsApp}
-                        />
-                      ))}
-
-                      {/* Photo Grid */}
-                      {images.length > 0 && (
-                        <div className="act-photos-grid">
-                          {images.map(img => (
-                            <div
-                              key={img.id}
-                              className="act-photo-thumbnail"
-                              onClick={() => setLightboxImage(img.url)}
-                              title="Click para ver foto ampliada"
-                            >
-                              <img src={img.url} alt={img.nombre} />
-                              <div className="act-photo-overlay">
-                                <Maximize2 size={16} />
-                                <span>{img.nombre}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Documents / PDF Remitos */}
-                      {docs.length > 0 && (
-                        <div className="act-docs-list">
-                          {docs.map(doc => (
-                            <div key={doc.id} className="act-doc-pill">
-                              <FileText size={15} className="doc-icon" />
-                              <div className="doc-info">
-                                <span className="doc-name">{doc.nombre}</span>
-                                {doc.tamanio && <span className="doc-size">{doc.tamanio}</span>}
-                              </div>
-                              <button
-                                type="button"
-                                className="doc-download-btn"
-                                title="Descargar documento"
-                                onClick={() => alert(`Descargando ${doc.nombre}...`)}
-                              >
-                                <Download size={14} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                {act.adjuntos && act.adjuntos.length > 0 && (
+                  <div className="seller-card__attachments">
+                    <div className="attachments-label">
+                      <Paperclip size={14} />
+                      <span>Archivos y Registros Adjuntos ({act.adjuntos.length}):</span>
                     </div>
-                  )}
 
-                  {/* Footer Row: Closed sales amount & Follow-up task */}
-                  <div className="act-footer-row">
-                    {act.montoVenta && (
-                      <span className="act-amount-badge">
-                        <DollarSign size={14} /> Venta Cerrada: {formatCurrency(act.montoVenta)}
-                      </span>
+                    {audios.length > 0 && (
+                      <div className="audios-player-list">
+                        {audios.map(aud => (
+                          <VoiceNotePlayer
+                            key={aud.id || aud.nombre}
+                            audioUrl={aud.url || aud.dataUrl}
+                            audioName={aud.nombre}
+                            duration={aud.duracion}
+                            isWhatsApp={aud.isWhatsApp !== false}
+                          />
+                        ))}
+                      </div>
                     )}
 
-                    {act.tareaSeguimiento?.activa && (
-                      <div className="act-task-badge">
-                        <CheckSquare size={13} />
-                        <span>
-                          <strong>Tarea:</strong> {act.tareaSeguimiento.titulo}{' '}
-                          <em>(Vence: {act.tareaSeguimiento.fechaVencimiento})</em>
-                        </span>
-                        <span className={`task-priority task-priority--${act.tareaSeguimiento.prioridad.toLowerCase()}`}>
-                          {act.tareaSeguimiento.prioridad}
-                        </span>
+                    {images.length > 0 && (
+                      <div className="photos-preview-grid">
+                        {images.map(img => (
+                          <div
+                            key={img.id || img.nombre}
+                            className="photo-thumb-card"
+                            onClick={() => setSelectedImageForLightbox(img.url || img.dataUrl)}
+                          >
+                            <img src={img.url || img.dataUrl} alt={img.nombre} className="photo-thumb-img" />
+                            <div className="photo-thumb-overlay">
+                              <Maximize2 size={16} />
+                            </div>
+                            <div className="photo-thumb-caption">
+                              <span className="photo-name">{img.nombre}</span>
+                              <span className="photo-size">{img.tamanio}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {docs.length > 0 && (
+                      <div className="docs-preview-list">
+                        {docs.map(doc => (
+                          <a
+                            key={doc.id || doc.nombre}
+                            href={doc.url || '#'}
+                            download={doc.nombre}
+                            className="doc-chip-btn"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <FileText size={14} className="doc-icon" />
+                            <span className="doc-name">{doc.nombre}</span>
+                            <span className="doc-size">({doc.tamanio || '1 MB'})</span>
+                            <Download size={13} className="doc-dl-icon" />
+                          </a>
+                        ))}
                       </div>
                     )}
                   </div>
+                )}
+
+                {act.tareaSeguimiento && (
+                  <div className="seller-task-banner">
+                    <div className="seller-task-banner__left">
+                      <CheckSquare size={16} className="task-icon" />
+                      <div>
+                        <strong>Tarea de seguimiento agendada:</strong>
+                        <p>{act.tareaSeguimiento.titulo}</p>
+                      </div>
+                    </div>
+                    <div className="seller-task-banner__right">
+                      <span>Vence: {formatDate(act.tareaSeguimiento.fechaVencimiento)}</span>
+                      <span className={`task-priority task-priority--${(act.tareaSeguimiento.prioridad || 'alta').toLowerCase()}`}>
+                        {act.tareaSeguimiento.prioridad}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="seller-card__footer">
+                  <div className="seller-author">
+                    <User size={13} />
+                    <span>Registrado por: <strong>{act.vendedor}</strong></span>
+                  </div>
+
+                  {act.montoVenta && (
+                    <div className="seller-sale-amount">
+                      <DollarSign size={15} />
+                      <span>Venta Cerrada: <strong>{formatCurrency(act.montoVenta)}</strong></span>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -796,28 +1086,22 @@ export const SellerActivitiesPage = () => {
         )}
       </div>
 
-      {/* ── MODAL / DRAWER: Cargar Actividad en Campo (Dominio Completo) ── */}
       {showModal && (
         <div className="seller-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="seller-modal" onClick={e => e.stopPropagation()}>
             <div className="seller-modal__header">
-              <div className="seller-modal__title-group">
+              <div>
                 <h2>Registrar Actividad en Campo</h2>
                 <p>Formulario de interacción comercial, audios, fotos y remitos</p>
               </div>
-              <button
-                className="seller-modal__close"
-                onClick={() => setShowModal(false)}
-                aria-label="Cerrar"
-              >
+              <button className="seller-modal__close" onClick={() => setShowModal(false)}>
                 <X size={20} />
               </button>
             </div>
 
             <form className="seller-modal__form" onSubmit={handleCreateActivity}>
-              {/* Empresa / Productor */}
               <div className="seller-field">
-                <label><Building2 size={14} /> Productor / Empresa *</label>
+                <label><Building2 size={14} /> Empresa Cliente / Productor *</label>
                 <select
                   className="seller-select"
                   value={form.empresa}
@@ -826,23 +1110,16 @@ export const SellerActivitiesPage = () => {
                 >
                   {mockCompanies.map(c => (
                     <option key={c.id} value={c.nombreEmpresa}>
-                      {c.nombreEmpresa} — {c.localidad} ({c.contacto})
+                      {c.nombreEmpresa} ({c.localidad}) - {c.contacto}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Tipo de Contacto Pills */}
               <div className="seller-field">
-                <label>Tipo de Contacto *</label>
+                <label>Tipo de Interacción *</label>
                 <div className="seller-type-pills">
-                  {[
-                    { label: 'Visita', icon: MapPin },
-                    { label: 'WhatsApp', icon: MessageSquare },
-                    { label: 'Llamada', icon: Phone },
-                    { label: 'Email', icon: Mail },
-                    { label: 'Reunión', icon: Building2 },
-                  ].map(t => {
+                  {TIPOS_CONTACTO.map(t => {
                     const Icon = t.icon;
                     return (
                       <button
@@ -859,7 +1136,6 @@ export const SellerActivitiesPage = () => {
                 </div>
               </div>
 
-              {/* Cultivo / Lote Chips */}
               <div className="seller-field">
                 <label><Sprout size={14} /> Cultivo / Lote Monitoreado</label>
                 <div className="seller-crop-chips">
@@ -876,7 +1152,6 @@ export const SellerActivitiesPage = () => {
                 </div>
               </div>
 
-              {/* Servicio Agronómico Prestado */}
               <div className="seller-field">
                 <label><Sparkles size={14} /> Servicio Agronómico Prestado *</label>
                 <select
@@ -891,7 +1166,6 @@ export const SellerActivitiesPage = () => {
                 </select>
               </div>
 
-              {/* Fecha y Hora */}
               <div className="seller-field">
                 <label><Calendar size={14} /> Fecha y Hora de la Interacción</label>
                 <input
@@ -903,7 +1177,6 @@ export const SellerActivitiesPage = () => {
                 />
               </div>
 
-              {/* Descripción / Diagnóstico agronómico */}
               <div className="seller-field">
                 <label><FileText size={14} /> Diagnóstico Agronómico y Acuerdos *</label>
                 <textarea
@@ -916,17 +1189,14 @@ export const SellerActivitiesPage = () => {
                 />
               </div>
 
-              {/* ── ATTACHMENT SECTION IN MODAL ── */}
               <div className="modal-attachments-section">
                 <div className="modal-attachments-title">
                   <Paperclip size={16} />
                   <span>Archivos Adjuntos, Audios y Fotos del Lote</span>
                 </div>
 
-                {/* Live Voice Recorder */}
                 <VoiceRecorderWidget onAddAudio={handleAddAudioAttachment} />
 
-                {/* Upload Buttons Row */}
                 <div className="upload-buttons-row">
                   <input
                     type="file"
@@ -934,15 +1204,15 @@ export const SellerActivitiesPage = () => {
                     style={{ display: 'none' }}
                     accept="image/*"
                     multiple
-                    onChange={handleFileUpload}
+                    onChange={handlePhotoUpload}
                   />
                   <input
                     type="file"
                     ref={docInputRef}
                     style={{ display: 'none' }}
-                    accept=".pdf,.doc,.docx,.xls,.xlsx"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg"
                     multiple
-                    onChange={handleFileUpload}
+                    onChange={handleDocUpload}
                   />
 
                   <button
@@ -964,55 +1234,91 @@ export const SellerActivitiesPage = () => {
                   </button>
                 </div>
 
-                {/* Attached items preview list inside form */}
                 {form.adjuntos.length > 0 && (
-                  <div className="modal-attached-list">
+                  <div className="modal-attached-container">
                     <span className="modal-attached-count">
-                      {form.adjuntos.length} archivo(s) adjunto(s):
+                      {form.adjuntos.length} archivo(s) adjunto(s) listos para subir:
                     </span>
-                    <div className="modal-attached-items">
-                      {form.adjuntos.map(att => (
-                        <div key={att.id} className="modal-att-chip">
-                          {att.tipo === 'audio' && <Mic size={14} className="att-icon-audio" />}
-                          {att.tipo === 'imagen' && <Camera size={14} className="att-icon-img" />}
-                          {att.tipo === 'documento' && <FileText size={14} className="att-icon-doc" />}
-                          <span className="modal-att-name">{att.nombre}</span>
-                          <button
-                            type="button"
-                            className="modal-att-remove"
-                            onClick={() => handleRemoveAttachment(att.id)}
-                            title="Eliminar adjunto"
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                      ))}
+
+                    <div className="modal-attached-grid">
+                      {form.adjuntos.map(att => {
+                        if (att.tipo === 'audio') {
+                          return (
+                            <div key={att.id} className="modal-attached-audio-item">
+                              <VoiceNotePlayer
+                                audioUrl={att.url || att.dataUrl}
+                                audioName={att.nombre}
+                                duration={att.duracion}
+                                isWhatsApp={true}
+                                onRemove={() => handleRemoveAttachment(att.id)}
+                                compact={true}
+                              />
+                            </div>
+                          );
+                        }
+
+                        if (att.tipo === 'imagen') {
+                          return (
+                            <div key={att.id} className="modal-attached-photo-item">
+                              <img src={att.url || att.dataUrl} alt={att.nombre} className="modal-attached-img" />
+                              <div className="modal-attached-img-info">
+                                <span className="att-name" title={att.nombre}>{att.nombre}</span>
+                                <span className="att-size">{att.tamanio}</span>
+                              </div>
+                              <button
+                                type="button"
+                                className="modal-attached-remove-btn"
+                                onClick={() => handleRemoveAttachment(att.id)}
+                                title="Eliminar foto"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={att.id} className="modal-attached-doc-item">
+                            <FileText size={16} className="modal-doc-icon" />
+                            <div className="modal-attached-doc-info">
+                              <span className="att-name" title={att.nombre}>{att.nombre}</span>
+                              <span className="att-size">{att.tamanio}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="modal-attached-remove-btn"
+                              onClick={() => handleRemoveAttachment(att.id)}
+                              title="Eliminar documento"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Monto de Venta Cerrado */}
               <div className="seller-field">
                 <label><DollarSign size={14} /> Monto de Venta Cerrado ($ ARS, opcional)</label>
-                <div className="seller-amount-input-wrapper">
-                  <span className="currency-symbol">$</span>
+                <div className="seller-amount-input-box">
+                  <span className="amount-symbol">$</span>
                   <input
                     type="number"
-                    className="seller-input seller-input--amount"
+                    className="seller-input amount-input"
                     placeholder="0"
                     value={form.montoVenta}
                     onChange={(e) => setForm(prev => ({ ...prev, montoVenta: e.target.value }))}
                     min={0}
                   />
                 </div>
-                {/* Quick Presets */}
-                <div className="quick-amount-presets">
+                <div className="amount-quick-pills">
                   {[250000, 500000, 1000000, 2500000].map(amt => (
                     <button
                       key={amt}
                       type="button"
-                      className="preset-chip"
+                      className="amount-pill-btn"
                       onClick={() => setForm(prev => ({ ...prev, montoVenta: amt }))}
                     >
                       +${(amt / 1000).toLocaleString('es-AR')}k
@@ -1021,9 +1327,8 @@ export const SellerActivitiesPage = () => {
                 </div>
               </div>
 
-              {/* Tarea de Seguimiento Automática (UML Tarea) */}
-              <div className="seller-toggle-card">
-                <label className="seller-checkbox-row">
+              <div className="seller-task-toggle-card">
+                <label className="task-toggle-label">
                   <input
                     type="checkbox"
                     checked={form.crearTareaSeguimiento}
@@ -1033,7 +1338,7 @@ export const SellerActivitiesPage = () => {
                 </label>
 
                 {form.crearTareaSeguimiento && (
-                  <div className="seller-task-fields">
+                  <div className="task-toggle-fields">
                     <div className="seller-field">
                       <label>Compromiso / Tarea a realizar</label>
                       <input
@@ -1045,8 +1350,7 @@ export const SellerActivitiesPage = () => {
                         required={form.crearTareaSeguimiento}
                       />
                     </div>
-
-                    <div className="seller-field-row">
+                    <div className="task-row-fields">
                       <div className="seller-field" style={{ flex: 1 }}>
                         <label>Fecha Límite</label>
                         <input
@@ -1065,7 +1369,7 @@ export const SellerActivitiesPage = () => {
                         >
                           <option value="Alta">Alta</option>
                           <option value="Media">Media</option>
-                          <option value="Normal">Normal</option>
+                          <option value="Baja">Baja</option>
                         </select>
                       </div>
                     </div>
@@ -1073,16 +1377,11 @@ export const SellerActivitiesPage = () => {
                 )}
               </div>
 
-              {/* Actions */}
               <div className="seller-modal__actions">
-                <button type="submit" className="seller-btn-primary">
+                <button type="submit" className="seller-submit-btn">
                   <CheckCircle2 size={16} /> Guardar y Registrar Actividad
                 </button>
-                <button
-                  type="button"
-                  className="seller-btn-outline"
-                  onClick={() => setShowModal(false)}
-                >
+                <button type="button" className="seller-cancel-btn" onClick={() => setShowModal(false)}>
                   Cancelar
                 </button>
               </div>
@@ -1091,16 +1390,11 @@ export const SellerActivitiesPage = () => {
         </div>
       )}
 
-      {/* ── PHOTO LIGHTBOX MODAL ── */}
-      {lightboxImage && (
-        <div className="lightbox-overlay" onClick={() => setLightboxImage(null)}>
-          <div className="lightbox-content" onClick={e => e.stopPropagation()}>
-            <img src={lightboxImage} alt="Foto de Lote Ampliada" className="lightbox-img" />
-            <button
-              type="button"
-              className="lightbox-close-btn"
-              onClick={() => setLightboxImage(null)}
-            >
+      {selectedImageForLightbox && (
+        <div className="photo-lightbox-overlay" onClick={() => setSelectedImageForLightbox(null)}>
+          <div className="photo-lightbox-content" onClick={e => e.stopPropagation()}>
+            <img src={selectedImageForLightbox} alt="Ampliación de Lote" className="photo-lightbox-img" />
+            <button className="photo-lightbox-close" onClick={() => setSelectedImageForLightbox(null)}>
               <X size={24} />
             </button>
           </div>

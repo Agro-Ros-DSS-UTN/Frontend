@@ -39,9 +39,9 @@ export const SellerTopBar = ({ onQuickAddActivity }) => {
     <header className="topbar">
       <div className="topbar__left">
         <div className="topbar__title-group">
-          <h1 className="topbar__title">Portal Comercial de Campo</h1>
+          <h1 className="topbar__title">Agroquímica Rosario</h1>
           <span className="topbar__subtitle" style={{ color: 'var(--color-primary-light)' }}>
-            {currentUser?.direccion || 'Zona Sur - Casilda'}
+            Gestión Comercial y de Campo
           </span>
         </div>
       </div>

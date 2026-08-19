@@ -73,10 +73,10 @@ export const SellerDashboardPage = () => {
         <div className="seller-banner__content">
           <div className="seller-banner__badge">Semana 33 · Operaciones en Territorio</div>
           <h1 className="seller-banner__title">
-            ¡Hola, {currentUser?.nombreApellido?.split(' ')[0] || 'Martín'}! 👋
+            ¡Bienvenido, {currentUser?.nombreApellido || currentUser?.name || currentUser?.idUser || 'Usuario'}!
           </h1>
           <p className="seller-banner__desc">
-            Tenés <strong>{myRoute.paradas.filter(p => p.estado !== 'Completada').length} visitas pendientes</strong> hoy en tu Hoja de Ruta de Casilda y Sanford.
+            Tenés <strong>{myRoute.paradas.filter(p => p.estado !== 'Completada').length} visitas pendientes</strong> hoy en tu Hoja de Ruta.
           </p>
         </div>
         <div className="seller-banner__actions">

@@ -38,9 +38,6 @@ export const SellerSidebar = () => {
           {!collapsed && (
             <div className="sidebar__logo-text">
               <span className="sidebar__logo-title">Agroquímica Rosario</span>
-              <span className="sidebar__logo-subtitle" style={{ color: 'var(--color-primary-light)' }}>
-                Portal Vendedor
-              </span>
             </div>
           )}
         </div>
