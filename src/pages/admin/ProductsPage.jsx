@@ -37,12 +37,14 @@ export const ProductsPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [billingFilter, setBillingFilter] = useState('all');
 
-  // Mode: 'list' (catalog table) | 'create' (full creation screen matching screenshot)
+  // Mode: 'list' (catalog table) | 'create' | 'edit'
   const [viewMode, setViewMode] = useState('list');
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   // Form State matching Screenshot 2 & 3
   const [form, setForm] = useState({
+    id: null,
     nombre: '',
     ref: '',
     descripcion: '',
@@ -159,6 +161,57 @@ export const ProductsPage = () => {
     }
   };
 
+  // Start Edit Product
+  const handleStartEdit = (prod, e) => {
+    if (e) e.stopPropagation();
+    setEditingProduct(prod);
+    setForm({
+      id: prod.id,
+      nombre: prod.nombre,
+      ref: prod.ref || '',
+      descripcion: prod.descripcion || '',
+      tipoProducto: prod.tipoProducto || PRODUCT_CATEGORIES[0],
+      frecuenciaFacturacion: prod.frecuenciaFacturacion || BILLING_FREQUENCIES[0],
+      precioUnitario: prod.precioUnitario ?? '',
+      costeUnidad: prod.costeUnidad ?? '',
+      activo: prod.activo !== false,
+      imagenUrl: prod.imagenUrl || null,
+    });
+    setSelectedProductDetail(null);
+    setViewMode('edit');
+  };
+
+  // Update Existing Product
+  const handleUpdateProduct = (e) => {
+    if (e) e.preventDefault();
+    if (!form.nombre) {
+      alert('Por favor, ingresá el nombre del producto.');
+      return;
+    }
+
+    setProducts(prev =>
+      prev.map(p =>
+        p.id === form.id
+          ? {
+              ...p,
+              nombre: form.nombre,
+              ref: form.ref || p.ref,
+              descripcion: form.descripcion,
+              tipoProducto: form.tipoProducto,
+              frecuenciaFacturacion: form.frecuenciaFacturacion,
+              precioUnitario: Number(form.precioUnitario) || 0,
+              costeUnidad: Number(form.costeUnidad) || 0,
+              activo: form.activo,
+              imagenUrl: form.imagenUrl,
+            }
+          : p
+      )
+    );
+
+    setViewMode('list');
+    setEditingProduct(null);
+  };
+
   // Handle Create Product
   const handleCreateProduct = (e, andAddAnother = false) => {
     if (e) e.preventDefault();
@@ -186,6 +239,7 @@ export const ProductsPage = () => {
     if (andAddAnother) {
       setForm(prev => ({
         ...prev,
+        id: null,
         nombre: '',
         ref: '',
         descripcion: '',
@@ -195,6 +249,7 @@ export const ProductsPage = () => {
     } else {
       setViewMode('list');
       setForm({
+        id: null,
         nombre: '',
         ref: '',
         descripcion: '',
@@ -209,9 +264,9 @@ export const ProductsPage = () => {
   };
 
   /* ════════════════════════════════════════════════════════════════════
-     VIEW 2: FULL SCREEN FORM — CREAR PRODUCTO (Matches Screenshot 2 & 3)
+     VIEW 2: FULL SCREEN FORM — CREAR O MODIFICAR PRODUCTO
      ════════════════════════════════════════════════════════════════════ */
-  if (viewMode === 'create') {
+  if (viewMode === 'create' || viewMode === 'edit') {
     return (
       <div className="product-create-screen">
         {/* Top Header Bar */}
@@ -220,14 +275,17 @@ export const ProductsPage = () => {
             <button
               type="button"
               className="create-btn-exit"
-              onClick={() => setViewMode('list')}
+              onClick={() => {
+                setViewMode('list');
+                setEditingProduct(null);
+              }}
             >
               <ArrowLeft size={16} /> Salir
             </button>
           </div>
 
           <div className="create-topbar-center">
-            <h1>Crear producto</h1>
+            <h1>{viewMode === 'edit' ? 'Modificar producto' : 'Crear producto'}</h1>
           </div>
 
           <div className="create-topbar-right">
@@ -243,33 +301,41 @@ export const ProductsPage = () => {
               </button>
             </div>
 
-            <button
-              type="button"
-              className="create-btn-outline"
-              onClick={(e) => handleCreateProduct(e, true)}
-            >
-              Crear y agregar otro
-            </button>
+            {viewMode === 'edit' ? (
+              <button
+                type="button"
+                className="create-btn-primary"
+                onClick={handleUpdateProduct}
+              >
+                Guardar cambios
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="create-btn-outline"
+                  onClick={(e) => handleCreateProduct(e, true)}
+                >
+                  Crear y agregar otro
+                </button>
 
-            <button
-              type="button"
-              className="create-btn-primary"
-              onClick={(e) => handleCreateProduct(e, false)}
-            >
-              Crear
-            </button>
+                <button
+                  type="button"
+                  className="create-btn-primary"
+                  onClick={(e) => handleCreateProduct(e, false)}
+                >
+                  Crear
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Sub-header edit link */}
-        <div className="product-create-subbar">
-          <a href="#edit-form" className="edit-form-link" onClick={e => e.preventDefault()}>
-            Editar este formulario ↗
-          </a>
-        </div>
-
         {/* Form Main Container */}
-        <form className="product-create-form" onSubmit={(e) => handleCreateProduct(e, false)}>
+        <form
+          className="product-create-form"
+          onSubmit={(e) => (viewMode === 'edit' ? handleUpdateProduct(e) : handleCreateProduct(e, false))}
+        >
           {/* ── CARD 1: Información del producto ── */}
           <div className="product-form-card">
             <h3 className="card-section-title">Información del producto</h3>
@@ -619,7 +685,7 @@ export const ProductsPage = () => {
                   <th style={{ textAlign: 'right' }}>Coste</th>
                   <th style={{ textAlign: 'right' }}>Margen ($)</th>
                   <th style={{ textAlign: 'center' }}>Estado</th>
-                  <th style={{ textAlign: 'center', width: '60px' }}>Acciones</th>
+                  <th style={{ textAlign: 'center', width: '90px' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -684,15 +750,25 @@ export const ProductsPage = () => {
                           {prod.activo ? 'Activo' : 'Inactivo'}
                         </button>
                       </td>
-                      <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="prod-delete-btn"
-                          onClick={() => deleteProduct(prod.id)}
-                          title="Eliminar producto"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                        <div className="prod-action-btns">
+                          <button
+                            type="button"
+                            className="prod-edit-btn"
+                            onClick={(e) => handleStartEdit(prod, e)}
+                            title="Modificar / Editar producto"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="prod-delete-btn"
+                            onClick={() => deleteProduct(prod.id)}
+                            title="Eliminar producto"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -763,13 +839,21 @@ export const ProductsPage = () => {
               )}
             </div>
 
-            <div className="detail-modal-footer">
+            <div className="detail-modal-footer" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 className="deals-btn deals-btn--primary"
+                style={{ background: '#2563eb', color: '#ffffff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => handleStartEdit(selectedProductDetail)}
+              >
+                <Edit2 size={15} /> Modificar Producto
+              </button>
+              <button
+                type="button"
+                className="deals-btn deals-btn--secondary"
                 onClick={() => setSelectedProductDetail(null)}
               >
-                Entendido
+                Cerrar
               </button>
             </div>
           </div>
