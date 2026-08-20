@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   Building2,
   Handshake,
   Target,
@@ -21,6 +22,7 @@ import './Sidebar.css';
 
 const adminNavItems = [
   { path: '/admin/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/admin/usuarios',      icon: UserCog,         label: 'Usuarios' },
   { path: '/admin/contactos',     icon: Users,           label: 'Contactos' },
   { path: '/admin/empresas',      icon: Building2,       label: 'Empresas' },
   { path: '/admin/negocios',      icon: Handshake,       label: 'Negocios' },

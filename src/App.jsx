@@ -18,6 +18,7 @@ import { ObjectivesPage } from './pages/admin/ObjectivesPage';
 import { RoadmapsPage } from './pages/admin/RoadmapsPage';
 import { CampaignsPage } from './pages/admin/CampaignsPage';
 import { ActivitiesPage } from './pages/admin/ActivitiesPage';
+import { UsersPage } from './pages/admin/UsersPage';
 import { ProfilePage } from './pages/admin/ProfilePage';
 import { SettingsPage } from './pages/admin/SettingsPage';
 
@@ -59,6 +60,7 @@ const AppRoutes = () => {
       >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
+        <Route path="usuarios" element={<UsersPage />} />
         <Route path="contactos" element={<ContactsPage />} />
         <Route path="empresas" element={<CompaniesPage />} />
         <Route path="negocios" element={<OpportunitiesPage />} />

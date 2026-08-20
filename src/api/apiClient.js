@@ -11,12 +11,13 @@ export const apiClient = axios.create({
 
 // Interceptor para inyectar token de autenticación si existe
 apiClient.interceptors.request.use((config) => {
-  const savedUser = localStorage.getItem('agroros_user');
+  const savedUser = sessionStorage.getItem('agroros_user') || localStorage.getItem('agroros_user');
   if (savedUser) {
     try {
       const user = JSON.parse(savedUser);
-      if (user.token) {
-        config.headers.Authorization = `Bearer ${user.token}`;
+      const token = user.token || user.jwt;
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (e) {
       console.error('Error parseando token de usuario', e);

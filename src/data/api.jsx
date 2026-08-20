@@ -5,13 +5,14 @@ import {
   mockClients,
   mockOpportunities,
   mockActivities,
+  mockUsers,
 } from './mockData';
 
 const API_BASE_URL = 'http://localhost:3000';
 
 // Helper for HTTP requests with Authorization header support
 const request = async (endpoint, options = {}) => {
-  const storedUser = sessionStorage.getItem('agroros_user');
+  const storedUser = sessionStorage.getItem('agroros_user') || localStorage.getItem('agroros_user');
   let token = null;
   if (storedUser) {
     try {
@@ -335,6 +336,49 @@ export const updateProduct = async (id, productData) => {
 
 export const deleteProduct = async (id) => {
   return await request(`/productos/${id}`, { method: 'DELETE' });
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   7. USUARIOS (ADMINISTRADORES Y VENDEDORES): /users
+   Payload: { idUser, nombreApellido, direccionMail, password, accountStatement, role }
+   ═══════════════════════════════════════════════════════════════ */
+export const getUsers = async () => {
+  try {
+    const res = await request('/users');
+    return Array.isArray(res) ? res : res.data || res.users || [];
+  } catch (err) {
+    console.info('[API Fallback] Usando mockUsers como respaldo.');
+    return mockUsers;
+  }
+};
+
+export const createUser = async (userData) => {
+  const payload = {
+    idUser: String(userData.idUser || userData.id || userData.numDoc || '').trim(),
+    nombreApellido: String(userData.nombreApellido || userData.nombre || '').trim(),
+    direccionMail: userData.direccionMail ? String(userData.direccionMail).trim() : null,
+    password: userData.password,
+    accountStatement: userData.accountStatement || 'Activo',
+    role: userData.role || 'vendedor',
+  };
+
+  const res = await request('/users', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res?.data || res;
+};
+
+export const updateUser = async (idUser, userData) => {
+  const res = await request(`/users/${idUser}`, {
+    method: 'PUT',
+    body: JSON.stringify(userData),
+  });
+  return res?.data || res;
+};
+
+export const deleteUser = async (idUser) => {
+  return await request(`/users/${idUser}`, { method: 'DELETE' });
 };
 
 export const OPPORTUNITY_STATES = [
