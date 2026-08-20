@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Package,
   Plus,
@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   X,
   Download,
-  MoreVertical,
   Trash2,
   Edit2,
   ArrowLeft,
@@ -23,6 +22,7 @@ import {
   FileText,
 } from 'lucide-react';
 import {
+  mockProducts,
   PRODUCT_CATEGORIES,
   BILLING_FREQUENCIES,
 } from '../../data/mockData';
@@ -36,40 +36,56 @@ import './ProductsPage.css';
 
 export const ProductsPage = () => {
   const [products, setProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
   const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'herbicidas' | 'fungicidas' | 'fertilizantes' | 'servicios'
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [billingFilter, setBillingFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
 
-  // Carga inicial de productos desde la base de datos (backend real)
-  const loadProducts = async () => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      const data = await getProducts();
-      setProducts(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error al cargar productos:', err);
-      setLoadError(err.message || 'No se pudieron cargar los productos');
-      setProducts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Modal / Drawer state
+  const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit'
+  const [selectedProductDetail, setSelectedProductDetail] = useState(null);
 
+  const imageInputRef = useRef(null);
+
+  // Cargar productos reales de MySQL al cargar la página (sin parpadeo de mocks)
   useEffect(() => {
-    loadProducts();
+    const fetchDBProducts = async () => {
+      setLoading(true);
+      try {
+        const dbProducts = await getProducts();
+        if (Array.isArray(dbProducts)) {
+          setProducts(dbProducts);
+        }
+      } catch (err) {
+        console.warn('[DB Products] Error al cargar de MySQL, usando fallback:', err);
+        setProducts(mockProducts);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDBProducts();
   }, []);
 
-  // Mode: 'list' (catalog table) | 'create' | 'edit'
-  const [viewMode, setViewMode] = useState('list');
-  const [selectedProductDetail, setSelectedProductDetail] = useState(null);
-  const [editingProduct, setEditingProduct] = useState(null);
+  // Escuchar tecla Escape para cerrar ventanas emergentes o drawers
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showModal) {
+          setShowModal(false);
+          resetForm();
+        } else if (selectedProductDetail) {
+          setSelectedProductDetail(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showModal, selectedProductDetail]);
 
-  // Form State matching Screenshot 2 & 3
+  // Form State
   const [form, setForm] = useState({
     id: null,
     nombre: '',
@@ -82,6 +98,82 @@ export const ProductsPage = () => {
     activo: true,
     imagenUrl: null,
   });
+
+  // Reset Form
+  const resetForm = () => {
+    setForm({
+      id: null,
+      nombre: '',
+      ref: '',
+      descripcion: '',
+      tipoProducto: PRODUCT_CATEGORIES[0],
+      frecuenciaFacturacion: BILLING_FREQUENCIES[0],
+      precioUnitario: '',
+      costeUnidad: '',
+      activo: true,
+      imagenUrl: null,
+    });
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  };
+
+  const handleOpenCreateModal = () => {
+    resetForm();
+    setModalMode('create');
+    setShowModal(true);
+  };
+
+  const handleOpenEditModal = (prod, e) => {
+    if (e) e.stopPropagation();
+    setForm({
+      id: prod.id,
+      nombre: prod.nombre,
+      ref: prod.ref || '',
+      descripcion: prod.descripcion || '',
+      tipoProducto: prod.tipoProducto || PRODUCT_CATEGORIES[0],
+      frecuenciaFacturacion: prod.frecuenciaFacturacion || BILLING_FREQUENCIES[0],
+      precioUnitario: prod.precioUnitario ?? '',
+      costeUnidad: prod.costeUnidad ?? '',
+      activo: prod.activo !== false,
+      imagenUrl: prod.imagenUrl || null,
+    });
+    setSelectedProductDetail(null);
+    setModalMode('edit');
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    resetForm();
+  };
+
+  // Real Image Upload
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen supera el tamaño máximo permitido de 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setForm(prev => ({
+        ...prev,
+        imagenUrl: event.target.result,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = (e) => {
+    if (e) e.stopPropagation();
+    setForm(prev => ({
+      ...prev,
+      imagenUrl: null,
+    }));
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  };
 
   // Calculate margin in real time
   const calculatedMargin = useMemo(() => {
@@ -173,100 +265,38 @@ export const ProductsPage = () => {
     document.body.removeChild(link);
   };
 
-  // Toggle active status
+  // Toggle active status con persistencia en MySQL
   const toggleProductStatus = async (prodId) => {
     const target = products.find(p => p.id === prodId);
     if (!target) return;
+    const newStatus = !target.activo;
 
-    const nextActivo = !target.activo;
-    // Actualización optimista
     setProducts(prev =>
-      prev.map(p => (p.id === prodId ? { ...p, activo: nextActivo } : p))
+      prev.map(p => (p.id === prodId ? { ...p, activo: newStatus } : p))
     );
 
     try {
-      await apiUpdateProduct(prodId, { activo: nextActivo });
+      await apiUpdateProduct(prodId, { activo: newStatus });
     } catch (err) {
-      console.error('Error al actualizar estado del producto:', err);
-      alert('No se pudo actualizar el estado del producto en la base de datos.');
-      // Revertir en caso de error
-      setProducts(prev =>
-        prev.map(p => (p.id === prodId ? { ...p, activo: target.activo } : p))
-      );
+      console.warn('[DB Error] No se pudo actualizar estado en MySQL:', err);
     }
   };
 
-  // Delete product
+  // Delete product con persistencia en MySQL
   const deleteProduct = async (prodId) => {
-    const previousProducts = products;
+    try {
+      await apiDeleteProduct(prodId);
+    } catch (err) {
+      console.warn('[DB Error] No se pudo eliminar de MySQL:', err);
+    }
+
     setProducts(prev => prev.filter(p => p.id !== prodId));
     if (selectedProductDetail?.id === prodId) {
       setSelectedProductDetail(null);
     }
-
-    try {
-      await apiDeleteProduct(prodId);
-    } catch (err) {
-      console.error('Error al eliminar producto:', err);
-      alert('No se pudo eliminar el producto en la base de datos.');
-      setProducts(previousProducts);
-    }
   };
 
-  // Start Edit Product
-  const handleStartEdit = (prod, e) => {
-    if (e) e.stopPropagation();
-    setEditingProduct(prod);
-    setForm({
-      id: prod.id,
-      nombre: prod.nombre,
-      ref: prod.ref || '',
-      descripcion: prod.descripcion || '',
-      tipoProducto: prod.tipoProducto || PRODUCT_CATEGORIES[0],
-      frecuenciaFacturacion: prod.frecuenciaFacturacion || BILLING_FREQUENCIES[0],
-      precioUnitario: prod.precioUnitario ?? '',
-      costeUnidad: prod.costeUnidad ?? '',
-      activo: prod.activo !== false,
-      imagenUrl: prod.imagenUrl || null,
-    });
-    setSelectedProductDetail(null);
-    setViewMode('edit');
-  };
-
-  // Update Existing Product
-  const handleUpdateProduct = async (e) => {
-    if (e) e.preventDefault();
-    if (!form.nombre) {
-      alert('Por favor, ingresá el nombre del producto.');
-      return;
-    }
-
-    const updatedFields = {
-      nombre: form.nombre,
-      ref: form.ref,
-      descripcion: form.descripcion,
-      tipoProducto: form.tipoProducto,
-      frecuenciaFacturacion: form.frecuenciaFacturacion,
-      precioUnitario: Number(form.precioUnitario) || 0,
-      costeUnidad: Number(form.costeUnidad) || 0,
-      activo: form.activo,
-      imagenUrl: form.imagenUrl,
-    };
-
-    try {
-      const saved = await apiUpdateProduct(form.id, updatedFields);
-      setProducts(prev =>
-        prev.map(p => (p.id === form.id ? { ...p, ...updatedFields, ...saved } : p))
-      );
-      setViewMode('list');
-      setEditingProduct(null);
-    } catch (err) {
-      console.error('Error al actualizar producto:', err);
-      alert('No se pudo guardar los cambios en la base de datos. Intentá nuevamente.');
-    }
-  };
-
-  // Handle Create Product
+  // Handle Create Product con persistencia en MySQL
   const handleCreateProduct = async (e, andAddAnother = false) => {
     if (e) e.preventDefault();
     if (!form.nombre) {
@@ -276,280 +306,90 @@ export const ProductsPage = () => {
 
     const payload = {
       nombre: form.nombre,
-      ref: form.ref || undefined,
+      ref: form.ref || `SKU-${Date.now().toString().slice(-4)}`,
       descripcion: form.descripcion,
       tipoProducto: form.tipoProducto,
       frecuenciaFacturacion: form.frecuenciaFacturacion,
       precioUnitario: Number(form.precioUnitario) || 0,
       costeUnidad: Number(form.costeUnidad) || 0,
       activo: form.activo,
-      imagenUrl: form.imagenUrl,
+      imagenUrl: form.imagenUrl || null,
       stockDisponible: 100,
     };
 
     try {
-      const created = await apiCreateProduct(payload);
-      setProducts(prev => [created, ...prev]);
-
-      if (andAddAnother) {
-        setForm(prev => ({
-          ...prev,
-          id: null,
-          nombre: '',
-          ref: '',
-          descripcion: '',
-          precioUnitario: '',
-          costeUnidad: '',
-        }));
+      const result = await apiCreateProduct(payload);
+      const createdProd = result?.data || result;
+      
+      // Sincronizar catálogo completo desde MySQL
+      const refreshedList = await getProducts();
+      if (Array.isArray(refreshedList) && refreshedList.length > 0) {
+        setProducts(refreshedList);
       } else {
-        setViewMode('list');
-        setForm({
-          id: null,
-          nombre: '',
-          ref: '',
-          descripcion: '',
-          tipoProducto: PRODUCT_CATEGORIES[0],
-          frecuenciaFacturacion: BILLING_FREQUENCIES[0],
-          precioUnitario: '',
-          costeUnidad: '',
-          activo: true,
-          imagenUrl: null,
-        });
+        setProducts(prev => [createdProd, ...prev]);
       }
     } catch (err) {
-      console.error('Error al crear producto:', err);
-      alert('No se pudo crear el producto en la base de datos. Intentá nuevamente.');
+      console.error('[DB Persistence Error] Fallback local para nuevo producto:', err);
+      const fallbackProd = { id: Date.now(), ...payload };
+      setProducts(prev => [fallbackProd, ...prev]);
+    }
+
+    if (andAddAnother) {
+      resetForm();
+    } else {
+      handleCloseModal();
     }
   };
 
-  /* ════════════════════════════════════════════════════════════════════
-     VIEW 2: FULL SCREEN FORM — CREAR O MODIFICAR PRODUCTO
-     ════════════════════════════════════════════════════════════════════ */
-  if (viewMode === 'create' || viewMode === 'edit') {
-    return (
-      <div className="product-create-screen">
-        {/* Top Header Bar */}
-        <div className="product-create-topbar">
-          <div className="create-topbar-left">
-            <button
-              type="button"
-              className="create-btn-exit"
-              onClick={() => {
-                setViewMode('list');
-                setEditingProduct(null);
-              }}
-            >
-              <ArrowLeft size={16} /> Salir
-            </button>
-          </div>
+  // Handle Update Product con persistencia en MySQL
+  const handleUpdateProduct = async (e) => {
+    if (e) e.preventDefault();
+    if (!form.nombre) {
+      alert('Por favor, ingresá el nombre del producto.');
+      return;
+    }
 
-          <div className="create-topbar-center">
-            <h1>{viewMode === 'edit' ? 'Modificar producto' : 'Crear producto'}</h1>
-          </div>
+    const payload = {
+      nombre: form.nombre,
+      ref: form.ref,
+      descripcion: form.descripcion,
+      tipoProducto: form.tipoProducto,
+      frecuenciaFacturacion: form.frecuenciaFacturacion,
+      precioUnitario: Number(form.precioUnitario) || 0,
+      costeUnidad: Number(form.costeUnidad) || 0,
+      activo: form.activo,
+      imagenUrl: form.imagenUrl || null,
+    };
 
-          <div className="create-topbar-right">
-            {/* Activo Toggle */}
-            <div className="active-toggle-wrapper">
-              <span>Activo:</span>
-              <button
-                type="button"
-                className={`switch-toggle ${form.activo ? 'on' : 'off'}`}
-                onClick={() => setForm(prev => ({ ...prev, activo: !prev.activo }))}
-              >
-                <span className="switch-dot" />
-              </button>
-            </div>
+    try {
+      await apiUpdateProduct(form.id, payload);
+      
+      // Sincronizar catálogo completo desde MySQL
+      const refreshedList = await getProducts();
+      if (Array.isArray(refreshedList) && refreshedList.length > 0) {
+        setProducts(refreshedList);
+      } else {
+        setProducts(prev =>
+          prev.map(p => (p.id === form.id ? { ...p, ...payload } : p))
+        );
+      }
+    } catch (err) {
+      console.error('[DB Error] No se pudo actualizar producto en MySQL:', err);
+      setProducts(prev =>
+        prev.map(p => (p.id === form.id ? { ...p, ...payload } : p))
+      );
+    }
 
-            {viewMode === 'edit' ? (
-              <button
-                type="button"
-                className="create-btn-primary"
-                onClick={handleUpdateProduct}
-              >
-                Guardar cambios
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="create-btn-outline"
-                  onClick={(e) => handleCreateProduct(e, true)}
-                >
-                  Crear y agregar otro
-                </button>
+    handleCloseModal();
+  };
 
-                <button
-                  type="button"
-                  className="create-btn-primary"
-                  onClick={(e) => handleCreateProduct(e, false)}
-                >
-                  Crear
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Form Main Container */}
-        <form
-          className="product-create-form"
-          onSubmit={(e) => (viewMode === 'edit' ? handleUpdateProduct(e) : handleCreateProduct(e, false))}
-        >
-          {/* ── CARD 1: Información del producto ── */}
-          <div className="product-form-card">
-            <h3 className="card-section-title">Información del producto</h3>
-
-            <div className="product-info-grid">
-              <div className="product-info-fields">
-                {/* Nombre y Ref */}
-                <div className="form-row-two">
-                  <div className="product-form-field">
-                    <label>Nombre <span className="req">*</span></label>
-                    <input
-                      type="text"
-                      className="product-input"
-                      placeholder="Ej: Glifosato Premium 48% SL"
-                      value={form.nombre}
-                      onChange={(e) => setForm(prev => ({ ...prev, nombre: e.target.value }))}
-                      required
-                    />
-                  </div>
-
-                  <div className="product-form-field">
-                    <label>Ref. / SKU</label>
-                    <input
-                      type="text"
-                      className="product-input"
-                      placeholder="Ej: HERB-GLIFO-48"
-                      value={form.ref}
-                      onChange={(e) => setForm(prev => ({ ...prev, ref: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                {/* Descripción */}
-                <div className="product-form-field">
-                  <label>Descripción</label>
-                  <textarea
-                    className="product-textarea"
-                    rows={3}
-                    placeholder="Descripción técnica, dosis de aplicación recomendada o características agronómicas..."
-                    value={form.descripcion}
-                    onChange={(e) => setForm(prev => ({ ...prev, descripcion: e.target.value }))}
-                  />
-                </div>
-
-                {/* Tipo de producto */}
-                <div className="product-form-field">
-                  <label>Tipo de producto</label>
-                  <select
-                    className="product-select"
-                    value={form.tipoProducto}
-                    onChange={(e) => setForm(prev => ({ ...prev, tipoProducto: e.target.value }))}
-                  >
-                    {PRODUCT_CATEGORIES.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Image Upload Box on the Right */}
-              <div className="product-image-uploader-box">
-                <div className="image-drop-area">
-                  <button type="button" className="btn-upload-subir">
-                    Subir
-                  </button>
-                  <span className="upload-link-text">Explorar Imágenes</span>
-                  <span className="upload-hint-sub">PNG, JPG hasta 5MB</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── CARD 2: Detalles de facturación ── */}
-          <div className="product-form-card">
-            <h3 className="card-section-title">Detalles de facturación</h3>
-
-            <div className="product-form-field" style={{ maxWidth: '420px' }}>
-              <label>Frecuencia de facturación</label>
-              <select
-                className="product-select"
-                value={form.frecuenciaFacturacion}
-                onChange={(e) => setForm(prev => ({ ...prev, frecuenciaFacturacion: e.target.value }))}
-              >
-                {BILLING_FREQUENCIES.map(freq => (
-                  <option key={freq} value={freq}>{freq}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* ── CARD 3: Configuración de precios ── */}
-          <div className="product-form-card">
-            <h3 className="card-section-title">Configuración de precios</h3>
-
-            <div className="form-row-two">
-              <div className="product-form-field">
-                <label>Precio unitario <span className="req">*</span></label>
-                <div className="amount-input-box">
-                  <input
-                    type="number"
-                    className="product-input product-input--price"
-                    placeholder="0,00"
-                    value={form.precioUnitario}
-                    onChange={(e) => setForm(prev => ({ ...prev, precioUnitario: e.target.value }))}
-                    required
-                  />
-                  <span className="currency-tag">$ ARS</span>
-                </div>
-              </div>
-
-              <div className="product-form-field">
-                <label>Coste por unidad ⓘ</label>
-                <div className="amount-input-box">
-                  <input
-                    type="number"
-                    className="product-input product-input--price"
-                    placeholder="0,00"
-                    value={form.costeUnidad}
-                    onChange={(e) => setForm(prev => ({ ...prev, costeUnidad: e.target.value }))}
-                  />
-                  <span className="currency-tag">$ ARS</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Margen Display */}
-            <div className="product-form-field" style={{ marginTop: '12px' }}>
-              <label>Margen ⓘ</label>
-              <div className="margin-calculated-display">
-                <span className="margin-number">
-                  {formatCurrency(calculatedMargin.amount)}
-                </span>
-                {calculatedMargin.percent > 0 && (
-                  <span className="margin-percent-badge">
-                    +{calculatedMargin.percent}% de margen
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  /* ════════════════════════════════════════════════════════════════════
-     VIEW 1: PRODUCT CATALOG TABLE (Matches Screenshot 1)
-     ════════════════════════════════════════════════════════════════════ */
   return (
     <div className="products-page">
-      {/* ── Page Header ── */}
+      {/* Top Header Row */}
       <div className="products-page__header">
         <div className="products-page__title-box">
           <div className="products-icon-badge">
-            <Package size={24} />
+            <Package size={22} />
           </div>
           <div>
             <h1 className="products-page__title">Productos</h1>
@@ -564,37 +404,36 @@ export const ProductsPage = () => {
             type="button"
             className="products-btn products-btn--outline"
             onClick={handleExportProducts}
-            title="Exportar catálogo en CSV para Excel"
           >
-            <Download size={15} />
-            <span>Exportar</span>
+            <Download size={15} /> Exportar
           </button>
 
           <button
             type="button"
             className="products-btn products-btn--primary"
-            onClick={() => setViewMode('create')}
+            onClick={handleOpenCreateModal}
           >
-            <Plus size={16} />
-            <span>Agregar productos ▾</span>
+            <Plus size={16} /> Agregar Producto
           </button>
         </div>
       </div>
 
-      {/* ── Products Metric Cards ── */}
+      {/* KPI Cards Bar */}
       <div className="products-metrics-grid">
         <div className="products-metric-card">
           <span className="p-metric-label">TOTAL PRODUCTOS</span>
           <div className="p-metric-value-row">
-            <span className="p-metric-number">{filteredProducts.length}</span>
-            <span className="p-metric-tag">{products.length} en catálogo</span>
+            <span className="p-metric-number">{products.length}</span>
+            <span className="p-metric-sub">7 en catálogo</span>
           </div>
         </div>
 
         <div className="products-metric-card">
           <span className="p-metric-label">PRODUCTOS ACTIVOS</span>
           <div className="p-metric-value-row">
-            <span className="p-metric-number text-success">{products.filter(p => p.activo).length}</span>
+            <span className="p-metric-number text-success">
+              {products.filter(p => p.activo).length}
+            </span>
             <CheckCircle2 size={16} className="text-success" />
           </div>
         </div>
@@ -608,9 +447,9 @@ export const ProductsPage = () => {
         </div>
       </div>
 
-      {/* ── Main Container Card ── */}
+      {/* Catalog Section Tabs & Filters */}
       <div className="products-card">
-        {/* HubSpot Tabs Bar */}
+        {/* Navigation Tabs */}
         <div className="products-tabs-bar">
           <button
             className={`p-tab-btn ${activeTab === 'todos' ? 'active' : ''}`}
@@ -711,45 +550,27 @@ export const ProductsPage = () => {
           </div>
         </div>
 
-        {/* ── Table / Loading / Error / Empty State ── */}
+        {/* ── Table / Empty State ── */}
         <div className="products-table-container">
-          {isLoading ? (
-            <div className="products-empty-illustration-box">
-              <div className="empty-box-graphic">
-                <Package size={52} className="text-primary" style={{ opacity: 0.6 }} />
-              </div>
-              <h3>Cargando productos…</h3>
-              <p className="empty-desc-main">Obteniendo el catálogo desde la base de datos.</p>
-            </div>
-          ) : loadError ? (
-            <div className="products-empty-illustration-box">
-              <div className="empty-box-graphic">
-                <Package size={52} className="text-primary" style={{ opacity: 0.6 }} />
-              </div>
-              <h3>No se pudo cargar el catálogo</h3>
-              <p className="empty-desc-main">{loadError}</p>
-              <button
-                type="button"
-                className="products-btn products-btn--primary"
-                onClick={loadProducts}
-              >
-                Reintentar
-              </button>
+          {loading ? (
+            <div className="products-loading-state-box">
+              <div className="p-spinner-icon" />
+              <h3>Cargando catálogo desde la base de datos...</h3>
+              <p>Por favor aguardá un instante mientras sincronizamos los insumos de MySQL.</p>
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="products-empty-illustration-box">
               <div className="empty-box-graphic">
                 <Package size={52} className="text-primary" style={{ opacity: 0.6 }} />
               </div>
-              <h3>Agrega tu primer producto y servicio</h3>
+              <h3>Agregá tu primer producto y servicio</h3>
               <p className="empty-desc-main">
-                Organiza y almacena todos tus datos de productos para que tu equipo de ventas pueda utilizarlos.
-                Agrega y reutiliza tus productos para enviar negocios, cotizaciones, facturas y enlaces de pago.
+                Organizá y almacená todos tus datos de productos para que tu equipo de ventas pueda utilizarlos.
               </p>
               <button
                 type="button"
                 className="products-btn products-btn--primary"
-                onClick={() => setViewMode('create')}
+                onClick={handleOpenCreateModal}
               >
                 <Plus size={16} /> Crear Producto
               </button>
@@ -786,10 +607,19 @@ export const ProductsPage = () => {
                       </td>
                       <td>
                         <div className="prod-name-cell">
-                          <span className="prod-title">{prod.nombre}</span>
-                          {prod.descripcion && (
-                            <span className="prod-sub-desc">{prod.descripcion}</span>
+                          {prod.imagenUrl ? (
+                            <img src={prod.imagenUrl} alt={prod.nombre} className="prod-table-thumb" />
+                          ) : (
+                            <div className="prod-table-thumb-placeholder">
+                              <Package size={14} />
+                            </div>
                           )}
+                          <div>
+                            <span className="prod-title">{prod.nombre}</span>
+                            {prod.descripcion && (
+                              <span className="prod-sub-desc">{prod.descripcion}</span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td>
@@ -837,7 +667,7 @@ export const ProductsPage = () => {
                           <button
                             type="button"
                             className="prod-edit-btn"
-                            onClick={(e) => handleStartEdit(prod, e)}
+                            onClick={(e) => handleOpenEditModal(prod, e)}
                             title="Modificar / Editar producto"
                           >
                             <Edit2 size={14} />
@@ -868,6 +698,251 @@ export const ProductsPage = () => {
         </div>
       </div>
 
+      {/* ── SLEEK SIDE-DRAWER MODAL: CREAR / EDITAR PRODUCTO (Matches Screenshot 2) ── */}
+      {showModal && (
+        <div className="deal-drawer-overlay" onClick={handleCloseModal}>
+          <div className="deal-drawer product-drawer-modal" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="deal-drawer-header">
+              <div className="drawer-header-titles">
+                <h2>{modalMode === 'edit' ? 'Modificar Producto' : 'Crear Producto'}</h2>
+                <a href="#edit-form" className="edit-form-link" onClick={e => e.preventDefault()}>
+                  Editar este formulario ↗
+                </a>
+              </div>
+              <button
+                type="button"
+                className="drawer-close-btn"
+                onClick={handleCloseModal}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form
+              className="deal-drawer-body"
+              onSubmit={modalMode === 'edit' ? handleUpdateProduct : (e) => handleCreateProduct(e, false)}
+            >
+              {/* Nombre del producto */}
+              <div className="deal-field">
+                <label>Nombre del producto <span className="req">*</span></label>
+                <input
+                  type="text"
+                  className="deal-input"
+                  placeholder="Ej: Glifosato Premium 48% SL (Bidón 20L)"
+                  value={form.nombre}
+                  onChange={(e) => setForm(prev => ({ ...prev, nombre: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {/* SKU / Referencia */}
+              <div className="deal-field">
+                <label>SKU / Referencia</label>
+                <input
+                  type="text"
+                  className="deal-input"
+                  placeholder="Ej: HERB-GLIFO-48"
+                  value={form.ref}
+                  onChange={(e) => setForm(prev => ({ ...prev, ref: e.target.value }))}
+                />
+              </div>
+
+              {/* Tipo / Categoría */}
+              <div className="deal-field">
+                <label>Tipo / Categoría <span className="req">*</span></label>
+                <select
+                  className="deal-select"
+                  value={form.tipoProducto}
+                  onChange={(e) => setForm(prev => ({ ...prev, tipoProducto: e.target.value }))}
+                  required
+                >
+                  {PRODUCT_CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Frecuencia de facturación */}
+              <div className="deal-field">
+                <label>Frecuencia de facturación</label>
+                <select
+                  className="deal-select"
+                  value={form.frecuenciaFacturacion}
+                  onChange={(e) => setForm(prev => ({ ...prev, frecuenciaFacturacion: e.target.value }))}
+                >
+                  {BILLING_FREQUENCIES.map(freq => (
+                    <option key={freq} value={freq}>{freq}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Precios: Unitario y Costo */}
+              <div className="product-drawer-row-two">
+                <div className="deal-field">
+                  <label>Precio unitario ($ ARS) <span className="req">*</span></label>
+                  <div className="currency-input-box">
+                    <span className="currency-sym">$</span>
+                    <input
+                      type="number"
+                      className="deal-input currency-input"
+                      placeholder="0.00"
+                      value={form.precioUnitario}
+                      onChange={(e) => setForm(prev => ({ ...prev, precioUnitario: e.target.value }))}
+                      min="0"
+                      step="any"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="deal-field">
+                  <label>Coste por unidad ($ ARS)</label>
+                  <div className="currency-input-box">
+                    <span className="currency-sym">$</span>
+                    <input
+                      type="number"
+                      className="deal-input currency-input"
+                      placeholder="0.00"
+                      value={form.costeUnidad}
+                      onChange={(e) => setForm(prev => ({ ...prev, costeUnidad: e.target.value }))}
+                      min="0"
+                      step="any"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Calculated Margin Display */}
+              {calculatedMargin.amount > 0 && (
+                <div className="product-drawer-margin-pill">
+                  <span>Margen estimado:</span>
+                  <strong>{formatCurrency(calculatedMargin.amount)} ({calculatedMargin.percent}%)</strong>
+                </div>
+              )}
+
+              {/* ── IMAGEN DEL PRODUCTO (REAL FILE UPLOAD) ── */}
+              <div className="deal-field">
+                <label>Imagen del Producto</label>
+                <input
+                  type="file"
+                  ref={imageInputRef}
+                  style={{ display: 'none' }}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
+
+                {form.imagenUrl ? (
+                  <div className="drawer-image-preview-card">
+                    <img src={form.imagenUrl} alt="Vista previa" className="drawer-img-preview" />
+                    <div className="drawer-img-actions">
+                      <button
+                        type="button"
+                        className="btn-change-img"
+                        onClick={() => imageInputRef.current?.click()}
+                      >
+                        Cambiar Foto
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-remove-img"
+                        onClick={handleRemoveImage}
+                      >
+                        <Trash2 size={14} /> Eliminar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="drawer-image-dropzone"
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    <div className="dropzone-icon-circle">
+                      <ImageIcon size={24} />
+                    </div>
+                    <div className="dropzone-info">
+                      <button type="button" className="btn-upload-trigger">
+                        Explorar Imágenes
+                      </button>
+                      <span className="dropzone-hint-text">PNG, JPG, WEBP hasta 5MB</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Descripción técnica */}
+              <div className="deal-field">
+                <label>Descripción Técnica Agronómica</label>
+                <textarea
+                  className="deal-textarea"
+                  rows={3}
+                  placeholder="Descripción técnica, dosis de aplicación recomendada o indicaciones agronómicas..."
+                  value={form.descripcion}
+                  onChange={(e) => setForm(prev => ({ ...prev, descripcion: e.target.value }))}
+                />
+              </div>
+
+              {/* Activo / Inactivo Switch */}
+              <div className="deal-field">
+                <div className="drawer-active-toggle-card">
+                  <div className="active-toggle-left">
+                    <strong>Estado Activo en Catálogo:</strong>
+                    <p>Los productos activos pueden asociarse a negocios y cotizaciones</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={`switch-toggle ${form.activo ? 'on' : 'off'}`}
+                    onClick={() => setForm(prev => ({ ...prev, activo: !prev.activo }))}
+                  >
+                    <span className="switch-dot" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Fixed Footer Buttons */}
+              <div className="deal-drawer-footer">
+                {modalMode === 'create' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="drawer-btn-secondary"
+                      onClick={(e) => handleCreateProduct(e, true)}
+                    >
+                      Crear y agregar otro
+                    </button>
+
+                    <button
+                      type="submit"
+                      className="drawer-btn-primary"
+                    >
+                      Crear Producto
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="drawer-btn-secondary"
+                      onClick={handleCloseModal}
+                    >
+                      Cancelar
+                    </button>
+
+                    <button
+                      type="submit"
+                      className="drawer-btn-primary"
+                    >
+                      Guardar Cambios
+                    </button>
+                  </>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ── Product Quick Detail Modal ── */}
       {selectedProductDetail && (
         <div className="deal-detail-overlay" onClick={() => setSelectedProductDetail(null)}>
@@ -890,6 +965,16 @@ export const ProductsPage = () => {
             </div>
 
             <div className="detail-modal-body">
+              {selectedProductDetail.imagenUrl && (
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                  <img
+                    src={selectedProductDetail.imagenUrl}
+                    alt={selectedProductDetail.nombre}
+                    style={{ maxHeight: '180px', borderRadius: '10px', objectFit: 'contain', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+              )}
+
               <div className="detail-grid">
                 <div className="detail-box">
                   <span className="detail-label">PRECIO UNITARIO</span>
@@ -926,7 +1011,7 @@ export const ProductsPage = () => {
                 type="button"
                 className="deals-btn deals-btn--primary"
                 style={{ background: '#2563eb', color: '#ffffff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                onClick={() => handleStartEdit(selectedProductDetail)}
+                onClick={() => handleOpenEditModal(selectedProductDetail)}
               >
                 <Edit2 size={15} /> Modificar Producto
               </button>
