@@ -1,0 +1,345 @@
+/* ═══════════════════════════════════════════
+   ProfilePage — HubSpot-style settings/profile
+   ═══════════════════════════════════════════ */
+
+.profile-page {
+  max-width: 680px;
+}
+
+.profile-page__back {
+  margin-bottom: var(--space-4);
+}
+
+.profile-page__back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all 150ms ease;
+}
+
+.profile-page__back-btn:hover {
+  background: var(--color-primary-50);
+}
+
+.profile-page__title {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-4) 0;
+}
+
+/* ── Tabs ── */
+.profile-page__tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: var(--space-3);
+}
+
+.profile-page__tab {
+  padding: 10px 20px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all 150ms ease;
+}
+
+.profile-page__tab:hover {
+  color: var(--text-primary);
+}
+
+.profile-page__tab--active {
+  color: var(--text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--color-primary);
+}
+
+.profile-page__hint {
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+  margin-bottom: var(--space-5);
+  font-weight: 500;
+}
+
+/* ── Content ── */
+.profile-page__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ── Section ── */
+.profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.profile-section__title {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.profile-section__desc {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: -8px 0 0 0;
+}
+
+/* ── Field ── */
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-field__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-field__label svg {
+  color: var(--text-muted);
+}
+
+.profile-field__hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.profile-field__input,
+.profile-field__select,
+.profile-field__textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: #ffffff;
+  transition: border-color 150ms ease;
+  width: 100%;
+  max-width: 460px;
+}
+
+.profile-field__input:focus,
+.profile-field__select:focus,
+.profile-field__textarea:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.profile-field__input--readonly {
+  background: var(--gray-50);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.profile-field__input--small {
+  max-width: 120px;
+}
+
+.profile-field__textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.profile-field__input::placeholder,
+.profile-field__textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* ── Avatar Upload ── */
+.profile-avatar-upload {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.profile-avatar-upload__preview {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  border: 2px solid var(--border-light);
+  transition: border-color 200ms ease;
+}
+
+.profile-avatar-upload__preview:hover {
+  border-color: var(--color-primary);
+}
+
+.profile-avatar-upload__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-avatar-upload__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-100);
+  color: var(--text-muted);
+}
+
+.profile-avatar-upload__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  border-radius: var(--radius-full);
+}
+
+.profile-avatar-upload__preview:hover .profile-avatar-upload__overlay {
+  opacity: 1;
+}
+
+.profile-avatar-upload__hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── Phones ── */
+.profile-phones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 460px;
+}
+
+.profile-phones__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.profile-phones__prefix {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  background: var(--gray-50);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.profile-phones__row .profile-field__input {
+  max-width: none;
+  flex: 1;
+}
+
+.profile-phones__remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all 150ms ease;
+  flex-shrink: 0;
+}
+
+.profile-phones__remove:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.profile-phones__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.profile-phones__add:hover {
+  color: var(--color-primary-hover);
+}
+
+/* ── Actions ── */
+.profile-page__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-light);
+}
+
+.profile-page__save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 24px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.profile-page__save-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.profile-page__saved-msg {
+  font-size: var(--text-sm);
+  color: var(--color-success);
+  font-weight: 600;
+  animation: fadeInMsg 300ms ease;
+}
+
+@keyframes fadeInMsg {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
