@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -76,7 +76,7 @@ export const Sidebar = () => {
         </ul>
       </nav>
 
-      {/* Footer — Botón de colapsar a la izquierda sobre la línea + Cerrar sesión */}
+      {/* Footer */}
       <div className="sidebar__footer">
         <div className="sidebar__divider-line">
           <div className="sidebar__collapse-wrapper">
@@ -96,8 +96,9 @@ export const Sidebar = () => {
         {/* Logout Button with Tooltip */}
         <div className="sidebar__logout-wrapper">
           <button
+            type="button"
             className="sidebar__link sidebar__link--footer sidebar__link--logout"
-            onClick={logout}
+            onClick={() => logout()}
           >
             <LogOut size={18} className="sidebar__link-icon" />
             {!collapsed && <span className="sidebar__link-label">Cerrar sesión</span>}

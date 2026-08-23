@@ -233,7 +233,7 @@ export const TopBar = ({ title, subtitle }) => {
                 Configuración
               </button>
               <div className="topbar__dropdown-divider" />
-              <button className="topbar__dropdown-item topbar__dropdown-item--danger" onClick={logout}>
+              <button className="topbar__dropdown-item topbar__dropdown-item--danger" onClick={() => { setShowUserMenu(false); logout(); }}>
                 <LogOut size={16} />
                 Cerrar sesión
               </button>

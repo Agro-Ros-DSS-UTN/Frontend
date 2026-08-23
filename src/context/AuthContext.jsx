@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+import { LogOut, X } from 'lucide-react';
+import '../styles/global.css';
 
 const AuthContext = createContext(null);
 
@@ -10,7 +12,7 @@ export const useAuth = () => {
   return context;
 };
 
-// Helper to normalize user object from backend (handling 'administrador' / 'admin' and 'vendedor')
+// Helper to normalize user object from backend
 const normalizeUser = (user) => {
   if (!user) return null;
   const rawRole = user.role || user.rol || user.tipoUsuario || '';
@@ -39,6 +41,9 @@ export const AuthProvider = ({ children }) => {
     return localStorage.getItem('agroros_profile_img') || null;
   });
 
+  // State to control Logout Confirmation Modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   useEffect(() => {
     if (currentUser) {
       sessionStorage.setItem('agroros_user', JSON.stringify(currentUser));
@@ -46,6 +51,17 @@ export const AuthProvider = ({ children }) => {
       sessionStorage.removeItem('agroros_user');
     }
   }, [currentUser]);
+
+  // Handle Esc key to close logout modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showLogoutModal) {
+        setShowLogoutModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showLogoutModal]);
 
   const updateProfileImage = (imgData) => {
     setProfileImageState(imgData);
@@ -63,9 +79,24 @@ export const AuthProvider = ({ children }) => {
     return { success: true, user: normalized };
   };
 
-  const logout = () => {
+  // Triggers confirmation modal instead of immediate silent log out
+  const logout = (options) => {
+    if (options && typeof options === 'object' && options.immediate === true) {
+      confirmLogout();
+    } else {
+      setShowLogoutModal(true);
+    }
+  };
+
+  // Actual session termination
+  const confirmLogout = () => {
     setCurrentUser(null);
     sessionStorage.removeItem('agroros_user');
+    setShowLogoutModal(false);
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutModal(false);
   };
 
   const isAuthenticated = !!currentUser;
@@ -80,11 +111,59 @@ export const AuthProvider = ({ children }) => {
       updateProfileImage,
       login,
       logout,
+      confirmLogout,
+      cancelLogout,
       isAuthenticated,
       isAdmin,
       isSeller,
     }}>
       {children}
+
+      {/* ── MODAL DE CONFIRMACIÓN DE CIERRE DE SESIÓN ── */}
+      {showLogoutModal && (
+        <div className="logout-modal-overlay" onClick={cancelLogout}>
+          <div className="logout-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="logout-modal-header">
+              <div className="logout-icon-badge">
+                <LogOut size={26} />
+              </div>
+              <button
+                type="button"
+                className="logout-modal-close"
+                onClick={cancelLogout}
+                title="Cerrar cartel"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="logout-modal-body">
+              <h3>¿Deseás cerrar sesión?</h3>
+              <p>
+                ¿Estás seguro de que querés salir de tu cuenta en <strong>Agroquímica Rosario</strong>? Tendrás que ingresar tus credenciales nuevamente para acceder.
+              </p>
+            </div>
+
+            <div className="logout-modal-actions">
+              <button
+                type="button"
+                className="logout-btn-cancel"
+                onClick={cancelLogout}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="logout-btn-confirm"
+                onClick={confirmLogout}
+              >
+                <LogOut size={16} /> Sí, cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 };

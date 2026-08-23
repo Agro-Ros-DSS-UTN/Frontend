@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -85,8 +85,9 @@ export const SellerSidebar = () => {
         {/* Logout Button */}
         <div className="sidebar__logout-wrapper">
           <button
+            type="button"
             className="sidebar__link sidebar__link--footer sidebar__link--logout"
-            onClick={logout}
+            onClick={() => logout()}
           >
             <LogOut size={18} className="sidebar__link-icon" />
             {!collapsed && <span className="sidebar__link-label">Cerrar sesión</span>}
