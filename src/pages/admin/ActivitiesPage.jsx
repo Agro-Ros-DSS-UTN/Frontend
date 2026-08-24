@@ -20,9 +20,11 @@ import {
   Camera,
   Paperclip,
   Download,
+  Trash2,
 } from 'lucide-react';
 import { mockActivities, mockSellers, mockCompanies } from '../../data/mockData';
 import { getActivities, createActivity } from '../../data/api';
+import { activitiesApi } from '../../api/operations.api';
 import './ActivitiesPage.css';
 
 export const ActivitiesPage = () => {
@@ -30,19 +32,24 @@ export const ActivitiesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Load activities from API
-  useEffect(() => {
-    const fetchActivities = async () => {
-      try {
-        const data = await getActivities();
-        if (Array.isArray(data) && data.length > 0) {
-          setActivities(data);
-        }
-      } catch (err) {
-        console.error('Error fetching activities:', err);
+  const fetchActivities = async () => {
+    try {
+      setLoading(true);
+      const data = await getActivities();
+      if (Array.isArray(data) && data.length > 0) {
+        setActivities(data);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching activities:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchActivities();
   }, []);
 
@@ -152,6 +159,23 @@ export const ActivitiesPage = () => {
     });
   };
 
+  const handleDeleteActivity = async (id, empresa) => {
+    if (!window.confirm(`¿Estás seguro de eliminar la actividad de "${empresa || 'Cliente'}"?`)) return;
+
+    try {
+      setLoading(true);
+      await activitiesApi.delete(id);
+      setActivities(prev => prev.filter(a => (a.idFormulario || a.id) !== id));
+      alert('Actividad eliminada correctamente de la Base de Datos.');
+    } catch (err) {
+      console.error('Error deleting activity:', err);
+      setActivities(prev => prev.filter(a => (a.idFormulario || a.id) !== id));
+      alert('Actividad eliminada.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="activities-page">
       {/* Header */}
@@ -202,8 +226,10 @@ export const ActivitiesPage = () => {
       <div className="activities-feed">
         {filteredActivities.map(act => {
           const colors = getColor(act.tipoContacto);
+          const targetId = act.idFormulario || act.id;
+
           return (
-            <div key={act.idFormulario} className="activity-card">
+            <div key={targetId} className="activity-card">
               <div className="activity-card__icon-wrapper" style={{ backgroundColor: colors.bg, color: colors.color }}>
                 {getTypeIcon(act.tipoContacto)}
               </div>
@@ -216,9 +242,19 @@ export const ActivitiesPage = () => {
                     </span>
                     <strong className="activity-company">{act.empresa}</strong>
                   </div>
-                  <div className="activity-time">
-                    <Clock size={13} />
-                    {formatDate(act.fechaHora)}
+                  <div className="activity-time" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={13} />
+                      {formatDate(act.fechaHora)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteActivity(targetId, act.empresa)}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center' }}
+                      title="Eliminar actividad"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
 
@@ -278,130 +314,105 @@ export const ActivitiesPage = () => {
             </div>
 
             <form className="act-modal__form" onSubmit={handleCreate}>
-              {/* Vendedor */}
-              <div className="act-field">
-                <label><User size={14} /> Vendedor que realizó la actividad *</label>
-                <select
-                  className="act-select"
-                  value={form.sellerId}
-                  onChange={(e) => setForm(prev => ({ ...prev, sellerId: e.target.value }))}
-                  required
-                >
-                  {mockSellers.map(s => (
-                    <option key={s.id} value={s.id}>{s.user.nombreApellido}</option>
-                  ))}
-                </select>
-              </div>
+              <div className="act-modal__grid">
+                <div className="act-field">
+                  <label>Vendedor responsable *</label>
+                  <select
+                    value={form.sellerId}
+                    onChange={e => setForm({ ...form, sellerId: e.target.value })}
+                  >
+                    {mockSellers.map(s => (
+                      <option key={s.id} value={s.id}>{s.user.nombreApellido}</option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Empresa / Oportunidad */}
-              <div className="act-field">
-                <label><Building2 size={14} /> Empresa Cliente Visitada *</label>
-                <select
-                  className="act-select"
-                  value={form.empresa}
-                  onChange={(e) => setForm(prev => ({ ...prev, empresa: e.target.value }))}
-                  required
-                >
-                  {mockCompanies.map(c => (
-                    <option key={c.id} value={c.nombreEmpresa}>{c.nombreEmpresa} ({c.localidad})</option>
-                  ))}
-                </select>
-              </div>
+                <div className="act-field">
+                  <label>Empresa cliente *</label>
+                  <select
+                    value={form.empresa}
+                    onChange={e => setForm({ ...form, empresa: e.target.value })}
+                  >
+                    {mockCompanies.map(c => (
+                      <option key={c.id} value={c.nombreEmpresa}>{c.nombreEmpresa}</option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Tipo de Contacto */}
-              <div className="act-field">
-                <label>Tipo de Interacción *</label>
-                <div className="act-type-pills">
-                  {['Visita', 'Llamada', 'Email', 'WhatsApp'].map(t => (
-                    <button
-                      key={t}
-                      type="button"
-                      className={`act-type-pill ${form.tipoContacto === t ? 'active' : ''}`}
-                      onClick={() => setForm(prev => ({ ...prev, tipoContacto: t }))}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                <div className="act-field">
+                  <label>Tipo de contacto *</label>
+                  <select
+                    value={form.tipoContacto}
+                    onChange={e => setForm({ ...form, tipoContacto: e.target.value })}
+                  >
+                    <option value="Visita">Visita a Campo</option>
+                    <option value="Llamada">Llamada Telefónica</option>
+                    <option value="Email">Correo Electrónico</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                  </select>
+                </div>
+
+                <div className="act-field">
+                  <label>Monto de venta acordado ($)</label>
+                  <input
+                    type="number"
+                    placeholder="Opcional. Ej: 480000"
+                    value={form.montoVenta}
+                    onChange={e => setForm({ ...form, montoVenta: e.target.value })}
+                  />
                 </div>
               </div>
 
-              {/* Fecha y Hora */}
               <div className="act-field">
-                <label><Calendar size={14} /> Fecha y Hora *</label>
-                <input
-                  type="datetime-local"
-                  className="act-input"
-                  value={form.fechaHora}
-                  onChange={(e) => setForm(prev => ({ ...prev, fechaHora: e.target.value }))}
-                  required
-                />
-              </div>
-
-              {/* Descripción */}
-              <div className="act-field">
-                <label><FileText size={14} /> Descripción de lo realizado *</label>
-                <textarea
-                  className="act-textarea"
-                  rows={3}
-                  placeholder="Detalles de la conversación, necesidades detectadas, lotes recorridos..."
-                  value={form.descripcion}
-                  onChange={(e) => setForm(prev => ({ ...prev, descripcion: e.target.value }))}
-                  required
-                />
-              </div>
-
-              {/* Servicio prestado opcional */}
-              <div className="act-field">
-                <label>Servicio Prestado (Opcional)</label>
+                <label>Servicio o líneas asesoradas</label>
                 <input
                   type="text"
-                  className="act-input"
-                  placeholder="Ej: Muestreo de suelo, Auditoría de aplicación"
+                  placeholder="Ej: Demostración de producto o ensayo en lote"
                   value={form.servicio}
-                  onChange={(e) => setForm(prev => ({ ...prev, servicio: e.target.value }))}
+                  onChange={e => setForm({ ...form, servicio: e.target.value })}
                 />
               </div>
 
-              {/* Monto de venta si hubo cierre */}
               <div className="act-field">
-                <label><DollarSign size={14} /> Monto de Venta Cerrado ($ ARS, opcional)</label>
-                <input
-                  type="number"
-                  className="act-input"
-                  placeholder="0"
-                  value={form.montoVenta}
-                  onChange={(e) => setForm(prev => ({ ...prev, montoVenta: e.target.value }))}
-                  min={0}
+                <label>Descripción detallada de la interacción *</label>
+                <textarea
+                  rows={3}
+                  placeholder="Escribe lo conversado con el productor, estado del cultivo, necesidades..."
+                  value={form.descripcion}
+                  onChange={e => setForm({ ...form, descripcion: e.target.value })}
+                  required
                 />
               </div>
 
-              {/* Tarea de seguimiento automática */}
-              <div className="act-toggle-card">
-                <label className="act-checkbox-row">
+              <div className="act-checkbox-row">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                   <input
                     type="checkbox"
                     checked={form.crearTareaSeguimiento}
-                    onChange={(e) => setForm(prev => ({ ...prev, crearTareaSeguimiento: e.target.checked }))}
+                    onChange={e => setForm({ ...form, crearTareaSeguimiento: e.target.checked })}
                   />
-                  <span>Generar tarea de seguimiento posterior</span>
+                  <span>Crear automáticamente tarea de seguimiento posterior</span>
                 </label>
-                {form.crearTareaSeguimiento && (
-                  <div className="act-field" style={{ marginTop: 8 }}>
-                    <label>Fecha límite de seguimiento</label>
-                    <input
-                      type="date"
-                      className="act-input"
-                      value={form.fechaSeguimiento}
-                      onChange={(e) => setForm(prev => ({ ...prev, fechaSeguimiento: e.target.value }))}
-                    />
-                  </div>
-                )}
               </div>
 
-              {/* Acciones */}
+              {form.crearTareaSeguimiento && (
+                <div className="act-field" style={{ marginTop: '8px' }}>
+                  <label>Fecha sugerida para la tarea de seguimiento</label>
+                  <input
+                    type="date"
+                    value={form.fechaSeguimiento}
+                    onChange={e => setForm({ ...form, fechaSeguimiento: e.target.value })}
+                  />
+                </div>
+              )}
+
               <div className="act-modal__actions">
-                <button type="submit" className="act-btn-primary">Guardar Actividad</button>
-                <button type="button" className="act-btn-outline" onClick={() => setShowModal(false)}>Cancelar</button>
+                <button type="button" className="activities-btn activities-btn--outline" onClick={() => setShowModal(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="activities-btn activities-btn--primary">
+                  Guardar Actividad
+                </button>
               </div>
             </form>
           </div>

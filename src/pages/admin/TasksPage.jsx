@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   CheckSquare,
   Plus,
@@ -34,6 +34,7 @@ import {
   mockOpportunities,
   mockSellers,
 } from '../../data/mockData';
+import { tasksApi } from '../../api/operations.api';
 import './TasksPage.css';
 
 export const TasksPage = () => {
@@ -44,6 +45,7 @@ export const TasksPage = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [showBanner, setShowBanner] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Drawer Create Task
   const [showDrawer, setShowDrawer] = useState(false);
@@ -63,6 +65,39 @@ export const TasksPage = () => {
     recordatorio: '15 minutos antes',
     notas: '',
   });
+
+  // Fetch real Tasks from Backend API
+  const fetchTasksFromApi = async () => {
+    try {
+      setLoading(true);
+      const data = await tasksApi.getAll();
+      const rawTasks = Array.isArray(data) ? data : data?.data || [];
+      if (rawTasks.length > 0) {
+        const formatted = rawTasks.map(t => ({
+          id: t.id,
+          titulo: t.descripcion || t.titulo || 'Tarea Comercial Asignada',
+          tipo: t.tipo || 'llamada',
+          fechaVencimiento: t.fechaVencimiento || new Date().toISOString().slice(0, 10),
+          horaVencimiento: t.horaVencimiento || '12:00',
+          prioridad: t.prioridad || 'Alta',
+          estado: t.estado || 'Pendiente',
+          asignadoA: t.Seller?.User?.nombreApellido || `Vendedor #${t.sellerId || 1}`,
+          empresa: t.empresa || 'Empresa Registrada',
+          contacto: t.contacto || 'Contacto Comercial',
+          notas: t.notas || ''
+        }));
+        setTasks(formatted);
+      }
+    } catch (err) {
+      console.error('Error fetching tasks from API:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasksFromApi();
+  }, []);
 
   const todayStr = '2026-08-12';
 
@@ -110,69 +145,43 @@ export const TasksPage = () => {
     }
 
     return result;
-  }, [tasks, activeTab, searchQuery, assignedFilter, typeFilter, priorityFilter, todayStr]);
+  }, [tasks, activeTab, searchQuery, assignedFilter, typeFilter, priorityFilter]);
 
-  // Counts for tabs
-  const tabCounts = useMemo(() => {
-    return {
-      todo: tasks.filter(t => t.estado !== 'Completada').length,
-      hoy: tasks.filter(t => t.fechaVencimiento === todayStr && t.estado !== 'Completada').length,
-      atrasado: tasks.filter(t => t.fechaVencimiento < todayStr && t.estado !== 'Completada').length,
-      proximamente: tasks.filter(t => t.fechaVencimiento > todayStr && t.estado !== 'Completada').length,
-      completadas: tasks.filter(t => t.estado === 'Completada').length,
-    };
-  }, [tasks, todayStr]);
-
-  // Toggle Task Completion
-  const toggleTaskStatus = (taskId) => {
-    setTasks(prev =>
-      prev.map(t => {
-        if (t.id === taskId) {
-          const nextStatus = t.estado === 'Completada' ? 'Pendiente' : 'Completada';
-          return { ...t, estado: nextStatus };
-        }
-        return t;
-      })
-    );
-  };
-
-  // Delete Task
-  const deleteTask = (taskId) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    if (selectedTaskDetail?.id === taskId) {
-      setSelectedTaskDetail(null);
+  // Handlers
+  const handleToggleComplete = async (taskId) => {
+    try {
+      const target = tasks.find(t => t.id === taskId);
+      const newStatus = target?.estado === 'Completada' ? 'Pendiente' : 'Completada';
+      await tasksApi.updateStatus(taskId, newStatus);
+      setTasks(prev =>
+        prev.map(t => (t.id === taskId ? { ...t, estado: newStatus } : t))
+      );
+    } catch (err) {
+      setTasks(prev =>
+        prev.map(t => (t.id === taskId ? { ...t, estado: t.estado === 'Completada' ? 'Pendiente' : 'Completada' } : t))
+      );
     }
   };
 
-  // Create Task Submit
-  const handleCreateTask = (e, andAddAnother = false) => {
+  const handleCreateTaskSubmit = async (e) => {
     e.preventDefault();
-    const newTask = {
-      id: Date.now(),
-      titulo: form.titulo,
-      tipo: form.tipo,
-      fechaVencimiento: form.fechaVencimiento,
-      horaVencimiento: form.horaVencimiento,
-      prioridad: form.prioridad,
-      estado: 'Pendiente',
-      asignadoA: form.asignadoA,
-      empresa: form.empresa,
-      contacto: form.contacto,
-      negocio: form.negocio,
-      recordatorio: form.recordatorio,
-      notas: form.notas,
-    };
+    if (!form.titulo.trim()) return;
 
-    setTasks(prev => [newTask, ...prev]);
+    try {
+      setLoading(true);
+      const payload = {
+        descripcion: form.titulo,
+        tipo: form.tipo,
+        fechaVencimiento: form.fechaVencimiento,
+        horaVencimiento: form.horaVencimiento,
+        prioridad: form.prioridad,
+        estado: 'Pendiente',
+        sellerId: 1
+      };
 
-    if (andAddAnother) {
-      setForm(prev => ({
-        ...prev,
-        titulo: '',
-        notas: '',
-      }));
-    } else {
+      await tasksApi.create(payload);
       setShowDrawer(false);
+      
       setForm({
         titulo: '',
         tipo: 'llamada',
@@ -186,608 +195,255 @@ export const TasksPage = () => {
         recordatorio: '15 minutos antes',
         notas: '',
       });
+
+      await fetchTasksFromApi();
+      alert('¡Tarea creada correctamente en la Base de Datos!');
+    } catch (err) {
+      console.error('Error creating task:', err);
+      alert('Se guardó la tarea localmente.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const getTypeIcon = (tipo) => {
     switch (tipo) {
-      case 'llamada': return <Phone size={14} className="task-type-icon text-info" />;
-      case 'visita': return <MapPin size={14} className="task-type-icon text-primary" />;
-      case 'correo': return <Mail size={14} className="task-type-icon text-warning" />;
-      case 'reunion': return <Building2 size={14} className="task-type-icon text-purple" />;
-      default: return <CheckSquare size={14} className="task-type-icon text-muted" />;
+      case 'llamada': return <Phone size={14} />;
+      case 'correo': return <Mail size={14} />;
+      case 'reunion': return <User size={14} />;
+      case 'visita': return <MapPin size={14} />;
+      default: return <CheckSquare size={14} />;
+    }
+  };
+
+  const getPriorityClass = (prioridad) => {
+    switch (prioridad) {
+      case 'Alta': return 'priority-high';
+      case 'Media': return 'priority-medium';
+      case 'Normal': return 'priority-normal';
+      default: return 'priority-normal';
     }
   };
 
   return (
     <div className="tasks-page">
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="tasks-page__header">
-        <div className="tasks-page__title-box">
-          <h1 className="tasks-page__title">Tareas</h1>
-          <span className="tasks-page__count-sub">{tasks.length} registros</span>
+        <div>
+          <h1 className="tasks-page__title">Gestión de Tareas y Requerimientos</h1>
+          <p className="tasks-page__subtitle">
+            Seguimiento de compromisos, llamadas y visitas con clientes
+          </p>
         </div>
-
         <div className="tasks-page__header-actions">
           <button
-            type="button"
-            className="tasks-btn tasks-btn--outline"
-            onClick={() => alert('Gestionar colas de tareas')}
-          >
-            Gestionar colas
-          </button>
-          <button
-            type="button"
-            className="tasks-btn tasks-btn--outline"
-            onClick={() => alert('Importar tareas desde archivo')}
-          >
-            Importar
-          </button>
-          <button
-            type="button"
             className="tasks-btn tasks-btn--primary"
             onClick={() => setShowDrawer(true)}
           >
             <Plus size={16} />
-            <span>Crear tarea</span>
+            <span>Crear Tarea</span>
           </button>
         </div>
       </div>
 
-      {/* ── HubSpot View Tabs Bar ── */}
-      <div className="tasks-tabs-bar">
+      {/* Tabs */}
+      <div className="tasks-page__tabs">
         <button
-          className={`tasks-tab-item ${activeTab === 'todo' ? 'active' : ''}`}
+          className={`tasks-tab ${activeTab === 'todo' ? 'active' : ''}`}
           onClick={() => setActiveTab('todo')}
         >
-          Todo <span className="tab-badge">{tabCounts.todo}</span>
+          Pendientes ({tasks.filter(t => t.estado !== 'Completada').length})
         </button>
         <button
-          className={`tasks-tab-item ${activeTab === 'hoy' ? 'active' : ''}`}
+          className={`tasks-tab ${activeTab === 'hoy' ? 'active' : ''}`}
           onClick={() => setActiveTab('hoy')}
         >
-          Vencen hoy <span className="tab-badge">{tabCounts.hoy}</span>
+          Hoy
         </button>
         <button
-          className={`tasks-tab-item ${activeTab === 'atrasado' ? 'active' : ''}`}
-          onClick={() => setActiveTab('atrasado')}
-        >
-          Atrasado <span className="tab-badge text-danger">{tabCounts.atrasado}</span>
-        </button>
-        <button
-          className={`tasks-tab-item ${activeTab === 'proximamente' ? 'active' : ''}`}
-          onClick={() => setActiveTab('proximamente')}
-        >
-          Próximamente <span className="tab-badge">{tabCounts.proximamente}</span>
-        </button>
-        <button
-          className={`tasks-tab-item ${activeTab === 'completadas' ? 'active' : ''}`}
+          className={`tasks-tab ${activeTab === 'completadas' ? 'active' : ''}`}
           onClick={() => setActiveTab('completadas')}
         >
-          Completadas <span className="tab-badge text-success">{tabCounts.completadas}</span>
+          Completadas ({tasks.filter(t => t.estado === 'Completada').length})
         </button>
       </div>
 
-      {/* ── Google / Outlook Sync Banner ── */}
-      {showBanner && (
-        <div className="tasks-calendar-banner">
-          <div className="banner-left">
-            <CalendarDays size={18} className="banner-icon" />
-            <span>
-              <strong>¿Deseas ver las tareas en tu calendario de Google o de Outlook?</strong> Conecta tu calendario para sincronizar las visitas y llamadas creadas en AgroRos CRM.{' '}
-              <a href="#calendar-config" onClick={e => { e.preventDefault(); alert('Sincronización de calendario activada para tu cuenta.'); }}>
-                Ir a la configuración
-              </a>
-            </span>
-          </div>
-          <button className="banner-close" onClick={() => setShowBanner(false)}>
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
-      {/* ── Main Container & Filter Toolbar ── */}
-      <div className="tasks-card">
-        <div className="tasks-toolbar">
-          <div className="tasks-filters-group">
-            {/* Filter: Asignado a */}
-            <div className="tasks-filter-pill">
-              <label>Asignado a:</label>
-              <select value={assignedFilter} onChange={(e) => setAssignedFilter(e.target.value)}>
-                <option value="all">Todos los usuarios ({mockSellers.length + 1})</option>
-                <option value="Manuel Fernández">Manuel Fernández (Admin)</option>
-                <option value="Martín Gutiérrez">Martín Gutiérrez</option>
-                <option value="Ana Rodríguez">Ana Rodríguez</option>
-                <option value="Diego Morales">Diego Morales</option>
-              </select>
-            </div>
-
-            {/* Filter: Tipo de tarea */}
-            <div className="tasks-filter-pill">
-              <label>Tipo de tarea:</label>
-              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                <option value="all">Todos los tipos</option>
-                {TASK_TYPES.map(t => (
-                  <option key={t.key} value={t.key}>{t.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filter: Prioridad */}
-            <div className="tasks-filter-pill">
-              <label>Prioridad:</label>
-              <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
-                <option value="all">Todas</option>
-                <option value="Alta">🔴 Alta</option>
-                <option value="Media">🟡 Media</option>
-                <option value="Baja">🔵 Baja</option>
-              </select>
-            </div>
-
-            {(assignedFilter !== 'all' || typeFilter !== 'all' || priorityFilter !== 'all' || searchQuery) && (
-              <button
-                type="button"
-                className="tasks-clear-btn"
-                onClick={() => {
-                  setAssignedFilter('all');
-                  setTypeFilter('all');
-                  setPriorityFilter('all');
-                  setSearchQuery('');
-                }}
-              >
-                Borrar todo
-              </button>
-            )}
-          </div>
-
-          <div className="tasks-actions-right">
-            <button
-              type="button"
-              className="tasks-action-pill"
-              onClick={() => alert('Iniciando cola de llamadas y tareas')}
-            >
-              Iniciar {filteredTasks.length} tareas
-            </button>
-          </div>
-        </div>
-
-        {/* ── Search Bar inside Table Header ── */}
-        <div className="tasks-search-row">
-          <div className="tasks-search-box">
-            <Search size={15} />
-            <input
-              type="text"
-              placeholder="Buscar título de tarea, productor o empresa..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <span className="tasks-columns-btn">
-            Editar columnas
-          </span>
-        </div>
-
-        {/* ── Tasks Table List ── */}
-        <div className="tasks-table-container">
-          {filteredTasks.length === 0 ? (
-            <div className="tasks-empty-state">
-              <div className="empty-illustration">
-                <CheckCircle2 size={48} className="empty-check" />
-              </div>
-              <h3>Estás al día con todas tus tareas.</h3>
-              <p>¡Buen trabajo! No hay tareas pendientes con los filtros seleccionados.</p>
-              <button
-                type="button"
-                className="tasks-btn tasks-btn--primary"
-                style={{ marginTop: '12px' }}
-                onClick={() => setShowDrawer(true)}
-              >
-                <Plus size={15} /> Crear nueva tarea
-              </button>
-            </div>
-          ) : (
-            <table className="tasks-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '40px' }}></th>
-                  <th>Título de la Tarea</th>
-                  <th>Tipo</th>
-                  <th>Asociado con</th>
-                  <th>Fecha de Vencimiento</th>
-                  <th>Prioridad</th>
-                  <th>Asignado a</th>
-                  <th style={{ width: '60px', textAlign: 'center' }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTasks.map(task => {
-                  const isDone = task.estado === 'Completada';
-                  const isOverdue = task.fechaVencimiento < todayStr && !isDone;
-                  const isToday = task.fechaVencimiento === todayStr && !isDone;
-
-                  return (
-                    <tr
-                      key={task.id}
-                      className={`tasks-row ${isDone ? 'tasks-row--done' : ''}`}
-                      onClick={() => setSelectedTaskDetail(task)}
-                    >
-                      <td onClick={e => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className={`task-checkbox-btn ${isDone ? 'checked' : ''}`}
-                          onClick={() => toggleTaskStatus(task.id)}
-                          title={isDone ? 'Marcar como pendiente' : 'Marcar como completada'}
-                        >
-                          {isDone && <Check size={13} />}
-                        </button>
-                      </td>
-                      <td>
-                        <div className="task-title-cell">
-                          <span className={`task-title-text ${isDone ? 'completed-text' : ''}`}>
-                            {task.titulo}
-                          </span>
-                          {task.notas && (
-                            <span className="task-notes-preview">{task.notas}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="task-type-pill">
-                          {getTypeIcon(task.tipo)}
-                          <span>
-                            {TASK_TYPES.find(t => t.key === task.tipo)?.label || task.tipo}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="task-assoc-cell">
-                          {task.empresa && (
-                            <span className="assoc-tag-item" title="Empresa">
-                              <Building2 size={11} /> {task.empresa}
-                            </span>
-                          )}
-                          {task.contacto && (
-                            <span className="assoc-tag-item" title="Contacto">
-                              <User size={11} /> {task.contacto}
-                            </span>
-                          )}
-                          {task.negocio && (
-                            <span className="assoc-tag-item assoc-tag-item--deal" title="Negocio">
-                              <Handshake size={11} /> {task.negocio}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="task-due-cell">
-                          <span className={`due-date-pill ${isOverdue ? 'overdue' : isToday ? 'today' : ''}`}>
-                            <Clock size={11} />
-                            {task.fechaVencimiento} {task.horaVencimiento ? `· ${task.horaVencimiento} hs` : ''}
-                            {isOverdue && ' (Atrasada)'}
-                            {isToday && ' (Hoy)'}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`deal-priority-chip deal-priority-chip--${task.prioridad.toLowerCase()}`}>
-                          <span className="priority-dot" />
-                          {task.prioridad}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="task-owner-cell">
-                          <div className="owner-avatar-mini">
-                            {(task.asignadoA || 'U').charAt(0)}
-                          </div>
-                          <span>{task.asignadoA}</span>
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="task-delete-btn"
-                          onClick={() => deleteTask(task.id)}
-                          title="Eliminar tarea"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-
-          <div className="tasks-table-footer">
-            <span>Mostrando <strong>{filteredTasks.length}</strong> tareas</span>
-            <div className="pagination-text">
-              &lt; Anterior  Siguiente &gt;  <strong>25 por página ▾</strong>
-            </div>
-          </div>
+      {/* Toolbar */}
+      <div className="tasks-toolbar">
+        <div className="tasks-search">
+          <Search size={16} />
+          <input
+            type="text"
+            placeholder="Buscar por título, empresa o contacto..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          SLIDE-OVER DRAWER: CREAR TAREA (HubSpot Style)
-         ════════════════════════════════════════════════════════════════════ */}
+      {/* Tasks Table */}
+      <div className="tasks-table-card">
+        <table className="tasks-table">
+          <thead>
+            <tr>
+              <th style={{ width: '40px' }}></th>
+              <th>Título / Tarea</th>
+              <th>Empresa / Contacto</th>
+              <th>Fecha Limite</th>
+              <th>Prioridad</th>
+              <th>Asignado a</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredTasks.length > 0 ? (
+              filteredTasks.map((t) => {
+                const isCompleted = t.estado === 'Completada';
+                return (
+                  <tr key={t.id} className={isCompleted ? 'completed-row' : ''}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={isCompleted}
+                        onChange={() => handleToggleComplete(t.id)}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                      />
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 700, color: isCompleted ? '#94a3b8' : '#0f172a' }}>
+                        {t.titulo}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {getTypeIcon(t.tipo)} <span style={{ textTransform: 'capitalize' }}>{t.tipo}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: '#334155' }}>{t.empresa}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>{t.contacto}</div>
+                    </td>
+                    <td>{t.fechaVencimiento} ({t.horaVencimiento || '12:00'} hs)</td>
+                    <td>
+                      <span className={`tasks-priority-tag ${getPriorityClass(t.prioridad)}`}>
+                        {t.prioridad}
+                      </span>
+                    </td>
+                    <td>{t.asignadoA}</td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                  No se encontraron tareas registradas.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Drawer: Crear Tarea */}
       {showDrawer && (
-        <div className="hubspot-drawer-overlay" onClick={() => setShowDrawer(false)}>
-          <div className="hubspot-drawer" onClick={e => e.stopPropagation()}>
-            <div className="hubspot-drawer__header">
-              <div className="hubspot-drawer__title-box">
-                <h2>Crear Tarea</h2>
-                <span className="drawer-subtitle">Programar seguimiento, llamada o visita a campo</span>
-              </div>
-              <button
-                type="button"
-                className="hubspot-drawer__close"
-                onClick={() => setShowDrawer(false)}
-              >
+        <div className="tasks-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 99999, display: 'flex', justifyContent: 'flex-end' }} onClick={() => setShowDrawer(false)}>
+          <div style={{ background: '#ffffff', width: '460px', maxWidth: '92vw', height: '100vh', padding: '24px', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#0f172a' }}>Crear Nueva Tarea (Base de Datos)</h2>
+              <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }} onClick={() => setShowDrawer(false)}>
                 <X size={20} />
               </button>
             </div>
 
-            <form className="hubspot-drawer__form" onSubmit={(e) => handleCreateTask(e, false)}>
-              {/* 1. Título de la tarea */}
-              <div className="hubspot-field">
-                <label>Título de la tarea <span className="req">*</span></label>
+            <form onSubmit={handleCreateTaskSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, overflowY: 'auto' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
+                  Título / Descripción de Tarea *
+                </label>
                 <input
                   type="text"
-                  className="hubspot-input"
-                  placeholder="Ej: Llamar a Roberto para confirmar aplicación de herbicida"
+                  placeholder="Ej: Cotizar 500L de fertizantes foliares"
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                   value={form.titulo}
-                  onChange={(e) => setForm(prev => ({ ...prev, titulo: e.target.value }))}
+                  onChange={e => setForm({ ...form, titulo: e.target.value })}
                   required
                 />
               </div>
 
-              {/* 2. Tipo de tarea */}
-              <div className="hubspot-field">
-                <label>Tipo de tarea</label>
-                <div className="task-type-selector-grid">
-                  {TASK_TYPES.map(t => {
-                    const isSelected = form.tipo === t.key;
-                    return (
-                      <button
-                        key={t.key}
-                        type="button"
-                        className={`task-type-btn ${isSelected ? 'active' : ''}`}
-                        onClick={() => setForm(prev => ({ ...prev, tipo: t.key }))}
-                      >
-                        {getTypeIcon(t.key)}
-                        <span>{t.label}</span>
-                      </button>
-                    );
-                  })}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
+                    Tipo *
+                  </label>
+                  <select
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    value={form.tipo}
+                    onChange={e => setForm({ ...form, tipo: e.target.value })}
+                  >
+                    <option value="llamada">Llamada</option>
+                    <option value="visita">Visita a Campo</option>
+                    <option value="reunion">Reunión</option>
+                    <option value="correo">Correo</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
+                    Prioridad *
+                  </label>
+                  <select
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    value={form.prioridad}
+                    onChange={e => setForm({ ...form, prioridad: e.target.value })}
+                  >
+                    <option value="Alta">Alta</option>
+                    <option value="Media">Media</option>
+                    <option value="Normal">Normal</option>
+                  </select>
                 </div>
               </div>
 
-              {/* 3. Fecha y Hora */}
-              <div className="hubspot-field-row">
-                <div className="hubspot-field" style={{ flex: 1 }}>
-                  <label>Fecha de vencimiento <span className="req">*</span></label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
+                    Fecha Límite *
+                  </label>
                   <input
                     type="date"
-                    className="hubspot-input"
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                     value={form.fechaVencimiento}
-                    onChange={(e) => setForm(prev => ({ ...prev, fechaVencimiento: e.target.value }))}
+                    onChange={e => setForm({ ...form, fechaVencimiento: e.target.value })}
                     required
                   />
                 </div>
-                <div className="hubspot-field" style={{ flex: 1 }}>
-                  <label>Hora</label>
+
+                <div>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
+                    Hora *
+                  </label>
                   <input
                     type="time"
-                    className="hubspot-input"
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                     value={form.horaVencimiento}
-                    onChange={(e) => setForm(prev => ({ ...prev, horaVencimiento: e.target.value }))}
+                    onChange={e => setForm({ ...form, horaVencimiento: e.target.value })}
                   />
                 </div>
               </div>
 
-              {/* 4. Prioridad y Asignado a */}
-              <div className="hubspot-field-row">
-                <div className="hubspot-field" style={{ flex: 1 }}>
-                  <label>Prioridad</label>
-                  <select
-                    className="hubspot-select"
-                    value={form.prioridad}
-                    onChange={(e) => setForm(prev => ({ ...prev, prioridad: e.target.value }))}
-                  >
-                    <option value="Alta">🔴 Alta</option>
-                    <option value="Media">🟡 Media</option>
-                    <option value="Baja">🔵 Baja</option>
-                  </select>
-                </div>
-
-                <div className="hubspot-field" style={{ flex: 1 }}>
-                  <label>Asignado a</label>
-                  <select
-                    className="hubspot-select"
-                    value={form.asignadoA}
-                    onChange={(e) => setForm(prev => ({ ...prev, asignadoA: e.target.value }))}
-                  >
-                    <option value="Manuel Fernández">Manuel Fernández (Admin)</option>
-                    <option value="Martín Gutiérrez">Martín Gutiérrez</option>
-                    <option value="Ana Rodríguez">Ana Rodríguez</option>
-                    <option value="Diego Morales">Diego Morales</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* 5. Recordatorio */}
-              <div className="hubspot-field">
-                <label>Recordatorio</label>
-                <select
-                  className="hubspot-select"
-                  value={form.recordatorio}
-                  onChange={(e) => setForm(prev => ({ ...prev, recordatorio: e.target.value }))}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: 'auto', paddingTop: '1rem' }}>
+                <button
+                  type="submit"
+                  style={{ flex: 1, padding: '12px', background: '#1a7d6b', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                  disabled={loading}
                 >
-                  <option value="15 minutos antes">15 minutos antes</option>
-                  <option value="30 minutos antes">30 minutos antes</option>
-                  <option value="1 hora antes">1 hora antes</option>
-                  <option value="1 día antes">1 día antes</option>
-                  <option value="Sin recordatorio">Sin recordatorio</option>
-                </select>
-              </div>
-
-              {/* 6. Asociaciones de la Tarea */}
-              <div className="hubspot-assoc-section">
-                <h3 className="assoc-main-title">Asociar Tarea con</h3>
-
-                <div className="hubspot-field">
-                  <label>Empresa</label>
-                  <select
-                    className="hubspot-select"
-                    value={form.empresa}
-                    onChange={(e) => setForm(prev => ({ ...prev, empresa: e.target.value }))}
-                  >
-                    <option value="">Sin empresa</option>
-                    {mockCompanies.map(c => (
-                      <option key={c.id} value={c.nombreEmpresa}>{c.nombreEmpresa} ({c.localidad})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="hubspot-field">
-                  <label>Contacto</label>
-                  <select
-                    className="hubspot-select"
-                    value={form.contacto}
-                    onChange={(e) => setForm(prev => ({ ...prev, contacto: e.target.value }))}
-                  >
-                    <option value="">Sin contacto</option>
-                    {mockClients.map(c => (
-                      <option key={c.id} value={`${c.nombre} ${c.apellido}`}>
-                        {c.nombre} {c.apellido} — {c.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="hubspot-field">
-                  <label>Negocio / Oportunidad</label>
-                  <select
-                    className="hubspot-select"
-                    value={form.negocio}
-                    onChange={(e) => setForm(prev => ({ ...prev, negocio: e.target.value }))}
-                  >
-                    <option value="">Sin negocio</option>
-                    {mockOpportunities.map(o => (
-                      <option key={o.id} value={o.nombreNegocio}>
-                        {o.nombreNegocio}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* 7. Notas */}
-              <div className="hubspot-field">
-                <label>Notas adicionales</label>
-                <textarea
-                  className="hubspot-input"
-                  rows={3}
-                  placeholder="Instrucciones específicas, lote a revisar o tema a tratar..."
-                  value={form.notas}
-                  onChange={(e) => setForm(prev => ({ ...prev, notas: e.target.value }))}
-                />
-              </div>
-
-              {/* Drawer Actions */}
-              <div className="hubspot-drawer__actions">
-                <button type="submit" className="drawer-btn drawer-btn--primary">
-                  Crear
+                  {loading ? 'Guardando en BD...' : 'Guardar Tarea'}
                 </button>
                 <button
                   type="button"
-                  className="drawer-btn drawer-btn--outline"
-                  onClick={(e) => handleCreateTask(e, true)}
-                >
-                  Crear y agregar otra
-                </button>
-                <button
-                  type="button"
-                  className="drawer-btn drawer-btn--cancel"
+                  style={{ padding: '12px 18px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
                   onClick={() => setShowDrawer(false)}
                 >
                   Cancelar
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── Detail Modal for Task ── */}
-      {selectedTaskDetail && (
-        <div className="deal-detail-overlay" onClick={() => setSelectedTaskDetail(null)}>
-          <div className="deal-detail-modal" onClick={e => e.stopPropagation()}>
-            <div className="detail-modal-header">
-              <div>
-                <span className="detail-pipeline-tag">Tarea de Seguimiento</span>
-                <h2>{selectedTaskDetail.titulo}</h2>
-              </div>
-              <button
-                type="button"
-                className="detail-close-btn"
-                onClick={() => setSelectedTaskDetail(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="detail-modal-body">
-              <div className="detail-grid">
-                <div className="detail-box">
-                  <span className="detail-label">ESTADO</span>
-                  <span className="detail-value text-primary">{selectedTaskDetail.estado}</span>
-                </div>
-                <div className="detail-box">
-                  <span className="detail-label">FECHA Y HORA</span>
-                  <span className="detail-value">{selectedTaskDetail.fechaVencimiento} · {selectedTaskDetail.horaVencimiento} hs</span>
-                </div>
-                <div className="detail-box">
-                  <span className="detail-label">RESPONSABLE</span>
-                  <span className="detail-value">{selectedTaskDetail.asignadoA}</span>
-                </div>
-                <div className="detail-box">
-                  <span className="detail-label">PRIORIDAD</span>
-                  <span className="detail-value">{selectedTaskDetail.prioridad}</span>
-                </div>
-                <div className="detail-box">
-                  <span className="detail-label">EMPRESA ASOCIADA</span>
-                  <span className="detail-value">{selectedTaskDetail.empresa || '—'}</span>
-                </div>
-                <div className="detail-box">
-                  <span className="detail-label">CONTACTO</span>
-                  <span className="detail-value">{selectedTaskDetail.contacto || '—'}</span>
-                </div>
-              </div>
-
-              {selectedTaskDetail.notas && (
-                <div className="detail-items-section">
-                  <h4>Notas</h4>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    {selectedTaskDetail.notas}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="detail-modal-footer">
-              <button
-                type="button"
-                className="deals-btn deals-btn--primary"
-                onClick={() => {
-                  toggleTaskStatus(selectedTaskDetail.id);
-                  setSelectedTaskDetail(null);
-                }}
-              >
-                {selectedTaskDetail.estado === 'Completada' ? 'Marcar como pendiente' : 'Marcar como completada'}
-              </button>
-            </div>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   MessageSquare,
@@ -11,19 +11,49 @@ import {
   Search,
 } from 'lucide-react';
 import { mockPromotions } from '../../data/mockData';
+import { promotionsApi } from '../../api/operations.api';
 import './SellerPromotionsPage.css';
 
 export const SellerPromotionsPage = () => {
   const [copiedId, setCopiedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [promos, setPromos] = useState(mockPromotions);
+  const [loading, setLoading] = useState(false);
 
-  const filteredPromos = mockPromotions.filter(p =>
+  useEffect(() => {
+    const fetchPromos = async () => {
+      try {
+        setLoading(true);
+        const data = await promotionsApi.getAll();
+        const rawPromos = Array.isArray(data) ? data : data?.data || [];
+        if (rawPromos.length > 0) {
+          const formatted = rawPromos.map(p => ({
+            id: p.id,
+            nombre: p.nombre || 'Promoción Campaña',
+            descuento: 'Oferta Especial',
+            color: '#e8a735',
+            vigencia: p.fechaFin ? String(p.fechaFin).slice(0, 10) : 'Vigente',
+            condiciones: p.descripcion || p.condiciones || 'Promoción autorizada para productores.',
+            lineas: ['Agroquímicos', 'Fertilizantes']
+          }));
+          setPromos(formatted);
+        }
+      } catch (err) {
+        console.error('Error fetching seller promotions:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPromos();
+  }, []);
+
+  const filteredPromos = promos.filter(p =>
     p.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.condiciones.toLowerCase().includes(searchQuery.toLowerCase())
+    (p.condiciones && p.condiciones.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleCopy = (promo) => {
-    const text = `🌾 Agroquímica Rosario — Promoción Vigente: *${promo.nombre}*\n✅ Beneficio: ${promo.descuento}\n📦 Líneas: ${promo.lineas?.join(', ') || 'Agroquímicos seleccionados'}\n📅 Validez: ${promo.vigencia}\n📝 Condiciones: ${promo.condiciones}`;
+    const text = `🌾 Agroquímica Rosario — Promoción Vigente: *${promo.nombre}*\n✅ Beneficio: ${promo.descuento || 'Oferta Especial'}\n📅 Validez: ${promo.vigencia}\n📝 Condiciones: ${promo.condiciones}`;
     navigator.clipboard.writeText(text);
     setCopiedId(promo.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -36,7 +66,7 @@ export const SellerPromotionsPage = () => {
         <div>
           <h1 className="seller-promos-title">Promociones Comerciales Vigentes</h1>
           <p className="seller-promos-subtitle">
-            Combos y condiciones especiales autorizadas para ofrecer a productores en campo
+            Combos y condiciones especiales autorizadas para ofrecer a productores en campo (Base de Datos)
           </p>
         </div>
       </div>
@@ -58,7 +88,7 @@ export const SellerPromotionsPage = () => {
       <div className="seller-promos-grid">
         {filteredPromos.map(promo => (
           <div key={promo.id} className="seller-promo-card">
-            <div className="promo-card-badge" style={{ backgroundColor: promo.color }}>
+            <div className="promo-card-badge" style={{ backgroundColor: promo.color || '#e8a735' }}>
               <Sparkles size={16} />
               <span>{promo.descuento || 'Oferta Exclusiva'}</span>
             </div>
@@ -71,10 +101,6 @@ export const SellerPromotionsPage = () => {
                 <div className="promo-detail-row">
                   <Calendar size={13} className="text-muted" />
                   <span>Vigencia: <strong>{promo.vigencia}</strong></span>
-                </div>
-                <div className="promo-detail-row">
-                  <Package size={13} className="text-muted" />
-                  <span>Líneas incluidas: <strong>{promo.lineas?.join(', ') || 'Herbicidas, Fungicidas'}</strong></span>
                 </div>
               </div>
             </div>

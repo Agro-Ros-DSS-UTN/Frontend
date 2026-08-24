@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -13,10 +13,12 @@ import {
   User,
   Building2,
   Plus,
+  Compass
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { mockRoadmaps } from '../../data/mockData';
+import { roadmapsApi } from '../../api/operations.api';
 import './SellerRoadmapPage.css';
 
 export const SellerRoadmapPage = () => {
@@ -24,13 +26,74 @@ export const SellerRoadmapPage = () => {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
-  // Seller Martín Gutiérrez route (ID 1)
-  const [route, setRoute] = useState(mockRoadmaps.find(r => r.vendedorId === 1) || mockRoadmaps[0]);
-  const [selectedStop, setSelectedStop] = useState(route.paradas[0]);
+  const [route, setRoute] = useState(mockRoadmaps[0]);
+  const [selectedStop, setSelectedStop] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch Seller Roadmap from API
+  const fetchSellerRoute = async () => {
+    try {
+      setLoading(true);
+      const res = await roadmapsApi.getAll();
+      if (res?.data && res.data.length > 0) {
+        const r = res.data[0]; // Active roadmap for seller
+        const formattedRoute = {
+          id: r.id,
+          vendedorId: r.sellerId,
+          vendedor: r.Seller?.User?.nombreApellido || 'Vendedor',
+          color: '#1a7d6b',
+          zona: r.nombreZona || 'Zona Comercial',
+          fecha: r.fechaRuta,
+          totalKm: r.distanciaEstimadaKm || 120,
+          totalVisitas: r.paradas?.length || 0,
+          visitasCompletadas: r.paradas?.filter(p => p.estadoParada === 'completada').length || 0,
+          paradas: (r.paradas || []).map((p, idx) => ({
+            id: p.id,
+            orden: p.orden || (idx + 1),
+            cliente: p.nombreLugar,
+            direccion: p.direccion || 'Sin dirección',
+            localidad: r.nombreZona || 'Santa Fe',
+            coords: [p.latitud || -32.85, p.longitud || -61.45],
+            servicio: p.notas || 'Visita comercial',
+            contacto: 'Cliente Comercial',
+            horaEstimada: p.horaEstimada || '10:00',
+            estado: p.estadoParada === 'completada' ? 'Completada' : (p.estadoParada === 'en_camino' ? 'En camino' : 'Pendiente')
+          }))
+        };
+        setRoute(formattedRoute);
+        if (formattedRoute.paradas.length > 0) {
+          setSelectedStop(formattedRoute.paradas[0]);
+        }
+      } else {
+        setRoute(mockRoadmaps[0]);
+        setSelectedStop(mockRoadmaps[0].paradas[0]);
+      }
+    } catch (err) {
+      console.error('Error loading seller roadmap:', err);
+      setRoute(mockRoadmaps[0]);
+      setSelectedStop(mockRoadmaps[0].paradas[0]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSellerRoute();
+  }, []);
+
+  // Google Maps Mobile navigation link
+  const googleMapsUrl = useMemo(() => {
+    if (!route || !route.paradas || route.paradas.length === 0) return 'https://www.google.com/maps';
+    const coordsStr = route.paradas.map(p => `${p.coords[0]},${p.coords[1]}`);
+    const origin = coordsStr[0];
+    const destination = coordsStr[coordsStr.length - 1];
+    const waypoints = coordsStr.slice(1, -1).join('|');
+    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}`;
+  }, [route]);
 
   // Leaflet Map Initialization
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    if (!mapContainerRef.current || !route || !route.paradas) return;
 
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
@@ -94,7 +157,6 @@ export const SellerRoadmapPage = () => {
       marker.on('click', () => setSelectedStop(stop));
     });
 
-    // Draw route line
     L.polyline(polylineCoords, {
       color: '#1a7d6b',
       weight: 4,
@@ -115,6 +177,23 @@ export const SellerRoadmapPage = () => {
     };
   }, [route]);
 
+  // Toggle stop completion status in backend API
+  const handleToggleStopStatus = async (stop) => {
+    try {
+      const newStatus = stop.estado === 'Completada' ? 'pendiente' : 'completada';
+      if (stop.id) {
+        await roadmapsApi.updateStopStatus(stop.id, newStatus);
+      }
+      setRoute(prev => ({
+        ...prev,
+        paradas: prev.paradas.map(p => p.orden === stop.orden ? { ...p, estado: newStatus === 'completada' ? 'Completada' : 'Pendiente' } : p),
+        visitasCompletadas: prev.visitasCompletadas + (newStatus === 'completada' ? 1 : -1)
+      }));
+    } catch (err) {
+      console.error('Error updating stop status:', err);
+    }
+  };
+
   return (
     <div className="seller-roadmap-page">
       {/* Header */}
@@ -122,7 +201,7 @@ export const SellerRoadmapPage = () => {
         <div>
           <h1 className="seller-roadmap-title">Hoja de Ruta de Hoy</h1>
           <p className="seller-roadmap-subtitle">
-            {route.zona} · {route.fecha} · <strong>{route.totalKm} km de recorrido</strong>
+            <strong>{route.zona}</strong> · {route.fecha} · <strong>{route.totalKm} km de recorrido</strong>
           </p>
         </div>
         <div className="seller-roadmap-stats">
@@ -133,7 +212,7 @@ export const SellerRoadmapPage = () => {
         </div>
       </div>
 
-      {/* Main Container: Interactive Map + Actionable Stops List */}
+      {/* Main Container */}
       <div className="seller-roadmap-grid">
         {/* Map Container */}
         <div className="seller-roadmap-map-card">
@@ -143,12 +222,13 @@ export const SellerRoadmapPage = () => {
               <span>Navegación Territorial en Campo</span>
             </div>
             <a
-              href="https://www.google.com/maps/d/"
+              href={googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="map-ext-link"
+              title="Abrir en Google Maps Móvil"
             >
-              <ExternalLink size={13} /> Abrir en Waze / My Maps
+              <Compass size={13} /> Abrir GPS Google Maps
             </a>
           </div>
           <div className="seller-leaflet-box" ref={mapContainerRef} />
@@ -159,7 +239,7 @@ export const SellerRoadmapPage = () => {
           <h3 className="stops-list-title">Paradas Asignadas del Día</h3>
 
           <div className="seller-stops-flow">
-            {route.paradas.map((stop) => {
+            {route.paradas && route.paradas.map((stop) => {
               const isSelected = selectedStop?.orden === stop.orden;
               return (
                 <div
@@ -169,7 +249,15 @@ export const SellerRoadmapPage = () => {
                 >
                   <div className="stop-card-top">
                     <div className="stop-card-node">
-                      <span className={`stop-circle ${stop.estado.toLowerCase().replace(' ', '-')}`}>
+                      <span
+                        className={`stop-circle ${stop.estado.toLowerCase().replace(' ', '-')}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleStopStatus(stop);
+                        }}
+                        title="Hacer clic para marcar como completada"
+                        style={{ cursor: 'pointer' }}
+                      >
                         {stop.orden}
                       </span>
                     </div>
@@ -193,7 +281,7 @@ export const SellerRoadmapPage = () => {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="stop-action-btn waze"
-                        title="Cómo llegar"
+                        title="Cómo llegar en Google Maps"
                       >
                         <Navigation size={13} />
                       </a>
