@@ -1,24 +1,25 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   Search,
   Bell,
-  HelpCircle,
   Settings,
+  HelpCircle,
   ChevronDown,
   LogOut,
   User,
   Plus,
   Building2,
   Handshake,
-  ClipboardList,
-  Target,
-  Megaphone,
-  MapPin,
   CheckSquare,
   Package,
+  MapPin,
+  ClipboardList,
+  Megaphone,
+  Target,
 } from 'lucide-react';
+import { RandomLetterSwap } from '../ui/RandomLetterSwap';
 import './TopBar.css';
 
 export const TopBar = ({ title, subtitle }) => {
@@ -30,7 +31,6 @@ export const TopBar = ({ title, subtitle }) => {
   const menuRef = useRef(null);
   const quickAddRef = useRef(null);
 
-  // Close menus on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -179,7 +179,7 @@ export const TopBar = ({ title, subtitle }) => {
         {/* User Dropdown */}
         <div className="topbar__user-wrapper" ref={menuRef}>
           <button
-            className="topbar__user-btn"
+            className="topbar__user-btn topbar-user-dropdown"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
             <div className="topbar__avatar">

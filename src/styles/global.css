@@ -190,3 +190,105 @@ button:focus {
   box-shadow: 0 6px 16px rgba(220, 38, 38, 0.35) !important;
   transform: translateY(-1px) !important;
 }
+/* ── ESTILOS GLOBALES DE BOTONES REDONDEADOS TIPO "RANDOM LETTER SWAP" (ADMIN & SELLER UI) ── */
+button.btn-rounded-primary,
+button.topbar-btn-primary,
+button.seller-topbar-btn,
+button.users-page__add-btn,
+button.contacts-page__add-btn,
+button.companies-page__add-btn,
+button.opportunities-page__add-btn,
+button.tasks-page__add-btn,
+button.products-page__add-btn,
+button.objectives-page__add-btn,
+button.roadmaps-btn--primary,
+button.campaigns-page__btn-primary,
+button.activities-page__add-btn,
+.seller-roadmap-page button.roadmaps-btn--primary,
+.seller-roadmap-page button.seller-roadmap-btn {
+  border-radius: 9999px !important;
+  padding: 10px 22px !important;
+  font-weight: 700 !important;
+  font-size: 0.9rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: var(--color-primary, #16a34a) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25) !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+}
+
+button.btn-rounded-primary:hover,
+button.topbar-btn-primary:hover,
+button.seller-topbar-btn:hover,
+button.users-page__add-btn:hover,
+button.contacts-page__add-btn:hover,
+button.companies-page__add-btn:hover,
+button.opportunities-page__add-btn:hover,
+button.tasks-page__add-btn:hover,
+button.products-page__add-btn:hover,
+button.objectives-page__add-btn:hover,
+button.roadmaps-btn--primary:hover,
+button.campaigns-page__btn-primary:hover,
+button.activities-page__add-btn:hover,
+.seller-roadmap-page button.roadmaps-btn--primary:hover,
+.seller-roadmap-page button.seller-roadmap-btn:hover {
+  background: #15803d !important;
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35) !important;
+}
+
+/* Botones Secundarios / Outline */
+button.btn-rounded-outline,
+button.users-page__export-btn,
+button.contacts-page__export-btn,
+button.companies-page__export-btn,
+a.roadmaps-btn--outline,
+button.roadmaps-btn--outline {
+  border-radius: 9999px !important;
+  padding: 10px 22px !important;
+  font-weight: 700 !important;
+  font-size: 0.9rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: #ffffff !important;
+  color: var(--text-primary, #0f172a) !important;
+  border: 1px solid var(--border-default, #cbd5e1) !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+}
+
+button.btn-rounded-outline:hover,
+button.users-page__export-btn:hover,
+button.contacts-page__export-btn:hover,
+button.companies-page__export-btn:hover,
+a.roadmaps-btn--outline:hover,
+button.roadmaps-btn--outline:hover {
+  background: var(--bg-hover, #f8fafc) !important;
+  border-color: var(--color-primary, #16a34a) !important;
+  color: var(--color-primary, #16a34a) !important;
+  transform: translateY(-2px) scale(1.02) !important;
+}
+
+/* Dropdown Menu Perfil de Usuario */
+.topbar-user-dropdown,
+.seller-topbar-user-dropdown {
+  border-radius: 9999px !important;
+  padding: 4px 14px 4px 4px !important;
+  border: 1px solid var(--border-default, #cbd5e1) !important;
+  background: #ffffff !important;
+  transition: all 0.2s ease !important;
+}
+
+.topbar-user-dropdown:hover,
+.seller-topbar-user-dropdown:hover {
+  border-color: var(--color-primary, #16a34a) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -12,6 +12,7 @@ import {
   MapPin,
   ClipboardList,
 } from 'lucide-react';
+import { RandomLetterSwap } from '../ui/RandomLetterSwap';
 import './TopBar.css';
 
 export const SellerTopBar = ({ onQuickAddActivity }) => {
@@ -62,26 +63,17 @@ export const SellerTopBar = ({ onQuickAddActivity }) => {
       </div>
 
       <div className="topbar__right">
-        {/* Quick Action: Registrar Actividad en Campo */}
+        {/* Quick Action: Registrar Actividad en Campo con RandomLetterSwap */}
         <button
-          className="topbar__quick-add-btn"
-          style={{
-            width: 'auto',
-            padding: '0 14px',
-            gap: '6px',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--color-primary)',
-            borderColor: 'var(--color-primary)',
-            fontSize: '13px',
-            fontWeight: 700,
-          }}
+          className="btn-rounded-primary"
           onClick={() => {
             if (onQuickAddActivity) onQuickAddActivity();
             else navigate('/seller/actividades');
           }}
         >
-          <Plus size={16} />
-          <span>Registrar Actividad</span>
+          <RandomLetterSwap label="Registrar Actividad">
+            <Plus size={16} />
+          </RandomLetterSwap>
         </button>
 
         <button className="topbar__icon-btn" title="Notificaciones">
@@ -92,7 +84,7 @@ export const SellerTopBar = ({ onQuickAddActivity }) => {
         {/* User Dropdown */}
         <div className="topbar__user-wrapper" ref={menuRef}>
           <button
-            className="topbar__user-btn"
+            className="topbar__user-btn seller-topbar-user-dropdown"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
             <div className="topbar__avatar">
