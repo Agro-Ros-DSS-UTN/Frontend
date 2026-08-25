@@ -66,7 +66,7 @@ export const RoadmapsPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // DB State
   const [apiRoadmaps, setApiRoadmaps] = useState([]);
@@ -615,7 +615,13 @@ export const RoadmapsPage = () => {
         </button>
       </div>
 
-      {activeTab === 'hoy' && (
+      {loading ? (
+        <div className="roadmaps-loading-state-box">
+          <div className="r-spinner-icon" />
+          <h3>Conectando con la base de datos...</h3>
+          <p>Por favor aguardá un instante mientras sincronizamos las hojas de ruta y paradas de MySQL.</p>
+        </div>
+      ) : activeTab === 'hoy' && (
         <>
           {/* KPI Cards */}
           <div className="roadmaps-kpis">

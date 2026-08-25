@@ -697,3 +697,45 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Roadmaps Loading State Spinner Card ── */
+.roadmaps-loading-state-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 70px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-top: 20px;
+}
+
+.r-spinner-icon {
+  width: 42px;
+  height: 42px;
+  border: 3.5px solid #e2e8f0;
+  border-top-color: #1a7d6b;
+  border-radius: 50%;
+  animation: rSpin 0.7s linear infinite;
+}
+
+@keyframes rSpin {
+  to { transform: rotate(360deg); }
+}
+
+.roadmaps-loading-state-box h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.roadmaps-loading-state-box p {
+  font-size: 0.88rem;
+  color: #64748b;
+  margin: 0;
+}

@@ -28,7 +28,7 @@ export const SellerRoadmapPage = () => {
 
   const [route, setRoute] = useState(mockRoadmaps[0]);
   const [selectedStop, setSelectedStop] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Fetch Seller Roadmap from API
   const fetchSellerRoute = async () => {
