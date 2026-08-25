@@ -17,7 +17,11 @@ import {
   Play,
   Check,
   Pause,
-  AlertCircle
+  AlertCircle,
+  Maximize2,
+  Minimize2,
+  Eye,
+  X
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -29,12 +33,16 @@ import './SellerRoadmapPage.css';
 export const SellerRoadmapPage = () => {
   const navigate = useNavigate();
   const mapContainerRef = useRef(null);
+  const fullscreenMapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const fullscreenMapInstanceRef = useRef(null);
 
   const [route, setRoute] = useState(null);
   const [selectedStop, setSelectedStop] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRouteStarted, setIsRouteStarted] = useState(false);
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
   const showToast = (msg) => {
@@ -54,7 +62,7 @@ export const SellerRoadmapPage = () => {
         const formattedRoute = {
           id: r.id,
           vendedorId: r.sellerId,
-          vendedor: r.Seller?.User?.nombreApellido || 'Vendedor',
+          vendedor: r.Seller?.User?.nombreApellido || 'Vendedor Oficial',
           color: '#16a34a',
           zona: r.nombreZona || r.descripcion || 'Zona Comercial Asignada',
           fecha: r.fechaRuta || new Date().toISOString().split('T')[0],
@@ -62,6 +70,7 @@ export const SellerRoadmapPage = () => {
           totalVisitas: r.paradas?.length || 0,
           visitasCompletadas: r.paradas?.filter(p => p.estadoParada === 'completada').length || 0,
           estado: r.estado || 'planificada',
+          observaciones: r.observaciones || r.descripcion || '',
           paradas: (r.paradas || []).map((p, idx) => ({
             id: p.id,
             orden: p.orden || (idx + 1),
@@ -78,7 +87,6 @@ export const SellerRoadmapPage = () => {
         setRoute(formattedRoute);
         setIsRouteStarted(formattedRoute.estado === 'en_camino' || formattedRoute.estado === 'en_ruta');
       } else {
-        // Fallback to mock data if empty
         const r = mockRoadmaps[0];
         setRoute({
           id: r.id,
@@ -89,6 +97,7 @@ export const SellerRoadmapPage = () => {
           totalVisitas: r.paradas?.length || 0,
           visitasCompletadas: r.visitasCompletadas || 0,
           estado: 'planificada',
+          observaciones: 'Itinerario de visitas comerciales en campo.',
           paradas: r.paradas.map(p => ({ ...p, estado: p.estado || 'Pendiente' }))
         });
       }
@@ -112,21 +121,14 @@ export const SellerRoadmapPage = () => {
     return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
   }, [route]);
 
-  // Leaflet Interactive Map
-  useEffect(() => {
-    if (loading || !route || !mapContainerRef.current) return;
+  // Leaflet Map Rendering Helper
+  const renderLeafletMap = (containerEl) => {
+    if (!containerEl || !route) return null;
 
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
-    }
-
-    const map = L.map(mapContainerRef.current, {
+    const map = L.map(containerEl, {
       zoomControl: true,
       scrollWheelZoom: true,
     }).setView([-32.95, -60.66], 11);
-
-    mapInstanceRef.current = map;
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; CARTO | CRM AgroRos',
@@ -192,13 +194,52 @@ export const SellerRoadmapPage = () => {
       map.fitBounds(group.getBounds().pad(0.2));
     }
 
+    return map;
+  };
+
+  // Standard Leaflet Map Effect
+  useEffect(() => {
+    if (loading || !route || !mapContainerRef.current || isMapFullscreen) return;
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    mapInstanceRef.current = renderLeafletMap(mapContainerRef.current);
+
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
-  }, [loading, route]);
+  }, [loading, route, isMapFullscreen]);
+
+  // Fullscreen Leaflet Map Effect
+  useEffect(() => {
+    if (!isMapFullscreen || !fullscreenMapContainerRef.current || !route) return;
+
+    if (fullscreenMapInstanceRef.current) {
+      fullscreenMapInstanceRef.current.remove();
+      fullscreenMapInstanceRef.current = null;
+    }
+
+    fullscreenMapInstanceRef.current = renderLeafletMap(fullscreenMapContainerRef.current);
+
+    setTimeout(() => {
+      if (fullscreenMapInstanceRef.current) {
+        fullscreenMapInstanceRef.current.invalidateSize();
+      }
+    }, 150);
+
+    return () => {
+      if (fullscreenMapInstanceRef.current) {
+        fullscreenMapInstanceRef.current.remove();
+        fullscreenMapInstanceRef.current = null;
+      }
+    };
+  }, [isMapFullscreen, route]);
 
   // Iniciar / Pausar Hoja de Ruta en MySQL
   const handleToggleStartRoute = async () => {
@@ -209,10 +250,10 @@ export const SellerRoadmapPage = () => {
       if (route?.id) {
         await roadmapsApi.updateStatus(route.id, nextState ? 'en_camino' : 'planificada');
       }
-      showToast(nextState ? '🚀 ¡Hoja de Ruta iniciada! Tu ubicación está en monitoreo activo.' : '⏸️ Hoja de Ruta pausada.');
+      showToast(nextState ? '🚀 ¡Hoja de Ruta iniciada! Monitoreo activo.' : '⏸️ Hoja de Ruta pausada.');
     } catch (err) {
       console.warn('Error al actualizar estado de ruta en backend:', err);
-      showToast(nextState ? 'Ruta iniciada en modo local.' : 'Ruta pausada.');
+      showToast(nextState ? 'Ruta iniciada.' : 'Ruta pausada.');
     }
   };
 
@@ -267,21 +308,7 @@ export const SellerRoadmapPage = () => {
             <strong>{route?.zona || 'Recorrido Comercial'}</strong> {route?.fecha ? `• ${route.fecha}` : ''} • <strong>{route?.totalKm || 120} km de recorrido</strong>
           </p>
         </div>
-        <div className="seller-roadmap-stats" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Botón de Iniciar Ruta con Estilo Random Letter Swap */}
-          <button
-            className="btn-rounded-primary"
-            onClick={handleToggleStartRoute}
-            style={{
-              background: isRouteStarted ? '#0284c7 !important' : 'var(--color-primary) !important',
-              boxShadow: isRouteStarted ? '0 4px 12px rgba(2, 132, 199, 0.35) !important' : ''
-            }}
-          >
-            <RandomLetterSwap label={isRouteStarted ? 'Ruta en Curso' : 'Iniciar Ruta'}>
-              {isRouteStarted ? <Pause size={16} /> : <Play size={16} />}
-            </RandomLetterSwap>
-          </button>
-
+        <div className="seller-roadmap-stats">
           <span className="roadmap-stat-pill">
             <CheckCircle2 size={14} className="text-green" />
             {route?.visitasCompletadas || 0} de {route?.totalVisitas || 0} visitas completadas
@@ -304,28 +331,96 @@ export const SellerRoadmapPage = () => {
               <div className="map-title-row">
                 <Navigation size={16} />
                 <span>Navegación Territorial en Campo</span>
-                {isRouteStarted && (
-                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', marginLeft: '8px' }}>
-                    • Monitoreo GPS Activo
-                  </span>
-                )}
               </div>
-              <a
-                href={googleMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="map-ext-link"
-                title="Abrir en Google Maps Móvil"
-              >
-                <Compass size={13} /> Abrir GPS Google Maps
-              </a>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <a
+                  href={googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="map-ext-link"
+                  title="Abrir en Google Maps Móvil"
+                >
+                  <Compass size={13} /> Abrir GPS Google Maps
+                </a>
+
+                <button
+                  type="button"
+                  className="roadmaps-btn roadmaps-btn--outline"
+                  style={{ padding: '4px 10px', fontSize: '11px' }}
+                  onClick={() => setIsMapFullscreen(true)}
+                  title="Agrandar mapa a pantalla completa"
+                >
+                  <Maximize2 size={13} />
+                  <span>Agrandar Mapa</span>
+                </button>
+              </div>
             </div>
+
             <div className="seller-leaflet-box" ref={mapContainerRef} />
           </div>
 
-          {/* Actionable Stops List */}
+          {/* Actionable Stops List Panel (Idéntico formato al Admin) */}
           <div className="seller-stops-list-card">
-            <h3 className="stops-list-title">Paradas Asignadas del Día</h3>
+            <div className="roadmap-stops-header" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#16a34a', letterSpacing: '0.5px' }}>
+                    ZONA DE RECORRIDO
+                  </span>
+                  <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 0 0', lineHeight: 1.2 }}>
+                    {route?.zona || 'Recorrido Comercial'}
+                  </h2>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="roadmap-status-badge" style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700, borderRadius: '8px', height: '32px', display: 'inline-flex', alignItems: 'center' }}>
+                    {isRouteStarted ? 'En curso' : 'Planificada'}
+                  </span>
+
+                  <button
+                    type="button"
+                    className="btn-rounded-primary"
+                    onClick={handleToggleStartRoute}
+                    style={{
+                      height: '32px',
+                      padding: '6px 14px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      borderRadius: '8px',
+                      background: isRouteStarted ? '#0284c7 !important' : 'var(--color-primary) !important',
+                      boxShadow: isRouteStarted ? '0 4px 12px rgba(2, 132, 199, 0.35) !important' : ''
+                    }}
+                  >
+                    <RandomLetterSwap label={isRouteStarted ? 'Pausar' : 'Iniciar Ruta'}>
+                      {isRouteStarted ? <Pause size={14} /> : <Play size={14} />}
+                    </RandomLetterSwap>
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
+                Vendedor: <strong style={{ color: '#0f172a' }}>{route?.vendedor}</strong> • Fecha: {route?.fecha}
+              </div>
+
+              {/* Observaciones del Recorrido */}
+              {route?.observaciones && (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', fontSize: '0.8rem', color: '#334155', marginTop: '2px' }}>
+                  <strong style={{ color: '#0f172a' }}>Notas del Recorrido:</strong> {route.observaciones}
+                </div>
+              )}
+
+              {/* Botón Ver Detalle Completo de Ruta */}
+              <button
+                type="button"
+                className="roadmaps-btn roadmaps-btn--outline"
+                style={{ padding: '6px 12px', fontSize: '0.8rem', width: '100%', justifyContent: 'center', marginTop: '4px' }}
+                onClick={() => setShowDetailModal(true)}
+              >
+                <Eye size={14} />
+                <span>Ver Detalle Completo de Ruta</span>
+              </button>
+            </div>
+
+            <h3 className="stops-list-title" style={{ marginTop: '12px' }}>Paradas Asignadas del Día</h3>
 
             <div className="seller-stops-flow">
               {route?.paradas && route.paradas.map((stop) => {
@@ -396,6 +491,106 @@ export const SellerRoadmapPage = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Fullscreen de Mapa ── */}
+      {isMapFullscreen && (
+        <div className="roadmaps-modal-overlay" style={{ zIndex: 9999999, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', padding: '24px', justifyContent: 'center', alignItems: 'center' }}>
+          <div style={{ background: '#ffffff', width: '92vw', height: '88vh', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #e2e8f0' }}>
+              <h3 style={{ margin: 0, fontWeight: 800, color: '#0f172a' }}>
+                Mapa de Rutas Territoriales — {route?.zona}
+              </h3>
+              <button className="roadmaps-btn roadmaps-btn--outline" onClick={() => setIsMapFullscreen(false)}>
+                <Minimize2 size={16} /> Salir de Pantalla Completa
+              </button>
+            </div>
+            <div style={{ flex: 1, width: '100%', height: '100%' }} ref={fullscreenMapContainerRef} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Detalle Completo de Hoja de Ruta ── */}
+      {showDetailModal && route && (
+        <div className="roadmaps-modal-overlay" style={{ zIndex: 999999 }} onClick={() => setShowDetailModal(false)}>
+          <div className="roadmaps-modal" style={{ width: '600px', height: 'auto', maxHeight: '90vh', margin: 'auto', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+            <div className="roadmaps-modal__header">
+              <h2>Detalle Completo de Hoja de Ruta</h2>
+              <button className="roadmaps-modal__close" onClick={() => setShowDetailModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="roadmaps-modal__form" style={{ gap: '1rem' }}>
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '14px', borderRadius: '10px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#16a34a' }}>
+                  ZONA DE RECORRIDO ASIGNADA
+                </span>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 6px 0' }}>
+                  {route.zona}
+                </h2>
+                <div style={{ fontSize: '0.85rem', color: '#334155', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                  <div><strong>Vendedor:</strong> {route.vendedor}</div>
+                  <div><strong>Fecha:</strong> {route.fecha}</div>
+                  <div><strong>Distancia Estimada:</strong> {route.totalKm} km</div>
+                  <div><strong>Total de Paradas:</strong> {route.totalVisitas}</div>
+                </div>
+              </div>
+
+              {/* Observaciones del Recorrido */}
+              <div className="roadmaps-form-field">
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>Notas u Observaciones del Recorrido:</label>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', fontSize: '0.9rem', color: '#334155' }}>
+                  {route.observaciones || 'Sin notas especiales registradas.'}
+                </div>
+              </div>
+
+              {/* Paradas List */}
+              <div className="roadmaps-form-field">
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>Paradas Programadas ({route.paradas?.length || 0}):</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {route.paradas?.map((stop, idx) => (
+                    <div key={idx} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>
+                          #{stop.orden} • {stop.cliente}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                          {stop.direccion}, {stop.localidad}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#16a34a' }}>{stop.horaEstimada} hs</span>
+                        <div style={{ fontSize: '0.75rem', textTransform: 'capitalize', color: stop.estado === 'Completada' ? '#16a34a' : '#0284c7', fontWeight: 700 }}>
+                          {stop.estado}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="roadmaps-modal__actions">
+                <a
+                  href={googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="roadmaps-btn roadmaps-btn--primary"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  <Compass size={16} /> Abrir Itinerario en Google Maps
+                </a>
+                <button
+                  type="button"
+                  className="roadmaps-btn roadmaps-btn--outline"
+                  onClick={() => setShowDetailModal(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           </div>
         </div>
