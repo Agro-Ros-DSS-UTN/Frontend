@@ -369,3 +369,19 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* ── Ajustes de ancho para evitar recorte de email en dropdown ── */
+.topbar__dropdown {
+  width: 320px !important;
+  min-width: 320px !important;
+}
+
+.topbar__dropdown-email {
+  font-size: 11px !important;
+  color: var(--text-muted, #64748b) !important;
+  margin-top: 1px !important;
+  word-break: break-all !important;
+  white-space: normal !important;
+  max-width: 240px !important;
+  line-height: 1.3 !important;
+}
