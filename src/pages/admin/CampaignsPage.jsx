@@ -1,29 +1,12 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Search, X, Calendar, ChevronDown, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, Search, X, Trash2, Sparkles } from 'lucide-react';
 import { mockPromotions } from '../../data/mockData';
 import { promotionsApi } from '../../api/operations.api';
 import { useAuth } from '../../context/AuthContext';
+import { RandomLetterSwap } from '../../components/ui/RandomLetterSwap';
 import './CampaignsPage.css';
 
-const CAMPAIGN_COLORS = [
-  { value: '#ffffff', border: '#d1d5db' },
-  { value: '#e8a735' },
-  { value: '#4caf50' },
-  { value: '#26c6da' },
-  { value: '#ff9800' },
-  { value: '#2196f3' },
-  { value: '#f44336' },
-  { value: '#9c27b0' },
-  { value: '#1c1c1c' },
-  { value: '#e91e63' },
-];
-
-const MONTHS_ES = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-];
-
-const DAYS_ES = ['lu', 'ma', 'mi', 'ju', 'vi', 'sá', 'do'];
+const PROMO_COLORS = ['#e8a735', '#4caf50', '#0ea5e9', '#8b5cf6', '#ec4899', '#f97316'];
 
 const emptyForm = {
   nombre: '',
@@ -39,14 +22,11 @@ const emptyForm = {
 
 export const CampaignsPage = () => {
   const { currentUser } = useAuth();
-  const [campaigns, setCampaigns] = useState(mockPromotions);
-  const [activeTab, setActiveTab] = useState('Gestionar');
+  const [campaigns, setCampaigns] = useState([]);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ ...emptyForm, propietario: currentUser?.nombreApellido || '' });
-  const [loading, setLoading] = useState(false);
-
-  const tabs = ['Gestionar', 'Calendario', 'Tareas'];
+  const [loading, setLoading] = useState(true);
 
   // Fetch Promotions from API
   const fetchPromotionsFromApi = async () => {
@@ -54,21 +34,24 @@ export const CampaignsPage = () => {
       setLoading(true);
       const data = await promotionsApi.getAll();
       const rawPromos = Array.isArray(data) ? data : data?.data || [];
-      if (rawPromos.length > 0) {
-        const formatted = rawPromos.map(p => ({
-          id: p.id,
-          nombre: p.nombre || 'Promoción Campaña',
-          color: '#e8a735',
-          propietario: 'Administración',
-          fechaInicio: p.fechaInicio ? String(p.fechaInicio).slice(0, 10) : new Date().toISOString().slice(0, 10),
-          fechaFin: p.fechaFin ? String(p.fechaFin).slice(0, 10) : new Date().toISOString().slice(0, 10),
-          descripcion: p.descripcion || 'Sin descripción',
-          condiciones: p.condiciones || 'Promoción Vigente'
-        }));
-        setCampaigns(formatted);
-      }
+      const formatted = rawPromos.map((p, i) => ({
+        id: p.id,
+        nombre: p.nombre || 'Promoción Campaña',
+        color: PROMO_COLORS[i % PROMO_COLORS.length],
+        propietario: 'Administración',
+        fechaInicio: p.fechaInicio ? String(p.fechaInicio).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        fechaFin: p.fechaFin ? String(p.fechaFin).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        descripcion: p.descripcion || 'Sin descripción',
+        condiciones: p.condiciones || 'Promoción Vigente'
+      }));
+      setCampaigns(formatted);
     } catch (err) {
       console.error('Error fetching promotions from API:', err);
+      const formattedMock = mockPromotions.map((m, i) => ({
+        ...m,
+        color: PROMO_COLORS[i % PROMO_COLORS.length]
+      }));
+      setCampaigns(formattedMock);
     } finally {
       setLoading(false);
     }
@@ -116,12 +99,12 @@ export const CampaignsPage = () => {
   };
 
   const handleDeletePromotion = async (id, nombre) => {
-    if (!window.confirm(`¿Estás seguro de eliminar la campaña "${nombre}"?`)) return;
+    if (!window.confirm(`¿Estás seguro de eliminar la campaña "${nombre}" de la base de datos?`)) return;
     try {
       setLoading(true);
       await promotionsApi.delete(id);
       setCampaigns(prev => prev.filter(c => c.id !== id));
-      alert('Campaña eliminada correctamente.');
+      await fetchPromotionsFromApi();
     } catch (err) {
       console.error('Error deleting promotion:', err);
       setCampaigns(prev => prev.filter(c => c.id !== id));
@@ -139,8 +122,10 @@ export const CampaignsPage = () => {
           <p className="campaigns-page__count">{campaigns.length} campaña{campaigns.length !== 1 ? 's' : ''} en Base de Datos</p>
         </div>
         <div className="campaigns-page__header-actions">
-          <button className="campaigns-page__btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} /> Crear campaña
+          <button className="btn-rounded-primary" onClick={() => setShowModal(true)}>
+            <RandomLetterSwap label="Crear campaña">
+              <Plus size={16} />
+            </RandomLetterSwap>
           </button>
         </div>
       </div>
@@ -159,37 +144,45 @@ export const CampaignsPage = () => {
         </div>
       </div>
 
-      {/* Campaigns Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
-        {filtered.map(c => (
-          <div key={c.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#0ea5e9', background: '#f0f9ff', padding: '3px 8px', borderRadius: '12px' }}>
-                Promoción Vigente
-              </span>
-              <button
-                onClick={() => handleDeletePromotion(c.id, c.nombre)}
-                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                title="Eliminar campaña"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
+      {/* Loading Container or Grid */}
+      {loading ? (
+        <div className="roadmaps-loading-state-box">
+          <div className="r-spinner-icon" />
+          <h3>Conectando con la base de datos...</h3>
+          <p>Por favor aguardá un instante mientras cargamos las campañas y promociones de MySQL.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+          {filtered.map(c => (
+            <div key={c.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', background: c.color || '#e8a735', padding: '4px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Sparkles size={12} /> Promoción Vigente
+                </span>
+                <button
+                  onClick={() => handleDeletePromotion(c.id, c.nombre)}
+                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                  title="Eliminar campaña"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
 
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: '8px 0 4px 0' }}>
-              {c.nombre}
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 12px 0' }}>
-              {c.descripcion || c.condiciones || 'Promoción autorizada para productores.'}
-            </p>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: '12px 0 4px 0' }}>
+                {c.nombre}
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 12px 0' }}>
+                {c.descripcion || c.condiciones || 'Promoción autorizada para productores.'}
+              </p>
 
-            <div style={{ fontSize: '0.8rem', color: '#334155', borderTop: '1px dashed #e2e8f0', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Inicio: <strong>{c.fechaInicio}</strong></span>
-              <span>Fin: <strong>{c.fechaFin}</strong></span>
+              <div style={{ fontSize: '0.8rem', color: '#334155', borderTop: '1px dashed #e2e8f0', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Inicio: <strong>{c.fechaInicio}</strong></span>
+                <span>Fin: <strong>{c.fechaFin}</strong></span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal: Crear Campaña */}
       {showModal && (
@@ -275,7 +268,7 @@ export const CampaignsPage = () => {
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '12px', background: '#1a7d6b', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
                   disabled={loading}
                 >
                   {loading ? 'Guardando en BD...' : 'Guardar Campaña'}
