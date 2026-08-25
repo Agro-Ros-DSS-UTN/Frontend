@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useState, useRef } from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import {
   Camera,
   Save,
@@ -15,7 +15,7 @@ import {
   ChevronLeft,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { mockSellers } from '../../data/mockData';
+import { mockSellers } from '../../../data/mockData';
 import './ProfilePage.css';
 
 const TABS = [

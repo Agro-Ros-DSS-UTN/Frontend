@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Filter,
@@ -27,8 +27,8 @@ import {
   createUser as apiCreateUser,
   updateUser as apiUpdateUser,
   deleteUser as apiDeleteUser,
-} from '../../data/api';
-import { mockUsers } from '../../data/mockData';
+} from '../../../data/api';
+import { mockUsers } from '../../../data/mockData';
 import './UsersPage.css';
 
 const TABS = [

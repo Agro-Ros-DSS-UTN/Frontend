@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 import {
   Target,
   MapPin,
@@ -21,8 +21,8 @@ import {
   ArrowUpRight,
   Compass
 } from 'lucide-react';
-import { mockRoadmaps, mockObjectives, mockPromotions } from '../../data/mockData';
-import { objectivesApi, roadmapsApi } from '../../api/operations.api';
+import { mockRoadmaps, mockObjectives, mockPromotions } from '../../../data/mockData';
+import { objectivesApi, roadmapsApi } from '../../../api/operations.api';
 import './SellerDashboardPage.css';
 
 export const SellerDashboardPage = () => {

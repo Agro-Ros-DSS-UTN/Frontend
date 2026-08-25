@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   FileText,
 } from 'lucide-react';
-import { mockCompanies, mockClients } from '../../data/mockData';
+import { mockCompanies, mockClients } from '../../../data/mockData';
 import './SellerClientsPage.css';
 
 export const SellerClientsPage = () => {

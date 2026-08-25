@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   TrendingUp,
   Users,
@@ -25,7 +25,7 @@ import {
   Loader2,
 } from 'lucide-react';
 // IMPORTANTE: Reemplazamos las funciones mock por nuestra API real
-import { getDashboardData, OPPORTUNITY_STATES } from '../../data/api';
+import { getDashboardData, OPPORTUNITY_STATES } from '../../../data/api';
 import './AdminDashboard.css';
 
 /* ─────────────────────────────────────────────

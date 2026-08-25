@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Package,
   Plus,
@@ -25,13 +25,13 @@ import {
   mockProducts,
   PRODUCT_CATEGORIES,
   BILLING_FREQUENCIES,
-} from '../../data/mockData';
+} from '../../../data/mockData';
 import {
   getProducts,
   createProduct as apiCreateProduct,
   updateProduct as apiUpdateProduct,
   deleteProduct as apiDeleteProduct,
-} from '../../data/api';
+} from '../../../data/api';
 import './ProductsPage.css';
 
 export const ProductsPage = () => {

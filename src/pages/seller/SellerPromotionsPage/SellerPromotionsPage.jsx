@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
   Sparkles,
   MessageSquare,
@@ -7,8 +7,8 @@ import {
   Check,
   Search,
 } from 'lucide-react';
-import { mockPromotions } from '../../data/mockData';
-import { promotionsApi } from '../../api/operations.api';
+import { mockPromotions } from '../../../data/mockData';
+import { promotionsApi } from '../../../api/operations.api';
 import './SellerPromotionsPage.css';
 
 const PROMO_COLORS = ['#e8a735', '#4caf50', '#0ea5e9', '#8b5cf6', '#ec4899', '#f97316'];

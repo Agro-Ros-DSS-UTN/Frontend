@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   CheckSquare,
   Plus,
@@ -33,8 +33,8 @@ import {
   mockClients,
   mockOpportunities,
   mockSellers,
-} from '../../data/mockData';
-import { tasksApi } from '../../api/operations.api';
+} from '../../../data/mockData';
+import { tasksApi } from '../../../api/operations.api';
 import './TasksPage.css';
 
 export const TasksPage = () => {

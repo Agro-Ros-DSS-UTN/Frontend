@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   ClipboardList,
   Phone,
@@ -30,10 +30,10 @@ import {
   Sprout,
   AlertCircle,
 } from 'lucide-react';
-import { mockCompanies } from '../../data/mockData';
-import { createActivity } from '../../data/api';
-import fieldPhoto01 from '../../assets/crop_field_01.png';
-import fieldPhoto02 from '../../assets/crop_field_02.png';
+import { mockCompanies } from '../../../data/mockData';
+import { createActivity } from '../../../data/api';
+import fieldPhoto01 from '../../../assets/crop_field_01.png';
+import fieldPhoto02 from '../../../assets/crop_field_02.png';
 import './SellerActivitiesPage.css';
 
 /* ─────────────────────────────────────────────

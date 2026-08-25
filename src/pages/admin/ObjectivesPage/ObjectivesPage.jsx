@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Target,
   Plus,
@@ -15,9 +15,9 @@ import {
   Trash2,
   Award
 } from 'lucide-react';
-import { objectivesApi } from '../../api/operations.api';
-import { authApi } from '../../api/auth.api';
-import { companiesApi } from '../../api/companies.api';
+import { objectivesApi } from '../../../api/operations.api';
+import { authApi } from '../../../api/auth.api';
+import { companiesApi } from '../../../api/companies.api';
 import './ObjectivesPage.css';
 
 export const ObjectivesPage = () => {

@@ -1,6 +1,6 @@
 /* eslint-disable */
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 
 import {
   Handshake,
@@ -38,8 +38,8 @@ import {
   DEAL_STAGES,
   DEAL_PIPELINES,
   DEAL_PRODUCTS,
-} from '../../data/mockData';
-import { getOpportunities, createOpportunity, getClientCompanies, getClients } from '../../data/api';
+} from '../../../data/mockData';
+import { getOpportunities, createOpportunity, getClientCompanies, getClients } from '../../../data/api';
 import './OpportunitiesPage.css';
 
 /* ─────────────────────────────────────────────────────────────

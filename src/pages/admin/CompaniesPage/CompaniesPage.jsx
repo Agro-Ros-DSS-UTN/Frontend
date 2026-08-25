@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -29,14 +29,14 @@ import {
   ExternalLink,
   DollarSign,
 } from 'lucide-react';
-import { mockCompanies, mockClients, mockOpportunities, mockActivities } from '../../data/mockData';
+import { mockCompanies, mockClients, mockOpportunities, mockActivities } from '../../../data/mockData';
 import {
   getClientCompanies,
   createClientCompany,
   getClients,
   getOpportunities,
   getActivities,
-} from '../../data/api';
+} from '../../../data/api';
 import './CompaniesPage.css';
 
 const COLUMNS = [

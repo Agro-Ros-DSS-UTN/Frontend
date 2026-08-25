@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ClipboardList,
   Phone,
@@ -22,9 +22,9 @@ import {
   Download,
   Trash2,
 } from 'lucide-react';
-import { mockActivities, mockSellers, mockCompanies } from '../../data/mockData';
-import { getActivities, createActivity } from '../../data/api';
-import { activitiesApi } from '../../api/operations.api';
+import { mockActivities, mockSellers, mockCompanies } from '../../../data/mockData';
+import { getActivities, createActivity } from '../../../data/api';
+import { activitiesApi } from '../../../api/operations.api';
 import './ActivitiesPage.css';
 
 export const ActivitiesPage = () => {

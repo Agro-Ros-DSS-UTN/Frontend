@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -24,8 +24,8 @@ import {
   MapPin,
   FileText,
 } from 'lucide-react';
-import { mockClients, mockCompanies, CONTACT_TYPES } from '../../data/mockData';
-import { getClients, createClient, getClientCompanies } from '../../data/api';
+import { mockClients, mockCompanies, CONTACT_TYPES } from '../../../data/mockData';
+import { getClients, createClient, getClientCompanies } from '../../../data/api';
 import './ContactsPage.css';
 
 const TABS = [

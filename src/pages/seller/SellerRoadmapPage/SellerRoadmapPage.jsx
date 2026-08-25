@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -25,9 +25,9 @@ import {
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { mockRoadmaps } from '../../data/mockData';
-import { roadmapsApi } from '../../api/operations.api';
-import { RandomLetterSwap } from '../../components/ui/RandomLetterSwap';
+import { mockRoadmaps } from '../../../data/mockData';
+import { roadmapsApi } from '../../../api/operations.api';
+import { RandomLetterSwap } from '../../../components/ui/RandomLetterSwap';
 import './SellerRoadmapPage.css';
 
 export const SellerRoadmapPage = () => {

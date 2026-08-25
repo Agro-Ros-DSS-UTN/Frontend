@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -30,9 +30,9 @@ import {
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { roadmapsApi } from '../../api/operations.api';
-import { authApi } from '../../api/auth.api';
-import { companiesApi } from '../../api/companies.api';
+import { roadmapsApi } from '../../../api/operations.api';
+import { authApi } from '../../../api/auth.api';
+import { companiesApi } from '../../../api/companies.api';
 import './RoadmapsPage.css';
 
 // Base de datos de ejemplo amplia de empresas y localidades agrícolas

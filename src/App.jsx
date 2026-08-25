@@ -1,5 +1,4 @@
-/* eslint-disable */
-import React from 'react';
+﻿/* eslint-disable */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
@@ -7,27 +6,27 @@ import { AdminLayout } from './components/layout/AdminLayout';
 import { SellerLayout } from './components/layout/SellerLayout';
 import { LoginPage } from './pages/auth/LoginPage';
 
-// Admin Pages
-import { AdminDashboardPage } from './pages/admin/AdminDashboard';
-import { ContactsPage } from './pages/admin/ContactsPage';
-import { CompaniesPage } from './pages/admin/CompaniesPage';
-import { OpportunitiesPage } from './pages/admin/OpportunitiesPage';
-import { TasksPage } from './pages/admin/TasksPage';
-import { ProductsPage } from './pages/admin/ProductsPage';
-import { ObjectivesPage } from './pages/admin/ObjectivesPage';
-import { RoadmapsPage } from './pages/admin/RoadmapsPage';
-import { CampaignsPage } from './pages/admin/CampaignsPage';
-import { ActivitiesPage } from './pages/admin/ActivitiesPage';
-import { UsersPage } from './pages/admin/UsersPage';
-import { ProfilePage } from './pages/admin/ProfilePage';
-import { SettingsPage } from './pages/admin/SettingsPage';
+// Admin Pages (Organizadas en carpetas individuales)
+import { AdminDashboardPage } from './pages/admin/AdminDashboard/AdminDashboard';
+import { ContactsPage } from './pages/admin/ContactsPage/ContactsPage';
+import { CompaniesPage } from './pages/admin/CompaniesPage/CompaniesPage';
+import { OpportunitiesPage } from './pages/admin/OpportunitiesPage/OpportunitiesPage';
+import { TasksPage } from './pages/admin/TasksPage/TasksPage';
+import { ProductsPage } from './pages/admin/ProductsPage/ProductsPage';
+import { ObjectivesPage } from './pages/admin/ObjectivesPage/ObjectivesPage';
+import { RoadmapsPage } from './pages/admin/RoadmapsPage/RoadmapsPage';
+import { CampaignsPage } from './pages/admin/CampaignsPage/CampaignsPage';
+import { ActivitiesPage } from './pages/admin/ActivitiesPage/ActivitiesPage';
+import { UsersPage } from './pages/admin/UsersPage/UsersPage';
+import { ProfilePage } from './pages/admin/ProfilePage/ProfilePage';
+import { SettingsPage } from './pages/admin/SettingsPage/SettingsPage';
 
-// Seller Portal Pages
-import { SellerDashboardPage } from './pages/seller/SellerDashboardPage';
-import { SellerRoadmapPage } from './pages/seller/SellerRoadmapPage';
-import { SellerClientsPage } from './pages/seller/SellerClientsPage';
-import { SellerActivitiesPage } from './pages/seller/SellerActivitiesPage';
-import { SellerPromotionsPage } from './pages/seller/SellerPromotionsPage';
+// Seller Portal Pages (Organizadas en carpetas individuales)
+import { SellerDashboardPage } from './pages/seller/SellerDashboardPage/SellerDashboardPage';
+import { SellerRoadmapPage } from './pages/seller/SellerRoadmapPage/SellerRoadmapPage';
+import { SellerClientsPage } from './pages/seller/SellerClientsPage/SellerClientsPage';
+import { SellerActivitiesPage } from './pages/seller/SellerActivitiesPage/SellerActivitiesPage';
+import { SellerPromotionsPage } from './pages/seller/SellerPromotionsPage/SellerPromotionsPage';
 
 import './styles/global.css';
 

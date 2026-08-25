@@ -1,9 +1,9 @@
-﻿import React, { useState, useMemo, useEffect } from 'react';
+﻿import { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, X, Trash2, Sparkles } from 'lucide-react';
-import { mockPromotions } from '../../data/mockData';
-import { promotionsApi } from '../../api/operations.api';
-import { useAuth } from '../../context/AuthContext';
-import { RandomLetterSwap } from '../../components/ui/RandomLetterSwap';
+import { mockPromotions } from '../../../data/mockData';
+import { promotionsApi } from '../../../api/operations.api';
+import { useAuth } from '../../../context/AuthContext';
+import { RandomLetterSwap } from '../../../components/ui/RandomLetterSwap';
 import './CampaignsPage.css';
 
 const PROMO_COLORS = ['#e8a735', '#4caf50', '#0ea5e9', '#8b5cf6', '#ec4899', '#f97316'];
