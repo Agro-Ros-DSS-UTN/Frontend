@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Eye, EyeOff, Lock, CheckCircle2, X, ShieldCheck } from 'lucide-react';
 import { ArLogoHeader, ArLogoRight } from '../../components/common/ArLogo';
 import bgFieldUrl from '../../assets/field_sunset.jpg';

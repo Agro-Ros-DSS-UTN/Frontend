@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+﻿import { useState, useMemo, useEffect } from 'react';
 import {
   CheckSquare,
   Plus,
@@ -13,17 +13,10 @@ import {
   MapPin,
   X,
   Check,
-  AlertCircle,
-  ChevronDown,
   Download,
-  Upload,
-  CalendarDays,
-  ExternalLink,
-  Handshake,
   CheckCircle2,
   Trash2,
-  Bell,
-  MoreVertical,
+  Edit2,
   Sparkles,
 } from 'lucide-react';
 import {
@@ -35,21 +28,18 @@ import {
   mockSellers,
 } from '../../../data/mockData';
 import { tasksApi } from '../../../api/operations.api';
+import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer';
 import './TasksPage.css';
 
 export const TasksPage = () => {
   const [tasks, setTasks] = useState(mockTasks);
-  const [activeTab, setActiveTab] = useState('todo'); // 'todo' | 'hoy' | 'atrasado' | 'proximamente' | 'completadas'
+  const [activeTab, setActiveTab] = useState('todo'); // 'todo' | 'hoy' | 'completadas'
   const [searchQuery, setSearchQuery] = useState('');
-  const [assignedFilter, setAssignedFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
-  const [showBanner, setShowBanner] = useState(true);
   const [loading, setLoading] = useState(false);
-
-  // Drawer Create Task
   const [showDrawer, setShowDrawer] = useState(false);
-  const [selectedTaskDetail, setSelectedTaskDetail] = useState(null);
+  const [errors, setErrors] = useState({});
 
   // Form State
   const [form, setForm] = useState({
@@ -60,9 +50,6 @@ export const TasksPage = () => {
     prioridad: 'Alta',
     asignadoA: 'Manuel Fernández',
     empresa: mockCompanies[0]?.nombreEmpresa || '',
-    contacto: mockClients[0] ? `${mockClients[0].nombre} ${mockClients[0].apellido}` : '',
-    negocio: mockOpportunities[0]?.nombreNegocio || '',
-    recordatorio: '15 minutos antes',
     notas: '',
   });
 
@@ -73,7 +60,7 @@ export const TasksPage = () => {
       const data = await tasksApi.getAll();
       const rawTasks = Array.isArray(data) ? data : data?.data || [];
       if (rawTasks.length > 0) {
-        const formatted = rawTasks.map(t => ({
+        const formatted = rawTasks.map((t) => ({
           id: t.id,
           titulo: t.descripcion || t.titulo || 'Tarea Comercial Asignada',
           tipo: t.tipo || 'llamada',
@@ -84,7 +71,7 @@ export const TasksPage = () => {
           asignadoA: t.Seller?.User?.nombreApellido || `Vendedor #${t.sellerId || 1}`,
           empresa: t.empresa || 'Empresa Registrada',
           contacto: t.contacto || 'Contacto Comercial',
-          notas: t.notas || ''
+          notas: t.notas || '',
         }));
         setTasks(formatted);
       }
@@ -99,73 +86,70 @@ export const TasksPage = () => {
     fetchTasksFromApi();
   }, []);
 
-  const todayStr = '2026-08-12';
-
-  // Filtered tasks
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
 
-    // Tab filtering
-    if (activeTab === 'hoy') {
-      result = result.filter(t => t.fechaVencimiento === todayStr && t.estado !== 'Completada');
-    } else if (activeTab === 'atrasado') {
-      result = result.filter(t => t.fechaVencimiento < todayStr && t.estado !== 'Completada');
-    } else if (activeTab === 'proximamente') {
-      result = result.filter(t => t.fechaVencimiento > todayStr && t.estado !== 'Completada');
+    if (activeTab === 'todo') {
+      result = result.filter((t) => t.estado !== 'Completada');
     } else if (activeTab === 'completadas') {
-      result = result.filter(t => t.estado === 'Completada');
-    } else if (activeTab === 'todo') {
-      result = result.filter(t => t.estado !== 'Completada');
+      result = result.filter((t) => t.estado === 'Completada');
+    } else if (activeTab === 'hoy') {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      result = result.filter((t) => t.fechaVencimiento === todayStr);
     }
 
-    // Search query
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(t =>
-        t.titulo.toLowerCase().includes(q) ||
-        t.empresa?.toLowerCase().includes(q) ||
-        t.contacto?.toLowerCase().includes(q) ||
-        t.asignadoA?.toLowerCase().includes(q)
+      result = result.filter(
+        (t) =>
+          t.titulo.toLowerCase().includes(q) ||
+          t.empresa?.toLowerCase().includes(q) ||
+          t.asignadoA?.toLowerCase().includes(q)
       );
     }
 
-    // User assigned filter
-    if (assignedFilter !== 'all') {
-      result = result.filter(t => t.asignadoA === assignedFilter);
-    }
-
-    // Type filter
-    if (typeFilter !== 'all') {
-      result = result.filter(t => t.tipo === typeFilter);
-    }
-
-    // Priority filter
     if (priorityFilter !== 'all') {
-      result = result.filter(t => t.prioridad === priorityFilter);
+      result = result.filter((t) => t.prioridad === priorityFilter);
     }
 
     return result;
-  }, [tasks, activeTab, searchQuery, assignedFilter, typeFilter, priorityFilter]);
+  }, [tasks, activeTab, searchQuery, priorityFilter]);
 
-  // Handlers
   const handleToggleComplete = async (taskId) => {
     try {
-      const target = tasks.find(t => t.id === taskId);
+      const target = tasks.find((t) => t.id === taskId);
       const newStatus = target?.estado === 'Completada' ? 'Pendiente' : 'Completada';
       await tasksApi.updateStatus(taskId, newStatus);
-      setTasks(prev =>
-        prev.map(t => (t.id === taskId ? { ...t, estado: newStatus } : t))
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, estado: newStatus } : t))
       );
     } catch (err) {
-      setTasks(prev =>
-        prev.map(t => (t.id === taskId ? { ...t, estado: t.estado === 'Completada' ? 'Pendiente' : 'Completada' } : t))
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, estado: t.estado === 'Completada' ? 'Pendiente' : 'Completada' } : t))
       );
+    }
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
     }
   };
 
   const handleCreateTaskSubmit = async (e) => {
     e.preventDefault();
-    if (!form.titulo.trim()) return;
+
+    const newErrors = {};
+    if (!form.titulo?.trim()) newErrors.titulo = 'El título de la tarea es obligatorio.';
+    if (!form.fechaVencimiento) newErrors.fechaVencimiento = 'Seleccioná la fecha límite.';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
 
     try {
       setLoading(true);
@@ -176,12 +160,11 @@ export const TasksPage = () => {
         horaVencimiento: form.horaVencimiento,
         prioridad: form.prioridad,
         estado: 'Pendiente',
-        sellerId: 1
+        sellerId: 1,
       };
 
       await tasksApi.create(payload);
       setShowDrawer(false);
-      
       setForm({
         titulo: '',
         tipo: 'llamada',
@@ -190,38 +173,28 @@ export const TasksPage = () => {
         prioridad: 'Alta',
         asignadoA: 'Manuel Fernández',
         empresa: mockCompanies[0]?.nombreEmpresa || '',
-        contacto: mockClients[0] ? `${mockClients[0].nombre} ${mockClients[0].apellido}` : '',
-        negocio: mockOpportunities[0]?.nombreNegocio || '',
-        recordatorio: '15 minutos antes',
         notas: '',
       });
 
       await fetchTasksFromApi();
-      alert('¡Tarea creada correctamente en la Base de Datos!');
     } catch (err) {
       console.error('Error creating task:', err);
-      alert('Se guardó la tarea localmente.');
     } finally {
       setLoading(false);
     }
   };
 
   const getTypeIcon = (tipo) => {
-    switch (tipo) {
-      case 'llamada': return <Phone size={14} />;
-      case 'correo': return <Mail size={14} />;
-      case 'reunion': return <User size={14} />;
-      case 'visita': return <MapPin size={14} />;
-      default: return <CheckSquare size={14} />;
-    }
-  };
-
-  const getPriorityClass = (prioridad) => {
-    switch (prioridad) {
-      case 'Alta': return 'priority-high';
-      case 'Media': return 'priority-medium';
-      case 'Normal': return 'priority-normal';
-      default: return 'priority-normal';
+    switch (tipo?.toLowerCase()) {
+      case 'llamada':
+        return <Phone size={13} />;
+      case 'correo':
+      case 'email':
+        return <Mail size={13} />;
+      case 'visita':
+        return <MapPin size={13} />;
+      default:
+        return <CheckSquare size={13} />;
     }
   };
 
@@ -237,8 +210,12 @@ export const TasksPage = () => {
         </div>
         <div className="tasks-page__header-actions">
           <button
-            className="tasks-btn tasks-btn--primary"
-            onClick={() => setShowDrawer(true)}
+            type="button"
+            className="tasks-page__add-btn"
+            onClick={() => {
+              setErrors({});
+              setShowDrawer(true);
+            }}
           >
             <Plus size={16} />
             <span>Crear Tarea</span>
@@ -246,207 +223,235 @@ export const TasksPage = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="tasks-page__tabs">
-        <button
-          className={`tasks-tab ${activeTab === 'todo' ? 'active' : ''}`}
-          onClick={() => setActiveTab('todo')}
-        >
-          Pendientes ({tasks.filter(t => t.estado !== 'Completada').length})
-        </button>
-        <button
-          className={`tasks-tab ${activeTab === 'hoy' ? 'active' : ''}`}
-          onClick={() => setActiveTab('hoy')}
-        >
-          Hoy
-        </button>
-        <button
-          className={`tasks-tab ${activeTab === 'completadas' ? 'active' : ''}`}
-          onClick={() => setActiveTab('completadas')}
-        >
-          Completadas ({tasks.filter(t => t.estado === 'Completada').length})
-        </button>
-      </div>
+      {/* Main Unified Card */}
+      <div className="tasks-page__card">
+        {/* Tabs Bar */}
+        <div className="tasks-page__tabs">
+          <button
+            type="button"
+            className={`tasks-page__tab ${activeTab === 'todo' ? 'tasks-page__tab--active' : ''}`}
+            onClick={() => setActiveTab('todo')}
+          >
+            <span>Pendientes</span>
+            <span className="tasks-page__tab-badge">
+              {tasks.filter((t) => t.estado !== 'Completada').length}
+            </span>
+          </button>
 
-      {/* Toolbar */}
-      <div className="tasks-toolbar">
-        <div className="tasks-search">
-          <Search size={16} />
-          <input
-            type="text"
-            placeholder="Buscar por título, empresa o contacto..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <button
+            type="button"
+            className={`tasks-page__tab ${activeTab === 'hoy' ? 'tasks-page__tab--active' : ''}`}
+            onClick={() => setActiveTab('hoy')}
+          >
+            <span>Hoy</span>
+          </button>
+
+          <button
+            type="button"
+            className={`tasks-page__tab ${activeTab === 'completadas' ? 'tasks-page__tab--active' : ''}`}
+            onClick={() => setActiveTab('completadas')}
+          >
+            <span>Completadas</span>
+            <span className="tasks-page__tab-badge">
+              {tasks.filter((t) => t.estado === 'Completada').length}
+            </span>
+          </button>
         </div>
-      </div>
 
-      {/* Tasks Table */}
-      <div className="tasks-table-card">
-        <table className="tasks-table">
-          <thead>
-            <tr>
-              <th style={{ width: '40px' }}></th>
-              <th>Título / Tarea</th>
-              <th>Empresa / Contacto</th>
-              <th>Fecha Limite</th>
-              <th>Prioridad</th>
-              <th>Asignado a</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTasks.length > 0 ? (
-              filteredTasks.map((t) => {
-                const isCompleted = t.estado === 'Completada';
-                return (
-                  <tr key={t.id} className={isCompleted ? 'completed-row' : ''}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={isCompleted}
-                        onChange={() => handleToggleComplete(t.id)}
-                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                      />
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 700, color: isCompleted ? '#94a3b8' : '#0f172a' }}>
-                        {t.titulo}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {getTypeIcon(t.tipo)} <span style={{ textTransform: 'capitalize' }}>{t.tipo}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#334155' }}>{t.empresa}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>{t.contacto}</div>
-                    </td>
-                    <td>{t.fechaVencimiento} ({t.horaVencimiento || '12:00'} hs)</td>
-                    <td>
-                      <span className={`tasks-priority-tag ${getPriorityClass(t.prioridad)}`}>
-                        {t.prioridad}
-                      </span>
-                    </td>
-                    <td>{t.asignadoA}</td>
-                  </tr>
-                );
-              })
-            ) : (
+        {/* Toolbar */}
+        <div className="tasks-page__toolbar">
+          <div className="tasks-page__search">
+            <Search size={16} color="#64748b" />
+            <input
+              type="text"
+              placeholder="Buscar por título, empresa o contacto..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="tasks-filters-group">
+            <select
+              className="tasks-filter-select"
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+            >
+              <option value="all">Todas las prioridades</option>
+              <option value="Alta">Alta</option>
+              <option value="Media">Media</option>
+              <option value="Baja">Baja</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="tasks-page__table-wrapper">
+          <table className="tasks-table">
+            <thead>
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No se encontraron tareas registradas.
-                </td>
+                <th style={{ width: '44px', paddingLeft: '20px' }}></th>
+                <th>Título / Tarea</th>
+                <th>Empresa / Contacto</th>
+                <th>Fecha Límite</th>
+                <th>Prioridad</th>
+                <th>Asignado a</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredTasks.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontStyle: 'italic' }}>
+                    No se encontraron tareas coincidentes.
+                  </td>
+                </tr>
+              ) : (
+                filteredTasks.map((t) => {
+                  const isCompleted = t.estado === 'Completada';
+                  return (
+                    <tr key={t.id} className={isCompleted ? 'completed-row' : ''}>
+                      <td style={{ paddingLeft: '20px' }}>
+                        <input
+                          type="checkbox"
+                          checked={isCompleted}
+                          onChange={() => handleToggleComplete(t.id)}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#1a7d6b' }}
+                        />
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 700, color: isCompleted ? '#94a3b8' : '#0f172a', textDecoration: isCompleted ? 'line-through' : 'none' }}>
+                          {t.titulo}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                          {getTypeIcon(t.tipo)} <span style={{ textTransform: 'capitalize' }}>{t.tipo}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#334155' }}>{t.empresa}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>{t.contacto}</div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.85rem', color: '#334155' }}>
+                          {t.fechaVencimiento} {t.horaVencimiento ? `(${t.horaVencimiento} hs)` : ''}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`priority-tag ${t.prioridad?.toLowerCase() || 'media'}`}>
+                          {t.prioridad}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600 }}>
+                          {t.asignadoA}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Drawer: Crear Tarea */}
-      {showDrawer && (
-        <div className="tasks-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 99999, display: 'flex', justifyContent: 'flex-end' }} onClick={() => setShowDrawer(false)}>
-          <div style={{ background: '#ffffff', width: '460px', maxWidth: '92vw', height: '100vh', padding: '24px', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#0f172a' }}>Crear Nueva Tarea (Base de Datos)</h2>
-              <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }} onClick={() => setShowDrawer(false)}>
-                <X size={20} />
-              </button>
-            </div>
+      <SlideDrawer
+        isOpen={showDrawer}
+        onClose={() => setShowDrawer(false)}
+        title="Crear Nueva Tarea"
+        width="520px"
+      >
+        <form onSubmit={handleCreateTaskSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+          <FormInput
+            label="Título de la Tarea"
+            name="titulo"
+            value={form.titulo}
+            onChange={handleFormChange}
+            placeholder="Ej: Llamar a productor para coordinar entrega de fertilizantes"
+            required
+            error={errors.titulo}
+          />
 
-            <form onSubmit={handleCreateTaskSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, overflowY: 'auto' }}>
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                  Título / Descripción de Tarea *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: Cotizar 500L de fertizantes foliares"
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                  value={form.titulo}
-                  onChange={e => setForm({ ...form, titulo: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                    Tipo *
-                  </label>
-                  <select
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    value={form.tipo}
-                    onChange={e => setForm({ ...form, tipo: e.target.value })}
-                  >
-                    <option value="llamada">Llamada</option>
-                    <option value="visita">Visita a Campo</option>
-                    <option value="reunion">Reunión</option>
-                    <option value="correo">Correo</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                    Prioridad *
-                  </label>
-                  <select
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    value={form.prioridad}
-                    onChange={e => setForm({ ...form, prioridad: e.target.value })}
-                  >
-                    <option value="Alta">Alta</option>
-                    <option value="Media">Media</option>
-                    <option value="Normal">Normal</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                    Fecha Límite *
-                  </label>
-                  <input
-                    type="date"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    value={form.fechaVencimiento}
-                    onChange={e => setForm({ ...form, fechaVencimiento: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                    Hora *
-                  </label>
-                  <input
-                    type="time"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    value={form.horaVencimiento}
-                    onChange={e => setForm({ ...form, horaVencimiento: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: 'auto', paddingTop: '1rem' }}>
-                <button
-                  type="submit"
-                  style={{ flex: 1, padding: '12px', background: '#1a7d6b', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
-                  disabled={loading}
-                >
-                  {loading ? 'Guardando en BD...' : 'Guardar Tarea'}
-                </button>
-                <button
-                  type="button"
-                  style={{ padding: '12px 18px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
-                  onClick={() => setShowDrawer(false)}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <FormSelect
+              label="Tipo de Actividad"
+              name="tipo"
+              value={form.tipo}
+              onChange={handleFormChange}
+              options={[
+                { value: 'llamada', label: 'Llamada' },
+                { value: 'visita', label: 'Visita a Campo' },
+                { value: 'correo', label: 'Correo Electrónico' },
+                { value: 'reunion', label: 'Reunión Comercial' },
+              ]}
+            />
+            <FormSelect
+              label="Prioridad"
+              name="prioridad"
+              value={form.prioridad}
+              onChange={handleFormChange}
+              options={[
+                { value: 'Alta', label: 'Alta' },
+                { value: 'Media', label: 'Media' },
+                { value: 'Baja', label: 'Baja' },
+              ]}
+            />
           </div>
-        </div>
-      )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <FormInput
+              label="Fecha Límite"
+              name="fechaVencimiento"
+              type="date"
+              value={form.fechaVencimiento}
+              onChange={handleFormChange}
+              required
+              error={errors.fechaVencimiento}
+            />
+            <FormInput
+              label="Hora Estimada"
+              name="horaVencimiento"
+              type="time"
+              value={form.horaVencimiento}
+              onChange={handleFormChange}
+            />
+          </div>
+
+          <FormInput
+            label="Empresa / Cliente Asociado"
+            name="empresa"
+            value={form.empresa}
+            onChange={handleFormChange}
+            placeholder="Ej: Campo Grande S.R.L."
+          />
+
+          <FormTextarea
+            label="Notas Adicionales"
+            name="notas"
+            value={form.notas}
+            onChange={handleFormChange}
+            placeholder="Detalles sobre la conversación previa o indicaciones..."
+            rows={2}
+          />
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <button
+              type="submit"
+              className="btn-rounded-primary"
+              style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
+            >
+              Guardar Tarea
+            </button>
+            <button
+              type="button"
+              className="roadmaps-btn roadmaps-btn--outline"
+              style={{ padding: '12px 18px' }}
+              onClick={() => setShowDrawer(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </SlideDrawer>
     </div>
   );
 };

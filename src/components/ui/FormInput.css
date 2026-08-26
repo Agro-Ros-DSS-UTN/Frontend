@@ -1,0 +1,103 @@
+﻿/* ── FormInput, FormTextarea, FormSelect — Validaciones Custom ── */
+
+.form-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-input-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.form-input-required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.form-input-wrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.form-input-wrapper:focus-within {
+  border-color: #1a7d6b;
+  box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.1);
+}
+
+.form-input-wrapper--error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+.form-input-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 0 12px;
+  color: #94a3b8;
+}
+
+.form-input-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: #0f172a;
+  background: transparent;
+  outline: none;
+}
+
+/* When no wrapper, standalone textarea/select with its own border */
+textarea.form-input-control,
+select.form-input-control {
+  border: 1px solid #cbd5e1;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+textarea.form-input-control:focus,
+select.form-input-control:focus {
+  border-color: #1a7d6b;
+  box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.1);
+}
+
+.form-input-control--error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+
+.form-select {
+  cursor: pointer;
+  appearance: auto;
+}
+
+/* Custom validation error message (estilo Login) */
+.form-input-error {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #ef4444;
+  padding: 4px 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  display: inline-block;
+  animation: formErrorFadeIn 200ms ease;
+}
+
+@keyframes formErrorFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

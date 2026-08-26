@@ -29,6 +29,8 @@ import {
   deleteUser as apiDeleteUser,
 } from '../../../data/api';
 import { mockUsers } from '../../../data/mockData';
+import { FormInput, FormSelect } from '../../../components/ui/FormInput';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer';
 import './UsersPage.css';
 
 const TABS = [
@@ -51,23 +53,23 @@ export const UsersPage = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'activo' | 'inactivo'
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState('nombreApellido');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
-  
+
   // Feedback toast & copied state
   const [toastMessage, setToastMessage] = useState('');
   const [copiedId, setCopiedId] = useState(null);
 
   // Modal (Slide-over drawer) State
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit'
+  const [modalMode, setModalMode] = useState('create');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Form State
+  // Form State & Errors
   const [form, setForm] = useState({
     idUser: '',
     nombreApellido: '',
@@ -76,6 +78,7 @@ export const UsersPage = () => {
     role: 'vendedor',
     accountStatement: 'Activo',
   });
+  const [errors, setErrors] = useState({});
 
   // Cargar usuarios de MySQL backend
   const fetchUsers = async () => {
@@ -99,105 +102,80 @@ export const UsersPage = () => {
     fetchUsers();
   }, []);
 
-  // Escuchar tecla Escape para cerrar modal
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && showModal) {
-        handleCloseModal();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showModal]);
-
-  // Helper para normalizar rol
-  const getNormalizedRole = (roleString) => {
-    const r = String(roleString || '').toLowerCase().trim();
-    if (r === 'admin' || r === 'administrador') return 'admin';
-    if (r === 'vendedor' || r === 'seller') return 'vendedor';
-    return r;
-  };
-
-  // Helper para avatar de iniciales
-  const getInitials = (name) => {
-    if (!name) return 'US';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
-
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
   };
 
   const handleCopyId = (id, e) => {
-    if (e) e.stopPropagation();
-    if (!id) return;
+    e.stopPropagation();
     navigator.clipboard.writeText(id);
     setCopiedId(id);
-    showToast(`ID "@${id}" copiado al portapapeles`);
+    showToast(`ID @${id} copiado al portapapeles`);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Filtrado y ordenamiento de usuarios
+  const getNormalizedRole = (roleStr) => {
+    const r = (roleStr || '').toLowerCase();
+    if (r.includes('admin')) return 'admin';
+    return 'vendedor';
+  };
+
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
   const filteredUsers = useMemo(() => {
-    let result = [...users];
+    return users.filter((u) => {
+      const normRole = getNormalizedRole(u.role || u.rol);
+      if (activeTab !== 'all' && normRole !== activeTab) return false;
 
-    // Búsqueda
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(u =>
-        u.nombreApellido?.toLowerCase().includes(q) ||
-        u.idUser?.toLowerCase().includes(q) ||
-        u.direccionMail?.toLowerCase().includes(q) ||
-        u.role?.toLowerCase().includes(q)
-      );
-    }
+      const isActivo = String(u.accountStatement || u.estado || 'Activo').toLowerCase().includes('activ');
+      if (statusFilter === 'activo' && !isActivo) return false;
+      if (statusFilter === 'inactivo' && isActivo) return false;
 
-    // Filtro por pestaña (Tab)
-    if (activeTab === 'admin') {
-      result = result.filter(u => getNormalizedRole(u.role) === 'admin');
-    } else if (activeTab === 'vendedor') {
-      result = result.filter(u => getNormalizedRole(u.role) === 'vendedor');
-    }
-
-    // Filtro por estado
-    if (statusFilter !== 'all') {
-      const isActive = statusFilter === 'activo';
-      result = result.filter(u => {
-        const s = String(u.accountStatement || u.estado || 'Activo').toLowerCase();
-        return isActive ? s.includes('activ') : (!s.includes('activ') || s.includes('inactiv'));
-      });
-    }
-
-    // Ordenamiento
-    result.sort((a, b) => {
-      let valA = (a[sortBy] || '').toString().toLowerCase();
-      let valB = (b[sortBy] || '').toString().toLowerCase();
-
-      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const name = (u.nombreApellido || '').toLowerCase();
+        const id = (u.idUser || u.id || '').toLowerCase();
+        const mail = (u.direccionMail || u.email || '').toLowerCase();
+        return name.includes(q) || id.includes(q) || mail.includes(q);
+      }
+      return true;
     });
+  }, [users, activeTab, statusFilter, searchQuery]);
 
-    return result;
-  }, [users, searchQuery, activeTab, statusFilter, sortBy, sortDir]);
+  const sortedUsers = useMemo(() => {
+    return [...filteredUsers].sort((a, b) => {
+      let valA = a[sortBy] ?? '';
+      let valB = b[sortBy] ?? '';
+      if (sortBy === 'role') {
+        valA = getNormalizedRole(valA);
+        valB = getNormalizedRole(valB);
+      }
+      if (typeof valA === 'string') {
+        return sortDir === 'asc'
+          ? valA.localeCompare(valB, 'es')
+          : valB.localeCompare(valA, 'es');
+      }
+      return sortDir === 'asc' ? valA - valB : valB - valA;
+    });
+  }, [filteredUsers, sortBy, sortDir]);
 
-  // Paginación
-  const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE) || 1;
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / PAGE_SIZE));
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return sortedUsers.slice(start, start + PAGE_SIZE);
+  }, [sortedUsers, currentPage]);
 
-  const handleSort = (key) => {
-    if (sortBy === key) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+  const handleSort = (colKey) => {
+    if (sortBy === colKey) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     } else {
-      setSortBy(key);
+      setSortBy(colKey);
       setSortDir('asc');
     }
   };
@@ -217,7 +195,6 @@ export const UsersPage = () => {
     );
   };
 
-  // Abrir modal de creación
   const handleOpenCreateModal = () => {
     setForm({
       idUser: '',
@@ -227,12 +204,12 @@ export const UsersPage = () => {
       role: 'vendedor',
       accountStatement: 'Activo',
     });
+    setErrors({});
     setModalMode('create');
     setShowPassword(false);
     setShowModal(true);
   };
 
-  // Abrir modal de edición
   const handleOpenEditModal = (u, e) => {
     if (e) e.stopPropagation();
     setForm({
@@ -243,6 +220,7 @@ export const UsersPage = () => {
       role: getNormalizedRole(u.role),
       accountStatement: u.accountStatement || 'Activo',
     });
+    setErrors({});
     setModalMode('edit');
     setShowPassword(false);
     setShowModal(true);
@@ -250,20 +228,30 @@ export const UsersPage = () => {
 
   const handleCloseModal = () => {
     setShowModal(false);
+    setErrors({});
   };
 
-  // Guardar (Crear / Modificar)
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.idUser || !form.nombreApellido) {
-      alert('Por favor completa el ID y el Nombre del usuario.');
-      return;
-    }
 
-    if (modalMode === 'create' && !form.password) {
-      alert('La contraseña es requerida para un nuevo usuario.');
+    const newErrors = {};
+    if (!form.idUser?.trim()) newErrors.idUser = 'Ingresá el ID único de usuario.';
+    if (!form.nombreApellido?.trim()) newErrors.nombreApellido = 'El nombre y apellido es obligatorio.';
+    if (modalMode === 'create' && !form.password) newErrors.password = 'La contraseña es obligatoria para nuevos usuarios.';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+    setErrors({});
 
     const payload = {
       idUser: form.idUser.trim(),
@@ -300,32 +288,27 @@ export const UsersPage = () => {
     handleCloseModal();
   };
 
-  // Eliminar usuario
-  const handleDeleteUser = async (idUser, e) => {
+  const handleDeleteUser = async (id, e) => {
     if (e) e.stopPropagation();
-    if (!window.confirm(`¿Estás seguro de que querés eliminar al usuario @${idUser}?`)) {
-      return;
-    }
+    if (!window.confirm(`¿Estás seguro de eliminar el usuario @${id}?`)) return;
 
     try {
-      await apiDeleteUser(idUser);
-      showToast(`Usuario @${idUser} eliminado de MySQL`);
+      await apiDeleteUser(id);
+      showToast(`Usuario @${id} eliminado de MySQL`);
     } catch (err) {
-      console.warn('Error al eliminar:', err);
+      console.warn('Error al eliminar en backend:', err);
     }
-
-    setUsers(prev => prev.filter(u => (u.idUser || u.id) !== idUser));
+    setUsers(prev => prev.filter(u => (u.idUser || u.id) !== id));
   };
 
-  // Exportar lista a CSV
-  const handleExportUsers = () => {
-    const headers = ['ID Usuario', 'Nombre y Apellido', 'Correo Electrónico', 'Rol', 'Estado'];
+  const handleExportCSV = () => {
+    const headers = ['ID Usuario', 'Nombre y Apellido', 'Email', 'Rol', 'Estado'];
     const rows = filteredUsers.map(u => [
-      `"${u.idUser || ''}"`,
+      `"${u.idUser || u.id || ''}"`,
       `"${(u.nombreApellido || '').replace(/"/g, '""')}"`,
-      `"${u.direccionMail || ''}"`,
-      `"${getNormalizedRole(u.role) === 'admin' ? 'Administrador' : 'Vendedor'}"`,
-      `"${u.accountStatement || 'Activo'}"`,
+      `"${u.direccionMail || u.email || ''}"`,
+      `"${getNormalizedRole(u.role || u.rol)}"`,
+      `"${u.accountStatement || u.estado || 'Activo'}"`,
     ]);
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
@@ -333,7 +316,7 @@ export const UsersPage = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `usuarios_agroros_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Usuarios_AgroRos_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -343,101 +326,99 @@ export const UsersPage = () => {
     <div className="users-page">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="user-toast-notification">
-          <Check size={18} className="text-success" />
+        <div className="users-toast">
+          <Check size={16} />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Header (Mismo layout exacto que Contactos) */}
+      {/* Header */}
       <div className="users-page__header">
         <div>
-          <h1 className="users-page__title">Gestión de Usuarios</h1>
+          <h1 className="users-page__title">Gestión de Usuarios del Sistema</h1>
           <p className="users-page__subtitle">
-            {users.length} usuarios registrados en el CRM
+            Administrá los perfiles, permisos y credenciales de acceso para Administradores y Vendedores
           </p>
         </div>
         <div className="users-page__header-actions">
-          <button className="users-page__add-btn" onClick={handleOpenCreateModal}>
-            <Plus size={16} />
-            Agregar usuario
+          <button type="button" className="users-page__export-btn" onClick={handleExportCSV}>
+            <Download size={15} />
+            <span>Exportar CSV</span>
           </button>
-          <button className="users-page__export-btn" onClick={handleExportUsers}>
-            <Download size={16} />
-            Exportar
+          <button type="button" className="users-page__add-btn" onClick={handleOpenCreateModal}>
+            <Plus size={16} />
+            <span>Nuevo Usuario</span>
           </button>
         </div>
       </div>
 
-      {/* Main Content Card */}
+      {/* Main Unified Card */}
       <div className="users-page__card">
-        {/* Navigation Tabs (Mismas solapas exactas que Contactos) */}
+        {/* Tabs Bar inside card */}
         <div className="users-page__tabs">
           {TABS.map(tab => {
             const count = tab.key === 'all'
               ? users.length
-              : users.filter(u => getNormalizedRole(u.role) === tab.key).length;
-
+              : users.filter(u => getNormalizedRole(u.role || u.rol) === tab.key).length;
             return (
               <button
                 key={tab.key}
+                type="button"
                 className={`users-page__tab ${activeTab === tab.key ? 'users-page__tab--active' : ''}`}
-                onClick={() => {
-                  setActiveTab(tab.key);
-                  setCurrentPage(1);
-                }}
+                onClick={() => { setActiveTab(tab.key); setCurrentPage(1); }}
               >
-                {tab.label}
+                <span>{tab.label}</span>
                 <span className="users-page__tab-badge">{count}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Toolbar / Search & Filter Controls */}
+        {/* Toolbar */}
         <div className="users-page__toolbar">
           <div className="users-page__search">
-            <Search size={16} />
+            <Search size={16} color="#64748b" />
             <input
               type="text"
-              placeholder="Buscar por nombre, correo o ID de usuario..."
+              placeholder="Buscar por nombre, ID o email..."
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             />
           </div>
 
           <div className="users-page__toolbar-actions">
             <button
+              type="button"
               className={`users-page__filter-btn ${showFilters || statusFilter !== 'all' ? 'users-page__filter-btn--active' : ''}`}
               onClick={() => setShowFilters(!showFilters)}
             >
-              <Filter size={16} />
-              Estado de usuario
-              {statusFilter !== 'all' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />}
+              <Filter size={15} />
+              <span>Filtros</span>
+              {statusFilter !== 'all' && <span className="filter-dot" />}
             </button>
           </div>
         </div>
 
-        {/* Filter Panel */}
+        {/* Filter Chips Bar */}
         {showFilters && (
-          <div className="users-page__filter-panel">
-            <span className="users-page__filter-panel-label">Filtrar por estado:</span>
+          <div className="users-page__filter-chips">
+            <span className="users-page__filter-label">Estado de cuenta:</span>
             <button
+              type="button"
               className={`users-page__filter-chip ${statusFilter === 'all' ? 'users-page__filter-chip--active' : ''}`}
               onClick={() => setStatusFilter('all')}
             >
               Todos los estados
             </button>
             <button
+              type="button"
               className={`users-page__filter-chip ${statusFilter === 'activo' ? 'users-page__filter-chip--active' : ''}`}
               onClick={() => setStatusFilter('activo')}
             >
               Activo
             </button>
             <button
+              type="button"
               className={`users-page__filter-chip ${statusFilter === 'inactivo' ? 'users-page__filter-chip--active' : ''}`}
               onClick={() => setStatusFilter('inactivo')}
             >
@@ -531,7 +512,7 @@ export const UsersPage = () => {
                             <ExternalLink size={12} />
                           </a>
                         ) : (
-                          <span style={{ color: '#94a3b8' }}>—</span>
+                          <span style={{ color: '#94a3b8' }}>-</span>
                         )}
                       </td>
                       <td>
@@ -589,6 +570,7 @@ export const UsersPage = () => {
           </span>
           <div className="users-page__pagination-controls">
             <button
+              type="button"
               className="users-page__page-btn"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -598,6 +580,7 @@ export const UsersPage = () => {
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
               <button
                 key={page}
+                type="button"
                 className={`users-page__page-btn ${currentPage === page ? 'users-page__page-btn--active' : ''}`}
                 onClick={() => setCurrentPage(page)}
               >
@@ -605,6 +588,7 @@ export const UsersPage = () => {
               </button>
             ))}
             <button
+              type="button"
               className="users-page__page-btn"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -615,113 +599,109 @@ export const UsersPage = () => {
         </div>
       </div>
 
-      {/* ── SLIDE-OVER DRAWER MODAL: NUEVO / EDITAR USUARIO ── */}
-      {showModal && (
-        <div className="user-drawer-overlay" onClick={handleCloseModal}>
-          <div className="user-drawer-modal" onClick={e => e.stopPropagation()}>
-            <div className="user-drawer-header">
-              <h2>{modalMode === 'edit' ? 'Modificar Usuario' : 'Nuevo Usuario'}</h2>
-              <button type="button" className="user-drawer-close" onClick={handleCloseModal}>
-                <X size={18} />
+      {/* Slide-over Drawer Modal: Nuevo / Modificar Usuario */}
+      <SlideDrawer
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        title={modalMode === 'edit' ? 'Modificar Usuario' : 'Nuevo Usuario'}
+        width="520px"
+      >
+        <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <FormInput
+            label="ID de Usuario (Username)"
+            name="idUser"
+            value={form.idUser}
+            onChange={handleFormChange}
+            placeholder="Ej: admin_rosario, vendedor_1"
+            disabled={modalMode === 'edit'}
+            required
+            error={errors.idUser}
+          />
+
+          <FormInput
+            label="Nombre y Apellido"
+            name="nombreApellido"
+            value={form.nombreApellido}
+            onChange={handleFormChange}
+            placeholder="Ej: Manuel Fernández"
+            required
+            error={errors.nombreApellido}
+          />
+
+          <FormInput
+            label="Correo Electrónico"
+            name="direccionMail"
+            type="email"
+            value={form.direccionMail}
+            onChange={handleFormChange}
+            placeholder="ejemplo@agroros.com.ar"
+          />
+
+          <div className="form-input-field">
+            <label className="form-input-label">
+              Contraseña {modalMode === 'edit' ? '(Dejar en blanco para mantener actual)' : <span className="form-input-required">*</span>}
+            </label>
+            <div className={`form-input-wrapper ${errors.password ? 'form-input-wrapper--error' : ''}`}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                value={form.password}
+                onChange={handleFormChange}
+                placeholder={modalMode === 'edit' ? 'Nueva contraseña (opcional)' : 'Ingresá la contraseña'}
+                className="form-input-control"
+              />
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', padding: '0 12px', color: '#64748b', cursor: 'pointer' }}
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-
-            <form className="user-drawer-body" onSubmit={handleSubmit}>
-              <div className="user-drawer-field">
-                <label>ID de Usuario (Username) <span className="req">*</span></label>
-                <input
-                  type="text"
-                  className="user-drawer-input"
-                  placeholder="Ej: admin_rosario, vendedor_1"
-                  value={form.idUser}
-                  onChange={(e) => setForm(prev => ({ ...prev, idUser: e.target.value }))}
-                  disabled={modalMode === 'edit'}
-                  required
-                />
-              </div>
-
-              <div className="user-drawer-field">
-                <label>Nombre y Apellido <span className="req">*</span></label>
-                <input
-                  type="text"
-                  className="user-drawer-input"
-                  placeholder="Ej: Manuel Fernández"
-                  value={form.nombreApellido}
-                  onChange={(e) => setForm(prev => ({ ...prev, nombreApellido: e.target.value }))}
-                  required
-                />
-              </div>
-
-              <div className="user-drawer-field">
-                <label>Correo Electrónico</label>
-                <input
-                  type="email"
-                  className="user-drawer-input"
-                  placeholder="ejemplo@agroros.com.ar"
-                  value={form.direccionMail}
-                  onChange={(e) => setForm(prev => ({ ...prev, direccionMail: e.target.value }))}
-                />
-              </div>
-
-              <div className="user-drawer-field">
-                <label>Contraseña {modalMode === 'edit' ? '(Dejar en blanco para mantener la actual)' : <span className="req">*</span>}</label>
-                <div className="user-password-box">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="user-drawer-input"
-                    placeholder={modalMode === 'edit' ? 'Nueva contraseña (opcional)' : 'Ingresá la contraseña'}
-                    value={form.password}
-                    onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
-                    required={modalMode === 'create'}
-                  />
-                  <button
-                    type="button"
-                    className="user-password-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="user-drawer-field">
-                <label>Rol de Usuario <span className="req">*</span></label>
-                <select
-                  className="user-drawer-select"
-                  value={form.role}
-                  onChange={(e) => setForm(prev => ({ ...prev, role: e.target.value }))}
-                  required
-                >
-                  <option value="vendedor">Vendedor Oficial</option>
-                  <option value="admin">Administrador del CRM</option>
-                </select>
-              </div>
-
-              <div className="user-drawer-field">
-                <label>Estado de Cuenta <span className="req">*</span></label>
-                <select
-                  className="user-drawer-select"
-                  value={form.accountStatement}
-                  onChange={(e) => setForm(prev => ({ ...prev, accountStatement: e.target.value }))}
-                  required
-                >
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                </select>
-              </div>
-
-              <div className="user-drawer-footer">
-                <button type="button" className="user-btn-cancel" onClick={handleCloseModal}>
-                  Cancelar
-                </button>
-                <button type="submit" className="user-btn-save">
-                  {modalMode === 'edit' ? 'Guardar Cambios' : 'Crear Usuario'}
-                </button>
-              </div>
-            </form>
+            {errors.password && <span className="form-input-error">{errors.password}</span>}
           </div>
-        </div>
-      )}
+
+          <FormSelect
+            label="Rol de Usuario"
+            name="role"
+            value={form.role}
+            onChange={handleFormChange}
+            options={[
+              { value: 'vendedor', label: 'Vendedor (Portal Comercial)' },
+              { value: 'admin', label: 'Administrador (Control Total)' },
+            ]}
+          />
+
+          <FormSelect
+            label="Estado de la Cuenta"
+            name="accountStatement"
+            value={form.accountStatement}
+            onChange={handleFormChange}
+            options={[
+              { value: 'Activo', label: 'Activo' },
+              { value: 'Inactivo', label: 'Inactivo' },
+            ]}
+          />
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <button
+              type="submit"
+              className="btn-rounded-primary"
+              style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
+            >
+              {modalMode === 'edit' ? 'Guardar Cambios' : 'Crear Usuario'}
+            </button>
+            <button
+              type="button"
+              className="roadmaps-btn roadmaps-btn--outline"
+              style={{ padding: '12px 18px' }}
+              onClick={handleCloseModal}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </SlideDrawer>
     </div>
   );
 };

@@ -1,0 +1,53 @@
+﻿/* ── DataTable — Componente de tabla reutilizable ── */
+
+.datatable-wrapper {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.datatable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.datatable th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.datatable td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
+}
+
+.datatable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.datatable-row--clickable {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.datatable-row--clickable:hover {
+  background-color: #f8fafc;
+}
+
+.datatable-empty {
+  text-align: center;
+  padding: 40px 14px !important;
+  color: #94a3b8;
+  font-style: italic;
+}

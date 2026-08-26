@@ -1,0 +1,222 @@
+﻿/* ── VoiceRecorder & VoiceNotePlayer — WhatsApp Audio Style ── */
+
+.voice-recorder-root {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.voice-recorder-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1.5px solid #86efac;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.voice-recorder-trigger-btn:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+  transform: translateY(-1px);
+}
+
+.voice-recorder-active-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  border-radius: 10px;
+  animation: pulseRecording 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseRecording {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15); }
+}
+
+.voice-recorder-recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: blinkRec 1s infinite;
+}
+
+@keyframes blinkRec {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.rec-text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.rec-timer {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  font-family: monospace;
+}
+
+.voice-recorder-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.voice-recorder-stop-btn:hover {
+  background: #dc2626;
+}
+
+.voice-recorder-error {
+  font-size: 0.78rem;
+  color: #ef4444;
+  padding: 4px 8px;
+}
+
+/* ── Voice Note Player Card (WhatsApp Style) ── */
+.voice-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 8px 12px;
+  transition: all 150ms ease;
+}
+
+.voice-player--compact {
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.voice-player__play-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.voice-player__play-btn:hover {
+  background: #15803d;
+  transform: scale(1.06);
+}
+
+.voice-player__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-player__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.voice-player__title-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.voice-player__mic-icon {
+  color: #16a34a;
+  flex-shrink: 0;
+}
+
+.voice-player__name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #166534;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-player__timer {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  font-family: monospace;
+}
+
+.voice-player__dots-waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 2px 0;
+}
+
+.wave-dot {
+  width: 3px;
+  border-radius: 2px;
+  background: #cbd5e1;
+  transition: height 100ms ease, background-color 150ms ease;
+}
+
+.wave-dot.filled {
+  background: #16a34a;
+}
+
+.wave-dot.pulsing {
+  background: #22c55e;
+}
+
+.voice-player__remove-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: color 120ms ease;
+}
+
+.voice-player__remove-btn:hover {
+  color: #ef4444;
+}

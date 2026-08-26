@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+﻿import { useState, useMemo, useEffect } from 'react';
 import {
   ClipboardList,
   Phone,
@@ -16,34 +16,84 @@ import {
   CheckSquare,
   X,
   FileText,
-  Mic,
-  Camera,
-  Paperclip,
   Download,
   Trash2,
+  Sparkles,
+  Camera,
+  Paperclip,
+  Image as ImageIcon,
 } from 'lucide-react';
-import { mockActivities, mockSellers, mockCompanies } from '../../../data/mockData';
-import { getActivities, createActivity } from '../../../data/api';
 import { activitiesApi } from '../../../api/operations.api';
+import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer';
+import { ImageUpload } from '../../../components/ui/ImageUpload';
+import { VoiceRecorderWidget, VoiceNotePlayer } from '../../../components/ui/VoiceRecorder';
 import './ActivitiesPage.css';
 
-export const ActivitiesPage = () => {
-  const [activities, setActivities] = useState(mockActivities);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [loading, setLoading] = useState(false);
+const TABS = [
+  { key: 'all', label: 'Todas las actividades' },
+  { key: 'Visita', label: 'Visitas a Campo' },
+  { key: 'Llamada', label: 'Llamadas' },
+  { key: 'Email', label: 'Emails' },
+  { key: 'WhatsApp', label: 'WhatsApp' },
+];
 
-  // Load activities from API
+export const ActivitiesPage = () => {
+  const [activities, setActivities] = useState([]);
+  const [activeTab, setActiveTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [selectedActivityDetail, setSelectedActivityDetail] = useState(null);
+  const [previewImageModal, setPreviewImageModal] = useState(null);
+  const [errors, setErrors] = useState({});
+
+  // Form state con Fecha y Hora separadas
+  const [form, setForm] = useState({
+    tipoContacto: 'Visita',
+    fecha: new Date().toISOString().slice(0, 10),
+    hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    descripcion: '',
+    montoVenta: '',
+    autorNombre: 'Administrador Central',
+    fotoUrl: null,
+    audioData: null, // { url, name, duration }
+  });
+
+  // Load activities from MySQL API
   const fetchActivities = async () => {
     try {
       setLoading(true);
-      const data = await getActivities();
-      if (Array.isArray(data) && data.length > 0) {
-        setActivities(data);
-      }
+      const data = await activitiesApi.getAll();
+      const rawList = Array.isArray(data) ? data : data?.data || [];
+      const formatted = rawList.map((a) => {
+        let parsedAttachments = null;
+        try {
+          if (a.archivoAdjunto) {
+            parsedAttachments = typeof a.archivoAdjunto === 'string'
+              ? JSON.parse(a.archivoAdjunto)
+              : a.archivoAdjunto;
+          }
+        } catch (_) {
+          parsedAttachments = { fotoUrl: a.archivoAdjunto };
+        }
+
+        return {
+          idFormulario: a.idFormulario || a.id,
+          tipoContacto: a.tipoContacto || 'Visita',
+          descripcion: a.descripcion || 'Sin descripción cargada',
+          montoVenta: a.montoVenta ? Number(a.montoVenta) : null,
+          fechaHora: a.fechaHora || new Date().toISOString(),
+          opportunityId: a.opportunityId || null,
+          sellerId: a.sellerId || 1,
+          autorNombre: a.autorNombre || (a.sellerId === 1 ? 'Martín Gutiérrez (Vendedor)' : 'Administración'),
+          fotoUrl: parsedAttachments?.fotoUrl || null,
+          audioData: parsedAttachments?.audioData || null,
+        };
+      });
+      setActivities(formatted);
     } catch (err) {
-      console.error('Error fetching activities:', err);
+      console.error('Error fetching activities from MySQL:', err);
     } finally {
       setLoading(false);
     }
@@ -53,127 +103,162 @@ export const ActivitiesPage = () => {
     fetchActivities();
   }, []);
 
-  // Form state
-  const [form, setForm] = useState({
-    sellerId: '1',
-    empresa: mockCompanies[0]?.nombreEmpresa || '',
-    tipoContacto: 'Visita',
-    descripcion: '',
-    servicio: 'Asesoramiento técnico pre-siembra',
-    montoVenta: '',
-    fechaHora: new Date().toISOString().slice(0, 16),
-    crearTareaSeguimiento: true,
-    fechaSeguimiento: '2026-08-18',
-  });
-
   const filteredActivities = useMemo(() => {
     let result = [...activities];
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(a =>
-        a.empresa?.toLowerCase().includes(q) ||
-        a.vendedor?.toLowerCase().includes(q) ||
-        a.descripcion?.toLowerCase().includes(q)
+
+    if (activeTab !== 'all') {
+      result = result.filter(
+        (a) => (a.tipoContacto || '').toLowerCase() === activeTab.toLowerCase()
       );
     }
-    if (typeFilter) {
-      result = result.filter(a => a.tipoContacto === typeFilter);
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (a) =>
+          a.tipoContacto?.toLowerCase().includes(q) ||
+          a.descripcion?.toLowerCase().includes(q) ||
+          a.autorNombre?.toLowerCase().includes(q)
+      );
     }
+
     return result;
-  }, [activities, searchQuery, typeFilter]);
+  }, [activities, activeTab, searchQuery]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '--';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString('es-AR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const formatCurrency = (val) => {
-    if (!val) return null;
+    if (!val) return '$0';
     return `$${Number(val).toLocaleString('es-AR')}`;
   };
 
   const getTypeIcon = (tipo) => {
-    switch(tipo) {
-      case 'Visita': return <MapPin size={16} />;
-      case 'Llamada': return <Phone size={16} />;
-      case 'Email': return <Mail size={16} />;
-      case 'WhatsApp': return <MessageSquare size={16} />;
-      default: return <FileText size={16} />;
+    switch (tipo?.toLowerCase()) {
+      case 'visita':
+        return <MapPin size={14} />;
+      case 'llamada':
+        return <Phone size={14} />;
+      case 'email':
+        return <Mail size={14} />;
+      case 'whatsapp':
+        return <MessageSquare size={14} />;
+      default:
+        return <FileText size={14} />;
     }
   };
 
-  const getColor = (tipo) => {
-    switch(tipo) {
-      case 'Visita': return { bg: 'var(--color-primary-50)', color: 'var(--color-primary)' };
-      case 'Llamada': return { bg: '#f0fdf4', color: '#16a34a' };
-      case 'Email': return { bg: '#fffbeb', color: '#d97706' };
-      case 'WhatsApp': return { bg: '#f0fdf4', color: '#15803d' };
-      default: return { bg: 'var(--gray-100)', color: 'var(--text-muted)' };
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
     }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    const seller = mockSellers.find(s => s.id === Number(form.sellerId));
 
-    const actPayload = {
-      tipoContacto: form.tipoContacto,
-      descripcion: form.descripcion,
-      montoVenta: form.montoVenta ? Number(form.montoVenta) : 0,
-      fechaHora: form.fechaHora,
-      sellerId: Number(form.sellerId) || 1,
-      opportunityId: null,
-    };
+    const newErrors = {};
+    if (!form.fecha) newErrors.fecha = 'Seleccioná la fecha.';
+    if (!form.hora) newErrors.hora = 'Seleccioná la hora.';
+    if (!form.descripcion?.trim()) newErrors.descripcion = 'La descripción de la interacción es obligatoria.';
 
-    const newAct = {
-      idFormulario: Date.now(),
-      tipoContacto: form.tipoContacto,
-      empresa: form.empresa,
-      descripcion: form.descripcion,
-      vendedor: seller?.user?.nombreApellido || 'Vendedor',
-      fechaHora: form.fechaHora,
-      montoVenta: form.montoVenta ? Number(form.montoVenta) : null,
-      servicio: form.servicio,
-      tareaSeguimiento: form.crearTareaSeguimiento ? `Seguimiento programado para ${form.fechaSeguimiento}` : null,
-    };
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
 
     try {
-      const created = await createActivity(actPayload);
-      setActivities(prev => [{ ...newAct, idFormulario: created?.idFormulario || newAct.idFormulario }, ...prev]);
-    } catch (err) {
-      setActivities(prev => [newAct, ...prev]);
-    }
+      setLoading(true);
+      const combinedDateTime = `${form.fecha}T${form.hora}:00`;
 
-    setShowModal(false);
-    setForm({
-      sellerId: '1',
-      empresa: mockCompanies[0]?.nombreEmpresa || '',
-      tipoContacto: 'Visita',
-      descripcion: '',
-      servicio: 'Asesoramiento técnico pre-siembra',
-      montoVenta: '',
-      fechaHora: new Date().toISOString().slice(0, 16),
-      crearTareaSeguimiento: true,
-      fechaSeguimiento: '2026-08-18',
-    });
+      const attachments = {
+        fotoUrl: form.fotoUrl,
+        audioData: form.audioData,
+      };
+
+      const payload = {
+        tipoContacto: form.tipoContacto,
+        descripcion: form.descripcion,
+        montoVenta: form.montoVenta ? Number(form.montoVenta) : 0,
+        fechaHora: combinedDateTime,
+        opportunityId: null,
+        sellerId: 1,
+        autorNombre: form.autorNombre || 'Administrador Central',
+        archivoAdjunto: attachments,
+      };
+
+      await activitiesApi.create(payload);
+      setShowModal(false);
+      setForm({
+        tipoContacto: 'Visita',
+        fecha: new Date().toISOString().slice(0, 10),
+        hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        descripcion: '',
+        montoVenta: '',
+        autorNombre: 'Administrador Central',
+        fotoUrl: null,
+        audioData: null,
+      });
+
+      await fetchActivities();
+    } catch (err) {
+      console.error('Error creating activity in MySQL:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteActivity = async (id, empresa) => {
-    if (!window.confirm(`¿Estás seguro de eliminar la actividad de "${empresa || 'Cliente'}"?`)) return;
+  const handleDeleteActivity = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('¿Estás seguro de eliminar esta actividad de la Base de Datos MySQL?')) return;
 
     try {
       setLoading(true);
       await activitiesApi.delete(id);
-      setActivities(prev => prev.filter(a => (a.idFormulario || a.id) !== id));
-      alert('Actividad eliminada correctamente de la Base de Datos.');
+      setActivities((prev) => prev.filter((a) => a.idFormulario !== id));
+      if (selectedActivityDetail?.idFormulario === id) {
+        setSelectedActivityDetail(null);
+      }
     } catch (err) {
       console.error('Error deleting activity:', err);
-      setActivities(prev => prev.filter(a => (a.idFormulario || a.id) !== id));
-      alert('Actividad eliminada.');
+      setActivities((prev) => prev.filter((a) => a.idFormulario !== id));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['ID Formulario', 'Autor / Responsable', 'Tipo Contacto', 'Descripción', 'Monto Venta ($)', 'Fecha y Hora'];
+    const rows = filteredActivities.map((a) => [
+      a.idFormulario,
+      `"${a.autorNombre}"`,
+      `"${a.tipoContacto}"`,
+      `"${(a.descripcion || '').replace(/"/g, '""')}"`,
+      a.montoVenta || 0,
+      `"${a.fechaHora}"`,
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Actividades_AgroRos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -181,240 +266,334 @@ export const ActivitiesPage = () => {
       {/* Header */}
       <div className="activities-page__header">
         <div>
-          <h1 className="activities-page__title">Actividades y Seguimientos</h1>
+          <h1 className="activities-page__title">Formularios de Actividades Comerciales</h1>
           <p className="activities-page__subtitle">
-            Historial de interacciones comerciales en campo y tareas vinculadas
+            Canal unificado de interacciones en campo (visitas, notas de voz, fotos de lote y acuerdos) sincronizado en tiempo real entre Administradores y Vendedores
           </p>
         </div>
-        <button className="activities-btn activities-btn--primary" onClick={() => setShowModal(true)}>
-          <Plus size={16} /> Registrar Actividad
-        </button>
-      </div>
-
-      {/* Toolbar */}
-      <div className="activities-page__toolbar">
-        <div className="activities-page__search">
-          <Search size={16} />
-          <input
-            type="text"
-            placeholder="Buscar por empresa, vendedor o descripción..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        <div className="activities-page__filters">
-          <button
-            className={`activities-filter-chip ${!typeFilter ? 'active' : ''}`}
-            onClick={() => setTypeFilter('')}
-          >
-            Todas ({activities.length})
+        <div className="activities-page__header-actions">
+          <button type="button" className="activities-page__export-btn" onClick={handleExportCSV}>
+            <Download size={15} />
+            <span>Exportar CSV</span>
           </button>
-          {['Visita', 'Llamada', 'Email', 'WhatsApp'].map(t => (
-            <button
-              key={t}
-              className={`activities-filter-chip ${typeFilter === t ? 'active' : ''}`}
-              onClick={() => setTypeFilter(typeFilter === t ? '' : t)}
-            >
-              {t}
-            </button>
-          ))}
+          <button
+            type="button"
+            className="activities-page__add-btn"
+            onClick={() => {
+              setErrors({});
+              setShowModal(true);
+            }}
+          >
+            <Plus size={16} />
+            <span>Registrar Actividad</span>
+          </button>
         </div>
       </div>
 
-      {/* Activities Feed */}
-      <div className="activities-feed">
-        {filteredActivities.map(act => {
-          const colors = getColor(act.tipoContacto);
-          const targetId = act.idFormulario || act.id;
+      {/* Main Unified Card */}
+      <div className="activities-page__card">
+        {/* Tabs Bar */}
+        <div className="activities-page__tabs">
+          {TABS.map((tab) => {
+            const count = tab.key === 'all'
+              ? activities.length
+              : activities.filter((a) => (a.tipoContacto || '').toLowerCase() === tab.key.toLowerCase()).length;
 
-          return (
-            <div key={targetId} className="activity-card">
-              <div className="activity-card__icon-wrapper" style={{ backgroundColor: colors.bg, color: colors.color }}>
-                {getTypeIcon(act.tipoContacto)}
-              </div>
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                className={`activities-page__tab ${activeTab === tab.key ? 'activities-page__tab--active' : ''}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                <span>{tab.label}</span>
+                <span className="activities-page__tab-badge">{count}</span>
+              </button>
+            );
+          })}
+        </div>
 
-              <div className="activity-card__body">
-                <div className="activity-card__top">
-                  <div className="activity-card__tags">
-                    <span className="activity-tag" style={{ backgroundColor: colors.bg, color: colors.color }}>
-                      {act.tipoContacto}
-                    </span>
-                    <strong className="activity-company">{act.empresa}</strong>
-                  </div>
-                  <div className="activity-time" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={13} />
-                      {formatDate(act.fechaHora)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteActivity(targetId, act.empresa)}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center' }}
-                      title="Eliminar actividad"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
+        {/* Toolbar */}
+        <div className="activities-page__toolbar">
+          <div className="activities-page__search">
+            <Search size={16} color="#64748b" />
+            <input
+              type="text"
+              placeholder="Buscar por tipo de contacto, descripción o vendedor..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
 
-                <p className="activity-desc">{act.descripcion}</p>
-
-                {act.servicio && (
-                  <div className="activity-service">
-                    <strong>Servicio:</strong> {act.servicio}
-                  </div>
-                )}
-
-                {/* Adjuntos (Audios, Fotos, Remitos) */}
-                {act.adjuntos && act.adjuntos.length > 0 && (
-                  <div className="activity-attachments-row">
-                    {act.adjuntos.map(att => (
-                      <span key={att.id || att.nombre} className="activity-att-chip">
-                        {att.tipo === 'audio' && <Mic size={12} style={{ color: '#25d366' }} />}
-                        {att.tipo === 'imagen' && <Camera size={12} style={{ color: '#0284c7' }} />}
-                        {att.tipo === 'documento' && <FileText size={12} style={{ color: '#dc2626' }} />}
-                        <span>{att.nombre}</span>
-                        {att.duracion && <em>({att.duracion})</em>}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="activity-footer">
-                  <span className="activity-seller">
-                    <User size={13} /> {act.vendedor}
-                  </span>
-                  {act.montoVenta && (
-                    <span className="activity-amount">
-                      <DollarSign size={14} /> Venta: {formatCurrency(act.montoVenta)}
-                    </span>
-                  )}
-                  {act.tareaSeguimiento && (
-                    <span className="activity-task-badge">
-                      <CheckSquare size={13} /> Tarea de seguimiento activa
-                    </span>
-                  )}
-                </div>
-              </div>
+        {/* Table / Feed */}
+        <div className="activities-page__table-wrapper">
+          {loading ? (
+            <div className="roadmaps-loading-state-box" style={{ margin: '30px 20px' }}>
+              <div className="r-spinner-icon" />
+              <h3>Conectando con la base de datos MySQL...</h3>
+              <p>Por favor aguardá un instante mientras cargamos los formularios de actividad.</p>
             </div>
-          );
-        })}
+          ) : (
+            <table className="activities-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '60px', paddingLeft: '20px' }}>#ID</th>
+                  <th>Autor / Responsable</th>
+                  <th>Tipo de Contacto</th>
+                  <th>Descripción & Adjuntos Multimedia</th>
+                  <th>Monto Acordado</th>
+                  <th>Fecha y Hora</th>
+                  <th style={{ textAlign: 'right', paddingRight: '20px' }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredActivities.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontStyle: 'italic' }}>
+                      No se encontraron formularios de actividad registrados.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredActivities.map((a) => (
+                    <tr key={a.idFormulario} className="activity-row">
+                      <td style={{ paddingLeft: '20px', fontWeight: 700, color: '#64748b' }}>
+                        #{a.idFormulario}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div className={`activity-author-avatar ${a.autorNombre?.toLowerCase().includes('admin') ? 'admin' : 'seller'}`}>
+                            {a.autorNombre ? a.autorNombre[0].toUpperCase() : 'U'}
+                          </div>
+                          <div>
+                            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.85rem', display: 'block' }}>
+                              {a.autorNombre}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#64748b' }}>
+                              {a.autorNombre?.toLowerCase().includes('admin') ? 'Sede Central' : 'Zona Comercial'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`activity-type-pill ${a.tipoContacto?.toLowerCase() || 'visita'}`}>
+                          {getTypeIcon(a.tipoContacto)}
+                          <span>{a.tipoContacto}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '480px' }}>
+                          <p style={{ margin: 0, fontWeight: 600, color: '#0f172a', lineHeight: 1.4, fontSize: '0.88rem' }}>
+                            {a.descripcion}
+                          </p>
+
+                          {/* Audio Player if recorded */}
+                          {a.audioData?.url && (
+                            <VoiceNotePlayer
+                              audioUrl={a.audioData.url}
+                              audioName={a.audioData.name || 'Nota de Voz en Lote'}
+                              compact
+                            />
+                          )}
+
+                          {/* Photo Thumbnail if attached */}
+                          {a.fotoUrl && (
+                            <div
+                              className="activity-photo-thumbnail-box"
+                              onClick={() => setPreviewImageModal(a.fotoUrl)}
+                              title="Hacé clic para ver la foto en tamaño completo"
+                            >
+                              <img src={a.fotoUrl} alt="Foto del Lote" className="activity-photo-thumbnail" />
+                              <span className="activity-photo-label">
+                                <Camera size={12} /> Foto del Lote
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <strong style={{ color: a.montoVenta ? '#16a34a' : '#94a3b8', fontSize: '0.9rem' }}>
+                          {a.montoVenta ? formatCurrency(a.montoVenta) : 'Sin venta directa'}
+                        </strong>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.85rem', color: '#475569', whiteSpace: 'nowrap' }}>
+                          {formatDate(a.fechaHora)}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right', paddingRight: '20px' }}>
+                        <button
+                          type="button"
+                          className="table-action-btn delete"
+                          onClick={(e) => handleDeleteActivity(a.idFormulario, e)}
+                          title="Eliminar actividad de MySQL"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
-      {/* ── Modal: Registrar Formulario de Actividad (CUU Dominio) ── */}
-      {showModal && (
-        <div className="act-modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="act-modal" onClick={e => e.stopPropagation()}>
-            <div className="act-modal__header">
-              <h2>Registrar Formulario de Actividad</h2>
-              <button className="act-modal__close" onClick={() => setShowModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
+      {/* Drawer: Registrar Formulario de Actividad (Con Fecha y Hora separadas, Grabador de Voz y Fotos) */}
+      <SlideDrawer
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Registrar Formulario de Actividad"
+        width="560px"
+      >
+        <form onSubmit={handleCreate} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+          <FormSelect
+            label="Tipo de Contacto / Interacción"
+            name="tipoContacto"
+            value={form.tipoContacto}
+            onChange={handleFormChange}
+            options={[
+              { value: 'Visita', label: 'Visita a Campo / Establecimiento' },
+              { value: 'Llamada', label: 'Llamada Telefónica' },
+              { value: 'Email', label: 'Correo Electrónico' },
+              { value: 'WhatsApp', label: 'Mensaje de WhatsApp' },
+            ]}
+          />
 
-            <form className="act-modal__form" onSubmit={handleCreate}>
-              <div className="act-modal__grid">
-                <div className="act-field">
-                  <label>Vendedor responsable *</label>
-                  <select
-                    value={form.sellerId}
-                    onChange={e => setForm({ ...form, sellerId: e.target.value })}
-                  >
-                    {mockSellers.map(s => (
-                      <option key={s.id} value={s.id}>{s.user.nombreApellido}</option>
-                    ))}
-                  </select>
-                </div>
+          {/* Fecha y Hora en campos separados lado a lado con icono de calendario nativo */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <FormInput
+              label="Fecha de la Interacción"
+              name="fecha"
+              type="date"
+              value={form.fecha}
+              onChange={handleFormChange}
+              required
+              error={errors.fecha}
+            />
 
-                <div className="act-field">
-                  <label>Empresa cliente *</label>
-                  <select
-                    value={form.empresa}
-                    onChange={e => setForm({ ...form, empresa: e.target.value })}
-                  >
-                    {mockCompanies.map(c => (
-                      <option key={c.id} value={c.nombreEmpresa}>{c.nombreEmpresa}</option>
-                    ))}
-                  </select>
-                </div>
+            <FormInput
+              label="Hora de la Interacción"
+              name="hora"
+              type="time"
+              value={form.hora}
+              onChange={handleFormChange}
+              required
+              error={errors.hora}
+            />
+          </div>
 
-                <div className="act-field">
-                  <label>Tipo de contacto *</label>
-                  <select
-                    value={form.tipoContacto}
-                    onChange={e => setForm({ ...form, tipoContacto: e.target.value })}
-                  >
-                    <option value="Visita">Visita a Campo</option>
-                    <option value="Llamada">Llamada Telefónica</option>
-                    <option value="Email">Correo Electrónico</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                  </select>
-                </div>
+          <FormInput
+            label="Monto de Venta Acordado ($) (Opcional)"
+            name="montoVenta"
+            type="number"
+            value={form.montoVenta}
+            onChange={handleFormChange}
+            placeholder="Ej: 480000"
+            icon={DollarSign}
+          />
 
-                <div className="act-field">
-                  <label>Monto de venta acordado ($)</label>
-                  <input
-                    type="number"
-                    placeholder="Opcional. Ej: 480000"
-                    value={form.montoVenta}
-                    onChange={e => setForm({ ...form, montoVenta: e.target.value })}
-                  />
-                </div>
-              </div>
+          <FormTextarea
+            label="Descripción Detallada de la Interacción"
+            name="descripcion"
+            value={form.descripcion}
+            onChange={handleFormChange}
+            placeholder="Escribí lo conversado con el productor, estado del cultivo, malezas observadas o acuerdos comerciales..."
+            rows={3}
+            required
+            error={errors.descripcion}
+          />
 
-              <div className="act-field">
-                <label>Servicio o líneas asesoradas</label>
-                <input
-                  type="text"
-                  placeholder="Ej: Demostración de producto o ensayo en lote"
-                  value={form.servicio}
-                  onChange={e => setForm({ ...form, servicio: e.target.value })}
-                />
-              </div>
+          {/* Grabación de Audio / Nota de Voz con Micrófono Real */}
+          <div className="form-input-field">
+            <label className="form-input-label">Nota de Voz / Audio Adjunto (Opcional)</label>
+            {form.audioData ? (
+              <VoiceNotePlayer
+                audioUrl={form.audioData.url}
+                audioName={form.audioData.name}
+                onRemove={() => setForm((prev) => ({ ...prev, audioData: null }))}
+              />
+            ) : (
+              <VoiceRecorderWidget
+                onAddAudio={(audio) => setForm((prev) => ({ ...prev, audioData: audio }))}
+                label="Grabar Nota de Voz (Micrófono Real)"
+              />
+            )}
+          </div>
 
-              <div className="act-field">
-                <label>Descripción detallada de la interacción *</label>
-                <textarea
-                  rows={3}
-                  placeholder="Escribe lo conversado con el productor, estado del cultivo, necesidades..."
-                  value={form.descripcion}
-                  onChange={e => setForm({ ...form, descripcion: e.target.value })}
-                  required
-                />
-              </div>
+          {/* Subida de Fotos / Fotos del Lote */}
+          <ImageUpload
+            label="Foto del Lote / Relevamiento Agronómico (Opcional)"
+            value={form.fotoUrl}
+            onChange={(url) => setForm((prev) => ({ ...prev, fotoUrl: url }))}
+            onRemove={() => setForm((prev) => ({ ...prev, fotoUrl: null }))}
+            maxSizeMB={5}
+          />
 
-              <div className="act-checkbox-row">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={form.crearTareaSeguimiento}
-                    onChange={e => setForm({ ...form, crearTareaSeguimiento: e.target.checked })}
-                  />
-                  <span>Crear automáticamente tarea de seguimiento posterior</span>
-                </label>
-              </div>
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <button
+              type="submit"
+              className="btn-rounded-primary"
+              style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
+              disabled={loading}
+            >
+              {loading ? 'Guardando en MySQL...' : 'Guardar Actividad'}
+            </button>
+            <button
+              type="button"
+              className="roadmaps-btn roadmaps-btn--outline"
+              style={{ padding: '12px 18px' }}
+              onClick={() => setShowModal(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </SlideDrawer>
 
-              {form.crearTareaSeguimiento && (
-                <div className="act-field" style={{ marginTop: '8px' }}>
-                  <label>Fecha sugerida para la tarea de seguimiento</label>
-                  <input
-                    type="date"
-                    value={form.fechaSeguimiento}
-                    onChange={e => setForm({ ...form, fechaSeguimiento: e.target.value })}
-                  />
-                </div>
-              )}
-
-              <div className="act-modal__actions">
-                <button type="button" className="activities-btn activities-btn--outline" onClick={() => setShowModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="activities-btn activities-btn--primary">
-                  Guardar Actividad
-                </button>
-              </div>
-            </form>
+      {/* Modal para previsualizar foto en tamaño completo */}
+      {previewImageModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setPreviewImageModal(null)}
+        >
+          <div style={{ position: 'relative', maxWidth: '800px', maxHeight: '80vh' }}>
+            <img
+              src={previewImageModal}
+              alt="Foto ampliada"
+              style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '12px' }}
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewImageModal(null)}
+              style={{
+                position: 'absolute',
+                top: '-14px',
+                right: '-14px',
+                background: '#ffffff',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              }}
+            >
+              <X size={18} />
+            </button>
           </div>
         </div>
       )}

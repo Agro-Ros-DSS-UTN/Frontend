@@ -1,9 +1,11 @@
 ﻿import { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, X, Trash2, Sparkles } from 'lucide-react';
+import { Plus, Search, X, Trash2, Sparkles, Calendar, FileText } from 'lucide-react';
 import { mockPromotions } from '../../../data/mockData';
 import { promotionsApi } from '../../../api/operations.api';
 import { useAuth } from '../../../context/AuthContext';
 import { RandomLetterSwap } from '../../../components/ui/RandomLetterSwap';
+import { FormInput, FormTextarea } from '../../../components/ui/FormInput';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer';
 import './CampaignsPage.css';
 
 const PROMO_COLORS = ['#e8a735', '#4caf50', '#0ea5e9', '#8b5cf6', '#ec4899', '#f97316'];
@@ -13,9 +15,7 @@ const emptyForm = {
   color: '#e8a735',
   propietario: '',
   fechaInicio: new Date().toISOString().slice(0, 10),
-  fechaFin: new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0, 10),
-  publico: '',
-  notas: '',
+  fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
   descripcion: '',
   condiciones: '',
 };
@@ -26,6 +26,7 @@ export const CampaignsPage = () => {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ ...emptyForm, propietario: currentUser?.nombreApellido || '' });
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
 
   // Fetch Promotions from API
@@ -71,17 +72,37 @@ export const CampaignsPage = () => {
     );
   }, [campaigns, search]);
 
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.nombre.trim()) return;
+
+    // Validación custom
+    const newErrors = {};
+    if (!form.nombre.trim()) newErrors.nombre = 'El nombre de la campaña es obligatorio.';
+    if (!form.descripcion.trim()) newErrors.descripcion = 'La descripción de la oferta es obligatoria.';
+    if (!form.fechaInicio) newErrors.fechaInicio = 'Seleccioná la fecha de inicio.';
+    if (!form.fechaFin) newErrors.fechaFin = 'Seleccioná la fecha de finalización.';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
 
     try {
       setLoading(true);
       const payload = {
         nombre: form.nombre,
-        descripcion: form.descripcion || form.notas || '',
+        descripcion: form.descripcion || '',
         fechaInicio: form.fechaInicio || new Date().toISOString().slice(0, 10),
-        fechaFin: form.fechaFin || new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0, 10),
+        fechaFin: form.fechaFin || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
         condiciones: form.condiciones || 'Promoción Vigente'
       };
 
@@ -89,10 +110,8 @@ export const CampaignsPage = () => {
       setShowModal(false);
       setForm({ ...emptyForm, propietario: currentUser?.nombreApellido || '' });
       await fetchPromotionsFromApi();
-      alert('¡Campaña / Promoción creada correctamente en la Base de Datos!');
     } catch (err) {
       console.error('Error creating promotion:', err);
-      alert('Se guardó la campaña localmente.');
     } finally {
       setLoading(false);
     }
@@ -122,7 +141,7 @@ export const CampaignsPage = () => {
           <p className="campaigns-page__count">{campaigns.length} campaña{campaigns.length !== 1 ? 's' : ''} en Base de Datos</p>
         </div>
         <div className="campaigns-page__header-actions">
-          <button className="btn-rounded-primary" onClick={() => setShowModal(true)}>
+          <button className="btn-rounded-primary" onClick={() => { setErrors({}); setShowModal(true); }}>
             <RandomLetterSwap label="Crear campaña">
               <Plus size={16} />
             </RandomLetterSwap>
@@ -184,107 +203,85 @@ export const CampaignsPage = () => {
         </div>
       )}
 
-      {/* Modal: Crear Campaña */}
-      {showModal && (
-        <div className="campaigns-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center' }} onClick={() => setShowModal(false)}>
-          <div style={{ background: '#ffffff', width: '520px', maxWidth: '92vw', borderRadius: '16px', padding: '24px', boxShadow: '0 16px 36px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#0f172a' }}>Crear Nueva Campaña (Base de Datos)</h2>
-              <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }} onClick={() => setShowModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
+      {/* Drawer: Crear Campaña con validación custom */}
+      <SlideDrawer
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Crear Nueva Campaña (Base de Datos)"
+        width="520px"
+      >
+        <form onSubmit={handleCreate} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormInput
+            label="Nombre de la Campaña / Promoción"
+            name="nombre"
+            value={form.nombre}
+            onChange={handleFormChange}
+            placeholder="Ej: Pack Soja 2026 / Descuento Pre-Siembra"
+            required
+            error={errors.nombre}
+          />
 
-            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                  Nombre de la Campaña / Promoción *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: Pack Soja 2026 / Descuento Pre-Siembra"
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                  value={form.nombre}
-                  onChange={e => setForm({ ...form, nombre: e.target.value })}
-                  required
-                />
-              </div>
+          <FormTextarea
+            label="Descripción de la Oferta"
+            name="descripcion"
+            value={form.descripcion}
+            onChange={handleFormChange}
+            placeholder="Ej: 15% de descuento acumulable en fertilizantes y coadyuvantes"
+            required
+            error={errors.descripcion}
+            rows={2}
+          />
 
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                  Descripción de la Oferta *
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Ej: 15% de descuento acumulable en fertilizantes y coadyuvantes"
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', resize: 'vertical' }}
-                  value={form.descripcion}
-                  onChange={e => setForm({ ...form, descripcion: e.target.value })}
-                  required
-                />
-              </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <FormInput
+              label="Fecha de Inicio"
+              name="fechaInicio"
+              type="date"
+              value={form.fechaInicio}
+              onChange={handleFormChange}
+              required
+              error={errors.fechaInicio}
+            />
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                    Fecha de Inicio *
-                  </label>
-                  <input
-                    type="date"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    value={form.fechaInicio}
-                    onChange={e => setForm({ ...form, fechaInicio: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                    Fecha de Fin *
-                  </label>
-                  <input
-                    type="date"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    value={form.fechaFin}
-                    onChange={e => setForm({ ...form, fechaFin: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                  Condiciones Generales
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: Pago a 30/60 días con eCheq"
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                  value={form.condiciones}
-                  onChange={e => setForm({ ...form, condiciones: e.target.value })}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button
-                  type="submit"
-                  style={{ flex: 1, padding: '12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
-                  disabled={loading}
-                >
-                  {loading ? 'Guardando en BD...' : 'Guardar Campaña'}
-                </button>
-                <button
-                  type="button"
-                  style={{ padding: '12px 18px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
+            <FormInput
+              label="Fecha de Fin"
+              name="fechaFin"
+              type="date"
+              value={form.fechaFin}
+              onChange={handleFormChange}
+              required
+              error={errors.fechaFin}
+            />
           </div>
-        </div>
-      )}
+
+          <FormInput
+            label="Condiciones Generales"
+            name="condiciones"
+            value={form.condiciones}
+            onChange={handleFormChange}
+            placeholder="Ej: Pago a 30/60 días con eCheq"
+          />
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button
+              type="submit"
+              className="btn-rounded-primary"
+              style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
+              disabled={loading}
+            >
+              {loading ? 'Guardando en BD...' : 'Guardar Campaña'}
+            </button>
+            <button
+              type="button"
+              className="roadmaps-btn roadmaps-btn--outline"
+              style={{ padding: '12px 18px' }}
+              onClick={() => setShowModal(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </SlideDrawer>
     </div>
   );
 };

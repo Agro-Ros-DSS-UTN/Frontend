@@ -1,5 +1,10 @@
-/* Global CSS Reset and Theme for AgroRos CRM */
+﻿/* Global CSS Reset and Theme for AgroRos CRM */
 @import './design-tokens.css';
+@import '../components/ui/FormInput.css';
+@import '../components/ui/DataTable.css';
+@import '../components/ui/SlideDrawer.css';
+
+
 
 * {
   box-sizing: border-box;
@@ -30,7 +35,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* ── REMOVE ugly focus outlines/rectangles globally ── */
+/* â”€â”€ REMOVE ugly focus outlines/rectangles globally â”€â”€ */
 *:focus {
   outline: none;
 }
@@ -49,7 +54,7 @@ button:focus {
   color: var(--color-primary-800);
 }
 
-/* ── MODAL CONFIRMACIÓN CIERRE DE SESIÓN ── */
+/* â”€â”€ MODAL CONFIRMACIÃ“N CIERRE DE SESIÃ“N â”€â”€ */
 .logout-modal-overlay {
   position: fixed !important;
   top: 0 !important;
@@ -190,7 +195,7 @@ button:focus {
   box-shadow: 0 6px 16px rgba(220, 38, 38, 0.35) !important;
   transform: translateY(-1px) !important;
 }
-/* ── ESTILOS GLOBALES DE BOTONES REDONDEADOS TIPO "RANDOM LETTER SWAP" (ADMIN & SELLER UI) ── */
+/* â”€â”€ ESTILOS GLOBALES DE BOTONES REDONDEADOS TIPO "RANDOM LETTER SWAP" (ADMIN & SELLER UI) â”€â”€ */
 button.btn-rounded-primary,
 button.topbar-btn-primary,
 button.seller-topbar-btn,
