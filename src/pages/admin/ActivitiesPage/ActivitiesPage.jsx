@@ -222,7 +222,7 @@ export const ActivitiesPage = () => {
 
   const handleDeleteActivity = async (id, e) => {
     if (e) e.stopPropagation();
-    if (!window.confirm('¿Estás seguro de eliminar esta actividad de la Base de Datos MySQL?')) return;
+    if (!window.confirm('¿Estás seguro de eliminar esta actividad de la base de datos?')) return;
 
     try {
       setLoading(true);
@@ -331,7 +331,7 @@ export const ActivitiesPage = () => {
           {loading ? (
             <div className="roadmaps-loading-state-box" style={{ margin: '30px 20px' }}>
               <div className="r-spinner-icon" />
-              <h3>Conectando con la base de datos MySQL...</h3>
+              <h3>Conectando con la base de datos...</h3>
               <p>Por favor aguardá un instante mientras cargamos los formularios de actividad.</p>
             </div>
           ) : (
@@ -426,7 +426,7 @@ export const ActivitiesPage = () => {
                           type="button"
                           className="table-action-btn delete"
                           onClick={(e) => handleDeleteActivity(a.idFormulario, e)}
-                          title="Eliminar actividad de MySQL"
+                          title="Eliminar de la base de datos"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -538,7 +538,7 @@ export const ActivitiesPage = () => {
               style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
               disabled={loading}
             >
-              {loading ? 'Guardando en MySQL...' : 'Guardar Actividad'}
+              {loading ? 'Guardando en la base de datos...' : 'Guardar Actividad'}
             </button>
             <button
               type="button"

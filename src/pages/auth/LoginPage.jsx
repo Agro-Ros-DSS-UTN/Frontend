@@ -1,9 +1,8 @@
-/* eslint-disable */
-import { useState, useEffect } from 'react';
-import { User, Eye, EyeOff, Lock, CheckCircle2, X, ShieldCheck } from 'lucide-react';
+﻿import { useState, useEffect } from 'react';
+import { Eye, EyeOff, User, Lock, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { ArLogoHeader, ArLogoRight } from '../../components/common/ArLogo';
 import bgFieldUrl from '../../assets/field_sunset.jpg';
-import { loginUser } from '../../data/api';
+import { authApi } from '../../api/auth.api';
 import './LoginPage.css';
 
 const SAVED_CREDENTIALS_KEY = 'agroros_saved_credentials';
@@ -11,38 +10,26 @@ const SAVED_CREDENTIALS_KEY = 'agroros_saved_credentials';
 export const LoginPage = ({ onLoginSuccess }) => {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Modal para preguntar si desea guardar la contraseña post-login
   const [showSavePasswordModal, setShowSavePasswordModal] = useState(false);
   const [pendingAuthUser, setPendingAuthUser] = useState(null);
 
-  // Cargar credenciales guardadas al montar el componente
   useEffect(() => {
     try {
       const saved = localStorage.getItem(SAVED_CREDENTIALS_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.userId && parsed.password) {
-          setUserId(parsed.userId);
-          setPassword(parsed.password);
-          setRememberMe(true);
-        }
+        if (parsed.userId) setUserId(parsed.userId);
+        if (parsed.password) setPassword(parsed.password);
+        setRememberMe(true);
       }
     } catch (e) {
-      console.warn('No se pudieron leer credenciales guardadas:', e);
+      console.warn('Error leyendo credenciales guardadas:', e);
     }
   }, []);
-
-  const handleClearSavedCredentials = () => {
-    localStorage.removeItem(SAVED_CREDENTIALS_KEY);
-    setUserId('');
-    setPassword('');
-    setRememberMe(false);
-  };
 
   const handleSaveAndProceed = () => {
     try {
@@ -60,7 +47,6 @@ export const LoginPage = ({ onLoginSuccess }) => {
   };
 
   const handleDismissAndProceed = () => {
-    // Si eligió no guardar, no guardamos en localStorage
     setShowSavePasswordModal(false);
     if (onLoginSuccess && pendingAuthUser) {
       onLoginSuccess(pendingAuthUser);
@@ -83,9 +69,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const data = await loginUser({ idUser: userId, password });
-
-      console.log('Respuesta del Backend:', data);
+      const data = await authApi.login(userId, password);
 
       const user = data.user || data;
       const token = data.token || data.jwt || null;
@@ -99,7 +83,18 @@ export const LoginPage = ({ onLoginSuccess }) => {
       const userRole = String(rawRole).toLowerCase();
 
       if (authenticatedUser && (userRole.includes('admin') || userRole.includes('vendedor'))) {
-        // Si el usuario ya tenía marcado el checkbox de "Recordar", guardamos directo
+        // Disparar Credential Management API nativa de Google Chrome
+        if (window.PasswordCredential && navigator.credentials) {
+          try {
+            const cred = new window.PasswordCredential({
+              id: userId,
+              password: password,
+              name: authenticatedUser?.nombreApellido || userId,
+            });
+            navigator.credentials.store(cred).catch(() => {});
+          } catch (_) {}
+        }
+
         if (rememberMe) {
           try {
             localStorage.setItem(
@@ -111,7 +106,6 @@ export const LoginPage = ({ onLoginSuccess }) => {
             onLoginSuccess(authenticatedUser);
           }
         } else {
-          // Si no tenía marcado recordar, le preguntamos amablemente si desea guardar la contraseña
           setPendingAuthUser(authenticatedUser);
           setShowSavePasswordModal(true);
         }
@@ -150,11 +144,11 @@ export const LoginPage = ({ onLoginSuccess }) => {
               marginBottom: '1.25rem',
               textAlign: 'center'
             }}>
-              {String(error).replace(/Contrase.a/g, 'Contraseña')}
+              {error}
             </div>
           )}
 
-          <form className="login-form" onSubmit={handleSubmit} method="post">
+          <form className="login-form" onSubmit={handleSubmit} method="post" action="#">
             {/* Campo ID */}
             <div className="input-fieldset">
               <label htmlFor="login-username" className="input-label">ID de Usuario</label>
@@ -171,6 +165,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
                 onChange={(e) => setUserId(e.target.value)}
                 autoComplete="username"
                 autoFocus
+                required
               />
             </div>
 
@@ -185,10 +180,11 @@ export const LoginPage = ({ onLoginSuccess }) => {
                 name="password"
                 type={showPassword ? 'text' : 'password'}
                 className="input-field"
-                placeholder="••••••••"
+                placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                required
               />
               <button
                 type="button"
@@ -239,7 +235,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
         </div>
       </div>
 
-      {/* ── MODAL: PREGUNTAR SI DESEA GUARDAR LA CONTRASEÑA ── */}
+      {/* MODAL: PREGUNTAR SI DESEA GUARDAR LA CONTRASEÑA */}
       {showSavePasswordModal && (
         <div className="save-pass-modal-overlay">
           <div className="save-pass-modal" onClick={(e) => e.stopPropagation()}>

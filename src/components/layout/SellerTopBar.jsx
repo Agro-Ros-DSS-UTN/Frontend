@@ -1,21 +1,19 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   Search,
   Bell,
+  Settings,
   HelpCircle,
   ChevronDown,
   LogOut,
   User,
   Plus,
-  MapPin,
-  ClipboardList,
 } from 'lucide-react';
-import { RandomLetterSwap } from '../ui/RandomLetterSwap';
 import './TopBar.css';
 
-export const SellerTopBar = ({ onQuickAddActivity }) => {
+export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
   const { currentUser, logout, profileImage } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -33,18 +31,22 @@ export const SellerTopBar = ({ onQuickAddActivity }) => {
   }, []);
 
   const initials = currentUser?.nombreApellido
-    ? currentUser.nombreApellido.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : 'MG';
+    ? currentUser.nombreApellido.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+    : 'VG';
+
+  const userRoleDisplay = currentUser?.rol === 'vendedor' || currentUser?.role === 'vendedor' || currentUser?.role === 'seller'
+    ? 'Vendedor'
+    : 'Administrador';
 
   return (
     <header className="topbar">
       <div className="topbar__left">
-        <div className="topbar__title-group">
-          <h1 className="topbar__title">Agroquímica Rosario</h1>
-          <span className="topbar__subtitle" style={{ color: 'var(--color-primary-light)' }}>
-            Gestión Comercial y de Campo
-          </span>
-        </div>
+        {title && (
+          <div className="topbar__title-group">
+            <h1 className="topbar__title">{title}</h1>
+            {subtitle && <span className="topbar__subtitle" style={{ color: 'var(--color-primary-light)' }}>{subtitle}</span>}
+          </div>
+        )}
       </div>
 
       <div className="topbar__center">
@@ -63,38 +65,50 @@ export const SellerTopBar = ({ onQuickAddActivity }) => {
       </div>
 
       <div className="topbar__right">
-        {/* Quick Action: Registrar Actividad en Campo con RandomLetterSwap */}
-        <button
-          className="btn-rounded-primary"
-          onClick={() => {
-            if (onQuickAddActivity) onQuickAddActivity();
-            else navigate('/seller/actividades');
-          }}
-        >
-          <RandomLetterSwap label="Registrar Actividad">
+        {onQuickAddActivity && (
+          <button
+            type="button"
+            className="topbar__quick-add-btn"
+            onClick={onQuickAddActivity}
+          >
             <Plus size={16} />
-          </RandomLetterSwap>
-        </button>
+            <span>Registrar Actividad</span>
+          </button>
+        )}
 
-        <button className="topbar__icon-btn" title="Notificaciones">
+        <button type="button" className="topbar__icon-btn" title="Notificaciones">
           <Bell size={18} />
           <span className="topbar__notification-badge">2</span>
         </button>
+        <button
+          type="button"
+          className="topbar__icon-btn"
+          title="Configuración"
+          onClick={() => navigate('/seller/perfil')}
+        >
+          <Settings size={18} />
+        </button>
+        <button type="button" className="topbar__icon-btn" title="Ayuda">
+          <HelpCircle size={18} />
+        </button>
 
-        {/* User Dropdown */}
+        {/* User Pill Button */}
         <div className="topbar__user-wrapper" ref={menuRef}>
           <button
-            className="topbar__user-btn seller-topbar-user-dropdown"
+            type="button"
+            className="topbar__user-btn"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
             <div className="topbar__avatar">
               {profileImage ? (
                 <img src={profileImage} alt="Avatar" className="topbar__avatar-img" />
               ) : (
-                initials
+                <span className="topbar__avatar-initials">{initials}</span>
               )}
             </div>
-            <span className="topbar__user-name">{currentUser?.nombreApellido || 'Martín Gutiérrez'}</span>
+            <span className="topbar__user-name">
+              {currentUser?.nombreApellido || 'Vendedor de Prueba 3'}
+            </span>
             <ChevronDown size={14} className={`topbar__chevron ${showUserMenu ? 'topbar__chevron--open' : ''}`} />
           </button>
 
@@ -108,27 +122,54 @@ export const SellerTopBar = ({ onQuickAddActivity }) => {
                     initials
                   )}
                 </div>
-                <div>
-                  <div className="topbar__dropdown-name">{currentUser?.nombreApellido || 'Martín Gutiérrez'}</div>
-                  <div className="topbar__dropdown-email">{currentUser?.direccionMail || 'martin.gutierrez@agroros.com.ar'}</div>
-                  <div className="topbar__dropdown-role">Vendedor Oficial</div>
+                <div className="topbar__dropdown-header-info">
+                  <div className="topbar__dropdown-name-row">
+                    <span className="topbar__dropdown-name">
+                      {currentUser?.nombreApellido || 'Vendedor de Prueba 3'}
+                    </span>
+                    <span className="topbar__dropdown-role-badge topbar__dropdown-role-badge--seller">
+                      {userRoleDisplay}
+                    </span>
+                  </div>
+                  <div className="topbar__dropdown-email">
+                    {currentUser?.direccionMail || 'vendedor3@agroquimicarosario.com'}
+                  </div>
                 </div>
               </div>
               <div className="topbar__dropdown-divider" />
               <button
+                type="button"
                 className="topbar__dropdown-item"
                 onClick={() => {
-                  setShowUserMenu(false);
                   navigate('/seller/perfil');
+                  setShowUserMenu(false);
                 }}
               >
                 <User size={16} />
-                Mi perfil
+                <span>Mi perfil</span>
+              </button>
+              <button
+                type="button"
+                className="topbar__dropdown-item"
+                onClick={() => {
+                  navigate('/seller/perfil');
+                  setShowUserMenu(false);
+                }}
+              >
+                <Settings size={16} />
+                <span>Configuración</span>
               </button>
               <div className="topbar__dropdown-divider" />
-              <button className="topbar__dropdown-item topbar__dropdown-item--danger" onClick={() => { setShowUserMenu(false); logout(); }}>
+              <button
+                type="button"
+                className="topbar__dropdown-item topbar__dropdown-item--danger"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  logout();
+                }}
+              >
                 <LogOut size={16} />
-                Cerrar sesión
+                <span>Cerrar sesión</span>
               </button>
             </div>
           )}

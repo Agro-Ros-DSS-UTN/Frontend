@@ -1,8 +1,9 @@
 ﻿import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import './SlideDrawer.css';
 
 /**
- * SlideDrawer — Panel lateral deslizable reutilizable (Add/Edit).
+ * SlideDrawer - Panel lateral deslizable reutilizable (Add/Edit).
  *
  * Props:
  * - isOpen: boolean

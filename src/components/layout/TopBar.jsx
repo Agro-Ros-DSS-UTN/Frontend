@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -19,7 +19,6 @@ import {
   Megaphone,
   Target,
 } from 'lucide-react';
-import { RandomLetterSwap } from '../ui/RandomLetterSwap';
 import './TopBar.css';
 
 export const TopBar = ({ title, subtitle }) => {
@@ -45,13 +44,17 @@ export const TopBar = ({ title, subtitle }) => {
   }, []);
 
   const initials = currentUser?.nombreApellido
-    ? currentUser.nombreApellido.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : 'MF';
+    ? currentUser.nombreApellido.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+    : 'AD';
 
   const handleQuickNavigate = (path) => {
     navigate(path);
     setShowQuickAdd(false);
   };
+
+  const userRoleDisplay = currentUser?.rol === 'vendedor' || currentUser?.role === 'vendedor' || currentUser?.role === 'seller'
+    ? 'Vendedor'
+    : 'Administrador';
 
   return (
     <header className="topbar">
@@ -71,7 +74,7 @@ export const TopBar = ({ title, subtitle }) => {
             <input
               type="text"
               className="topbar__search-input"
-              placeholder="Buscar o preguntar"
+              placeholder="Buscar o preguntar..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -80,6 +83,7 @@ export const TopBar = ({ title, subtitle }) => {
           {/* Quick Add Button (+) */}
           <div className="topbar__quick-add-wrapper" ref={quickAddRef}>
             <button
+              type="button"
               className={`topbar__quick-add-btn ${showQuickAdd ? 'topbar__quick-add-btn--active' : ''}`}
               onClick={() => setShowQuickAdd(!showQuickAdd)}
               title="Crear nuevo registro"
@@ -92,6 +96,7 @@ export const TopBar = ({ title, subtitle }) => {
               <div className="topbar__quick-add-menu">
                 <div className="topbar__quick-add-title">Dar de alta</div>
                 <button
+                  type="button"
                   className="topbar__quick-add-item"
                   onClick={() => handleQuickNavigate('/admin/contactos')}
                 >
@@ -99,6 +104,7 @@ export const TopBar = ({ title, subtitle }) => {
                   <span>Contacto / Productor</span>
                 </button>
                 <button
+                  type="button"
                   className="topbar__quick-add-item"
                   onClick={() => handleQuickNavigate('/admin/empresas')}
                 >
@@ -106,6 +112,7 @@ export const TopBar = ({ title, subtitle }) => {
                   <span>Empresa</span>
                 </button>
                 <button
+                  type="button"
                   className="topbar__quick-add-item"
                   onClick={() => handleQuickNavigate('/admin/negocios')}
                 >
@@ -113,6 +120,7 @@ export const TopBar = ({ title, subtitle }) => {
                   <span>Negocio</span>
                 </button>
                 <button
+                  type="button"
                   className="topbar__quick-add-item"
                   onClick={() => handleQuickNavigate('/admin/tareas')}
                 >
@@ -120,6 +128,7 @@ export const TopBar = ({ title, subtitle }) => {
                   <span>Tarea</span>
                 </button>
                 <button
+                  type="button"
                   className="topbar__quick-add-item"
                   onClick={() => handleQuickNavigate('/admin/productos')}
                 >
@@ -127,6 +136,7 @@ export const TopBar = ({ title, subtitle }) => {
                   <span>Producto</span>
                 </button>
                 <button
+                  type="button"
                   className="topbar__quick-add-item"
                   onClick={() => handleQuickNavigate('/admin/rutas')}
                 >
@@ -134,6 +144,7 @@ export const TopBar = ({ title, subtitle }) => {
                   <span>Hoja de Ruta</span>
                 </button>
                 <button
+                  type="button"
                   className="topbar__quick-add-item"
                   onClick={() => handleQuickNavigate('/admin/actividades')}
                 >
@@ -141,6 +152,7 @@ export const TopBar = ({ title, subtitle }) => {
                   <span>Seguimiento / Actividad</span>
                 </button>
                 <button
+                  type="button"
                   className="topbar__quick-add-item"
                   onClick={() => handleQuickNavigate('/admin/campañas')}
                 >
@@ -148,6 +160,7 @@ export const TopBar = ({ title, subtitle }) => {
                   <span>Campaña</span>
                 </button>
                 <button
+                  type="button"
                   className="topbar__quick-add-item"
                   onClick={() => handleQuickNavigate('/admin/objetivos')}
                 >
@@ -161,25 +174,27 @@ export const TopBar = ({ title, subtitle }) => {
       </div>
 
       <div className="topbar__right">
-        <button className="topbar__icon-btn" title="Notificaciones">
+        <button type="button" className="topbar__icon-btn" title="Notificaciones">
           <Bell size={18} />
           <span className="topbar__notification-badge">3</span>
         </button>
         <button
+          type="button"
           className="topbar__icon-btn"
           title="Configuración"
           onClick={() => navigate('/admin/configuracion')}
         >
           <Settings size={18} />
         </button>
-        <button className="topbar__icon-btn" title="Ayuda">
+        <button type="button" className="topbar__icon-btn" title="Ayuda">
           <HelpCircle size={18} />
         </button>
 
         {/* User Dropdown */}
         <div className="topbar__user-wrapper" ref={menuRef}>
           <button
-            className="topbar__user-btn topbar-user-dropdown"
+            type="button"
+            className="topbar__user-btn"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
             <div className="topbar__avatar">
@@ -189,7 +204,7 @@ export const TopBar = ({ title, subtitle }) => {
                 initials
               )}
             </div>
-            <span className="topbar__user-name">{currentUser?.nombreApellido || 'Manuel Fernández'}</span>
+            <span className="topbar__user-name">{currentUser?.nombreApellido || 'Admin Creado'}</span>
             <ChevronDown size={14} className={`topbar__chevron ${showUserMenu ? 'topbar__chevron--open' : ''}`} />
           </button>
 
@@ -203,16 +218,19 @@ export const TopBar = ({ title, subtitle }) => {
                     initials
                   )}
                 </div>
-                <div>
-                  <div className="topbar__dropdown-name">{currentUser?.nombreApellido || 'Manuel Fernández'}</div>
-                  <div className="topbar__dropdown-email">{currentUser?.direccionMail || 'manuel.fernandez@agroros.com.ar'}</div>
-                  <div className="topbar__dropdown-role">
-                    {currentUser?.role === 'admin' ? 'Administrador' : 'Vendedor'}
+                <div className="topbar__dropdown-header-info">
+                  <div className="topbar__dropdown-name-row">
+                    <span className="topbar__dropdown-name">{currentUser?.nombreApellido || 'Admin Creado'}</span>
+                    <span className="topbar__dropdown-role-badge topbar__dropdown-role-badge--admin">
+                      {userRoleDisplay}
+                    </span>
                   </div>
+                  <div className="topbar__dropdown-email">{currentUser?.direccionMail || 'admin.nuevo@agroquimicarosario.com.ar'}</div>
                 </div>
               </div>
               <div className="topbar__dropdown-divider" />
               <button
+                type="button"
                 className="topbar__dropdown-item"
                 onClick={() => {
                   setShowUserMenu(false);
@@ -220,9 +238,10 @@ export const TopBar = ({ title, subtitle }) => {
                 }}
               >
                 <User size={16} />
-                Mi perfil
+                <span>Mi perfil</span>
               </button>
               <button
+                type="button"
                 className="topbar__dropdown-item"
                 onClick={() => {
                   setShowUserMenu(false);
@@ -230,12 +249,19 @@ export const TopBar = ({ title, subtitle }) => {
                 }}
               >
                 <Settings size={16} />
-                Configuración
+                <span>Configuración</span>
               </button>
               <div className="topbar__dropdown-divider" />
-              <button className="topbar__dropdown-item topbar__dropdown-item--danger" onClick={() => { setShowUserMenu(false); logout(); }}>
+              <button
+                type="button"
+                className="topbar__dropdown-item topbar__dropdown-item--danger"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  logout();
+                }}
+              >
                 <LogOut size={16} />
-                Cerrar sesión
+                <span>Cerrar sesión</span>
               </button>
             </div>
           )}

@@ -461,7 +461,7 @@ export const AdminDashboardPage = () => {
         }}
       >
         <Loader2 className="animate-spin" size={36} color="#1a7d6b" />
-        <p>Cargando información desde la base de datos MySQL...</p>
+        <p>Cargando información desde la base de datos...</p>
       </div>
     );
   }
@@ -574,7 +574,7 @@ export const AdminDashboardPage = () => {
             <span className="exec-kpi-title">INTERACCIONES</span>
           </div>
           <div className="exec-kpi-value">{totalInteractions}</div>
-          <span className="exec-kpi-foot">formularios en MySQL</span>
+          <span className="exec-kpi-foot">formularios registrados</span>
         </div>
 
         <div className="exec-kpi-card">
@@ -709,7 +709,7 @@ export const AdminDashboardPage = () => {
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {activities.length === 0 ? (
             <p style={{ color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', margin: '20px 0' }}>
-              No hay actividades registradas aún en MySQL.
+              No hay actividades registradas aún en la base de datos.
             </p>
           ) : (
             activities.slice(0, 4).map((a) => (

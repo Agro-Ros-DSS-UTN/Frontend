@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -39,11 +39,20 @@ export const Sidebar = () => {
   const { logout } = useAuth();
   const location = useLocation();
 
+  const handleLogoClick = () => {
+    window.location.reload();
+  };
+
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
-      {/* Logo Header */}
+      {/* Logo Header con recarga al hacer click */}
       <div className="sidebar__header">
-        <div className="sidebar__logo">
+        <div
+          className="sidebar__logo"
+          onClick={handleLogoClick}
+          style={{ cursor: 'pointer' }}
+          title="Recargar página de Agroquímica Rosario"
+        >
           <img src={logoImg} alt="AgroRos" className="sidebar__logo-img" />
           {!collapsed && (
             <div className="sidebar__logo-text">
@@ -81,6 +90,7 @@ export const Sidebar = () => {
         <div className="sidebar__divider-line">
           <div className="sidebar__collapse-wrapper">
             <button
+              type="button"
               className="sidebar__collapse-btn"
               onClick={() => setCollapsed(!collapsed)}
               aria-label={collapsed ? 'Expandir navegación' : 'Contraer navegación'}
@@ -93,7 +103,7 @@ export const Sidebar = () => {
           </div>
         </div>
 
-        {/* Logout Button with Tooltip */}
+        {/* Logout Button */}
         <div className="sidebar__logout-wrapper">
           <button
             type="button"

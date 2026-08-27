@@ -483,7 +483,7 @@ export const ProductsPage = () => {
           <div className="roadmaps-loading-state-box" style={{ margin: '30px 20px' }}>
             <div className="r-spinner-icon" />
             <h3>Conectando con la base de datos...</h3>
-            <p>Por favor aguardá un instante mientras cargamos los productos de MySQL.</p>
+            <p>Por favor aguardá un instante mientras cargamos los productos de la base de datos.</p>
           </div>
         ) : (
           <DataTable
