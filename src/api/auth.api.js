@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+﻿import { apiClient } from './apiClient';
 
 export const authApi = {
   login: async (idUser, password) => {
@@ -14,11 +14,20 @@ export const authApi = {
     return response.data;
   },
   updateUser: async (idUser, userData) => {
-    const response = await apiClient.put(`/users/${idUser}`, userData);
+    const response = await apiClient.put('/users/' + idUser, userData);
     return response.data;
   },
   deleteUser: async (idUser) => {
-    const response = await apiClient.delete(`/users/${idUser}`);
+    const response = await apiClient.delete('/users/' + idUser);
+    return response.data;
+  },
+  // Imagen de perfil persistente en base de datos
+  getProfileImage: async (idUser) => {
+    const response = await apiClient.get('/users/' + idUser + '/profile-image');
+    return response.data;
+  },
+  updateProfileImage: async (idUser, profileImage) => {
+    const response = await apiClient.put('/users/' + idUser + '/profile-image', { profileImage });
     return response.data;
   }
 };

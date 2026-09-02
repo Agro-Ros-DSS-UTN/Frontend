@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { authApi } from '../../../api/auth.api';
 import {
   Camera,
   Save,
@@ -13,6 +14,7 @@ import {
   Plus,
   Trash2,
   ChevronLeft,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { mockSellers } from '../../../data/mockData';
@@ -25,15 +27,18 @@ const TABS = [
 ];
 
 export const ProfilePage = () => {
-  const { currentUser, profileImage, updateProfileImage } = useAuth();
+  const { currentUser, profileImage, updateProfileImage, updateCurrentUser } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('perfil');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const isSeller = (currentUser?.role || currentUser?.rol)?.toLowerCase() === 'vendedor';
 
   // Get seller data if applicable
-  const seller = currentUser?.role === 'vendedor'
-    ? mockSellers.find(s => s.userNumDoc === currentUser.numDoc)
+  const seller = isSeller
+    ? mockSellers.find(s => s.userNumDoc === currentUser?.numDoc)
     : null;
 
   // Form state (initialize from currentUser + seller)
@@ -42,10 +47,10 @@ export const ProfilePage = () => {
     nombre: nameParts[0] || '',
     apellido: nameParts.slice(1).join(' ') || '',
     email: currentUser?.direccionMail || '',
-    numDoc: currentUser?.numDoc || '',
+    numDoc: currentUser?.numDoc || currentUser?.idUser || '',
     direccion: currentUser?.direccion || '',
     idioma: 'Español',
-    formatoFecha: 'España',
+    formatoFecha: 'Argentina',
     // Seller specific
     productoOfrecido: seller?.productoOfrecido || '',
     zonaAsignada: seller?.zonaAsignada || '',
@@ -62,11 +67,47 @@ export const ProfilePage = () => {
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Optimizar imagen con canvas antes de guardar en Base64 en la base de datos (max 400x400)
     const reader = new FileReader();
-    reader.onloadend = () => {
-      updateProfileImage(reader.result);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+        updateProfileImage(optimizedBase64);
+      };
+      img.src = event.target.result;
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = (e) => {
+    e.stopPropagation();
+    if (window.confirm('¿Querés eliminar tu foto de perfil?')) {
+      updateProfileImage(null);
+    }
   };
 
   const addPhone = () => {
@@ -84,16 +125,45 @@ export const ProfilePage = () => {
     setSaved(false);
   };
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const userId = currentUser?.idUser || currentUser?.id;
+      const fullName = `${form.nombre} ${form.apellido}`.trim();
+
+      if (userId) {
+        await authApi.updateUser(userId, {
+          nombreApellido: fullName,
+          direccionMail: form.email,
+        });
+
+        if (updateCurrentUser) {
+          updateCurrentUser({
+            nombreApellido: fullName,
+            direccionMail: form.email,
+          });
+        }
+      }
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error('Error al guardar datos de perfil:', err);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="profile-page">
       {/* Back nav */}
       <div className="profile-page__back">
-        <button className="profile-page__back-btn" onClick={() => navigate('/admin/dashboard')}>
+        <button
+          className="profile-page__back-btn"
+          onClick={() => navigate(isSeller ? '/seller/dashboard' : '/admin/dashboard')}
+        >
           <ChevronLeft size={16} />
           Volver a Inicio
         </button>
@@ -128,8 +198,12 @@ export const ProfilePage = () => {
             {/* Profile Image */}
             <div className="profile-field">
               <label className="profile-field__label">Imagen de perfil</label>
-              <div className="profile-avatar-upload">
-                <div className="profile-avatar-upload__preview" onClick={() => fileInputRef.current?.click()}>
+              <div className="profile-avatar-upload" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div
+                  className="profile-avatar-upload__preview"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ position: 'relative', cursor: 'pointer' }}
+                >
                   {profileImage ? (
                     <img src={profileImage} alt="Perfil" className="profile-avatar-upload__img" />
                   ) : (
@@ -141,6 +215,7 @@ export const ProfilePage = () => {
                     <Camera size={16} />
                   </div>
                 </div>
+
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -148,7 +223,47 @@ export const ProfilePage = () => {
                   onChange={handleImageUpload}
                   style={{ display: 'none' }}
                 />
-                <span className="profile-avatar-upload__hint">Click para cambiar la foto</span>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      background: '#f1f5f9',
+                      border: '1px solid #cbd5e1',
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      cursor: 'pointer',
+                      width: 'fit-content',
+                    }}
+                  >
+                    Click para cambiar la foto
+                  </button>
+
+                  {profileImage && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        padding: '0',
+                        fontSize: '0.8rem',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      Eliminar foto de perfil
+                    </button>
+                  )}
+                  <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                    Sincronizada con la base de datos (disponible en todos tus dispositivos)
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -189,10 +304,10 @@ export const ProfilePage = () => {
               />
             </div>
 
-            {/* Documento */}
+            {/* Documento / ID Usuario */}
             <div className="profile-field">
               <label className="profile-field__label">
-                <FileText size={14} /> Número de documento
+                <FileText size={14} /> ID / Documento de usuario
               </label>
               <input
                 type="text"
@@ -237,15 +352,15 @@ export const ProfilePage = () => {
                 <Clock size={14} /> Formato de hora, fecha y número
               </label>
               <p className="profile-field__hint">
-                Formato: 10 de agosto de 2026, 10/08/2026, 9:40 EST y 1.234,56
+                Formato: 10 de agosto de 2026, 10/08/2026, 9:40 y 1.234,56
               </p>
               <select
                 className="profile-field__select"
                 value={form.formatoFecha}
                 onChange={(e) => updateField('formatoFecha', e.target.value)}
               >
-                <option value="España">España</option>
                 <option value="Argentina">Argentina</option>
+                <option value="España">España</option>
                 <option value="Estados Unidos">Estados Unidos</option>
               </select>
             </div>
@@ -291,7 +406,7 @@ export const ProfilePage = () => {
           </section>
 
           {/* Seller Section (if applicable) */}
-          {(currentUser?.role === 'vendedor' || seller) && (
+          {(isSeller || seller) && (
             <section className="profile-section">
               <h2 className="profile-section__title">Datos del Vendedor</h2>
               <p className="profile-section__desc">Información específica de tu rol como vendedor.</p>
@@ -330,9 +445,9 @@ export const ProfilePage = () => {
 
           {/* Save button */}
           <div className="profile-page__actions">
-            <button className="profile-page__save-btn" onClick={handleSave}>
+            <button className="profile-page__save-btn" onClick={handleSave} disabled={saving}>
               <Save size={16} />
-              Guardar cambios
+              {saving ? 'Guardando...' : 'Guardar cambios'}
             </button>
             {saved && (
               <span className="profile-page__saved-msg">✓ Cambios guardados correctamente</span>

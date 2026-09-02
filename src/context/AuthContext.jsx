@@ -1,5 +1,6 @@
 ﻿import React, { createContext, useContext, useState, useEffect } from 'react';
 import { LogOut, X } from 'lucide-react';
+import { authApi } from '../api/auth.api';
 import '../styles/global.css';
 
 const AuthContext = createContext(null);
@@ -41,8 +42,37 @@ export const AuthProvider = ({ children }) => {
     return localStorage.getItem('agroros_profile_img') || null;
   });
 
-  // State to control Logout Confirmation Modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Al iniciar sesion o recargar, cargar la foto de perfil desde la base de datos
+  useEffect(() => {
+    const loadProfileImageFromDB = async () => {
+      if (!currentUser) return;
+      const userId = currentUser.idUser || currentUser.id;
+      if (!userId) return;
+
+      try {
+        if (currentUser.profileImage) {
+          setProfileImageState(currentUser.profileImage);
+          localStorage.setItem('agroros_profile_img', currentUser.profileImage);
+          return;
+        }
+
+        const result = await authApi.getProfileImage(userId);
+        const img = result?.data?.profileImage || null;
+        setProfileImageState(img);
+        if (img) {
+          localStorage.setItem('agroros_profile_img', img);
+        } else {
+          localStorage.removeItem('agroros_profile_img');
+        }
+      } catch (err) {
+        console.warn('No se pudo cargar la imagen de perfil desde la DB:', err?.message);
+      }
+    };
+
+    loadProfileImageFromDB();
+  }, [currentUser?.idUser || currentUser?.id]);
 
   useEffect(() => {
     if (currentUser) {
@@ -52,7 +82,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
-  // Handle Esc key to close logout modal
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && showLogoutModal) {
@@ -63,23 +92,49 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showLogoutModal]);
 
-  const updateProfileImage = (imgData) => {
+  const updateProfileImage = async (imgData) => {
     setProfileImageState(imgData);
     if (imgData) {
       localStorage.setItem('agroros_profile_img', imgData);
     } else {
       localStorage.removeItem('agroros_profile_img');
     }
+
+    const userId = currentUser?.idUser || currentUser?.id;
+    if (userId) {
+      try {
+        await authApi.updateProfileImage(userId, imgData);
+        console.log('Imagen de perfil guardada en la base de datos');
+      } catch (err) {
+        console.error('Error guardando imagen de perfil en DB:', err?.message);
+      }
+    }
   };
 
-  // Login action storing the backend-authenticated user
+  const updateCurrentUser = (partialData) => {
+    setCurrentUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...partialData };
+      sessionStorage.setItem('agroros_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const login = (userData) => {
     const normalized = normalizeUser(userData);
     setCurrentUser(normalized);
+
+    if (userData.profileImage) {
+      setProfileImageState(userData.profileImage);
+      localStorage.setItem('agroros_profile_img', userData.profileImage);
+    } else {
+      setProfileImageState(null);
+      localStorage.removeItem('agroros_profile_img');
+    }
+
     return { success: true, user: normalized };
   };
 
-  // Triggers confirmation modal instead of immediate silent log out
   const logout = (options) => {
     if (options && typeof options === 'object' && options.immediate === true) {
       confirmLogout();
@@ -88,10 +143,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Actual session termination
   const confirmLogout = () => {
     setCurrentUser(null);
+    setProfileImageState(null);
     sessionStorage.removeItem('agroros_user');
+    localStorage.removeItem('agroros_profile_img');
     setShowLogoutModal(false);
   };
 
@@ -109,6 +165,7 @@ export const AuthProvider = ({ children }) => {
       currentUser,
       profileImage,
       updateProfileImage,
+      updateCurrentUser,
       login,
       logout,
       confirmLogout,
@@ -119,7 +176,6 @@ export const AuthProvider = ({ children }) => {
     }}>
       {children}
 
-      {/* ── MODAL DE CONFIRMACIÓN DE CIERRE DE SESIÓN ── */}
       {showLogoutModal && (
         <div className="logout-modal-overlay" onClick={cancelLogout}>
           <div className="logout-modal-card" onClick={(e) => e.stopPropagation()}>
