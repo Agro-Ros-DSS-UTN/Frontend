@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -35,9 +35,41 @@ const adminNavItems = [
 ];
 
 export const Sidebar = () => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('agroros_sidebar_collapsed');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
   const { logout } = useAuth();
   const location = useLocation();
+
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === 'agroros_sidebar_collapsed') {
+        try {
+          setCollapsed(JSON.parse(e.newValue));
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const nextState = !prev;
+      try {
+        localStorage.setItem('agroros_sidebar_collapsed', JSON.stringify(nextState));
+      } catch (err) {
+        console.error('Error saving sidebar state:', err);
+      }
+      return nextState;
+    });
+  };
 
   const handleLogoClick = () => {
     window.location.reload();
@@ -87,23 +119,24 @@ export const Sidebar = () => {
 
       {/* Footer */}
       <div className="sidebar__footer">
-        <div className="sidebar__divider-line">
-          <div className="sidebar__collapse-wrapper">
+        {/* Fila del botón colapsar/expandir */}
+        <div className="sidebar__collapse-row">
+          <div className="sidebar__collapse-btn-wrapper">
             <button
               type="button"
               className="sidebar__collapse-btn"
-              onClick={() => setCollapsed(!collapsed)}
+              onClick={toggleCollapsed}
               aria-label={collapsed ? 'Expandir navegación' : 'Contraer navegación'}
             >
               {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
             </button>
             <span className="sidebar__collapse-tooltip">
-              {collapsed ? 'Expandir navegación' : 'Contraer navegación'}
+              {collapsed ? 'Expandir menú' : 'Contraer menú'}
             </span>
           </div>
         </div>
 
-        {/* Logout Button */}
+        {/* Botón Cerrar sesión */}
         <div className="sidebar__logout-wrapper">
           <button
             type="button"
