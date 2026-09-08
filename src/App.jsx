@@ -20,6 +20,7 @@ import { ActivitiesPage } from './pages/admin/ActivitiesPage/ActivitiesPage';
 import { UsersPage } from './pages/admin/UsersPage/UsersPage';
 import { ProfilePage } from './pages/admin/ProfilePage/ProfilePage';
 import { SettingsPage } from './pages/admin/SettingsPage/SettingsPage';
+import { ServiceOrdersPage } from './pages/admin/ServiceOrdersPage/ServiceOrdersPage';
 
 // Seller Portal Pages (Organizadas en carpetas individuales)
 import { SellerDashboardPage } from './pages/seller/SellerDashboardPage/SellerDashboardPage';
@@ -65,6 +66,7 @@ const AppRoutes = () => {
         <Route path="negocios" element={<OpportunitiesPage />} />
         <Route path="oportunidades" element={<Navigate to="/admin/negocios" replace />} />
         <Route path="tareas" element={<TasksPage />} />
+        <Route path="ordenes-servicio" element={<ServiceOrdersPage />} />
         <Route path="productos" element={<ProductsPage />} />
         <Route path="objetivos" element={<ObjectivesPage />} />
         <Route path="rutas" element={<RoadmapsPage />} />

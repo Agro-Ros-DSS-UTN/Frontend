@@ -105,16 +105,38 @@ export const createClientCompany = async (companyData) => {
     tipoEmpresa: companyData.tipoEmpresa || 'Productor',
     superficieHa: Number(companyData.superficieHa) || 0,
     localityCodPostal: companyData.localityCodPostal || companyData.codigoPostal || companyData.cp || '2170',
+    localidad: companyData.localidad || 'Casilda',
+    proveedorActual: companyData.proveedorActual,
+    descEmpresa: companyData.descEmpresa,
+    existingContactNumDoc: companyData.existingContactNumDoc,
+    newContact: companyData.newContact,
   };
 
   try {
-    return await request('/clientCompany', {
+    const res = await request('/clientCompany', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    return res;
   } catch (err) {
     console.info('[API Fallback] Simulando creación de Empresa en memoria.');
-    return { id: Date.now(), ...payload };
+    const newComp = { id: Date.now(), ...payload, fechaRegistro: new Date().toISOString() };
+    let linkedContact = null;
+    if (payload.newContact) {
+      linkedContact = {
+        numDoc: payload.newContact.numDoc || ('20-' + Math.floor(10000000 + Math.random() * 90000000) + '-4'),
+        nombreApellido: payload.newContact.nombreApellido,
+        direccionMail: payload.newContact.direccionMail || '',
+        tipoClient: payload.newContact.tipoClient || 'Encargado de Planta',
+        localidad: payload.localidad || 'Casilda',
+        codigoPostal: payload.localityCodPostal || '2170',
+        telefonos: payload.newContact.telefono ? [payload.newContact.telefono] : [],
+        clientCompanyId: newComp.id,
+        empresa: newComp.nombreEmpresa,
+        fechaAgregado: new Date().toISOString(),
+      };
+    }
+    return { ok: true, data: newComp, contact: linkedContact };
   }
 };
 

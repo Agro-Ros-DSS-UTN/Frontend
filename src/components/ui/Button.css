@@ -1,0 +1,123 @@
+/* Modern UI Button - shadcn/ui inspired styles */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  user-select: none;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.ui-btn:focus-visible {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--color-primary, #1a7d6b);
+}
+
+.ui-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.ui-btn:active {
+  transform: scale(0.985);
+}
+
+/* ── Sizes ── */
+.ui-btn--sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  gap: 5px;
+}
+
+.ui-btn--md {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13.5px;
+  border-radius: 8px;
+  gap: 7px;
+}
+
+.ui-btn--lg {
+  height: 44px;
+  padding: 0 22px;
+  font-size: 14.5px;
+  border-radius: 10px;
+  gap: 8px;
+}
+
+/* ── Variants ── */
+.ui-btn--primary {
+  background: var(--color-primary, #1a7d6b);
+  color: #ffffff;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(26, 125, 107, 0.16);
+}
+
+.ui-btn--primary:hover {
+  background: #146355;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(26, 125, 107, 0.28);
+  transform: translateY(-1px);
+}
+
+.ui-btn--outline {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.ui-btn--outline:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #94a3b8;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+
+.ui-btn--secondary {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.ui-btn--secondary:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.ui-btn--ghost {
+  background: transparent;
+  color: #64748b;
+  border: 1px solid transparent;
+}
+
+.ui-btn--ghost:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.ui-btn--destructive {
+  background: #ef4444;
+  color: #ffffff;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.ui-btn--destructive:hover {
+  background: #dc2626;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
+  transform: translateY(-1px);
+}
+
+.ui-btn__icon {
+  flex-shrink: 0;
+}

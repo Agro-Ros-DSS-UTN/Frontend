@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Search,
   Filter,
@@ -28,6 +28,13 @@ import {
   Calendar,
   ExternalLink,
   DollarSign,
+  UserCheck,
+  UserPlus,
+  Briefcase,
+  CheckCircle2,
+  User,
+  Check,
+  ChevronUp,
 } from 'lucide-react';
 import { mockCompanies, mockClients, mockOpportunities, mockActivities } from '../../../data/mockData';
 import {
@@ -37,6 +44,7 @@ import {
   getOpportunities,
   getActivities,
 } from '../../../data/api';
+import { Button } from '../../../components/ui/Button';
 import './CompaniesPage.css';
 
 const COLUMNS = [
@@ -65,6 +73,37 @@ export const CompaniesPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedCompanyForDetail, setSelectedCompanyForDetail] = useState(null);
   const [detailActiveTab, setDetailActiveTab] = useState('contactos'); // 'contactos' | 'negocios' | 'actividades'
+
+  // Contact association state for "Registrar Empresa" modal
+  const [includeContact, setIncludeContact] = useState(true); // Checkbox con tick
+  const [contactMode, setContactMode] = useState('existing'); // 'existing' | 'new'
+  const [contactSearchQuery, setContactSearchQuery] = useState('');
+  const [selectedExistingContact, setSelectedExistingContact] = useState(null);
+  const [contactDropdownOpen, setContactDropdownOpen] = useState(false);
+  const contactSearchRef = useRef(null);
+  const [newContact, setNewContact] = useState({
+    nombreApellido: '',
+    tipoClient: 'Encargado de Planta',
+    telefono: '',
+    direccionMail: '',
+    numDoc: '',
+    nota: '',
+  });
+
+  // Cerrar el dropdown de contactos al hacer clic fuera del buscador o presionar Escape
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (contactSearchRef.current && !contactSearchRef.current.contains(event.target)) {
+        setContactDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
 
   // Load companies, clients, opps and activities from Backend API
   useEffect(() => {
@@ -100,6 +139,24 @@ export const CompaniesPage = () => {
     cultivoPrincipal: 'Soja / Maíz',
     descEmpresa: '',
   });
+
+  // Filter contacts for smart search in company registration modal
+  const filteredContactsForSearch = useMemo(() => {
+    if (!contactSearchQuery || !contactSearchQuery.trim()) {
+      return clients.slice(0, 8);
+    }
+    const q = contactSearchQuery.toLowerCase().trim();
+    return clients.filter(c =>
+      (c.nombreApellido && c.nombreApellido.toLowerCase().includes(q)) ||
+      (c.nombre && c.nombre.toLowerCase().includes(q)) ||
+      (c.apellido && c.apellido.toLowerCase().includes(q)) ||
+      (c.direccionMail && c.direccionMail.toLowerCase().includes(q)) ||
+      (c.email && c.email.toLowerCase().includes(q)) ||
+      (c.numDoc && c.numDoc.includes(q)) ||
+      (c.localidad && c.localidad.toLowerCase().includes(q)) ||
+      (c.tipoClient && c.tipoClient.toLowerCase().includes(q))
+    );
+  }, [clients, contactSearchQuery]);
 
   const filteredCompanies = useMemo(() => {
     let result = [...companies];
@@ -172,9 +229,15 @@ export const CompaniesPage = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+
+    if (includeContact && contactMode === 'new' && !newContact.nombreApellido.trim()) {
+      alert('Por favor ingrese el nombre y apellido del nuevo contacto.');
+      return;
+    }
+
     const newCompPayload = {
       nombreEmpresa: form.nombreEmpresa,
-      cuit: form.cuit || `30-${Math.floor(10000000 + Math.random() * 90000000)}-9`,
+      cuit: form.cuit || ('30-' + Math.floor(10000000 + Math.random() * 90000000) + '-9'),
       tipoEmpresa: form.tipoEmpresa,
       direccionEmpresa: form.direccionEmpresa || 'Ruta Provincial',
       localidad: form.localidad,
@@ -183,13 +246,55 @@ export const CompaniesPage = () => {
       proveedorActual: form.proveedorActual,
       descEmpresa: form.descEmpresa,
       fechaRegistro: new Date().toISOString(),
+      existingContactNumDoc: (includeContact && contactMode === 'existing' && selectedExistingContact) ? (selectedExistingContact.numDoc || selectedExistingContact.id) : null,
+      newContact: (includeContact && contactMode === 'new' && newContact.nombreApellido.trim()) ? {
+        nombreApellido: newContact.nombreApellido.trim(),
+        tipoClient: newContact.tipoClient || 'Encargado de Planta',
+        telefono: newContact.telefono ? newContact.telefono.trim() : '',
+        direccionMail: newContact.direccionMail ? newContact.direccionMail.trim() : '',
+        numDoc: newContact.numDoc ? newContact.numDoc.trim() : undefined,
+        codigoPostal: form.localityCodPostal || '2170',
+        nota: newContact.nota || ('Contacto referente de ' + form.nombreEmpresa),
+      } : null,
     };
 
     try {
-      const created = await createClientCompany(newCompPayload);
-      setCompanies(prev => [created || { id: Date.now(), ...newCompPayload }, ...prev]);
+      const response = await createClientCompany(newCompPayload);
+      const createdCompany = response?.data || response || { id: Date.now(), ...newCompPayload };
+      const companyId = createdCompany.id;
+
+      setCompanies(prev => [createdCompany, ...prev]);
+
+      if (includeContact && contactMode === 'existing' && selectedExistingContact) {
+        setClients(prevClients => prevClients.map(cl => {
+          if (cl.numDoc === selectedExistingContact.numDoc || cl.id === selectedExistingContact.id) {
+            return {
+              ...cl,
+              clientCompanyId: companyId,
+              empresa: createdCompany.nombreEmpresa,
+            };
+          }
+          return cl;
+        }));
+      } else if (includeContact && contactMode === 'new' && newContact.nombreApellido.trim()) {
+        const createdContact = response?.contact || {
+          numDoc: newContact.numDoc || ('20-' + Math.floor(10000000 + Math.random() * 90000000) + '-4'),
+          nombreApellido: newContact.nombreApellido.trim(),
+          direccionMail: newContact.direccionMail,
+          tipoClient: newContact.tipoClient || 'Encargado de Planta',
+          localidad: form.localidad || 'Casilda',
+          codigoPostal: form.localityCodPostal || '2170',
+          telefonos: newContact.telefono ? [newContact.telefono] : [],
+          clientCompanyId: companyId,
+          empresa: createdCompany.nombreEmpresa,
+          fechaAgregado: new Date().toISOString(),
+        };
+        setClients(prevClients => [createdContact, ...prevClients]);
+      }
     } catch (err) {
-      setCompanies(prev => [{ id: Date.now(), ...newCompPayload }, ...prev]);
+      console.error('Error al registrar empresa:', err);
+      const fallbackCompany = { id: Date.now(), ...newCompPayload };
+      setCompanies(prev => [fallbackCompany, ...prev]);
     }
 
     setShowModal(false);
@@ -204,6 +309,19 @@ export const CompaniesPage = () => {
       proveedorActual: 'Syngenta',
       cultivoPrincipal: 'Soja / Maíz',
       descEmpresa: '',
+    });
+    setIncludeContact(true);
+    setContactMode('existing');
+    setSelectedExistingContact(null);
+    setContactSearchQuery('');
+    setContactDropdownOpen(false);
+    setNewContact({
+      nombreApellido: '',
+      tipoClient: 'Encargado de Planta',
+      telefono: '',
+      direccionMail: '',
+      numDoc: '',
+      nota: '',
     });
   };
 
@@ -563,13 +681,304 @@ export const CompaniesPage = () => {
               </div>
 
               {/* Botones */}
+              {/* ── Sección: Contacto Referente / Encargado de la Empresa ── */}
+              <div className={`comp-contact-section ${!includeContact ? 'comp-contact-section--collapsed' : ''}`}>
+                <div className="comp-contact-section__header">
+                  <label className="comp-checkbox-wrapper">
+                    <input
+                      type="checkbox"
+                      className="comp-checkbox-native"
+                      checked={includeContact}
+                      onChange={(e) => {
+                        setIncludeContact(e.target.checked);
+                        if (!e.target.checked) {
+                          setSelectedExistingContact(null);
+                          setContactSearchQuery('');
+                          setContactDropdownOpen(false);
+                        }
+                      }}
+                    />
+                    <span className={`comp-checkbox-box ${includeContact ? 'checked' : ''}`}>
+                      {includeContact && <Check size={13} strokeWidth={3} />}
+                    </span>
+                    <div className="comp-checkbox-label-content">
+                      <span className="comp-checkbox-title">Asociar o dar de alta un contacto referente</span>
+                      <span className="comp-checkbox-subtitle">Vincular un encargado o responsable con esta empresa</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Solo visible si el checkbox está activo (tickeado) */}
+                {includeContact && (
+                  <div className="comp-contact-body-active">
+                    {/* Selector de Modo: Solo 2 opciones limpias */}
+                    <div className="comp-contact-mode-pills">
+                      <button
+                        type="button"
+                        className={`comp-contact-mode-btn ${contactMode === 'existing' ? 'active' : ''}`}
+                        onClick={() => {
+                          setContactMode('existing');
+                          setContactDropdownOpen(false);
+                        }}
+                      >
+                        <Search size={14} />
+                        <span>Buscar Contacto Existente</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`comp-contact-mode-btn ${contactMode === 'new' ? 'active' : ''}`}
+                        onClick={() => {
+                          setContactMode('new');
+                          setContactDropdownOpen(false);
+                        }}
+                      >
+                        <UserPlus size={14} />
+                        <span>Dar de Alta Nuevo Contacto</span>
+                      </button>
+                    </div>
+
+                    {/* MODO 1: BUSCAR CONTACTO EXISTENTE */}
+                    {contactMode === 'existing' && (
+                      <div className="comp-contact-existing-box">
+                        {!selectedExistingContact ? (
+                          <div ref={contactSearchRef} className="comp-contact-search-wrap">
+                            <label className="comp-contact-sublabel">
+                              Escribí el nombre del contacto al que asociás esta empresa:
+                            </label>
+                            <div className="comp-contact-search-input-box">
+                              <Search size={16} className="comp-search-icon" />
+                              <input
+                                type="text"
+                                className="comp-input comp-contact-search-input"
+                                placeholder="Escribí el nombre, apellido, DNI o email..."
+                                value={contactSearchQuery}
+                                onChange={(e) => {
+                                  setContactSearchQuery(e.target.value);
+                                  setContactDropdownOpen(true);
+                                }}
+                                onFocus={() => setContactDropdownOpen(true)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') setContactDropdownOpen(false);
+                                }}
+                              />
+                              {contactSearchQuery && (
+                                <button
+                                  type="button"
+                                  className="comp-search-clear-btn"
+                                  onClick={() => {
+                                    setContactSearchQuery('');
+                                    setContactDropdownOpen(false);
+                                  }}
+                                  title="Limpiar búsqueda"
+                                >
+                                  <X size={14} />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Menú desplegable flotante de resultados con opción de cierre */}
+                            {contactDropdownOpen && (
+                              <div className="comp-contact-dropdown">
+                                <div className="comp-contact-dropdown-header">
+                                  <span>Contactos encontrados ({filteredContactsForSearch.length})</span>
+                                  <button
+                                    type="button"
+                                    className="comp-dropdown-close-btn"
+                                    onClick={() => setContactDropdownOpen(false)}
+                                    title="Cerrar sugerencias (Esc)"
+                                  >
+                                    <X size={13} />
+                                    <span>Cerrar lista</span>
+                                  </button>
+                                </div>
+
+                                <div className="comp-contact-dropdown-items">
+                                  {filteredContactsForSearch.length > 0 ? (
+                                    filteredContactsForSearch.slice(0, 8).map((c) => (
+                                      <div
+                                        key={c.numDoc || c.id}
+                                        className="comp-contact-dropdown-item"
+                                        onClick={() => {
+                                          setSelectedExistingContact(c);
+                                          setContactSearchQuery('');
+                                          setContactDropdownOpen(false);
+                                        }}
+                                      >
+                                        <div className="comp-contact-item-avatar">
+                                          {(c.nombreApellido || c.nombre || 'C').charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="comp-contact-item-info">
+                                          <div className="comp-contact-item-name">
+                                            <strong>{c.nombreApellido || (c.nombre || '') + ' ' + (c.apellido || '')}</strong>
+                                            <span className="comp-contact-item-role">{c.tipoClient || 'Contacto'}</span>
+                                          </div>
+                                          <div className="comp-contact-item-meta">
+                                            {c.direccionMail && <span>{c.direccionMail}</span>}
+                                            {c.telefonos && <span> • {Array.isArray(c.telefonos) ? c.telefonos[0] : c.telefonos}</span>}
+                                            {(c.localidad || c.codigoPostal) && <span> • {c.localidad || c.codigoPostal}</span>}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="comp-contact-dropdown-empty">
+                                      <p>No se encontró ningún contacto con "{contactSearchQuery}".</p>
+                                      <button
+                                        type="button"
+                                        className="comp-contact-quick-new-btn"
+                                        onClick={() => {
+                                          setNewContact(prev => ({ ...prev, nombreApellido: contactSearchQuery }));
+                                          setContactMode('new');
+                                          setContactDropdownOpen(false);
+                                        }}
+                                      >
+                                        <UserPlus size={13} />
+                                        <span>Dar de alta como nuevo contacto</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* Tarjeta de Contacto Seleccionado */
+                          <div className="comp-selected-contact-card">
+                            <div className="comp-selected-contact-left">
+                              <div className="comp-selected-avatar">
+                                <CheckCircle2 size={16} className="comp-selected-check" />
+                                <span>{(selectedExistingContact.nombreApellido || 'C').charAt(0).toUpperCase()}</span>
+                              </div>
+                              <div className="comp-selected-info">
+                                <span className="comp-selected-tag">CONTACTO ASOCIADO</span>
+                                <strong className="comp-selected-name">{selectedExistingContact.nombreApellido}</strong>
+                                <div className="comp-selected-sub">
+                                  <span className="comp-badge-role">{selectedExistingContact.tipoClient || 'Contacto'}</span>
+                                  {selectedExistingContact.direccionMail && (
+                                    <span className="comp-selected-mail">
+                                      <Mail size={11} /> {selectedExistingContact.direccionMail}
+                                    </span>
+                                  )}
+                                  {selectedExistingContact.telefonos && (
+                                    <span className="comp-selected-phone">
+                                      <Phone size={11} /> {Array.isArray(selectedExistingContact.telefonos) ? selectedExistingContact.telefonos[0] : selectedExistingContact.telefonos}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="comp-selected-remove-btn"
+                              title="Cambiar o desasociar contacto"
+                              onClick={() => {
+                                setSelectedExistingContact(null);
+                                setContactSearchQuery('');
+                              }}
+                            >
+                              <X size={15} />
+                              <span>Cambiar</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* MODO 2: DAR DE ALTA NUEVO CONTACTO */}
+                    {contactMode === 'new' && (
+                      <div className="comp-contact-new-box">
+                        <div className="comp-field">
+                          <label><User size={14} /> Nombre y Apellido del Contacto *</label>
+                          <input
+                            type="text"
+                            className="comp-input"
+                            placeholder="Ej: Ing. Carlos Mendoza"
+                            value={newContact.nombreApellido}
+                            onChange={(e) => setNewContact(prev => ({ ...prev, nombreApellido: e.target.value }))}
+                            required={includeContact && contactMode === 'new'}
+                          />
+                        </div>
+
+                        <div className="comp-field-row">
+                          <div className="comp-field" style={{ flex: 1.2 }}>
+                            <label><Briefcase size={14} /> Rol / Puesto</label>
+                            <select
+                              className="comp-select"
+                              value={newContact.tipoClient}
+                              onChange={(e) => setNewContact(prev => ({ ...prev, tipoClient: e.target.value }))}
+                            >
+                              <option value="Encargado Regional">Encargado Regional</option>
+                              <option value="Encargado de Planta">Encargado de Planta</option>
+                              <option value="Dueño / Titular">Dueño / Titular</option>
+                              <option value="Asesor Técnico">Asesor Técnico</option>
+                              <option value="Gerente Comercial">Gerente Comercial</option>
+                              <option value="Productor">Productor</option>
+                              <option value="Administrador">Administrador</option>
+                            </select>
+                          </div>
+                          <div className="comp-field" style={{ flex: 1 }}>
+                            <label><Phone size={14} /> Teléfono / WhatsApp</label>
+                            <input
+                              type="text"
+                              className="comp-input"
+                              placeholder="+54 341 555-0123"
+                              value={newContact.telefono}
+                              onChange={(e) => setNewContact(prev => ({ ...prev, telefono: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="comp-field-row">
+                          <div className="comp-field" style={{ flex: 1.2 }}>
+                            <label><Mail size={14} /> Correo Electrónico</label>
+                            <input
+                              type="email"
+                              className="comp-input"
+                              placeholder="contacto@empresa.com"
+                              value={newContact.direccionMail}
+                              onChange={(e) => setNewContact(prev => ({ ...prev, direccionMail: e.target.value }))}
+                            />
+                          </div>
+                          <div className="comp-field" style={{ flex: 1 }}>
+                            <label><FileText size={14} /> DNI / CUIT (Opcional)</label>
+                            <input
+                              type="text"
+                              className="comp-input"
+                              placeholder="20-35441223-4"
+                              value={newContact.numDoc}
+                              onChange={(e) => setNewContact(prev => ({ ...prev, numDoc: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="comp-contact-new-note">
+                          <Sparkles size={13} />
+                          <span>Se dará de alta este contacto y quedará vinculado a esta nueva empresa.</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Botones de Acción con shadcn/ui Button */}
               <div className="comp-modal__actions">
-                <button type="button" className="comp-modal__cancel-btn" onClick={() => setShowModal(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => setShowModal(false)}
+                >
                   Cancelar
-                </button>
-                <button type="submit" className="comp-modal__submit-btn">
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  icon={Building2}
+                >
                   Registrar Empresa
-                </button>
+                </Button>
               </div>
             </form>
           </div>

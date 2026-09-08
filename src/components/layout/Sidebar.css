@@ -316,3 +316,94 @@
   from { opacity: 0; transform: translateX(-4px); }
   to { opacity: 1; transform: translateX(0); }
 }
+
+
+/* ── Beta Badge para Orden de Servicio ── */
+.sidebar__link-text-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: visible;
+}
+
+.sidebar__badge-beta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  line-height: 1.25;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sidebar__link:hover .sidebar__badge-beta {
+  background: rgba(34, 197, 94, 0.25);
+  color: #86efac;
+  border-color: rgba(74, 222, 128, 0.6);
+}
+
+.sidebar__link--active .sidebar__badge-beta {
+  background: rgba(34, 197, 94, 0.3);
+  color: #bbf7d0;
+  border-color: rgba(74, 222, 128, 0.7);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+}
+
+.sidebar__badge-icon {
+  animation: pulseBeta 2s infinite ease-in-out;
+}
+
+@keyframes pulseBeta {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.sidebar__badge-beta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.22), rgba(124, 58, 237, 0.35));
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 1.5px 6px;
+  border-radius: 9999px;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.sidebar__link:hover .sidebar__badge-beta {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(124, 58, 237, 0.5));
+  color: #f3e8ff;
+  border-color: rgba(192, 132, 252, 0.6);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+}
+
+.sidebar__link--active .sidebar__badge-beta {
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.25), rgba(34, 197, 94, 0.35));
+  color: #86efac;
+  border-color: rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.25);
+}
+
+.sidebar__badge-icon {
+  animation: pulseBeta 2s infinite ease-in-out;
+}
+
+@keyframes pulseBeta {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}

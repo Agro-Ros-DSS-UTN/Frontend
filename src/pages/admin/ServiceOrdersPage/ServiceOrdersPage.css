@@ -1,0 +1,1340 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Service Orders Page — CRM Agroquímica Rosario
+   Diseño acorde a la identidad visual del CRM: Fondo claro, tarjetas blancas,
+   acentos verde esmeralda (#1a7d6b) y tipografía Plus Jakarta Sans / Inter.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.so-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5, 20px);
+  background: transparent;
+  color: var(--text-primary, #0f172a);
+}
+
+/* ── Encabezado Principal ── */
+.so-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4, 16px);
+  flex-wrap: wrap;
+}
+
+.so-page__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.so-page__title {
+  font-size: var(--text-2xl, 24px);
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.so-page__beta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-primary-50, #ecfdf5);
+  color: var(--color-primary, #1a7d6b);
+  border: 1px solid var(--color-primary-100, #a7f3d0);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 9999px);
+}
+
+.so-page__subtitle {
+  font-size: var(--text-sm, 13.5px);
+  color: var(--text-muted, #64748b);
+  margin-top: 3px;
+  max-width: 680px;
+}
+
+.so-page__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+}
+
+/* Botones Principales del Header (Estilo CompaniesPage) */
+.so-page__add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: 9px 18px;
+  background-color: var(--color-primary, #1a7d6b);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--text-sm, 14px);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+  white-space: nowrap;
+  box-shadow: var(--shadow-xs);
+}
+
+.so-page__add-btn:hover {
+  background-color: var(--color-primary-hover, #15685a);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 125, 107, 0.25);
+}
+
+.so-page__export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: 9px 16px;
+  background-color: var(--bg-card, #ffffff);
+  color: var(--text-secondary, #475569);
+  border: 1px solid var(--border-medium, #cbd5e1);
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--text-sm, 14px);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+  white-space: nowrap;
+  box-shadow: var(--shadow-xs);
+}
+
+.so-page__export-btn:hover {
+  color: var(--color-primary, #1a7d6b);
+  border-color: var(--color-primary, #1a7d6b);
+  background-color: var(--color-primary-50, #ecfdf5);
+  transform: translateY(-1px);
+}
+
+/* ── Tarjetas KPIs Superiores (Grid Horizontal de 4) ── */
+.so-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4, 16px);
+}
+
+@media (max-width: 1024px) {
+  .so-kpis-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .so-kpis-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.so-kpi-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: var(--radius-xl, 12px);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.so-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.so-kpi-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg, 10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.so-kpi-icon--teal {
+  background: var(--color-primary-100, #d1fae5);
+  color: var(--color-primary, #1a7d6b);
+}
+
+.so-kpi-icon--blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.so-kpi-icon--green {
+  background: var(--color-secondary-light, #d1fae5);
+  color: var(--color-secondary, #059669);
+}
+
+.so-kpi-icon--amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.so-kpi-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.so-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted, #64748b);
+  margin-bottom: 2px;
+}
+
+.so-kpi-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  line-height: 1.2;
+}
+
+.so-kpi-sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* ── Tarjeta Contenedora Principal ── */
+.so-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: var(--radius-xl, 12px);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+
+/* ── Barra de Pestañas (Tabs) ── */
+.so-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px 0;
+  border-bottom: 1px solid var(--border-light, #e2e8f0);
+  background: #ffffff;
+  overflow-x: auto;
+}
+
+.so-tab-btn {
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  font-size: var(--text-sm, 13.5px);
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.so-tab-btn:hover {
+  color: var(--color-primary, #1a7d6b);
+}
+
+.so-tab-btn--active {
+  color: var(--color-primary, #1a7d6b);
+  border-bottom-color: var(--color-primary, #1a7d6b);
+}
+
+.so-tab-badge {
+  background: var(--gray-100, #f1f5f9);
+  color: var(--text-secondary, #475569);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-full, 999px);
+}
+
+.so-tab-btn--active .so-tab-badge {
+  background: var(--color-primary-50, #ecfdf5);
+  color: var(--color-primary, #1a7d6b);
+}
+
+/* ── Barra de Búsqueda y Filtros (Toolbar) ── */
+.so-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4, 14px) var(--space-5, 20px);
+  border-bottom: 1px solid var(--border-light, #e2e8f0);
+  gap: var(--space-3, 12px);
+  flex-wrap: wrap;
+  background: #ffffff;
+}
+
+.so-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  background: var(--gray-50, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  min-width: 320px;
+  color: var(--text-muted, #64748b);
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.so-search:focus-within {
+  border-color: var(--color-primary, #1a7d6b);
+  background: var(--bg-card, #ffffff);
+  box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.12);
+}
+
+.so-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-sm, 14px);
+  font-family: var(--font-sans);
+  color: var(--text-primary, #0f172a);
+  width: 100%;
+}
+
+.so-search input::placeholder {
+  color: var(--text-muted, #94a3b8);
+}
+
+.so-search-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+
+.so-search-clear:hover {
+  color: var(--text-primary, #0f172a);
+}
+
+.so-toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.so-select-filter {
+  padding: 8px 12px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  background: var(--bg-card, #ffffff);
+  font-size: var(--text-sm, 13px);
+  font-family: var(--font-sans);
+  color: var(--text-secondary, #475569);
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s;
+}
+
+.so-select-filter:focus {
+  border-color: var(--color-primary, #1a7d6b);
+}
+
+/* ── Tabla Principal ── */
+.so-table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.so-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm, 13.5px);
+}
+
+.so-table thead {
+  background: var(--gray-50, #f8fafc);
+}
+
+.so-table th {
+  padding: 12px 18px;
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  font-size: var(--text-xs, 11px);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--border-light, #e2e8f0);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.so-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+  color: var(--text-secondary, #475569);
+  vertical-align: middle;
+}
+
+.so-table tbody tr {
+  transition: background-color var(--transition-fast, 150ms ease);
+}
+
+.so-table tbody tr:hover {
+  background-color: var(--gray-50, #f8fafc);
+}
+
+/* Identificador N.º Orden */
+.so-order-tag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-primary, #1a7d6b);
+  background: var(--color-primary-50, #ecfdf5);
+  border: 1px solid var(--color-primary-100, #a7f3d0);
+  padding: 3px 8px;
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.so-order-tag-btn:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  transform: translateY(-1px);
+}
+
+.so-text-date {
+  color: var(--text-muted, #64748b);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Cliente & Planta */
+.so-client-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.so-client-name {
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+}
+
+.so-client-sub {
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  margin-top: 1px;
+}
+
+.so-plant-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.so-plant-name {
+  font-weight: 500;
+  color: var(--text-primary, #0f172a);
+  font-size: 13px;
+}
+
+.so-plant-loc {
+  font-size: 11.5px;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 1px;
+}
+
+/* Tipo de Trabajo Badge */
+.so-work-badge {
+  display: inline-block;
+  background: var(--gray-100, #f1f5f9);
+  color: var(--gray-700, #334155);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: var(--radius-md, 6px);
+  white-space: nowrap;
+}
+
+/* Estado Pills */
+.so-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* Evaluación de Servicio */
+.so-eval-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.so-stars-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.so-star-icon--filled {
+  color: #f59e0b;
+  fill: #f59e0b;
+}
+
+.so-star-icon--empty {
+  color: #cbd5e1;
+}
+
+.so-eval-score-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+  margin-left: 4px;
+}
+
+.so-conformity-label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.so-conformity-label--conforme {
+  color: #059669;
+}
+
+.so-conformity-label--observaciones {
+  color: #d97706;
+}
+
+.so-conformity-label--no-conforme {
+  color: #dc2626;
+}
+
+.so-btn-eval-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px dashed #f59e0b;
+  padding: 4px 10px;
+  border-radius: var(--radius-md, 6px);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.so-btn-eval-pending:hover {
+  background: #fef3c7;
+  border-style: solid;
+}
+
+/* Botones de Acción en Fila */
+.so-actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.so-action-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-light, #e2e8f0);
+  background: #ffffff;
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.so-action-icon-btn:hover {
+  background: var(--gray-50, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  border-color: var(--border-default, #cbd5e1);
+}
+
+.so-action-icon-btn--print:hover {
+  color: #2563eb;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.so-action-icon-btn--eval:hover {
+  color: #d97706;
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.so-action-icon-btn--edit:hover {
+  color: var(--color-primary, #1a7d6b);
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.so-action-icon-btn--delete:hover {
+  color: var(--color-danger, #ef4444);
+  border-color: #fecaca;
+  background: var(--color-danger-bg, #fef2f2);
+}
+
+/* Estado Vacío */
+.so-empty-state {
+  padding: 56px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.so-empty-icon {
+  color: var(--text-muted, #94a3b8);
+}
+
+.so-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+}
+
+.so-empty-desc {
+  font-size: 13.5px;
+  color: var(--text-muted, #64748b);
+  max-width: 400px;
+  margin: 0 0 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODALES (Diálogos Flotantes Elegantes)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.so-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(15, 23, 42, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  animation: soFadeIn 0.18s ease-out !important;
+}
+
+@keyframes soFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.so-modal {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+  width: 100% !important;
+  max-width: 820px !important;
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  animation: soScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.so-modal--wide {
+  max-width: 860px !important;
+}
+
+.so-modal--eval {
+  max-width: 680px !important;
+}
+
+.so-modal--print {
+  max-width: 900px !important;
+}
+
+@keyframes soScaleIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Encabezado del Modal */
+.so-modal__header {
+  padding: 18px 24px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: #ffffff !important;
+}
+
+.so-modal__header-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.so-modal-icon-badge {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 10px !important;
+  background: #ecfdf5 !important;
+  color: #1a7d6b !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.so-modal-icon-badge.purple {
+  background: #f3e8ff !important;
+  color: #7c3aed !important;
+}
+
+.so-modal__header h2 {
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin: 0 !important;
+}
+
+.so-modal-sub {
+  font-size: 12px !important;
+  color: #64748b !important;
+  margin-top: 2px !important;
+  display: block !important;
+}
+
+.so-modal__close {
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  background: transparent !important;
+  color: #64748b !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+}
+
+.so-modal__close:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Formulario del Modal */
+.so-modal__form {
+  padding: 20px 24px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  background: #f8fafc !important;
+}
+
+.so-form-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  padding: 16px 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+
+.so-form-card__title {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.4px !important;
+  color: #1a7d6b !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.so-form-card__header-line {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.so-form-row {
+  display: flex !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+}
+
+.so-form-field {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.so-form-field label {
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.so-input,
+.so-select,
+.so-textarea {
+  padding: 9px 12px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  font-size: 13.5px !important;
+  font-family: inherit !important;
+  color: #0f172a !important;
+  background: #ffffff !important;
+  outline: none !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  transition: all 0.15s !important;
+}
+
+.so-input:focus,
+.so-select:focus,
+.so-textarea:focus {
+  border-color: #1a7d6b !important;
+  box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.14) !important;
+}
+
+.so-input-highlight {
+  font-family: var(--font-mono, monospace) !important;
+  font-weight: 700 !important;
+  color: #1a7d6b !important;
+  background: #f0fdf4 !important;
+  border-color: #86efac !important;
+}
+
+.so-input-readonly {
+  background: #f8fafc !important;
+  color: #64748b !important;
+  border-color: #e2e8f0 !important;
+  cursor: not-allowed !important;
+}
+
+.so-textarea {
+  resize: vertical !important;
+}
+
+/* Tabla de Productos Químicos en Modal */
+.so-line-items-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.so-line-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.so-line-items-table th {
+  background: #f8fafc;
+  padding: 8px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.so-line-items-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.so-line-input {
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  font-size: 12.5px;
+  width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.so-line-input:focus {
+  border-color: #1a7d6b;
+  outline: none;
+}
+
+.so-add-line-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: #ecfdf5;
+  color: #1a7d6b;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.so-add-line-btn:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.so-line-remove-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.so-line-remove-btn:hover {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+/* Modal Acciones (Pie) */
+.so-modal__actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 16px 24px !important;
+  background: #ffffff !important;
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+/* ── Modal de Evaluación de Servicio ── */
+.so-eval-stars-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.so-eval-stars-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.so-interactive-stars {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0;
+}
+
+.so-star-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #cbd5e1;
+  transition: all 0.15s;
+}
+
+.so-star-btn.active {
+  color: #f59e0b;
+}
+
+.so-star-btn:hover {
+  transform: scale(1.2);
+}
+
+.so-star-text-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  padding: 3px 12px;
+  border-radius: 9999px;
+}
+
+.so-conformity-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.so-conformity-pill {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.so-conformity-pill:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.so-conformity-pill.active {
+  background: #ecfdf5;
+  border-color: #1a7d6b;
+  color: #1a7d6b;
+  box-shadow: 0 0 0 2px rgba(26, 125, 107, 0.15);
+}
+
+.so-checklist-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+.so-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #334155;
+  font-weight: 500;
+}
+
+.so-check-item input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  accent-color: #1a7d6b;
+  cursor: pointer;
+}
+
+/* ── Modal Acta Digital Imprimible ── */
+.so-print-sheet {
+  background: #ffffff;
+  padding: 28px 32px;
+  overflow-y: auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #0f172a;
+}
+
+.so-print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #1a7d6b;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.so-print-brand {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1a7d6b;
+  margin: 0 0 4px;
+}
+
+.so-print-company-data {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.so-print-os-badge {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.so-print-os-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.so-print-os-number {
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a7d6b;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin: 3px 0;
+}
+
+.so-print-os-date {
+  font-size: 12px;
+  color: #475569;
+}
+
+.so-print-section-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.so-print-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.so-print-table-wrap {
+  margin-bottom: 20px;
+}
+
+.so-print-table-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #475569;
+  letter-spacing: 0.4px;
+  margin: 0 0 8px;
+}
+
+.so-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.so-print-table th {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  color: #334155;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-align: left;
+}
+
+.so-print-table td {
+  border: 1px solid #e2e8f0;
+  padding: 6px 10px;
+  color: #1e293b;
+}
+
+.so-print-eval-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  margin-bottom: 24px;
+}
+
+.so-print-eval-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.so-print-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  margin-top: 36px;
+  padding-top: 10px;
+}
+
+.so-signature-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-size: 12px;
+  color: #475569;
+  border-top: 1px solid #94a3b8;
+  padding-top: 6px;
+}
+
+.so-signature-space {
+  height: 48px;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .so-print-sheet, .so-print-sheet * {
+    visibility: visible;
+  }
+  .so-print-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none;
+    padding: 0;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   SlideDrawer Styles for Service Orders & Evaluations (Matching Image 1)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Botones redondeados del Drawer (Exacto a Imagen 1) */
+button.btn-rounded-primary {
+  border-radius: 9999px !important;
+  padding: 11px 22px !important;
+  font-weight: 700 !important;
+  font-size: 0.9rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: var(--color-primary, #1a7d6b) !important;
+  color: #ffffff !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 150ms ease !important;
+}
+
+button.btn-rounded-primary:hover {
+  background: var(--color-primary-hover, #15685a) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(26, 125, 107, 0.25) !important;
+}
+
+button.btn-rounded-secondary {
+  border-radius: 9999px !important;
+  padding: 11px 20px !important;
+  font-weight: 700 !important;
+  font-size: 0.9rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: #ffffff !important;
+  color: var(--text-primary, #0f172a) !important;
+  border: 1px solid var(--border-medium, #cbd5e1) !important;
+  cursor: pointer !important;
+  transition: all 150ms ease !important;
+}
+
+button.btn-rounded-secondary:hover {
+  background: var(--gray-50, #f8fafc) !important;
+  border-color: var(--text-muted, #94a3b8) !important;
+  color: var(--text-primary, #0f172a) !important;
+}
+
+/* Sección de productos dentro del Drawer */
+.so-drawer-chem-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.so-drawer-chem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.so-drawer-chem-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1a7d6b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.so-drawer-chem-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.so-drawer-chem-row {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.so-line-input {
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  padding: 7px 10px !important;
+  font-size: 0.82rem !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.so-line-input:focus {
+  border-color: #1a7d6b !important;
+  box-shadow: 0 0 0 2px rgba(26, 125, 107, 0.12) !important;
+}

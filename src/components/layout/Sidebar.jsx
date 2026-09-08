@@ -16,6 +16,8 @@ import {
   LogOut,
   CheckSquare,
   Package,
+  FileCheck2,
+  Sparkles,
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import './Sidebar.css';
@@ -26,7 +28,8 @@ const adminNavItems = [
   { path: '/admin/contactos',     icon: Users,           label: 'Contactos' },
   { path: '/admin/empresas',      icon: Building2,       label: 'Empresas' },
   { path: '/admin/negocios',      icon: Handshake,       label: 'Negocios' },
-  { path: '/admin/tareas',        icon: CheckSquare,     label: 'Tareas' },
+  { path: '/admin/tareas',           icon: CheckSquare,     label: 'Tareas' },
+  { path: '/admin/ordenes-servicio', icon: FileCheck2,       label: 'Orden de Servicio', badge: 'Beta' },
   { path: '/admin/productos',     icon: Package,         label: 'Productos' },
   { path: '/admin/objetivos',     icon: Target,          label: 'Objetivos' },
   { path: '/admin/rutas',         icon: MapPin,          label: 'Hojas de Ruta' },
@@ -108,8 +111,22 @@ export const Sidebar = () => {
                   className={`sidebar__link ${isActive ? 'sidebar__link--active' : ''}`}
                 >
                   <Icon size={20} className="sidebar__link-icon" />
-                  {!collapsed && <span className="sidebar__link-label">{item.label}</span>}
-                  {collapsed && <span className="sidebar__nav-tooltip">{item.label}</span>}
+                  {!collapsed && (
+                    <div className="sidebar__link-text-group">
+                      <span className="sidebar__link-label">{item.label}</span>
+                      {item.badge && (
+                        <span className="sidebar__badge-beta">
+                          <Sparkles size={10} className="sidebar__badge-icon" />
+                          <span>{item.badge}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {collapsed && (
+                    <span className="sidebar__nav-tooltip">
+                      {item.label} {item.badge ? `(${item.badge})` : ''}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             );
