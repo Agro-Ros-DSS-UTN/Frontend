@@ -1,0 +1,112 @@
+/* CompanyAutocomplete — typeahead de empresas (tema claro) */
+
+.company-ac {
+  position: relative;
+}
+
+.company-ac .form-input-wrapper {
+  position: relative;
+}
+
+.company-ac__clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.company-ac__clear:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.company-ac__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.company-ac__dropdown {
+  position: absolute;
+  z-index: 60;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+  overflow: hidden;
+  max-height: 264px;
+  overflow-y: auto;
+}
+
+.company-ac__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.company-ac__item:hover {
+  background: #f0fdf4;
+}
+
+.company-ac__item-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #e6f4f1;
+  color: #1a7d6b;
+  flex-shrink: 0;
+}
+
+.company-ac__item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.company-ac__item-info strong {
+  font-size: 0.86rem;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.company-ac__item-info span {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.company-ac__empty {
+  padding: 12px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-style: italic;
+}

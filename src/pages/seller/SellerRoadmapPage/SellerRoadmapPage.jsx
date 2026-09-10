@@ -28,6 +28,8 @@ import 'leaflet/dist/leaflet.css';
 import { mockRoadmaps } from '../../../data/mockData';
 import { roadmapsApi } from '../../../api/operations.api';
 import { RandomLetterSwap } from '../../../components/ui/RandomLetterSwap';
+import { DbLoader } from '../../../components/ui/DbLoader';
+import { RoadmapDetailModal } from '../../../components/roadmaps/RoadmapDetailModal';
 import './SellerRoadmapPage.css';
 
 export const SellerRoadmapPage = () => {
@@ -317,11 +319,10 @@ export const SellerRoadmapPage = () => {
       </div>
 
       {loading ? (
-        <div className="roadmaps-loading-state-box">
-          <div className="r-spinner-icon" />
-          <h3>Conectando con la base de datos...</h3>
-          <p>Por favor aguardá un instante mientras sincronizamos tu hoja de ruta de MySQL.</p>
-        </div>
+        <DbLoader
+          title="Conectando con la base de datos…"
+          message="Aguardá un instante mientras sincronizamos tu hoja de ruta."
+        />
       ) : (
         /* Main Container */
         <div className="seller-roadmap-grid">
@@ -420,40 +421,46 @@ export const SellerRoadmapPage = () => {
               </button>
             </div>
 
-            <h3 className="stops-list-title" style={{ marginTop: '12px' }}>Paradas Asignadas del Día</h3>
+            <div className="seller-stops-toolbar">
+              <h3 className="stops-list-title">Paradas del Día</h3>
+              <span className="seller-stops-progress">
+                {route?.visitasCompletadas || 0}/{route?.totalVisitas || 0} completadas
+              </span>
+            </div>
 
             <div className="seller-stops-flow">
               {route?.paradas && route.paradas.map((stop) => {
                 const isSelected = selectedStop?.orden === stop.orden;
+                const statusKey = stop.estado.toLowerCase().replace(' ', '-');
+                const isDone = statusKey === 'completada';
                 return (
                   <div
                     key={stop.orden}
-                    className={`seller-stop-card ${isSelected ? 'selected' : ''}`}
+                    className={`seller-stop-card ${isSelected ? 'selected' : ''} ${isDone ? 'is-done' : ''}`}
                     onClick={() => setSelectedStop(stop)}
                   >
                     <div className="stop-card-top">
-                      <div className="stop-card-node">
-                        <span
-                          className={`stop-circle ${stop.estado.toLowerCase().replace(' ', '-')}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleStopStatus(stop);
-                          }}
-                          title="Hacer clic para marcar como completada"
-                          style={{ cursor: 'pointer' }}
-                        >
-                          {stop.orden}
-                        </span>
-                      </div>
+                      <button
+                        type="button"
+                        className={`stop-circle ${statusKey}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleStopStatus(stop);
+                        }}
+                        title={isDone ? 'Marcar como pendiente' : 'Marcar como completada'}
+                      >
+                        {isDone ? <Check size={15} /> : stop.orden}
+                      </button>
                       <div className="stop-card-info">
                         <div className="stop-card-name-row">
                           <span className="stop-card-client">{stop.cliente}</span>
-                          <span className="stop-card-time">{stop.horaEstimada} hs</span>
+                          <span className="stop-card-time"><Clock size={12} /> {stop.horaEstimada} hs</span>
                         </div>
                         <div className="stop-card-addr">
                           <MapPin size={12} /> {stop.direccion}, {stop.localidad}
                         </div>
                         <div className="stop-card-service">{stop.servicio}</div>
+                        <span className={`stop-card-badge ${statusKey}`}>{stop.estado}</span>
                       </div>
                     </div>
 
@@ -515,85 +522,11 @@ export const SellerRoadmapPage = () => {
 
       {/* ── Modal: Detalle Completo de Hoja de Ruta ── */}
       {showDetailModal && route && (
-        <div className="roadmaps-modal-overlay" style={{ zIndex: 999999 }} onClick={() => setShowDetailModal(false)}>
-          <div className="roadmaps-modal" style={{ width: '600px', height: 'auto', maxHeight: '90vh', margin: 'auto', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
-            <div className="roadmaps-modal__header">
-              <h2>Detalle Completo de Hoja de Ruta</h2>
-              <button className="roadmaps-modal__close" onClick={() => setShowDetailModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="roadmaps-modal__form" style={{ gap: '1rem' }}>
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '14px', borderRadius: '10px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#16a34a' }}>
-                  ZONA DE RECORRIDO ASIGNADA
-                </span>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 6px 0' }}>
-                  {route.zona}
-                </h2>
-                <div style={{ fontSize: '0.85rem', color: '#334155', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                  <div><strong>Vendedor:</strong> {route.vendedor}</div>
-                  <div><strong>Fecha:</strong> {route.fecha}</div>
-                  <div><strong>Distancia Estimada:</strong> {route.totalKm} km</div>
-                  <div><strong>Total de Paradas:</strong> {route.totalVisitas}</div>
-                </div>
-              </div>
-
-              {/* Observaciones del Recorrido */}
-              <div className="roadmaps-form-field">
-                <label style={{ fontWeight: 800, color: '#0f172a' }}>Notas u Observaciones del Recorrido:</label>
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', fontSize: '0.9rem', color: '#334155' }}>
-                  {route.observaciones || 'Sin notas especiales registradas.'}
-                </div>
-              </div>
-
-              {/* Paradas List */}
-              <div className="roadmaps-form-field">
-                <label style={{ fontWeight: 800, color: '#0f172a' }}>Paradas Programadas ({route.paradas?.length || 0}):</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {route.paradas?.map((stop, idx) => (
-                    <div key={idx} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>
-                          #{stop.orden} • {stop.cliente}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                          {stop.direccion}, {stop.localidad}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#16a34a' }}>{stop.horaEstimada} hs</span>
-                        <div style={{ fontSize: '0.75rem', textTransform: 'capitalize', color: stop.estado === 'Completada' ? '#16a34a' : '#0284c7', fontWeight: 700 }}>
-                          {stop.estado}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="roadmaps-modal__actions">
-                <a
-                  href={googleMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="roadmaps-btn roadmaps-btn--primary"
-                  style={{ flex: 1, justifyContent: 'center' }}
-                >
-                  <Compass size={16} /> Abrir Itinerario en Google Maps
-                </a>
-                <button
-                  type="button"
-                  className="roadmaps-btn roadmaps-btn--outline"
-                  onClick={() => setShowDetailModal(false)}
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <RoadmapDetailModal
+          route={route}
+          googleMapsUrl={googleMapsUrl}
+          onClose={() => setShowDetailModal(false)}
+        />
       )}
     </div>
   );

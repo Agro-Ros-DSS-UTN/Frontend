@@ -1373,3 +1373,60 @@
   display: flex;
   justify-content: flex-end;
 }
+
+/* ── Chips de prioridad (diseño limpio, sin emojis) ── */
+.prio-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
+}
+.prio-chip--sm {
+  padding: 2px 8px;
+  font-size: 10px;
+}
+.prio-chip--alta {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.prio-chip--media {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+.prio-chip--baja {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+/* ── Botón eliminar en fila de tabla ── */
+.deal-row-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #ef4444;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.deal-row-delete:hover {
+  background: #fee2e2;
+}
+
+.deals-btn--danger-ghost {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.deals-btn--danger-ghost:hover {
+  background: #fee2e2;
+}

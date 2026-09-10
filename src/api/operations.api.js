@@ -1,16 +1,24 @@
 import { apiClient } from './apiClient';
 
 export const tasksApi = {
-  getAll: async () => {
-    const response = await apiClient.get('/tasks');
+  getAll: async (params = {}) => {
+    const response = await apiClient.get('/tasks', { params });
     return response.data;
   },
   create: async (data) => {
     const response = await apiClient.post('/tasks', data);
     return response.data;
   },
+  update: async (id, data) => {
+    const response = await apiClient.put(`/tasks/${id}`, data);
+    return response.data;
+  },
   updateStatus: async (id, estado) => {
     const response = await apiClient.patch(`/tasks/${id}/status`, { estado });
+    return response.data;
+  },
+  delete: async (id) => {
+    const response = await apiClient.delete(`/tasks/${id}`);
     return response.data;
   }
 };

@@ -33,6 +33,8 @@ import 'leaflet/dist/leaflet.css';
 import { roadmapsApi } from '../../../api/operations.api';
 import { authApi } from '../../../api/auth.api';
 import { companiesApi } from '../../../api/companies.api';
+import { DbLoader } from '../../../components/ui/DbLoader';
+import { RoadmapDetailModal } from '../../../components/roadmaps/RoadmapDetailModal';
 import './RoadmapsPage.css';
 
 // Base de datos de ejemplo amplia de empresas y localidades agrícolas
@@ -616,11 +618,10 @@ export const RoadmapsPage = () => {
       </div>
 
       {loading ? (
-        <div className="roadmaps-loading-state-box">
-          <div className="r-spinner-icon" />
-          <h3>Conectando con la base de datos...</h3>
-          <p>Por favor aguardá un instante mientras sincronizamos las hojas de ruta y paradas de MySQL.</p>
-        </div>
+        <DbLoader
+          title="Conectando con la base de datos…"
+          message="Aguardá un instante mientras sincronizamos las hojas de ruta y sus paradas."
+        />
       ) : activeTab === 'hoy' && (
         <>
           {/* KPI Cards */}
@@ -658,29 +659,49 @@ export const RoadmapsPage = () => {
             </div>
           </div>
 
-          {/* Filter Bar */}
-          <div className="roadmaps-filter-bar">
-            <div className="roadmaps-filter-group">
-              <Filter size={15} className="roadmaps-filter-icon" />
-              <span className="roadmaps-filter-label">Filtrar por Vendedor:</span>
+          {/* Vendedores en ruta — nombre, zona y progreso de visitas por cada uno */}
+          {apiRoadmaps.length > 0 && (
+            <div className="roadmaps-vendor-strip">
               <button
-                className={`roadmaps-pill ${selectedSellerId === 'all' ? 'roadmaps-pill--active' : ''}`}
+                type="button"
+                className={`rv-card rv-card--all ${selectedSellerId === 'all' ? 'is-active' : ''}`}
                 onClick={() => setSelectedSellerId('all')}
               >
-                Todos ({apiRoadmaps.length})
+                <span className="rv-card__name">Todos los vendedores</span>
+                <span className="rv-card__sub">
+                  {apiRoadmaps.length} {apiRoadmaps.length === 1 ? 'ruta' : 'rutas'} · {completedStopsToday}/{totalStopsToday} visitas
+                </span>
               </button>
-              {apiRoadmaps.map(r => (
-                <button
-                  key={r.id}
-                  className={`roadmaps-pill ${selectedSellerId === String(r.vendedorId) ? 'roadmaps-pill--active' : ''}`}
-                  onClick={() => setSelectedSellerId(String(r.vendedorId))}
-                >
-                  <span className="map-legend-dot" style={{ backgroundColor: r.color || '#1a7d6b' }} />
-                  {r.vendedor}
-                </button>
-              ))}
+
+              {apiRoadmaps.map((r) => {
+                const pct = r.totalVisitas > 0 ? Math.round((r.visitasCompletadas / r.totalVisitas) * 100) : 0;
+                const active = selectedSellerId === String(r.vendedorId);
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className={`rv-card ${active ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setSelectedSellerId(active ? 'all' : String(r.vendedorId));
+                      setSelectedRouteId(r.id);
+                    }}
+                  >
+                    <div className="rv-card__head">
+                      <span className="rv-card__dot" style={{ background: r.color || '#1a7d6b' }} />
+                      <span className="rv-card__name">{r.vendedor}</span>
+                    </div>
+                    <span className="rv-card__zone">{r.zona}</span>
+                    <div className="rv-card__bar">
+                      <div className="rv-card__bar-fill" style={{ width: `${pct}%`, background: r.color || '#1a7d6b' }} />
+                    </div>
+                    <span className="rv-card__sub">
+                      {r.visitasCompletadas}/{r.totalVisitas} visitas · {pct}%
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          )}
 
           {/* Empty State Banner if no Roadmaps exist in DB */}
           {apiRoadmaps.length === 0 && !loading && (
@@ -1270,85 +1291,11 @@ export const RoadmapsPage = () => {
 
       {/* ── Modal: Detalle Completo de Hoja de Ruta ── */}
       {showDetailModal && currentRoute && (
-        <div className="roadmaps-modal-overlay" style={{ zIndex: 999999 }} onClick={() => setShowDetailModal(false)}>
-          <div className="roadmaps-modal" style={{ width: '600px', height: 'auto', maxHeight: '90vh', margin: 'auto', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
-            <div className="roadmaps-modal__header">
-              <h2>Detalle Completo de Hoja de Ruta</h2>
-              <button className="roadmaps-modal__close" onClick={() => setShowDetailModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="roadmaps-modal__form" style={{ gap: '1rem' }}>
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '14px', borderRadius: '10px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#16a34a' }}>
-                  ZONA DE RECORRIDO ASIGNADA
-                </span>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 6px 0' }}>
-                  {currentRoute.zona}
-                </h2>
-                <div style={{ fontSize: '0.85rem', color: '#334155', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                  <div><strong>Vendedor:</strong> {currentRoute.vendedor}</div>
-                  <div><strong>Fecha:</strong> {currentRoute.fecha}</div>
-                  <div><strong>Distancia Estimada:</strong> {currentRoute.totalKm} km</div>
-                  <div><strong>Total de Paradas:</strong> {currentRoute.totalVisitas}</div>
-                </div>
-              </div>
-
-              {/* Observaciones del Recorrido */}
-              <div className="roadmaps-form-field">
-                <label style={{ fontWeight: 800, color: '#0f172a' }}>Notas u Observaciones del Recorrido:</label>
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', fontSize: '0.9rem', color: '#334155' }}>
-                  {currentRoute.observaciones || 'Sin notas especiales registradas.'}
-                </div>
-              </div>
-
-              {/* Paradas List */}
-              <div className="roadmaps-form-field">
-                <label style={{ fontWeight: 800, color: '#0f172a' }}>Paradas Programadas ({currentRoute.paradas?.length || 0}):</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {currentRoute.paradas?.map((stop, idx) => (
-                    <div key={idx} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>
-                          #{stop.orden} · {stop.cliente}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                          {stop.direccion}, {stop.localidad}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1a7d6b' }}>{stop.horaEstimada} hs</span>
-                        <div style={{ fontSize: '0.75rem', textTransform: 'capitalize', color: stop.estado === 'Completada' ? '#16a34a' : '#0284c7', fontWeight: 700 }}>
-                          {stop.estado}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="roadmaps-modal__actions">
-                <a
-                  href={googleMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="roadmaps-btn roadmaps-btn--primary"
-                  style={{ flex: 1, justifyContent: 'center' }}
-                >
-                  <Compass size={16} /> Abrir Itinerario en Google Maps
-                </a>
-                <button
-                  type="button"
-                  className="roadmaps-btn roadmaps-btn--outline"
-                  onClick={() => setShowDetailModal(false)}
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <RoadmapDetailModal
+          route={currentRoute}
+          googleMapsUrl={googleMapsUrl}
+          onClose={() => setShowDetailModal(false)}
+        />
       )}
 
       {/* ── Mini-Modal: Alta Rápida de Empresa / Localidad en Base de Datos ── */}

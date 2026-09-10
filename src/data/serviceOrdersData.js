@@ -185,7 +185,7 @@ export const INITIAL_SERVICE_ORDERS = [
     direccion: 'Ruta Nacional 9 Km 435',
     localidad: 'Marcos Juárez',
     provincia: 'Córdoba',
-    tipoTrabajo: 'Fumigación de Silos',
+    tipoTrabajo: 'Fumigación de Silo',
     estado: 'Completada',
     tecnicoAplicador: 'Juan Carlos Pereyra (Mat. 4812)',
     observacionesOrden: 'Tratamiento de choque en batería de 8 silos de trigo. Hermetizado completo con láminas de polietileno 200 micrones.',
@@ -233,7 +233,7 @@ export const INITIAL_SERVICE_ORDERS = [
     direccion: 'Bv. Ovidio Lagos 1250',
     localidad: 'Casilda',
     provincia: 'Santa Fe',
-    tipoTrabajo: 'Desinsectación y Pulverización',
+    tipoTrabajo: 'Fumigación de Celda',
     estado: 'En Ejecución',
     tecnicoAplicador: 'Martín Sequeira',
     observacionesOrden: 'Tratamiento perimetral en norias, túneles de descarga y celdas de maíz recién cosechado.',
@@ -291,7 +291,7 @@ export const INITIAL_SERVICE_ORDERS = [
     direccion: 'Ruta Provincial 91 S/N',
     localidad: 'Totoras',
     provincia: 'Santa Fe',
-    tipoTrabajo: 'Fumigación de Silos',
+    tipoTrabajo: 'Fumigación de Silo',
     estado: 'Completada',
     tecnicoAplicador: 'Juan Carlos Pereyra',
     observacionesOrden: 'Fumigación de celda subterránea N° 2. Sellado de ventilaciones.',
@@ -321,12 +321,12 @@ export const INITIAL_SERVICE_ORDERS = [
 ];
 
 export const WORK_TYPES = [
-  'Fumigación de Silos',
-  'Desinsectación y Pulverización',
-  'Desratización y Cebaderos',
+  'Fumigación de Celda',
+  'Fumigación de Silo',
+  'Impermeabilización de Celda',
+  'Impermeabilización de Silo',
   'Control Integral de Plagas',
   'Sanitización y Desinfección',
-  'Tratamiento de Granos en Tránsito',
   'Otro'
 ];
 

@@ -21,12 +21,13 @@ import { UsersPage } from './pages/admin/UsersPage/UsersPage';
 import { ProfilePage } from './pages/admin/ProfilePage/ProfilePage';
 import { SettingsPage } from './pages/admin/SettingsPage/SettingsPage';
 import { ServiceOrdersPage } from './pages/admin/ServiceOrdersPage/ServiceOrdersPage';
+import { EmployeesPage } from './pages/admin/EmployeesPage/EmployeesPage';
 
 // Seller Portal Pages (Organizadas en carpetas individuales)
 import { SellerDashboardPage } from './pages/seller/SellerDashboardPage/SellerDashboardPage';
 import { SellerRoadmapPage } from './pages/seller/SellerRoadmapPage/SellerRoadmapPage';
-import { SellerClientsPage } from './pages/seller/SellerClientsPage/SellerClientsPage';
 import { SellerActivitiesPage } from './pages/seller/SellerActivitiesPage/SellerActivitiesPage';
+import { SellerTasksPage } from './pages/seller/SellerTasksPage/SellerTasksPage';
 import { SellerPromotionsPage } from './pages/seller/SellerPromotionsPage/SellerPromotionsPage';
 
 import './styles/global.css';
@@ -67,6 +68,7 @@ const AppRoutes = () => {
         <Route path="oportunidades" element={<Navigate to="/admin/negocios" replace />} />
         <Route path="tareas" element={<TasksPage />} />
         <Route path="ordenes-servicio" element={<ServiceOrdersPage />} />
+        <Route path="empleados" element={<EmployeesPage />} />
         <Route path="productos" element={<ProductsPage />} />
         <Route path="objetivos" element={<ObjectivesPage />} />
         <Route path="rutas" element={<RoadmapsPage />} />
@@ -88,7 +90,10 @@ const AppRoutes = () => {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<SellerDashboardPage />} />
         <Route path="hoja-de-ruta" element={<SellerRoadmapPage />} />
-        <Route path="clientes" element={<SellerClientsPage />} />
+        <Route path="contactos" element={<ContactsPage />} />
+        <Route path="clientes" element={<Navigate to="/seller/contactos" replace />} />
+        <Route path="empresas" element={<CompaniesPage />} />
+        <Route path="tareas" element={<SellerTasksPage />} />
         <Route path="actividades" element={<SellerActivitiesPage />} />
         <Route path="promociones" element={<SellerPromotionsPage />} />
         <Route path="perfil" element={<ProfilePage />} />

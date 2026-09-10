@@ -15,7 +15,7 @@ export const companiesApi = {
   },
   // Contactos (Clientes individuales)
   getClients: async () => {
-    const response = await apiClient.get('/clients');
+    const response = await apiClient.get('/clientes');
     return response.data;
   }
 };

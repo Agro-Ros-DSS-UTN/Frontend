@@ -36,15 +36,15 @@ import {
   Check,
   ChevronUp,
 } from 'lucide-react';
-import { mockCompanies, mockClients, mockOpportunities, mockActivities } from '../../../data/mockData';
 import {
-  getClientCompanies,
+  fetchClientCompanies,
   createClientCompany,
-  getClients,
+  fetchClients,
   getOpportunities,
   getActivities,
 } from '../../../data/api';
 import { Button } from '../../../components/ui/Button';
+import { DbLoader } from '../../../components/ui/DbLoader';
 import './CompaniesPage.css';
 
 const COLUMNS = [
@@ -60,10 +60,11 @@ const COLUMNS = [
 const PAGE_SIZE = 10;
 
 export const CompaniesPage = () => {
-  const [companies, setCompanies] = useState(mockCompanies);
-  const [clients, setClients] = useState(mockClients);
-  const [opportunities, setOpportunities] = useState(mockOpportunities);
-  const [activities, setActivities] = useState(mockActivities);
+  const [companies, setCompanies] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [opportunities, setOpportunities] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('nombreEmpresa');
@@ -105,23 +106,24 @@ export const CompaniesPage = () => {
     };
   }, []);
 
-  // Load companies, clients, opps and activities from Backend API
+  // Carga real desde la base de datos (sin datos mock de relleno)
   useEffect(() => {
     const fetchAll = async () => {
-      try {
-        const [compData, clientData, oppData, actData] = await Promise.all([
-          getClientCompanies(),
-          getClients(),
-          getOpportunities(),
-          getActivities(),
-        ]);
-        if (Array.isArray(compData) && compData.length > 0) setCompanies(compData);
-        if (Array.isArray(clientData) && clientData.length > 0) setClients(clientData);
-        if (Array.isArray(oppData) && oppData.length > 0) setOpportunities(oppData);
-        if (Array.isArray(actData) && actData.length > 0) setActivities(actData);
-      } catch (err) {
-        console.error('Error fetching data in CompaniesPage:', err);
+      setLoading(true);
+      const [compRes, cliRes, oppRes, actRes] = await Promise.allSettled([
+        fetchClientCompanies(),
+        fetchClients(),
+        getOpportunities(),
+        getActivities(),
+      ]);
+      setCompanies(compRes.status === 'fulfilled' && Array.isArray(compRes.value) ? compRes.value : []);
+      setClients(cliRes.status === 'fulfilled' && Array.isArray(cliRes.value) ? cliRes.value : []);
+      setOpportunities(oppRes.status === 'fulfilled' && Array.isArray(oppRes.value) ? oppRes.value : []);
+      setActivities(actRes.status === 'fulfilled' && Array.isArray(actRes.value) ? actRes.value : []);
+      if (compRes.status === 'rejected') {
+        console.error('Error al obtener empresas desde la base de datos:', compRes.reason);
       }
+      setLoading(false);
     };
     fetchAll();
   }, []);
@@ -428,6 +430,14 @@ export const CompaniesPage = () => {
         </div>
 
         {/* Table */}
+        {loading ? (
+          <div style={{ padding: '20px' }}>
+            <DbLoader
+              title="Conectando con la base de datos…"
+              message="Aguardá un instante mientras traemos las empresas registradas."
+            />
+          </div>
+        ) : (
         <div className="companies-page__table-wrapper">
           <table className="companies-table">
             <thead>
@@ -531,9 +541,10 @@ export const CompaniesPage = () => {
             </tbody>
           </table>
         </div>
+        )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {!loading && totalPages > 1 && (
           <div className="companies-page__pagination">
             <span className="companies-page__pagination-info">
               {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredCompanies.length)} de {filteredCompanies.length} empresas

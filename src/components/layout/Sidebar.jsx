@@ -1,5 +1,4 @@
-﻿import { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+﻿import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard,
@@ -17,9 +16,11 @@ import {
   CheckSquare,
   Package,
   FileCheck2,
+  HardHat,
   Sparkles,
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
+import { useSidebarResize } from './useSidebarResize';
 import './Sidebar.css';
 
 const adminNavItems = [
@@ -30,49 +31,18 @@ const adminNavItems = [
   { path: '/admin/negocios',      icon: Handshake,       label: 'Negocios' },
   { path: '/admin/tareas',           icon: CheckSquare,     label: 'Tareas' },
   { path: '/admin/ordenes-servicio', icon: FileCheck2,       label: 'Orden de Servicio', badge: 'Beta' },
+  { path: '/admin/empleados',     icon: HardHat,         label: 'Empleados' },
   { path: '/admin/productos',     icon: Package,         label: 'Productos' },
   { path: '/admin/objetivos',     icon: Target,          label: 'Objetivos' },
   { path: '/admin/rutas',         icon: MapPin,          label: 'Hojas de Ruta' },
-  { path: '/admin/campañas',      icon: Megaphone,       label: 'Campañas' },
+  { path: '/admin/campañas',      icon: Megaphone,       label: 'Promociones' },
   { path: '/admin/actividades',   icon: ClipboardList,   label: 'Actividades' },
 ];
 
 export const Sidebar = () => {
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      const saved = localStorage.getItem('agroros_sidebar_collapsed');
-      return saved !== null ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
-
+  const { collapsed, toggleCollapsed, handleResizeStart } = useSidebarResize();
   const { logout } = useAuth();
   const location = useLocation();
-
-  useEffect(() => {
-    const handleStorage = (e) => {
-      if (e.key === 'agroros_sidebar_collapsed') {
-        try {
-          setCollapsed(JSON.parse(e.newValue));
-        } catch (_) {}
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
-
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const nextState = !prev;
-      try {
-        localStorage.setItem('agroros_sidebar_collapsed', JSON.stringify(nextState));
-      } catch (err) {
-        console.error('Error saving sidebar state:', err);
-      }
-      return nextState;
-    });
-  };
 
   const handleLogoClick = () => {
     window.location.reload();
@@ -80,6 +50,17 @@ export const Sidebar = () => {
 
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
+      {/* Tirador para expandir/contraer arrastrando el borde (estilo Antigravity) */}
+      <div
+        className="sidebar__resize-handle"
+        onMouseDown={handleResizeStart}
+        onDoubleClick={toggleCollapsed}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Arrastrá para expandir o contraer el menú"
+        title="Arrastrá para ajustar el ancho · doble clic para contraer"
+      />
+
       {/* Logo Header con recarga al hacer click */}
       <div className="sidebar__header">
         <div

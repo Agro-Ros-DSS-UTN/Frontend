@@ -1,0 +1,44 @@
+/* DbLoader — estado de carga contra la base de datos (tema claro) */
+
+.db-loader {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 64px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.db-loader__spinner {
+  width: 42px;
+  height: 42px;
+  border: 3.5px solid #e2e8f0;
+  border-top-color: #1a7d6b;
+  border-radius: 50%;
+  animation: dbLoaderSpin 0.7s linear infinite;
+}
+
+@keyframes dbLoaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.db-loader__title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.db-loader__message {
+  font-size: 0.86rem;
+  color: #64748b;
+  margin: 0;
+  max-width: 420px;
+}

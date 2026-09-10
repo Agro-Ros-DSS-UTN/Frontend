@@ -1,0 +1,345 @@
+/* PromotionsBoard — promociones/campañas compartido (admin + vendedor), tema claro */
+
+.promo-board {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.promo-board__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.promo-board__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.promo-board__title-icon {
+  color: #1a7d6b;
+}
+
+.promo-board__title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.promo-board__subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 4px 0 0 0;
+}
+
+.promo-board__add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background-color: #1a7d6b;
+  color: #fff;
+  border: none;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(26, 125, 107, 0.25);
+  transition: all 150ms ease;
+}
+
+.promo-board__add-btn:hover {
+  background-color: #0f5347;
+  transform: translateY(-1px);
+}
+
+.promo-board__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.promo-board__stat {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.promo-board__stat-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #64748b;
+}
+
+.promo-board__stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.promo-board__toolbar {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.promo-board__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  max-width: 440px;
+}
+
+.promo-board__search:focus-within {
+  border-color: #1a7d6b;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.1);
+}
+
+.promo-board__search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.88rem;
+  color: #0f172a;
+  width: 100%;
+}
+
+/* Grid */
+.promo-board__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.promo-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.promo-card:hover {
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.promo-card--expired {
+  opacity: 0.72;
+}
+
+.promo-card__accent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  color: #ffffff;
+}
+
+.promo-card__benefit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.promo-card__del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.promo-card__del:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.promo-card__body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.promo-card__name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.promo-card__desc {
+  font-size: 0.86rem;
+  color: #475569;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.promo-card__cond {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+.promo-card__dates {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.promo-card__dates span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.promo-card__ttl {
+  font-weight: 700;
+  color: #15803d;
+}
+
+.promo-card__ttl.is-soon {
+  color: #b45309;
+}
+
+.promo-card__ttl.is-expired {
+  color: #b91c1c;
+}
+
+.promo-card__actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 18px 16px 18px;
+}
+
+.promo-card__btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.promo-card__btn.ghost {
+  background: #f8fafc;
+  color: #334155;
+}
+
+.promo-card__btn.ghost:hover {
+  background: #f1f5f9;
+}
+
+.promo-card__btn.whatsapp {
+  background: #16a34a;
+  color: #ffffff;
+  border-color: #16a34a;
+}
+
+.promo-card__btn.whatsapp:hover {
+  background: #15803d;
+}
+
+.promo-board__empty {
+  text-align: center;
+  padding: 56px 20px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  color: #64748b;
+}
+
+.promo-board__empty h3 {
+  margin: 0 0 4px 0;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.promo-board__empty p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Color swatches in drawer */
+.promo-board__color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.promo-board__swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.promo-board__swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px #e2e8f0;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.promo-board__swatch:hover {
+  transform: scale(1.1);
+}
+
+.promo-board__swatch.is-active {
+  box-shadow: 0 0 0 2px #0f172a;
+  transform: scale(1.12);
+}

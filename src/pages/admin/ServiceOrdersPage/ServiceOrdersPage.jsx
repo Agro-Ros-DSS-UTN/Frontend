@@ -29,20 +29,21 @@ import {
   FileText
 } from 'lucide-react';
 import {
-  HIERARCHICAL_CLIENTS_CATALOG,
-  INITIAL_SERVICE_ORDERS,
   WORK_TYPES,
   ORDER_STATUSES,
   getStoredServiceOrders,
   saveStoredServiceOrders,
 } from '../../../data/serviceOrdersData';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
+import { employeesApi } from '../../../api/employees.api';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer';
 import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput';
+import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete';
 import './ServiceOrdersPage.css';
 
 export const ServiceOrdersPage = () => {
   const [orders, setOrders] = useState(() => getStoredServiceOrders());
+  const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -79,6 +80,10 @@ export const ServiceOrdersPage = () => {
 
   useEffect(() => {
     loadOrders();
+    employeesApi
+      .getAll()
+      .then((list) => setEmployees(Array.isArray(list) ? list : []))
+      .catch((err) => console.warn('No se pudo cargar el listado de empleados:', err?.message));
   }, []);
 
   // Sync with localStorage on changes
@@ -98,12 +103,13 @@ export const ServiceOrdersPage = () => {
     centroNombre: '',
     plantaId: '',
     plantaNombre: '',
+    silo: '',
     direccion: '',
     localidad: '',
     provincia: 'Santa Fe',
     tipoTrabajo: WORK_TYPES[0],
     estado: 'Programada',
-    tecnicoAplicador: 'Juan Carlos Pereyra (Mat. 4812)',
+    tecnicoAplicador: '',
     observacionesOrden: '',
     productosAplicados: [
       {
@@ -139,26 +145,23 @@ export const ServiceOrdersPage = () => {
 
   // Open Create Order Drawer
   const handleOpenCreateDrawer = () => {
-    const defaultClient = HIERARCHICAL_CLIENTS_CATALOG[0];
-    const defaultCenter = defaultClient.centros[0];
-    const defaultPlant = defaultCenter.plantas[0];
-
     setEditingOrderId(null);
     setOrderForm({
       numeroOrden: generateNextOrderNumber(),
       fecha: new Date().toISOString().split('T')[0],
-      clienteId: defaultClient.id,
-      clienteNombre: defaultClient.nombreCliente,
-      centroId: defaultCenter.id,
-      centroNombre: defaultCenter.nombreCentro,
-      plantaId: defaultPlant.id,
-      plantaNombre: defaultPlant.nombrePlanta,
-      direccion: defaultPlant.direccion,
-      localidad: defaultPlant.localidad,
-      provincia: defaultPlant.provincia,
+      clienteId: '',
+      clienteNombre: '',
+      centroId: '',
+      centroNombre: '',
+      plantaId: '',
+      plantaNombre: '',
+      silo: '',
+      direccion: '',
+      localidad: '',
+      provincia: 'Santa Fe',
       tipoTrabajo: WORK_TYPES[0],
       estado: 'Programada',
-      tecnicoAplicador: 'Juan Carlos Pereyra (Mat. 4812)',
+      tecnicoAplicador: '',
       observacionesOrden: '',
       productosAplicados: [
         {
@@ -186,6 +189,7 @@ export const ServiceOrdersPage = () => {
       centroNombre: order.centroNombre,
       plantaId: order.plantaId,
       plantaNombre: order.plantaNombre,
+      silo: order.silo || '',
       direccion: order.direccion,
       localidad: order.localidad,
       provincia: order.provincia,
@@ -200,67 +204,9 @@ export const ServiceOrdersPage = () => {
     setShowOrderDrawer(true);
   };
 
-  // Handle Hierarchical Client -> Center -> Plant Cascading Autocomplete
-  const handleClientChange = (clientId) => {
-    const selectedClient = HIERARCHICAL_CLIENTS_CATALOG.find(c => c.id === clientId);
-    if (!selectedClient) return;
-
-    const firstCenter = selectedClient.centros[0] || null;
-    const firstPlant = firstCenter ? firstCenter.plantas[0] : null;
-
-    setOrderForm(prev => ({
-      ...prev,
-      clienteId: selectedClient.id,
-      clienteNombre: selectedClient.nombreCliente,
-      centroId: firstCenter ? firstCenter.id : '',
-      centroNombre: firstCenter ? firstCenter.nombreCentro : '',
-      plantaId: firstPlant ? firstPlant.id : '',
-      plantaNombre: firstPlant ? firstPlant.nombrePlanta : '',
-      direccion: firstPlant ? firstPlant.direccion : '',
-      localidad: firstPlant ? firstPlant.localidad : '',
-      provincia: firstPlant ? firstPlant.provincia : 'Santa Fe',
-    }));
-  };
-
-  const handleCenterChange = (centerId) => {
-    const currentClient = HIERARCHICAL_CLIENTS_CATALOG.find(c => c.id === orderForm.clienteId);
-    if (!currentClient) return;
-
-    const selectedCenter = currentClient.centros.find(cen => cen.id === centerId);
-    if (!selectedCenter) return;
-
-    const firstPlant = selectedCenter.plantas[0] || null;
-
-    setOrderForm(prev => ({
-      ...prev,
-      centroId: selectedCenter.id,
-      centroNombre: selectedCenter.nombreCentro,
-      plantaId: firstPlant ? firstPlant.id : '',
-      plantaNombre: firstPlant ? firstPlant.nombrePlanta : '',
-      direccion: firstPlant ? firstPlant.direccion : '',
-      localidad: firstPlant ? firstPlant.localidad : '',
-      provincia: firstPlant ? firstPlant.provincia : 'Santa Fe',
-    }));
-  };
-
-  const handlePlantChange = (plantId) => {
-    const currentClient = HIERARCHICAL_CLIENTS_CATALOG.find(c => c.id === orderForm.clienteId);
-    if (!currentClient) return;
-
-    const currentCenter = currentClient.centros.find(cen => cen.id === orderForm.centroId);
-    if (!currentCenter) return;
-
-    const selectedPlant = currentCenter.plantas.find(p => p.id === plantId);
-    if (!selectedPlant) return;
-
-    setOrderForm(prev => ({
-      ...prev,
-      plantaId: selectedPlant.id,
-      plantaNombre: selectedPlant.nombrePlanta,
-      direccion: selectedPlant.direccion,
-      localidad: selectedPlant.localidad,
-      provincia: selectedPlant.provincia,
-    }));
+  // Setter genérico para los campos del formulario de orden
+  const setOrderField = (field, value) => {
+    setOrderForm(prev => ({ ...prev, [field]: value }));
   };
 
   // Products line items management
@@ -502,10 +448,20 @@ export const ServiceOrdersPage = () => {
     return { total, enEjecucion, completadas, avgRating, totalEvaluadas: evaluadas.length };
   }, [orders]);
 
-  // Current client centers and plants for the form
-  const currentClientData = useMemo(() => {
-    return HIERARCHICAL_CLIENTS_CATALOG.find(c => c.id === orderForm.clienteId) || HIERARCHICAL_CLIENTS_CATALOG[0];
-  }, [orderForm.clienteId]);
+  // Opciones de técnico/operario a partir de los empleados registrados
+  const employeeOptions = useMemo(() => {
+    const opts = employees.map((emp) => {
+      const label = emp.matricula
+        ? `${emp.nombreApellido} (Mat. ${emp.matricula})`
+        : emp.nombreApellido;
+      return { value: label, label };
+    });
+    // Conservar el valor actual si no está en la lista (órdenes viejas)
+    if (orderForm.tecnicoAplicador && !opts.some((o) => o.value === orderForm.tecnicoAplicador)) {
+      opts.unshift({ value: orderForm.tecnicoAplicador, label: orderForm.tecnicoAplicador });
+    }
+    return [{ value: '', label: '— Sin asignar —' }, ...opts];
+  }, [employees, orderForm.tecnicoAplicador]);
 
   return (
     <div className="so-page">
@@ -741,6 +697,9 @@ export const ServiceOrdersPage = () => {
                       <td>
                         <div className="so-plant-cell">
                           <span className="so-plant-name">{order.plantaNombre}</span>
+                          {order.silo && (
+                            <span className="so-plant-silo">Silo: {order.silo}</span>
+                          )}
                           <span className="so-plant-loc">
                             <MapPin size={11} /> {order.direccion ? `${order.direccion}, ` : ''}{order.localidad} ({order.provincia})
                           </span>
@@ -897,44 +856,56 @@ export const ServiceOrdersPage = () => {
             />
           </div>
 
-          {/* Cliente (Empresa Madre) */}
-          <FormSelect
+          {/* Cliente (Empresa Madre) — búsqueda contra las empresas de la base */}
+          <CompanyAutocomplete
             label="Cliente (Empresa Madre)"
-            name="clienteId"
-            value={orderForm.clienteId}
-            onChange={(e) => handleClientChange(e.target.value)}
+            name="clienteNombre"
+            value={orderForm.clienteNombre}
+            onChange={(nombre, item) =>
+              setOrderForm(prev => ({
+                ...prev,
+                clienteNombre: nombre,
+                clienteId: item?.id ? String(item.id) : '',
+              }))
+            }
             required
-            options={HIERARCHICAL_CLIENTS_CATALOG.map(cli => ({ value: cli.id, label: cli.nombreCliente }))}
           />
 
-          {/* Centro / Filial y Planta (Jerárquico) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <FormSelect
-              label="Centro / Filial"
-              name="centroId"
-              value={orderForm.centroId}
-              onChange={(e) => handleCenterChange(e.target.value)}
-              required
-              options={(currentClientData?.centros || []).map(cen => ({ value: cen.id, label: cen.nombreCentro }))}
-            />
+          {/* Centro / Filial */}
+          <FormInput
+            label="Centro / Filial"
+            name="centroNombre"
+            value={orderForm.centroNombre}
+            onChange={(e) => setOrderField('centroNombre', e.target.value)}
+            placeholder="Ej: Centro Marcos Juárez"
+          />
 
-            <FormSelect
-              label="Planta / Ubicación Física"
-              name="plantaId"
-              value={orderForm.plantaId}
-              onChange={(e) => handlePlantChange(e.target.value)}
+          {/* Planta de Acopio y Silo (datos separados) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <FormInput
+              label="Planta de Acopio"
+              name="plantaNombre"
+              value={orderForm.plantaNombre}
+              onChange={(e) => setOrderField('plantaNombre', e.target.value)}
+              placeholder="Ej: Planta Acopio Norte"
               required
-              options={(currentClientData?.centros?.find(c => c.id === orderForm.centroId)?.plantas || []).map(p => ({ value: p.id, label: p.nombrePlanta }))}
+            />
+            <FormInput
+              label="Silo / Batería"
+              name="silo"
+              value={orderForm.silo}
+              onChange={(e) => setOrderField('silo', e.target.value)}
+              placeholder="Ej: Silo 3 / Silos 1 al 12"
             />
           </div>
 
-          {/* Dirección, Localidad, Provincia (Autocompletados automáticamente) */}
+          {/* Dirección, Localidad, Provincia */}
           <FormInput
-            label="Dirección de la Planta (Autocompletado)"
+            label="Dirección de la Planta"
             name="direccion"
             value={orderForm.direccion}
-            readOnly
-            placeholder="Autocompletado según planta seleccionada"
+            onChange={(e) => setOrderField('direccion', e.target.value)}
+            placeholder="Ej: Ruta Nacional 9 Km 435"
             icon={MapPin}
           />
 
@@ -943,24 +914,23 @@ export const ServiceOrdersPage = () => {
               label="Localidad"
               name="localidad"
               value={orderForm.localidad}
-              readOnly
+              onChange={(e) => setOrderField('localidad', e.target.value)}
             />
             <FormInput
               label="Provincia"
               name="provincia"
               value={orderForm.provincia}
-              readOnly
+              onChange={(e) => setOrderField('provincia', e.target.value)}
             />
           </div>
 
-          {/* Operario / Técnico */}
-          <FormInput
+          {/* Operario / Técnico — de la lista de Empleados registrados */}
+          <FormSelect
             label="Técnico / Operario Aplicador"
             name="tecnicoAplicador"
             value={orderForm.tecnicoAplicador}
-            onChange={(e) => setOrderForm({ ...orderForm, tecnicoAplicador: e.target.value })}
-            placeholder="Ej: Juan Carlos Pereyra (Mat. 4812)"
-            icon={Users}
+            onChange={(e) => setOrderField('tecnicoAplicador', e.target.value)}
+            options={employeeOptions}
           />
 
           {/* Instrucciones u Observaciones */}
@@ -1258,8 +1228,9 @@ export const ServiceOrdersPage = () => {
                 <div className="so-print-box">
                   <strong style={{ color: '#0f172a', display: 'block', marginBottom: '4px' }}>DATOS DEL CLIENTE</strong>
                   <div><strong>Empresa:</strong> {printTargetOrder.clienteNombre}</div>
-                  <div><strong>Centro / Filial:</strong> {printTargetOrder.centroNombre}</div>
-                  <div><strong>Ubicación Física:</strong> {printTargetOrder.plantaNombre}</div>
+                  <div><strong>Centro / Filial:</strong> {printTargetOrder.centroNombre || 'Sin especificar'}</div>
+                  <div><strong>Planta de Acopio:</strong> {printTargetOrder.plantaNombre}</div>
+                  <div><strong>Silo / Batería:</strong> {printTargetOrder.silo || 'Sin especificar'}</div>
                 </div>
 
                 <div className="so-print-box">

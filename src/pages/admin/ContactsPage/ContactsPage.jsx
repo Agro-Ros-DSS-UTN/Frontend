@@ -24,8 +24,9 @@ import {
   MapPin,
   FileText,
 } from 'lucide-react';
-import { mockClients, mockCompanies, CONTACT_TYPES } from '../../../data/mockData';
-import { getClients, createClient, getClientCompanies } from '../../../data/api';
+import { CONTACT_TYPES } from '../../../data/mockData';
+import { fetchClients, fetchClientCompanies, createClient, deleteClient } from '../../../data/api';
+import { DbLoader } from '../../../components/ui/DbLoader';
 import './ContactsPage.css';
 
 const TABS = [
@@ -46,38 +47,52 @@ const COLUMNS = [
 const PAGE_SIZE = 10;
 
 export const ContactsPage = () => {
-  const [clients, setClients] = useState(mockClients);
-  const [companies, setCompanies] = useState(mockCompanies);
+  const [clients, setClients] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('nombreApellido');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
+  const [selectedClient, setSelectedClient] = useState(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
-  // Load clients and companies from API
+  // Carga real desde la base de datos (sin datos mock de relleno)
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         const [clientsData, companiesData] = await Promise.all([
-          getClients(),
-          getClientCompanies(),
+          fetchClients(),
+          fetchClientCompanies(),
         ]);
-        if (Array.isArray(clientsData) && clientsData.length > 0) {
-          setClients(clientsData);
-        }
-        if (Array.isArray(companiesData) && companiesData.length > 0) {
-          setCompanies(companiesData);
-        }
+        setClients(Array.isArray(clientsData) ? clientsData : []);
+        setCompanies(Array.isArray(companiesData) ? companiesData : []);
       } catch (err) {
-        console.error('Error fetching contacts data:', err);
+        console.error('Error al obtener contactos desde la base de datos:', err);
+        setClients([]);
+        setCompanies([]);
+      } finally {
+        setLoading(false);
       }
     };
     fetchData();
   }, []);
+
+  const handleDelete = async (client) => {
+    const id = client?.numDoc || client?.id;
+    if (!id || !window.confirm('¿Eliminar este contacto?')) return;
+    setClients((prev) => prev.filter((c) => (c.numDoc || c.id) !== id));
+    try {
+      await deleteClient(id);
+    } catch (err) {
+      console.error('Error al eliminar contacto:', err);
+    }
+  };
 
   // Form state: { numDoc, nombreApellido, direccionMail, tipoClient, codigoPostal, clientCompanyId }
   const [form, setForm] = useState({
@@ -88,7 +103,7 @@ export const ContactsPage = () => {
     localidad: 'Casilda',
     codigoPostal: '2170',
     telefono: '',
-    clientCompanyId: mockCompanies[0]?.id || '',
+    clientCompanyId: '',
     nota: '',
   });
 
@@ -336,6 +351,14 @@ export const ContactsPage = () => {
         )}
 
         {/* Table */}
+        {loading ? (
+          <div style={{ padding: '20px' }}>
+            <DbLoader
+              title="Conectando con la base de datos…"
+              message="Aguardá un instante mientras traemos los contactos registrados."
+            />
+          </div>
+        ) : (
         <div className="contacts-page__table-wrapper">
           <table className="contacts-table">
             <thead>
@@ -393,7 +416,7 @@ export const ContactsPage = () => {
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => toggleSelectRow(client.numDoc)}
+                          onChange={() => toggleSelect(client.numDoc)}
                         />
                       </td>
                       <td>
@@ -437,7 +460,7 @@ export const ContactsPage = () => {
                           <button className="contacts-table__action-btn" title="Editar" onClick={() => setSelectedClient(client)}>
                             <Edit size={15} />
                           </button>
-                          <button className="contacts-table__action-btn contacts-table__action-btn--danger" title="Eliminar" onClick={() => handleDelete(client.id)}>
+                          <button className="contacts-table__action-btn contacts-table__action-btn--danger" title="Eliminar" onClick={() => handleDelete(client)}>
                             <Trash2 size={15} />
                           </button>
                         </div>
@@ -449,9 +472,10 @@ export const ContactsPage = () => {
             </tbody>
           </table>
         </div>
+        )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {!loading && totalPages > 1 && (
         <div className="contacts-page__pagination">
           <span className="contacts-page__pagination-info">
             {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredClients.length)} de {filteredClients.length} contactos

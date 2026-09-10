@@ -97,6 +97,18 @@ export const getClientCompanies = async () => {
   }
 };
 
+// Versión "estricta": consulta la base y propaga el error (sin datos mock).
+// Se usa en pantallas que muestran un cartel de "Conectando con la base de datos…".
+export const fetchClientCompanies = async () => {
+  const res = await request('/clientCompany');
+  return Array.isArray(res) ? res : res.data || res.companies || [];
+};
+
+export const fetchClients = async () => {
+  const res = await request('/clientes');
+  return Array.isArray(res) ? res : res.data || res.clients || [];
+};
+
 export const createClientCompany = async (companyData) => {
   const payload = {
     nombreEmpresa: companyData.nombreEmpresa,
@@ -258,6 +270,37 @@ export const updateOpportunity = async (id, oppData) => {
   } catch (err) {
     return { id, ...oppData };
   }
+};
+
+// Versión "estricta": consulta la base y propaga el error (sin datos mock).
+export const fetchOpportunities = async () => {
+  const res = await request('/oportunidades');
+  return Array.isArray(res) ? res : res.data || res.opportunities || [];
+};
+
+// Alta de Negocio con todos los campos descriptivos (nombre, etapa, prioridad, etc.)
+export const createNegocio = async (oppData) => {
+  const payload = {
+    nombreNegocio: oppData.nombreNegocio,
+    pipeline: oppData.pipeline || 'Pipeline de ventas',
+    etapaComercial: oppData.etapaComercial || 'cita_programada',
+    estado: oppData.estado || 'Lead',
+    prioridad: oppData.prioridad || 'Media',
+    tipoNegocio: oppData.tipoNegocio || 'Cliente nuevo',
+    propietario: oppData.propietario || null,
+    contactoNombre: oppData.contactoNombre || null,
+    potencialidadCliente: oppData.potencialidadCliente || 'Media',
+    volumenPotencial: Number(oppData.volumenPotencial || oppData.valor) || 0,
+    volumenFacturado: Number(oppData.volumenFacturado) || 0,
+    fechaCierre: oppData.fechaCierre || null,
+    clientCompanyId: oppData.clientCompanyId ? Number(oppData.clientCompanyId) : null,
+    sellerId: oppData.sellerId || null,
+  };
+  const res = await request('/oportunidades', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res?.data || res;
 };
 
 export const deleteOpportunity = async (id) => {

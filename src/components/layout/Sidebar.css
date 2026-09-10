@@ -20,6 +20,42 @@
   width: var(--sidebar-width-collapsed, 68px);
 }
 
+/* ── Tirador de ancho (drag) estilo Antigravity ── */
+.sidebar__resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: calc(var(--z-sidebar, 100) + 3);
+  background: transparent;
+  touch-action: none;
+}
+
+.sidebar__resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+  background-color: transparent;
+  transition: background-color 150ms ease;
+}
+
+.sidebar__resize-handle:hover::after,
+:root[data-sidebar-resizing] .sidebar__resize-handle::after {
+  background-color: var(--color-primary, #1a7d6b);
+}
+
+/* Mientras se arrastra, no queremos la animación de 200ms */
+:root[data-sidebar-resizing] .sidebar,
+:root[data-sidebar-resizing] .admin-layout__main {
+  transition: none !important;
+}
+
 /* ── Header / Logo ── */
 .sidebar__header {
   padding: var(--space-5, 20px) var(--space-4, 16px);

@@ -1,0 +1,314 @@
+/* EmployeesPage — personal operativo (tema claro) */
+
+.emp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.emp-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.emp-page__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.emp-page__title-icon {
+  color: #1a7d6b;
+}
+
+.emp-page__title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.emp-page__subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 4px 0 0 0;
+}
+
+.emp-page__add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background-color: #1a7d6b;
+  color: #fff;
+  border: none;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(26, 125, 107, 0.25);
+  transition: all 150ms ease;
+}
+
+.emp-page__add-btn:hover {
+  background-color: #0f5347;
+  transform: translateY(-1px);
+}
+
+/* Stats */
+.emp-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.emp-stat {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.emp-stat__label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #64748b;
+}
+
+.emp-stat__value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* Toolbar */
+.emp-toolbar {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.emp-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  max-width: 440px;
+}
+
+.emp-search:focus-within {
+  border-color: #1a7d6b;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.1);
+}
+
+.emp-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.88rem;
+  color: #0f172a;
+  width: 100%;
+}
+
+/* Grid of employee cards */
+.emp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.emp-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.emp-card:hover {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.07);
+  border-color: #cbd5e1;
+}
+
+.emp-card--inactive {
+  opacity: 0.7;
+}
+
+.emp-card__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.emp-card__avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #e6f4f1;
+  color: #1a7d6b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.05rem;
+  border: 2px solid #d1fae5;
+}
+
+.emp-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.emp-card__id h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.emp-card__role {
+  font-size: 0.78rem;
+  color: #1a7d6b;
+  font-weight: 600;
+}
+
+.emp-card__badge-off {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 1px 6px;
+  border-radius: 9999px;
+}
+
+.emp-card__data {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.emp-card__data span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.emp-card__data svg {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.emp-card__obs {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.emp-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.emp-card__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.emp-card__actions button:hover {
+  background: #f1f5f9;
+}
+
+.emp-card__actions button.danger {
+  color: #ef4444;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.emp-card__actions button.danger:hover {
+  background: #fee2e2;
+}
+
+.emp-empty {
+  text-align: center;
+  padding: 56px 20px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  color: #64748b;
+}
+
+.emp-empty h3 {
+  margin: 0 0 4px 0;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.emp-empty p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Checkbox in drawer */
+.emp-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #334155;
+  font-weight: 600;
+  padding-bottom: 10px;
+  cursor: pointer;
+}
+
+.emp-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #1a7d6b;
+  cursor: pointer;
+}

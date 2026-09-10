@@ -1,369 +1,189 @@
 /* eslint-disable */
-
-import { useState, useMemo, useRef, useEffect } from 'react';
-
+import { useState, useMemo, useEffect } from 'react';
 import {
   Handshake,
   Plus,
-  Filter,
   Search,
   Building2,
   User,
   Calendar,
-  DollarSign,
-  GripVertical,
-  MoreHorizontal,
-  X,
   TrendingUp,
   Download,
   LayoutGrid,
   Table as TableIcon,
   CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Sparkles,
-  Package,
-  Clock,
-  Layers,
-  ArrowUpDown,
-  Tag,
-  AlertCircle,
-  Check,
+  X,
+  Trash2,
 } from 'lucide-react';
+import { DEAL_STAGES, DEAL_PIPELINES } from '../../../data/mockData';
 import {
-  mockOpportunities,
-  mockCompanies,
-  mockClients,
-  mockSellers,
-  DEAL_STAGES,
-  DEAL_PIPELINES,
-  DEAL_PRODUCTS,
-} from '../../../data/mockData';
-import { getOpportunities, createOpportunity, getClientCompanies, getClients } from '../../../data/api';
+  fetchOpportunities,
+  createNegocio,
+  deleteOpportunity,
+  updateOpportunity,
+} from '../../../data/api';
+import { useAuth } from '../../../context/AuthContext';
+import { FormInput, FormSelect } from '../../../components/ui/FormInput';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer';
+import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete';
+import { DbLoader } from '../../../components/ui/DbLoader';
 import './OpportunitiesPage.css';
 
-/* ─────────────────────────────────────────────────────────────
-   HubSpot Searchable Multi-Select Association Dropdown Component
-   (Matches exact screenshot with search input & checkboxes)
-   ───────────────────────────────────────────────────────────── */
-const AssociationSearchPicker = ({
-  items = [],
-  selectedIds = [],
-  onChange,
-  placeholder = 'Buscar',
-  labelKey = 'label',
-  subLabelKey = 'subLabel',
-  idKey = 'id',
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const dropdownRef = useRef(null);
+const OWNER_OPTIONS = ['Manuel Fernández', 'Martín Gutiérrez', 'Ana Rodríguez', 'Diego Morales'];
+const TIPO_NEGOCIO_OPTIONS = [
+  { value: 'Cliente nuevo', label: 'Cliente nuevo' },
+  { value: 'Negocio existente / Recompra', label: 'Negocio existente / Recompra' },
+  { value: 'Recuperación de cuenta', label: 'Recuperación de cuenta' },
+];
+const PRIORIDAD_OPTIONS = [
+  { value: 'Alta', label: 'Alta' },
+  { value: 'Media', label: 'Media' },
+  { value: 'Baja', label: 'Baja' },
+];
 
-  // Close on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+const getStageInfo = (key) => {
+  const found = DEAL_STAGES.find((s) => s.key === key);
+  if (found) return found;
+  const byLabel = DEAL_STAGES.find((s) => s.label.toLowerCase() === (key || '').toLowerCase());
+  return byLabel || DEAL_STAGES[0];
+};
 
-  const filteredItems = useMemo(() => {
-    if (!searchTerm) return items;
-    const q = searchTerm.toLowerCase();
-    return items.filter(it => {
-      const lbl = (it[labelKey] || '').toLowerCase();
-      const sub = (it[subLabelKey] || '').toLowerCase();
-      return lbl.includes(q) || sub.includes(q);
-    });
-  }, [items, searchTerm, labelKey, subLabelKey]);
+const normalizeDeal = (o) => ({
+  id: o.id,
+  nombreNegocio: o.nombreNegocio || 'Negocio sin nombre',
+  pipeline: o.pipeline || 'Pipeline de ventas',
+  etapaKey: o.etapaComercial || 'cita_programada',
+  estado: o.estado || 'Lead',
+  prioridad: o.prioridad || 'Media',
+  tipoNegocio: o.tipoNegocio || 'Cliente nuevo',
+  valor: Number(o.volumenPotencial) || 0,
+  volumenFacturado: Number(o.volumenFacturado) || 0,
+  fechaCierre: o.fechaCierre || '',
+  fechaInicio: o.fechaInicio || '',
+  propietario: o.propietario || o.Seller?.User?.nombreApellido || '—',
+  empresa: o.ClientCompany?.nombreEmpresa || o.empresa || '',
+  clientCompanyId: o.clientCompanyId || o.ClientCompany?.id || null,
+  contacto: o.contactoNombre || '',
+});
 
-  const selectedItems = useMemo(() => {
-    return items.filter(it => selectedIds.includes(it[idKey]));
-  }, [items, selectedIds, idKey]);
+const emptyForm = (owner) => ({
+  nombreNegocio: '',
+  empresa: '',
+  contacto: '',
+  pipeline: DEAL_PIPELINES[0],
+  etapaKey: 'cita_programada',
+  valor: '',
+  fechaCierre: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+  propietario: owner || OWNER_OPTIONS[0],
+  tipoNegocio: 'Cliente nuevo',
+  prioridad: 'Media',
+});
 
-  const toggleItem = (id) => {
-    if (selectedIds.includes(id)) {
-      onChange(selectedIds.filter(selectedId => selectedId !== id));
-    } else {
-      onChange([...selectedIds, id]);
+export const OpportunitiesPage = () => {
+  const { currentUser } = useAuth();
+  const ownerName = currentUser?.nombreApellido || OWNER_OPTIONS[0];
+
+  const [deals, setDeals] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('todos');
+  const [viewMode, setViewMode] = useState('table');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [showDrawer, setShowDrawer] = useState(false);
+  const [selectedDealForDetail, setSelectedDealForDetail] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(emptyForm(ownerName));
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const opps = await fetchOpportunities();
+      setDeals(Array.isArray(opps) ? opps.map(normalizeDeal) : []);
+      // Recolectar empresas presentes para el filtro (opcional)
+      const comps = [];
+      (opps || []).forEach((o) => {
+        if (o.ClientCompany?.nombreEmpresa) comps.push(o.ClientCompany.nombreEmpresa);
+      });
+      setCompanies([...new Set(comps)]);
+    } catch (err) {
+      console.error('Error al obtener los negocios desde la base de datos:', err);
+      setDeals([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const removeItem = (e, id) => {
-    e.stopPropagation();
-    onChange(selectedIds.filter(selectedId => selectedId !== id));
-  };
-
-  return (
-    <div className="assoc-picker" ref={dropdownRef}>
-      {/* Trigger Box */}
-      <div
-        className={`assoc-picker__trigger ${isOpen ? 'active' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <div className="assoc-picker__tags">
-          {selectedItems.length === 0 ? (
-            <span className="assoc-picker__placeholder">{placeholder}</span>
-          ) : (
-            selectedItems.map(it => (
-              <span key={it[idKey]} className="assoc-chip">
-                <span className="assoc-chip__text">
-                  {it[labelKey]} {it[subLabelKey] ? `(${it[subLabelKey]})` : ''}
-                </span>
-                <button
-                  type="button"
-                  className="assoc-chip__remove"
-                  onClick={(e) => removeItem(e, it[idKey])}
-                  title="Quitar"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            ))
-          )}
-        </div>
-        <ChevronDown size={16} className={`assoc-picker__arrow ${isOpen ? 'rotate' : ''}`} />
-      </div>
-
-      {/* Dropdown Menu matching HubSpot Screenshot */}
-      {isOpen && (
-        <div className="assoc-picker__dropdown">
-          {/* Inner Search Box */}
-          <div className="assoc-picker__search-wrap">
-            <Search size={14} className="assoc-search-icon" />
-            <input
-              type="text"
-              className="assoc-picker__search-input"
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              autoFocus
-              onClick={e => e.stopPropagation()}
-            />
-          </div>
-
-          {/* List with Checkboxes */}
-          <div className="assoc-picker__list">
-            {filteredItems.length === 0 ? (
-              <div className="assoc-picker__empty">No se encontraron resultados</div>
-            ) : (
-              filteredItems.map(it => {
-                const isChecked = selectedIds.includes(it[idKey]);
-                return (
-                  <div
-                    key={it[idKey]}
-                    className={`assoc-picker__item ${isChecked ? 'selected' : ''}`}
-                    onClick={() => toggleItem(it[idKey])}
-                  >
-                    <div className={`assoc-checkbox ${isChecked ? 'checked' : ''}`}>
-                      {isChecked && <Check size={12} />}
-                    </div>
-                    <div className="assoc-picker__item-info">
-                      <span className="assoc-item-main">{it[labelKey]}</span>
-                      {it[subLabelKey] && (
-                        <span className="assoc-item-sub">({it[subLabelKey]})</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export const OpportunitiesPage = () => {
-  const [deals, setDeals] = useState(mockOpportunities);
-  const [apiCompanies, setApiCompanies] = useState(mockCompanies);
-  const [apiClients, setApiClients] = useState(mockClients);
-  const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'mis_negocios' | 'ganados' | 'negociacion'
-  const [viewMode, setViewMode] = useState('table'); // 'table' | 'kanban'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [pipelineFilter, setPipelineFilter] = useState('all');
-  const [stageFilter, setStageFilter] = useState('all');
-  const [ownerFilter, setOwnerFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-
-  // Load Opportunities from API
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [oppsData, compData, clientData] = await Promise.all([
-          getOpportunities(),
-          getClientCompanies(),
-          getClients(),
-        ]);
-        if (Array.isArray(oppsData) && oppsData.length > 0) {
-          setDeals(oppsData);
-        }
-        if (Array.isArray(compData) && compData.length > 0) {
-          setApiCompanies(compData);
-        }
-        if (Array.isArray(clientData) && clientData.length > 0) {
-          setApiClients(clientData);
-        }
-      } catch (err) {
-        console.error('Error fetching opportunities:', err);
-      }
-    };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Drag and drop in Kanban
-  const [draggedItem, setDraggedItem] = useState(null);
-
-  // Drawer Create Deal State
-  const [showDrawer, setShowDrawer] = useState(false);
-  const [selectedDealForDetail, setSelectedDealForDetail] = useState(null);
-
-  // Form State matching HubSpot exactly
-  const [form, setForm] = useState({
-    nombreNegocio: '',
-    pipeline: DEAL_PIPELINES[0],
-    etapaKey: 'cita_programada',
-    valor: '',
-    fechaCierre: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
-    propietario: 'Manuel Fernández',
-    tipoNegocio: 'Cliente nuevo',
-    prioridad: 'Alta',
-    // Associations
-    contactosIds: [mockClients[0]?.id || 1],
-    contactoEtiqueta: 'Tomador de decisión',
-    agregarActividadContacto: true,
-    empresasIds: [mockCompanies[0]?.id || 1],
-    empresaEtiqueta: 'Principal',
-    agregarActividadEmpresa: true,
-    // Products line items
-    productoSeleccionadoId: '1',
-    productoCantidad: '20',
-    elementosPedido: [],
-  });
-
-  // Contacts formatted for picker
-  const contactsListForPicker = useMemo(() => {
-    return (apiClients.length > 0 ? apiClients : mockClients).map(c => ({
-      id: c.id,
-      label: c.nombreApellido || `${c.nombre || ''} ${c.apellido || ''}`.trim() || 'Productor',
-      subLabel: c.direccionMail || c.email || 'Productor',
-      empresa: c.empresa,
-    }));
-  }, [apiClients]);
-
-  // Companies formatted for picker
-  const companiesListForPicker = useMemo(() => {
-    return (apiCompanies.length > 0 ? apiCompanies : mockCompanies).map(c => ({
-      id: c.id,
-      label: c.nombreEmpresa,
-      subLabel: c.localidad,
-      contacto: c.contacto,
-    }));
-  }, [apiCompanies]);
-
-  // Filtered deals
   const filteredDeals = useMemo(() => {
     let result = [...deals];
 
-    // Tab Filter
     if (activeTab === 'mis_negocios') {
-      result = result.filter(d => d.propietario?.toLowerCase().includes('manuel') || d.propietario?.toLowerCase().includes('martín'));
+      const me = ownerName.toLowerCase();
+      result = result.filter((d) => d.propietario?.toLowerCase().includes(me));
     } else if (activeTab === 'ganados') {
-      result = result.filter(d => d.etapaKey === 'cierre_ganado' || d.estado === 'Cierre ganado');
+      result = result.filter((d) => d.etapaKey === 'cierre_ganado');
     } else if (activeTab === 'negociacion') {
-      result = result.filter(d => d.etapaKey === 'decisor_convencido' || d.etapaKey === 'contrato_enviado');
+      result = result.filter((d) => ['decisor_convencido', 'contrato_enviado'].includes(d.etapaKey));
     }
 
-    // Search Query
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(d =>
-        d.nombreNegocio?.toLowerCase().includes(q) ||
-        d.empresa?.toLowerCase().includes(q) ||
-        d.contacto?.toLowerCase().includes(q) ||
-        d.propietario?.toLowerCase().includes(q)
+      result = result.filter(
+        (d) =>
+          d.nombreNegocio?.toLowerCase().includes(q) ||
+          d.empresa?.toLowerCase().includes(q) ||
+          d.contacto?.toLowerCase().includes(q) ||
+          d.propietario?.toLowerCase().includes(q)
       );
     }
 
-    // Pipeline Filter
-    if (pipelineFilter !== 'all') {
-      result = result.filter(d => d.pipeline === pipelineFilter);
-    }
-
-    // Stage Filter
-    if (stageFilter !== 'all') {
-      result = result.filter(d => d.etapaKey === stageFilter);
-    }
-
-    // Owner Filter
-    if (ownerFilter !== 'all') {
-      result = result.filter(d => d.propietario === ownerFilter);
-    }
-
-    // Priority Filter
-    if (priorityFilter !== 'all') {
-      result = result.filter(d => d.prioridad === priorityFilter);
-    }
+    if (stageFilter !== 'all') result = result.filter((d) => d.etapaKey === stageFilter);
+    if (priorityFilter !== 'all') result = result.filter((d) => d.prioridad === priorityFilter);
 
     return result;
-  }, [deals, activeTab, searchQuery, pipelineFilter, stageFilter, ownerFilter, priorityFilter]);
+  }, [deals, activeTab, searchQuery, stageFilter, priorityFilter, ownerName]);
 
-  // Statistics
-  const totalVolume = useMemo(() => {
-    return filteredDeals.reduce((sum, d) => sum + (Number(d.valor) || Number(d.volumenPotencial) || 0), 0);
-  }, [filteredDeals]);
+  const totalVolume = useMemo(
+    () => filteredDeals.reduce((sum, d) => sum + (Number(d.valor) || 0), 0),
+    [filteredDeals]
+  );
+  const wonDealsCount = useMemo(
+    () => deals.filter((d) => d.etapaKey === 'cierre_ganado').length,
+    [deals]
+  );
+  const avgDealValue = useMemo(
+    () => (filteredDeals.length ? Math.round(totalVolume / filteredDeals.length) : 0),
+    [filteredDeals, totalVolume]
+  );
 
-  const wonDealsCount = useMemo(() => {
-    return deals.filter(d => d.etapaKey === 'cierre_ganado' || d.estado === 'Cierre ganado').length;
-  }, [deals]);
+  const formatCurrency = (val) => (!val ? '$0' : `$${Number(val).toLocaleString('es-AR')}`);
 
-  const avgDealValue = useMemo(() => {
-    if (!filteredDeals.length) return 0;
-    return Math.round(totalVolume / filteredDeals.length);
-  }, [filteredDeals, totalVolume]);
-
-  const formatCurrency = (val) => {
-    if (!val) return '$0';
-    return `$${Number(val).toLocaleString('es-AR')}`;
-  };
-
-  const getStageInfo = (etapaKey) => {
-    const found = DEAL_STAGES.find(s => s.key === etapaKey);
-    if (found) return found;
-    // Fallback for legacy state keys or names
-    const byLabel = DEAL_STAGES.find(s => s.label.toLowerCase() === (etapaKey || '').toLowerCase());
-    if (byLabel) return byLabel;
-    if (etapaKey === 'Lead') return DEAL_STAGES[0];
-    if (etapaKey === 'Prospecto') return DEAL_STAGES[1];
-    if (etapaKey === 'Negociación') return DEAL_STAGES[3];
-    if (etapaKey === 'Activo') return DEAL_STAGES[5];
-    if (etapaKey === 'Perdido') return DEAL_STAGES[6];
-    return DEAL_STAGES[0];
-  };
-
-  // CSV Export with UTF-8 BOM
   const handleExportDeals = () => {
-    const headers = ['ID', 'Nombre del Negocio', 'Empresa', 'Contacto', 'Pipeline', 'Etapa', 'Valor ($)', 'Fecha de Cierre', 'Propietario', 'Prioridad', 'Tipo de Negocio'];
-    const rows = filteredDeals.map(d => [
+    const headers = ['ID', 'Nombre del Negocio', 'Empresa', 'Contacto', 'Pipeline', 'Etapa', 'Valor ($)', 'Fecha de Cierre', 'Propietario', 'Prioridad', 'Tipo'];
+    const rows = filteredDeals.map((d) => [
       d.id,
       `"${(d.nombreNegocio || '').replace(/"/g, '""')}"`,
       `"${(d.empresa || '').replace(/"/g, '""')}"`,
       `"${(d.contacto || '').replace(/"/g, '""')}"`,
-      `"${(d.pipeline || 'Pipeline de ventas').replace(/"/g, '""')}"`,
-      `"${getStageInfo(d.etapaKey || d.estado).label}"`,
-      d.valor || d.volumenPotencial || 0,
-      d.fechaCierre || d.fechaInicio || '',
-      `"${(d.propietario || d.vendedor || '').replace(/"/g, '""')}"`,
-      d.prioridad || 'Media',
-      d.tipoNegocio || 'Cliente nuevo',
+      `"${d.pipeline}"`,
+      `"${getStageInfo(d.etapaKey).label}"`,
+      d.valor || 0,
+      d.fechaCierre || '',
+      `"${(d.propietario || '').replace(/"/g, '""')}"`,
+      d.prioridad,
+      d.tipoNegocio,
     ]);
-
-    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const csv = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
@@ -373,155 +193,99 @@ export const OpportunitiesPage = () => {
     document.body.removeChild(link);
   };
 
-  // Drag and drop Kanban
   const handleDragStart = (e, deal) => {
     setDraggedItem(deal);
     e.dataTransfer.effectAllowed = 'move';
   };
-
   const handleDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
-
-  const handleDrop = (e, newStageKey) => {
+  const handleDrop = async (e, newStageKey) => {
     e.preventDefault();
-    if (draggedItem) {
-      setDeals(prev =>
-        prev.map(d =>
-          d.id === draggedItem.id
-            ? { ...d, etapaKey: newStageKey, estado: getStageInfo(newStageKey).label, fechaUltimaActualizacion: new Date().toISOString() }
-            : d
-        )
-      );
-      setDraggedItem(null);
+    if (!draggedItem) return;
+    const target = draggedItem;
+    setDraggedItem(null);
+    setDeals((prev) =>
+      prev.map((d) => (d.id === target.id ? { ...d, etapaKey: newStageKey } : d))
+    );
+    try {
+      await updateOpportunity(target.id, {
+        etapaComercial: newStageKey,
+        estado: getStageInfo(newStageKey).label,
+      });
+    } catch (err) {
+      console.error('Error al mover el negocio de etapa:', err);
+      fetchData();
     }
   };
 
-  // Add line item product in drawer
-  const handleAddProductItem = () => {
-    const prod = DEAL_PRODUCTS.find(p => p.id === Number(form.productoSeleccionadoId));
-    if (!prod) return;
-    const qty = Number(form.productoCantidad) || 1;
-    const newItem = {
-      producto: prod.nombre,
-      categoria: prod.categoria,
-      cantidad: qty,
-      precio: prod.precio,
-      subtotal: prod.precio * qty,
-    };
-
-    const updatedItems = [...form.elementosPedido, newItem];
-    const newTotal = updatedItems.reduce((s, i) => s + i.subtotal, 0);
-
-    setForm(prev => ({
-      ...prev,
-      elementosPedido: updatedItems,
-      valor: newTotal > 0 ? newTotal : prev.valor,
-    }));
+  const handleDeleteDeal = async (id, nombre, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`¿Eliminar el negocio "${nombre}"?`)) return;
+    setDeals((prev) => prev.filter((d) => d.id !== id));
+    if (selectedDealForDetail?.id === id) setSelectedDealForDetail(null);
+    try {
+      await deleteOpportunity(id);
+    } catch (err) {
+      console.error('Error al eliminar el negocio:', err);
+      fetchData();
+    }
   };
 
-  const handleRemoveProductItem = (idx) => {
-    const updated = form.elementosPedido.filter((_, i) => i !== idx);
-    const newTotal = updated.reduce((s, i) => s + i.subtotal, 0);
-    setForm(prev => ({
-      ...prev,
-      elementosPedido: updated,
-      valor: newTotal > 0 ? newTotal : prev.valor,
-    }));
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  // Submit Deal Form
-  const handleCreateDeal = async (e, andAddAnother = false) => {
+  const handleCreateDeal = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+    if (!form.nombreNegocio?.trim()) newErrors.nombreNegocio = 'Poné un nombre para el negocio.';
+    if (Object.keys(newErrors).length) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
 
-    const selectedContactObj = contactsListForPicker.find(c => form.contactosIds.includes(c.id));
-    const selectedCompanyObj = companiesListForPicker.find(c => form.empresasIds.includes(c.id));
-
-    // Homologated backend states: Prospecto, Negociación, Activo, Inactivo, Perdido, Lead
-    let backendEstado = 'Lead';
-    if (form.etapaKey === 'cita_programada' || form.etapaKey === 'calificado_comprar') backendEstado = 'Prospecto';
-    else if (form.etapaKey === 'presentacion_programada' || form.etapaKey === 'decisor_convencido') backendEstado = 'Negociación';
-    else if (form.etapaKey === 'contrato_enviado' || form.etapaKey === 'cierre_ganado') backendEstado = 'Activo';
-    else if (form.etapaKey === 'cierre_perdido') backendEstado = 'Perdido';
-
-    const oppPayload = {
-      estado: backendEstado,
-      potencialidadCliente: 'Alta',
-      volumenPotencial: Number(form.valor) || 322200,
-      volumenFacturado: form.etapaKey === 'cierre_ganado' ? (Number(form.valor) || 322200) : 0,
-      clientCompanyId: form.empresasIds[0] ? Number(form.empresasIds[0]) : 1,
-      sellerId: 1,
-    };
-
-    const newDeal = {
-      id: Date.now(),
-      nombreNegocio: form.nombreNegocio || `${selectedCompanyObj?.label || 'Productor'} - Oportunidad Comercial`,
-      pipeline: form.pipeline,
-      estado: getStageInfo(form.etapaKey).label,
-      etapaKey: form.etapaKey,
-      potencialidadCliente: 'Alta',
-      valor: Number(form.valor) || 322200,
-      volumenPotencial: Number(form.valor) || 322200,
-      volumenFacturado: form.etapaKey === 'cierre_ganado' ? Number(form.valor) : 0,
-      fechaInicio: new Date().toISOString().slice(0, 10),
-      fechaCierre: form.fechaCierre,
-      fechaUltimaActualizacion: new Date().toISOString(),
-      propietario: form.propietario,
-      vendedor: form.propietario,
-      clientCompanyId: form.empresasIds[0] || 1,
-      empresa: selectedCompanyObj?.label || 'Campo Grande S.R.L.',
-      empresaEtiqueta: form.empresaEtiqueta,
-      contacto: selectedContactObj ? selectedContactObj.label : 'Roberto Aguilar',
-      contactoEmail: selectedContactObj?.subLabel || 'contacto@campo.com',
-      contactoEtiqueta: form.contactoEtiqueta,
-      tipoNegocio: form.tipoNegocio,
-      prioridad: form.prioridad,
-      elementosPedido: form.elementosPedido,
-    };
+    // Mapear etapa -> estado homologado
+    let estado = 'Lead';
+    if (['cita_programada', 'calificado_comprar'].includes(form.etapaKey)) estado = 'Prospecto';
+    else if (['presentacion_programada', 'decisor_convencido'].includes(form.etapaKey)) estado = 'Negociación';
+    else if (['contrato_enviado', 'cierre_ganado'].includes(form.etapaKey)) estado = 'Activo';
+    else if (form.etapaKey === 'cierre_perdido') estado = 'Perdido';
 
     try {
-      const created = await createOpportunity(oppPayload);
-      setDeals(prev => [{ ...newDeal, id: created?.id || newDeal.id }, ...prev]);
-    } catch (err) {
-      setDeals(prev => [newDeal, ...prev]);
-    }
-
-    if (andAddAnother) {
-      setForm(prev => ({
-        ...prev,
-        nombreNegocio: '',
-        valor: '',
-        elementosPedido: [],
-      }));
-    } else {
-      setShowDrawer(false);
-      // Reset
-      setForm({
-        nombreNegocio: '',
-        pipeline: DEAL_PIPELINES[0],
-        etapaKey: 'cita_programada',
-        valor: '',
-        fechaCierre: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
-        propietario: 'Manuel Fernández',
-        tipoNegocio: 'Cliente nuevo',
-        prioridad: 'Alta',
-        contactosIds: [mockClients[0]?.id || 1],
-        contactoEtiqueta: 'Tomador de decisión',
-        agregarActividadContacto: true,
-        empresasIds: [mockCompanies[0]?.id || 1],
-        empresaEtiqueta: 'Principal',
-        agregarActividadEmpresa: true,
-        productoSeleccionadoId: '1',
-        productoCantidad: '20',
-        elementosPedido: [],
+      setSaving(true);
+      await createNegocio({
+        nombreNegocio: form.nombreNegocio.trim(),
+        pipeline: form.pipeline,
+        etapaComercial: form.etapaKey,
+        estado,
+        prioridad: form.prioridad,
+        tipoNegocio: form.tipoNegocio,
+        propietario: form.propietario,
+        contactoNombre: form.contacto?.trim() || null,
+        volumenPotencial: Number(form.valor) || 0,
+        volumenFacturado: form.etapaKey === 'cierre_ganado' ? Number(form.valor) || 0 : 0,
+        fechaCierre: form.fechaCierre || null,
+        clientCompanyId: form.clientCompanyId || null,
       });
+      setShowDrawer(false);
+      setForm(emptyForm(ownerName));
+      await fetchData();
+    } catch (err) {
+      console.error('Error al crear el negocio:', err);
+      alert('No se pudo guardar el negocio. Revisá los datos e intentá de nuevo.');
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <div className="deals-page">
-      {/* ── Page Header ── */}
+      {/* Header */}
       <div className="deals-page__header">
         <div className="deals-page__title-box">
           <div className="deals-page__icon-badge">
@@ -536,20 +300,18 @@ export const OpportunitiesPage = () => {
         </div>
 
         <div className="deals-page__header-actions">
-          <button
-            type="button"
-            className="deals-btn deals-btn--export"
-            onClick={handleExportDeals}
-            title="Exportar negocios en formato CSV"
-          >
+          <button type="button" className="deals-btn deals-btn--export" onClick={handleExportDeals}>
             <Download size={15} />
             <span>Exportar</span>
           </button>
-
           <button
             type="button"
             className="deals-btn deals-btn--primary"
-            onClick={() => setShowDrawer(true)}
+            onClick={() => {
+              setErrors({});
+              setForm(emptyForm(ownerName));
+              setShowDrawer(true);
+            }}
           >
             <Plus size={16} />
             <span>Crear Negocio</span>
@@ -557,7 +319,7 @@ export const OpportunitiesPage = () => {
         </div>
       </div>
 
-      {/* ── Metric Summary Cards ── */}
+      {/* Metrics */}
       <div className="deals-metrics-grid">
         <div className="deals-metric-card">
           <span className="metric-label">TOTAL NEGOCIOS</span>
@@ -566,7 +328,6 @@ export const OpportunitiesPage = () => {
             <span className="metric-tag">{deals.length} en base</span>
           </div>
         </div>
-
         <div className="deals-metric-card">
           <span className="metric-label">VOLUMEN TOTAL PIPELINE</span>
           <div className="metric-value-row">
@@ -574,7 +335,6 @@ export const OpportunitiesPage = () => {
             <TrendingUp size={16} className="text-primary" />
           </div>
         </div>
-
         <div className="deals-metric-card">
           <span className="metric-label">TICKET PROMEDIO</span>
           <div className="metric-value-row">
@@ -582,7 +342,6 @@ export const OpportunitiesPage = () => {
             <span className="metric-sub">por operación</span>
           </div>
         </div>
-
         <div className="deals-metric-card">
           <span className="metric-label">CIERRES GANADOS</span>
           <div className="metric-value-row">
@@ -592,61 +351,36 @@ export const OpportunitiesPage = () => {
         </div>
       </div>
 
-      {/* ── Main Container (Card) ── */}
+      {/* Card */}
       <div className="deals-card">
-        {/* HubSpot-style Top Tabs Bar */}
         <div className="deals-tabs-bar">
           <div className="deals-tabs-group">
-            <button
-              className={`deals-tab-btn ${activeTab === 'todos' ? 'active' : ''}`}
-              onClick={() => setActiveTab('todos')}
-            >
+            <button className={`deals-tab-btn ${activeTab === 'todos' ? 'active' : ''}`} onClick={() => setActiveTab('todos')}>
               Todos los negocios <span className="tab-badge">{deals.length}</span>
             </button>
-            <button
-              className={`deals-tab-btn ${activeTab === 'mis_negocios' ? 'active' : ''}`}
-              onClick={() => setActiveTab('mis_negocios')}
-            >
+            <button className={`deals-tab-btn ${activeTab === 'mis_negocios' ? 'active' : ''}`} onClick={() => setActiveTab('mis_negocios')}>
               Mis negocios
             </button>
-            <button
-              className={`deals-tab-btn ${activeTab === 'negociacion' ? 'active' : ''}`}
-              onClick={() => setActiveTab('negociacion')}
-            >
+            <button className={`deals-tab-btn ${activeTab === 'negociacion' ? 'active' : ''}`} onClick={() => setActiveTab('negociacion')}>
               En decisión / Contrato
             </button>
-            <button
-              className={`deals-tab-btn ${activeTab === 'ganados' ? 'active' : ''}`}
-              onClick={() => setActiveTab('ganados')}
-            >
+            <button className={`deals-tab-btn ${activeTab === 'ganados' ? 'active' : ''}`} onClick={() => setActiveTab('ganados')}>
               Ganados
             </button>
           </div>
 
-          {/* View Mode Switcher: Table vs Kanban */}
           <div className="deals-view-switcher">
-            <button
-              type="button"
-              className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`}
-              onClick={() => setViewMode('table')}
-              title="Vista de Tabla"
-            >
+            <button type="button" className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
               <TableIcon size={15} />
               <span>Tabla</span>
             </button>
-            <button
-              type="button"
-              className={`view-mode-btn ${viewMode === 'kanban' ? 'active' : ''}`}
-              onClick={() => setViewMode('kanban')}
-              title="Vista de Tablero / Kanban"
-            >
+            <button type="button" className={`view-mode-btn ${viewMode === 'kanban' ? 'active' : ''}`} onClick={() => setViewMode('kanban')}>
               <LayoutGrid size={15} />
               <span>Tablero</span>
             </button>
           </div>
         </div>
 
-        {/* ── Filter Toolbar ── */}
         <div className="deals-toolbar">
           <div className="deals-search-box">
             <Search size={15} />
@@ -664,59 +398,30 @@ export const OpportunitiesPage = () => {
           </div>
 
           <div className="deals-filters-row">
-            {/* Pipeline Selector */}
-            <div className="deals-filter-dropdown">
-              <label>Pipeline:</label>
-              <select value={pipelineFilter} onChange={(e) => setPipelineFilter(e.target.value)}>
-                <option value="all">Todos los pipelines</option>
-                {DEAL_PIPELINES.map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Stage Selector */}
             <div className="deals-filter-dropdown">
               <label>Etapa:</label>
               <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}>
                 <option value="all">Todas las etapas</option>
-                {DEAL_STAGES.map(s => (
+                {DEAL_STAGES.map((s) => (
                   <option key={s.key} value={s.key}>{s.label}</option>
                 ))}
               </select>
             </div>
-
-            {/* Propietario */}
-            <div className="deals-filter-dropdown">
-              <label>Propietario:</label>
-              <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
-                <option value="all">Todos los propietarios</option>
-                <option value="Manuel Fernández">Manuel Fernández (Admin)</option>
-                <option value="Martín Gutiérrez">Martín Gutiérrez</option>
-                <option value="Ana Rodríguez">Ana Rodríguez</option>
-                <option value="Diego Morales">Diego Morales</option>
-              </select>
-            </div>
-
-            {/* Prioridad */}
             <div className="deals-filter-dropdown">
               <label>Prioridad:</label>
               <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
                 <option value="all">Todas las prioridades</option>
-                <option value="Alta">🔴 Alta</option>
-                <option value="Media">🟡 Media</option>
-                <option value="Baja">🔵 Baja</option>
+                <option value="Alta">Alta</option>
+                <option value="Media">Media</option>
+                <option value="Baja">Baja</option>
               </select>
             </div>
-
-            {(pipelineFilter !== 'all' || stageFilter !== 'all' || ownerFilter !== 'all' || priorityFilter !== 'all' || searchQuery) && (
+            {(stageFilter !== 'all' || priorityFilter !== 'all' || searchQuery) && (
               <button
                 type="button"
                 className="deals-clear-filters-btn"
                 onClick={() => {
-                  setPipelineFilter('all');
                   setStageFilter('all');
-                  setOwnerFilter('all');
                   setPriorityFilter('all');
                   setSearchQuery('');
                 }}
@@ -727,15 +432,18 @@ export const OpportunitiesPage = () => {
           </div>
         </div>
 
-        {/* ── VIEW 1: DATA TABLE (HubSpot Style) ── */}
-        {viewMode === 'table' && (
+        {loading ? (
+          <div style={{ padding: '20px' }}>
+            <DbLoader
+              title="Conectando con la base de datos…"
+              message="Aguardá un instante mientras traemos los negocios registrados."
+            />
+          </div>
+        ) : viewMode === 'table' ? (
           <div className="deals-table-container">
             <table className="deals-table">
               <thead>
                 <tr>
-                  <th style={{ width: '40px' }}>
-                    <input type="checkbox" />
-                  </th>
                   <th>Nombre del Negocio</th>
                   <th>Empresa</th>
                   <th>Contacto</th>
@@ -744,6 +452,7 @@ export const OpportunitiesPage = () => {
                   <th>Propietario</th>
                   <th>Fecha de Cierre</th>
                   <th style={{ textAlign: 'right' }}>Valor ($)</th>
+                  <th style={{ width: '48px' }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -752,84 +461,68 @@ export const OpportunitiesPage = () => {
                     <td colSpan={9} className="deals-table-empty">
                       <div className="empty-state-box">
                         <Handshake size={36} className="empty-icon" />
-                        <h4>No hay Negocios que coincidan con los filtros actuales</h4>
-                        <p>Intenta ajustar los filtros de búsqueda o crea un nuevo negocio.</p>
-                        <button
-                          type="button"
-                          className="deals-btn deals-btn--primary"
-                          style={{ marginTop: '12px' }}
-                          onClick={() => setShowDrawer(true)}
-                        >
-                          <Plus size={15} /> Crear Negocio
-                        </button>
+                        <h4>No hay negocios para mostrar</h4>
+                        <p>Creá el primero con el botón “Crear Negocio”.</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  filteredDeals.map(deal => {
-                    const stage = getStageInfo(deal.etapaKey || deal.estado);
+                  filteredDeals.map((deal) => {
+                    const stage = getStageInfo(deal.etapaKey);
                     return (
-                      <tr
-                        key={deal.id}
-                        className="deals-table-row"
-                        onClick={() => setSelectedDealForDetail(deal)}
-                      >
-                        <td onClick={e => e.stopPropagation()}>
-                          <input type="checkbox" />
-                        </td>
+                      <tr key={deal.id} className="deals-table-row" onClick={() => setSelectedDealForDetail(deal)}>
                         <td>
                           <div className="deal-name-cell">
-                            <span className="deal-title-link">{deal.nombreNegocio || `${deal.empresa} - Negocio`}</span>
-                            <span className="deal-pipeline-sub">{deal.pipeline || 'Pipeline de ventas'}</span>
+                            <span className="deal-title-link">{deal.nombreNegocio}</span>
+                            <span className="deal-pipeline-sub">{deal.pipeline}</span>
                           </div>
                         </td>
                         <td>
                           <div className="deal-company-cell">
                             <Building2 size={13} className="cell-icon" />
-                            <span>{deal.empresa}</span>
+                            <span>{deal.empresa || '—'}</span>
                           </div>
                         </td>
                         <td>
                           <div className="deal-contact-cell">
                             <User size={13} className="cell-icon" />
-                            <span>{deal.contacto || 'Roberto Aguilar'}</span>
+                            <span>{deal.contacto || '—'}</span>
                           </div>
                         </td>
                         <td>
-                          <span
-                            className="deal-stage-pill"
-                            style={{
-                              backgroundColor: stage.bg,
-                              color: stage.text || '#ffffff',
-                            }}
-                          >
+                          <span className="deal-stage-pill" style={{ backgroundColor: stage.bg, color: stage.text || '#fff' }}>
                             {stage.label}
                           </span>
                         </td>
                         <td>
-                          <span className={`deal-priority-chip deal-priority-chip--${(deal.prioridad || 'media').toLowerCase()}`}>
-                            <span className="priority-dot" />
-                            {deal.prioridad || 'Media'}
+                          <span className={`prio-chip prio-chip--${(deal.prioridad || 'media').toLowerCase()}`}>
+                            {deal.prioridad}
                           </span>
                         </td>
                         <td>
                           <div className="deal-owner-cell">
-                            <div className="owner-avatar-mini">
-                              {(deal.propietario || deal.vendedor || 'U').charAt(0)}
-                            </div>
-                            <span>{deal.propietario || deal.vendedor}</span>
+                            <div className="owner-avatar-mini">{(deal.propietario || 'U').charAt(0)}</div>
+                            <span>{deal.propietario}</span>
                           </div>
                         </td>
                         <td>
                           <div className="deal-date-cell">
                             <Calendar size={12} />
-                            <span>{deal.fechaCierre || deal.fechaInicio || 'Sin fecha'}</span>
+                            <span>{deal.fechaCierre || 'Sin fecha'}</span>
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <span className="deal-value-amount">
-                            {formatCurrency(deal.valor || deal.volumenPotencial)}
-                          </span>
+                          <span className="deal-value-amount">{formatCurrency(deal.valor)}</span>
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="deal-row-delete"
+                            title="Eliminar negocio"
+                            onClick={(e) => handleDeleteDeal(deal.id, deal.nombreNegocio, e)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -845,15 +538,11 @@ export const OpportunitiesPage = () => {
               </span>
             </div>
           </div>
-        )}
-
-        {/* ── VIEW 2: KANBAN BOARD ── */}
-        {viewMode === 'kanban' && (
+        ) : (
           <div className="deals-kanban">
-            {DEAL_STAGES.map(stage => {
-              const stageDeals = filteredDeals.filter(d => (d.etapaKey === stage.key) || (d.estado === stage.label) || (getStageInfo(d.estado).key === stage.key));
-              const stageTotal = stageDeals.reduce((sum, d) => sum + (Number(d.valor) || Number(d.volumenPotencial) || 0), 0);
-
+            {DEAL_STAGES.map((stage) => {
+              const stageDeals = filteredDeals.filter((d) => d.etapaKey === stage.key);
+              const stageTotal = stageDeals.reduce((sum, d) => sum + (Number(d.valor) || 0), 0);
               return (
                 <div
                   key={stage.key}
@@ -864,23 +553,18 @@ export const OpportunitiesPage = () => {
                   <div className="kanban-col-header" style={{ borderTopColor: stage.color }}>
                     <div className="kanban-col-title-row">
                       <span className="kanban-col-title">{stage.label}</span>
-                      <span
-                        className="kanban-col-count"
-                        style={{ backgroundColor: stage.bg, color: stage.text || '#ffffff' }}
-                      >
+                      <span className="kanban-col-count" style={{ backgroundColor: stage.bg, color: stage.text || '#fff' }}>
                         {stageDeals.length}
                       </span>
                     </div>
-                    <div className="kanban-col-total">
-                      {formatCurrency(stageTotal)}
-                    </div>
+                    <div className="kanban-col-total">{formatCurrency(stageTotal)}</div>
                   </div>
 
                   <div className="kanban-col-cards">
                     {stageDeals.length === 0 ? (
                       <div className="kanban-empty-col">Sin negocios</div>
                     ) : (
-                      stageDeals.map(deal => (
+                      stageDeals.map((deal) => (
                         <div
                           key={deal.id}
                           className="kanban-deal-card"
@@ -889,20 +573,18 @@ export const OpportunitiesPage = () => {
                           onClick={() => setSelectedDealForDetail(deal)}
                         >
                           <div className="kanban-card-top">
-                            <span className="kanban-card-title">{deal.nombreNegocio || deal.empresa}</span>
-                            <span className={`deal-priority-dot deal-priority-dot--${(deal.prioridad || 'media').toLowerCase()}`} title={`Prioridad: ${deal.prioridad}`} />
-                          </div>
-
-                          <div className="kanban-card-company">
-                            <Building2 size={12} /> {deal.empresa}
-                          </div>
-
-                          <div className="kanban-card-footer">
-                            <span className="kanban-card-amount">
-                              {formatCurrency(deal.valor || deal.volumenPotencial)}
+                            <span className="kanban-card-title">{deal.nombreNegocio}</span>
+                            <span className={`prio-chip prio-chip--${(deal.prioridad || 'media').toLowerCase()} prio-chip--sm`}>
+                              {deal.prioridad}
                             </span>
+                          </div>
+                          <div className="kanban-card-company">
+                            <Building2 size={12} /> {deal.empresa || '—'}
+                          </div>
+                          <div className="kanban-card-footer">
+                            <span className="kanban-card-amount">{formatCurrency(deal.valor)}</span>
                             <div className="kanban-card-owner" title={deal.propietario}>
-                              {(deal.propietario || deal.vendedor || 'U').charAt(0)}
+                              {(deal.propietario || 'U').charAt(0)}
                             </div>
                           </div>
                         </div>
@@ -916,369 +598,131 @@ export const OpportunitiesPage = () => {
         )}
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          HUBSPOT SLIDE-OVER DRAWER: CREAR NEGOCIO (Exact 1:1 Match)
-         ════════════════════════════════════════════════════════════════════ */}
-      {showDrawer && (
-        <div className="hubspot-drawer-overlay" onClick={() => setShowDrawer(false)}>
-          <div className="hubspot-drawer" onClick={e => e.stopPropagation()}>
-            <div className="hubspot-drawer__header">
-              <div className="hubspot-drawer__title-box">
-                <h2>Crear Negocio</h2>
-                <a href="#custom-form" className="edit-form-link" onClick={e => e.preventDefault()}>
-                  Editar este formulario ↗
-                </a>
-              </div>
-              <button
-                type="button"
-                className="hubspot-drawer__close"
-                onClick={() => setShowDrawer(false)}
-              >
-                <X size={20} />
-              </button>
-            </div>
+      {/* Drawer: Crear Negocio (mismo estilo que Empresas / Tareas) */}
+      <SlideDrawer
+        isOpen={showDrawer}
+        onClose={() => setShowDrawer(false)}
+        title="Crear Negocio"
+        width="540px"
+      >
+        <form onSubmit={handleCreateDeal} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+          <FormInput
+            label="Nombre del negocio"
+            name="nombreNegocio"
+            value={form.nombreNegocio}
+            onChange={handleFormChange}
+            placeholder="Ej: Campo Grande - Combo Barbecho Químico"
+            required
+            error={errors.nombreNegocio}
+          />
 
-            <form className="hubspot-drawer__form" onSubmit={(e) => handleCreateDeal(e, false)}>
-              {/* 1. Nombre del negocio */}
-              <div className="hubspot-field">
-                <label>Nombre del negocio <span className="req">*</span></label>
-                <input
-                  type="text"
-                  className="hubspot-input"
-                  placeholder="Ej: WWS / Campo Grande - Combo Barbecho"
-                  value={form.nombreNegocio}
-                  onChange={(e) => setForm(prev => ({ ...prev, nombreNegocio: e.target.value }))}
-                  required
-                />
-              </div>
+          <CompanyAutocomplete
+            label="Empresa Asociada"
+            name="empresa"
+            value={form.empresa}
+            onChange={(nombre, item) =>
+              setForm((prev) => ({ ...prev, empresa: nombre, clientCompanyId: item?.id || null }))
+            }
+          />
 
-              {/* 2. Pipeline */}
-              <div className="hubspot-field">
-                <label>Pipeline <span className="req">*</span></label>
-                <select
-                  className="hubspot-select"
-                  value={form.pipeline}
-                  onChange={(e) => setForm(prev => ({ ...prev, pipeline: e.target.value }))}
-                  required
-                >
-                  {DEAL_PIPELINES.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
+          <FormInput
+            label="Contacto Responsable"
+            name="contacto"
+            value={form.contacto}
+            onChange={handleFormChange}
+            placeholder="Ej: Roberto Aguilar"
+          />
 
-              {/* 3. Etapa del negocio (With exact 7 HubSpot stage colors) */}
-              <div className="hubspot-field">
-                <label>Etapa del negocio <span className="req">*</span></label>
-                <div className="hubspot-stage-select-wrapper">
-                  <select
-                    className="hubspot-select hubspot-select--stage"
-                    value={form.etapaKey}
-                    onChange={(e) => setForm(prev => ({ ...prev, etapaKey: e.target.value }))}
-                    required
-                  >
-                    {DEAL_STAGES.map(st => (
-                      <option key={st.key} value={st.key}>{st.label}</option>
-                    ))}
-                  </select>
-                  <div
-                    className="stage-preview-pill"
-                    style={{
-                      backgroundColor: getStageInfo(form.etapaKey).bg,
-                      color: getStageInfo(form.etapaKey).text || '#ffffff',
-                    }}
-                  >
-                    {getStageInfo(form.etapaKey).label}
-                  </div>
-                </div>
-              </div>
+          <FormSelect
+            label="Pipeline"
+            name="pipeline"
+            value={form.pipeline}
+            onChange={handleFormChange}
+            options={DEAL_PIPELINES.map((p) => ({ value: p, label: p }))}
+          />
 
-              {/* 4. Valor */}
-              <div className="hubspot-field">
-                <label>Valor</label>
-                <div className="hubspot-amount-wrapper">
-                  <input
-                    type="number"
-                    className="hubspot-input hubspot-input--amount"
-                    placeholder="322.200,00"
-                    value={form.valor}
-                    onChange={(e) => setForm(prev => ({ ...prev, valor: e.target.value }))}
-                  />
-                  <span className="currency-suffix">$</span>
-                </div>
-              </div>
+          <FormSelect
+            label="Etapa del negocio"
+            name="etapaKey"
+            value={form.etapaKey}
+            onChange={handleFormChange}
+            options={DEAL_STAGES.map((s) => ({ value: s.key, label: s.label }))}
+          />
 
-              {/* 5. Fecha de cierre */}
-              <div className="hubspot-field">
-                <label>Fecha de cierre</label>
-                <input
-                  type="date"
-                  className="hubspot-input"
-                  value={form.fechaCierre}
-                  onChange={(e) => setForm(prev => ({ ...prev, fechaCierre: e.target.value }))}
-                />
-              </div>
-
-              {/* 6. Propietario del negocio */}
-              <div className="hubspot-field">
-                <label>Propietario del negocio</label>
-                <select
-                  className="hubspot-select"
-                  value={form.propietario}
-                  onChange={(e) => setForm(prev => ({ ...prev, propietario: e.target.value }))}
-                >
-                  <option value="Manuel Fernández">Manuel Fernández</option>
-                  <option value="Martín Gutiérrez">Martín Gutiérrez</option>
-                  <option value="Ana Rodríguez">Ana Rodríguez</option>
-                  <option value="Diego Morales">Diego Morales</option>
-                </select>
-              </div>
-
-              {/* 7. Tipo de negocio */}
-              <div className="hubspot-field">
-                <label>Tipo de negocio</label>
-                <select
-                  className="hubspot-select"
-                  value={form.tipoNegocio}
-                  onChange={(e) => setForm(prev => ({ ...prev, tipoNegocio: e.target.value }))}
-                >
-                  <option value="Cliente nuevo">Cliente nuevo</option>
-                  <option value="Negocio existente / Recompra">Negocio existente / Recompra</option>
-                  <option value="Recuperación de cuenta">Recuperación de cuenta</option>
-                </select>
-              </div>
-
-              {/* 8. Prioridad */}
-              <div className="hubspot-field">
-                <label>Prioridad</label>
-                <select
-                  className="hubspot-select"
-                  value={form.prioridad}
-                  onChange={(e) => setForm(prev => ({ ...prev, prioridad: e.target.value }))}
-                >
-                  <option value="Alta">🔴 Alta</option>
-                  <option value="Media">🟡 Media</option>
-                  <option value="Baja">🔵 Baja</option>
-                </select>
-              </div>
-
-              {/* ══════════════════════════════════════════════════════
-                  ASOCIAR NEGOCIO CON (Section identical to screenshot 2)
-                 ══════════════════════════════════════════════════════ */}
-              <div className="hubspot-assoc-section">
-                <h3 className="assoc-main-title">Asociar Negocio con</h3>
-
-                {/* ── Accordion Card: Contactos ── */}
-                <div className="assoc-card">
-                  <div className="assoc-card-header">
-                    <span className="assoc-card-label">⌵ Contactos</span>
-                  </div>
-
-                  <div className="assoc-card-body">
-                    <div className="hubspot-field">
-                      <label>Asociar registros</label>
-                      <AssociationSearchPicker
-                        items={contactsListForPicker}
-                        selectedIds={form.contactosIds}
-                        onChange={(newIds) => setForm(prev => ({ ...prev, contactosIds: newIds }))}
-                        placeholder="Buscar"
-                        labelKey="label"
-                        subLabelKey="subLabel"
-                        idKey="id"
-                      />
-                    </div>
-
-                    <div className="hubspot-field">
-                      <label>Etiqueta de asociación</label>
-                      <select
-                        className="hubspot-select"
-                        value={form.contactoEtiqueta}
-                        onChange={(e) => setForm(prev => ({ ...prev, contactoEtiqueta: e.target.value }))}
-                      >
-                        <option value="Sin etiqueta">Sin etiqueta</option>
-                        <option value="Tomador de decisión">Tomador de decisión</option>
-                        <option value="Asesor agronómico">Asesor agronómico</option>
-                        <option value="Administrador">Administrador</option>
-                      </select>
-                    </div>
-
-                    <label className="hubspot-checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={form.agregarActividadContacto}
-                        onChange={(e) => setForm(prev => ({ ...prev, agregarActividadContacto: e.target.checked }))}
-                      />
-                      <span>Agregar actividad de la cronología de este objeto (Contacto) ⓘ</span>
-                    </label>
-
-                    <button
-                      type="button"
-                      className="btn-add-more-assoc"
-                      onClick={() => alert('Podés seleccionar múltiples contactos en el buscador superior')}
-                    >
-                      + Agregar más
-                    </button>
-                  </div>
-                </div>
-
-                {/* ── Accordion Card: Empresas ── */}
-                <div className="assoc-card">
-                  <div className="assoc-card-header">
-                    <span className="assoc-card-label">⌵ Empresas</span>
-                  </div>
-
-                  <div className="assoc-card-body">
-                    <div className="hubspot-field">
-                      <label>Asociar registros</label>
-                      <AssociationSearchPicker
-                        items={companiesListForPicker}
-                        selectedIds={form.empresasIds}
-                        onChange={(newIds) => setForm(prev => ({ ...prev, empresasIds: newIds }))}
-                        placeholder="Buscar"
-                        labelKey="label"
-                        subLabelKey="subLabel"
-                        idKey="id"
-                      />
-                    </div>
-
-                    <div className="hubspot-field">
-                      <label>Etiqueta de asociación <span className="req">*</span> ⓘ</label>
-                      <input
-                        type="text"
-                        className="hubspot-input"
-                        value={form.empresaEtiqueta}
-                        onChange={(e) => setForm(prev => ({ ...prev, empresaEtiqueta: e.target.value }))}
-                        placeholder="Principal"
-                      />
-                    </div>
-
-                    <label className="hubspot-checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={form.agregarActividadEmpresa}
-                        onChange={(e) => setForm(prev => ({ ...prev, agregarActividadEmpresa: e.target.checked }))}
-                      />
-                      <span>Agregar actividad de la cronología de este objeto (Empresa) ⓘ</span>
-                    </label>
-
-                    <button
-                      type="button"
-                      className="btn-add-more-assoc"
-                      onClick={() => alert('Podés seleccionar múltiples empresas en el buscador superior')}
-                    >
-                      + Agregar más
-                    </button>
-                  </div>
-                </div>
-
-                {/* ── Añadir elemento de pedido (Products / Items) ── */}
-                <div className="assoc-card">
-                  <div className="assoc-card-header">
-                    <span className="assoc-card-label">Añadir elemento de pedido</span>
-                  </div>
-
-                  <div className="assoc-card-body">
-                    <div className="product-picker-row">
-                      <div className="hubspot-field" style={{ flex: 3 }}>
-                        <label>Añade un elemento de pedido</label>
-                        <select
-                          className="hubspot-select"
-                          value={form.productoSeleccionadoId}
-                          onChange={(e) => setForm(prev => ({ ...prev, productoSeleccionadoId: e.target.value }))}
-                        >
-                          {DEAL_PRODUCTS.map(p => (
-                            <option key={p.id} value={p.id}>
-                              {p.nombre} — {formatCurrency(p.precio)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="hubspot-field" style={{ flex: 1 }}>
-                        <label>Cantidad</label>
-                        <input
-                          type="number"
-                          className="hubspot-input"
-                          min="1"
-                          value={form.productoCantidad}
-                          onChange={(e) => setForm(prev => ({ ...prev, productoCantidad: e.target.value }))}
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        className="btn-add-item"
-                        onClick={handleAddProductItem}
-                      >
-                        + Agregar
-                      </button>
-                    </div>
-
-                    {/* Added Items List */}
-                    {form.elementosPedido.length > 0 && (
-                      <div className="added-items-list">
-                        {form.elementosPedido.map((item, idx) => (
-                          <div key={idx} className="added-item-row">
-                            <div className="item-details">
-                              <span className="item-name">{item.producto}</span>
-                              <span className="item-calc">
-                                {item.cantidad} un. x {formatCurrency(item.precio)} = <strong>{formatCurrency(item.subtotal)}</strong>
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              className="item-remove-btn"
-                              onClick={() => handleRemoveProductItem(idx)}
-                            >
-                              <X size={13} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Footer Drawer Actions ── */}
-              <div className="hubspot-drawer__actions">
-                <button type="submit" className="drawer-btn drawer-btn--primary">
-                  Crear
-                </button>
-                <button
-                  type="button"
-                  className="drawer-btn drawer-btn--outline"
-                  onClick={(e) => handleCreateDeal(e, true)}
-                >
-                  Crear y agregar otro
-                </button>
-                <button
-                  type="button"
-                  className="drawer-btn drawer-btn--cancel"
-                  onClick={() => setShowDrawer(false)}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <FormInput
+              label="Valor ($)"
+              name="valor"
+              type="number"
+              value={form.valor}
+              onChange={handleFormChange}
+              placeholder="Ej: 322200"
+            />
+            <FormInput
+              label="Fecha de cierre"
+              name="fechaCierre"
+              type="date"
+              value={form.fechaCierre}
+              onChange={handleFormChange}
+            />
           </div>
-        </div>
-      )}
 
-      {/* ── Quick Detail Modal for Deal ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <FormSelect
+              label="Propietario"
+              name="propietario"
+              value={form.propietario}
+              onChange={handleFormChange}
+              options={[...new Set([ownerName, ...OWNER_OPTIONS])].map((o) => ({ value: o, label: o }))}
+            />
+            <FormSelect
+              label="Prioridad"
+              name="prioridad"
+              value={form.prioridad}
+              onChange={handleFormChange}
+              options={PRIORIDAD_OPTIONS}
+            />
+          </div>
+
+          <FormSelect
+            label="Tipo de negocio"
+            name="tipoNegocio"
+            value={form.tipoNegocio}
+            onChange={handleFormChange}
+            options={TIPO_NEGOCIO_OPTIONS}
+          />
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <button
+              type="submit"
+              className="btn-rounded-primary"
+              style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
+              disabled={saving}
+            >
+              {saving ? 'Guardando…' : 'Crear Negocio'}
+            </button>
+            <button
+              type="button"
+              className="roadmaps-btn roadmaps-btn--outline"
+              style={{ padding: '12px 18px' }}
+              onClick={() => setShowDrawer(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </SlideDrawer>
+
+      {/* Detalle rápido */}
       {selectedDealForDetail && (
         <div className="deal-detail-overlay" onClick={() => setSelectedDealForDetail(null)}>
-          <div className="deal-detail-modal" onClick={e => e.stopPropagation()}>
+          <div className="deal-detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="detail-modal-header">
               <div>
-                <span className="detail-pipeline-tag">{selectedDealForDetail.pipeline || 'Pipeline de ventas'}</span>
-                <h2>{selectedDealForDetail.nombreNegocio || selectedDealForDetail.empresa}</h2>
+                <span className="detail-pipeline-tag">{selectedDealForDetail.pipeline}</span>
+                <h2>{selectedDealForDetail.nombreNegocio}</h2>
               </div>
-              <button
-                type="button"
-                className="detail-close-btn"
-                onClick={() => setSelectedDealForDetail(null)}
-              >
+              <button type="button" className="detail-close-btn" onClick={() => setSelectedDealForDetail(null)}>
                 <X size={20} />
               </button>
             </div>
@@ -1287,60 +731,58 @@ export const OpportunitiesPage = () => {
               <div className="detail-grid">
                 <div className="detail-box">
                   <span className="detail-label">VALOR ESTIMADO</span>
-                  <span className="detail-value text-primary">{formatCurrency(selectedDealForDetail.valor || selectedDealForDetail.volumenPotencial)}</span>
+                  <span className="detail-value text-primary">{formatCurrency(selectedDealForDetail.valor)}</span>
                 </div>
                 <div className="detail-box">
                   <span className="detail-label">ETAPA ACTUAL</span>
                   <span
                     className="deal-stage-pill"
                     style={{
-                      backgroundColor: getStageInfo(selectedDealForDetail.etapaKey || selectedDealForDetail.estado).bg,
-                      color: getStageInfo(selectedDealForDetail.etapaKey || selectedDealForDetail.estado).text || '#ffffff',
+                      backgroundColor: getStageInfo(selectedDealForDetail.etapaKey).bg,
+                      color: getStageInfo(selectedDealForDetail.etapaKey).text || '#fff',
                     }}
                   >
-                    {getStageInfo(selectedDealForDetail.etapaKey || selectedDealForDetail.estado).label}
+                    {getStageInfo(selectedDealForDetail.etapaKey).label}
+                  </span>
+                </div>
+                <div className="detail-box">
+                  <span className="detail-label">PRIORIDAD</span>
+                  <span className={`prio-chip prio-chip--${(selectedDealForDetail.prioridad || 'media').toLowerCase()}`}>
+                    {selectedDealForDetail.prioridad}
                   </span>
                 </div>
                 <div className="detail-box">
                   <span className="detail-label">EMPRESA ASOCIADA</span>
-                  <span className="detail-value">{selectedDealForDetail.empresa}</span>
+                  <span className="detail-value">{selectedDealForDetail.empresa || '—'}</span>
                 </div>
                 <div className="detail-box">
-                  <span className="detail-label">CONTACTO RESPONSABLE</span>
-                  <span className="detail-value">{selectedDealForDetail.contacto || 'Roberto Aguilar'}</span>
+                  <span className="detail-label">CONTACTO</span>
+                  <span className="detail-value">{selectedDealForDetail.contacto || '—'}</span>
                 </div>
                 <div className="detail-box">
-                  <span className="detail-label">PROPIETARIO / VENDEDOR</span>
-                  <span className="detail-value">{selectedDealForDetail.propietario || selectedDealForDetail.vendedor}</span>
+                  <span className="detail-label">PROPIETARIO</span>
+                  <span className="detail-value">{selectedDealForDetail.propietario}</span>
                 </div>
                 <div className="detail-box">
-                  <span className="detail-label">FECHA DE CIERRE ESTIMADA</span>
-                  <span className="detail-value">{selectedDealForDetail.fechaCierre || selectedDealForDetail.fechaInicio}</span>
+                  <span className="detail-label">FECHA DE CIERRE</span>
+                  <span className="detail-value">{selectedDealForDetail.fechaCierre || '—'}</span>
+                </div>
+                <div className="detail-box">
+                  <span className="detail-label">TIPO DE NEGOCIO</span>
+                  <span className="detail-value">{selectedDealForDetail.tipoNegocio}</span>
                 </div>
               </div>
-
-              {selectedDealForDetail.elementosPedido && selectedDealForDetail.elementosPedido.length > 0 && (
-                <div className="detail-items-section">
-                  <h4>Insumos / Elementos de Pedido</h4>
-                  <div className="detail-items-list">
-                    {selectedDealForDetail.elementosPedido.map((it, idx) => (
-                      <div key={idx} className="detail-item-chip">
-                        <Package size={14} className="text-primary" />
-                        <span>{it.producto}</span>
-                        <strong>x{it.cantidad}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="detail-modal-footer">
               <button
                 type="button"
-                className="deals-btn deals-btn--primary"
-                onClick={() => setSelectedDealForDetail(null)}
+                className="deals-btn deals-btn--danger-ghost"
+                onClick={() => handleDeleteDeal(selectedDealForDetail.id, selectedDealForDetail.nombreNegocio)}
               >
+                <Trash2 size={14} /> Eliminar
+              </button>
+              <button type="button" className="deals-btn deals-btn--primary" onClick={() => setSelectedDealForDetail(null)}>
                 Entendido
               </button>
             </div>
