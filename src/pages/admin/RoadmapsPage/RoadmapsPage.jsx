@@ -166,7 +166,7 @@ export const RoadmapsPage = () => {
         const rawUsers = usersRes.value?.data || usersRes.value || [];
         if (Array.isArray(rawUsers)) {
           const sellersOnly = rawUsers.filter(u =>
-            (u.role || u.rol || '').toLowerCase() === 'vendedor' || (u.role || u.rol || '').toLowerCase() === 'admin'
+            (u.role || u.rol || '').toLowerCase().trim() === 'vendedor'
           );
           setSellersList(sellersOnly);
           if (sellersOnly.length > 0) {

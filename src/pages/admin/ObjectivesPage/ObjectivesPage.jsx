@@ -54,7 +54,7 @@ export const ObjectivesPage = () => {
 
       if (usersRes.status === 'fulfilled') {
         const rawUsers = usersRes.value?.data || usersRes.value || [];
-        const sellers = rawUsers.filter(u => (u.role || u.rol || '').toLowerCase() === 'vendedor' || (u.role || u.rol || '').toLowerCase() === 'admin');
+        const sellers = rawUsers.filter(u => (u.role || u.rol || '').toLowerCase().trim() === 'vendedor');
         setSellersList(sellers);
         if (sellers.length > 0) {
           setForm(prev => ({ ...prev, sellerId: sellers[0].idUser || sellers[0].id }));
@@ -307,11 +307,15 @@ export const ObjectivesPage = () => {
                   onChange={e => setForm({ ...form, sellerId: e.target.value })}
                   required
                 >
-                  {sellersList.map((u, idx) => (
-                    <option key={u.idUser || u.id || idx} value={u.idUser || u.id}>
-                      {u.nombreApellido || u.idUser} ({u.role || u.rol || 'Vendedor'})
-                    </option>
-                  ))}
+                  {sellersList.length === 0 ? (
+                    <option value="" disabled>No hay vendedores registrados</option>
+                  ) : (
+                    sellersList.map((u, idx) => (
+                      <option key={u.idUser || u.id || idx} value={u.idUser || u.id}>
+                        {u.nombreApellido || u.idUser}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
