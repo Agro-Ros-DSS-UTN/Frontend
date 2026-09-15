@@ -10,6 +10,7 @@ import {
   Clock,
   ListTodo,
   Trash2,
+  Download,
 } from 'lucide-react';
 import { tasksApi } from '../../api/operations.api';
 import { useAuth } from '../../context/AuthContext';
@@ -209,6 +210,30 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Título', 'Tipo', 'Fecha Límite', 'Hora', 'Prioridad', 'Estado', 'Asignado a', 'Empresa', 'Notas'];
+    const rows = filteredTasks.map((t) => [
+      `"${(t.titulo || '').replace(/"/g, '""')}"`,
+      `"${t.tipo || ''}"`,
+      `"${t.fechaVencimiento || ''}"`,
+      `"${t.horaVencimiento || ''}"`,
+      `"${t.prioridad || ''}"`,
+      `"${t.estado || ''}"`,
+      `"${(t.asignadoA || '').replace(/"/g, '""')}"`,
+      `"${(t.empresa || '').replace(/"/g, '""')}"`,
+      `"${(t.notas || '').replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Tareas_AgroRos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getTypeIcon = (tipo) => {
     switch (tipo?.toLowerCase()) {
       case 'llamada':
@@ -234,18 +259,26 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         <div className="tasks-board__banner-left">
           <h1 className="tasks-board__title">Tareas</h1>
         </div>
-        <button
-          type="button"
-          className="tasks-board__create-btn"
-          onClick={() => {
-            setErrors({});
-            setForm(emptyForm());
-            setShowDrawer(true);
-          }}
-        >
-          <Plus size={18} />
-          <span>Crear Tarea</span>
-        </button>
+        <div className="crm-page-header-actions">
+          <button
+            type="button"
+            className="crm-btn-primary"
+            onClick={() => {
+              setErrors({});
+              setForm(emptyForm());
+              setShowDrawer(true);
+            }}
+          >
+            <Plus size={18} />
+            <span>Crear Tarea</span>
+          </button>
+          {variant === 'admin' && (
+            <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
+              <Download size={15} />
+              <span>Exportar</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}

@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   TrendingUp,
   Trash2,
-  Award
+  Award,
+  Download
 } from 'lucide-react';
 import { objectivesApi } from '../../../api/operations.api';
 import { authApi } from '../../../api/auth.api';
@@ -115,6 +116,33 @@ export const ObjectivesPage = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Vendedor', 'Semana', 'Tipo de Objetivo', 'Descripción', 'Meta', 'Progreso Actual', 'Estado', 'Empresa Asociada'];
+    const rows = objectives.map((obj) => {
+      const sellerName = obj.Seller?.User?.nombreApellido || `Vendedor #${obj.sellerId}`;
+      const empresa = companiesList.find((c) => String(c.id) === String(obj.clientCompanyId));
+      return [
+        `"${sellerName.replace(/"/g, '""')}"`,
+        `"${obj.periodoSemana || ''}"`,
+        `"${obj.tipoObjetivo || ''}"`,
+        `"${(obj.descripcion || '').replace(/"/g, '""')}"`,
+        `"${obj.cantidadMeta || ''}"`,
+        `"${obj.progresoActual || 0}"`,
+        `"${obj.estado || ''}"`,
+        `"${(empresa?.nombreEmpresa || '').replace(/"/g, '""')}"`,
+      ];
+    });
+    const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Objetivos_AgroRos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDeleteObjective = async (id, desc) => {
     if (!window.confirm(`¿Deseas eliminar el objetivo "${desc}"?`)) return;
     try {
@@ -140,13 +168,19 @@ export const ObjectivesPage = () => {
             Asignación semanal de metas, incentivos y monitoreo en tiempo real por Vendedor
           </p>
         </div>
-        <button
-          className="objectives-btn objectives-btn--primary"
-          onClick={() => setShowModal(true)}
-        >
-          <Plus size={16} />
-          <span>Asignar Nuevo Objetivo</span>
-        </button>
+        <div className="crm-page-header-actions">
+          <button
+            className="crm-btn-primary"
+            onClick={() => setShowModal(true)}
+          >
+            <Plus size={16} />
+            <span>Asignar Nuevo Objetivo</span>
+          </button>
+          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
+            <Download size={15} />
+            <span>Exportar</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards Bar */}

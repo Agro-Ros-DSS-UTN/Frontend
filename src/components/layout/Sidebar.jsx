@@ -30,7 +30,7 @@ const adminNavItems = [
   { path: '/admin/empresas',      icon: Building2,       label: 'Empresas' },
   { path: '/admin/negocios',      icon: Handshake,       label: 'Negocios' },
   { path: '/admin/tareas',           icon: CheckSquare,     label: 'Tareas' },
-  { path: '/admin/ordenes-servicio', icon: FileCheck2,       label: 'Orden de Servicio', badge: 'Beta' },
+  { path: '/admin/ordenes-servicio', icon: FileCheck2,       label: 'Orden/Evaluación de Servicio', badge: 'Beta' },
   { path: '/admin/empleados',     icon: HardHat,         label: 'Empleados' },
   { path: '/admin/productos',     icon: Package,         label: 'Productos' },
   { path: '/admin/objetivos',     icon: Target,          label: 'Objetivos' },
@@ -91,7 +91,7 @@ export const Sidebar = () => {
                   to={item.path}
                   className={`sidebar__link ${isActive ? 'sidebar__link--active' : ''}`}
                 >
-                  <Icon size={20} className="sidebar__link-icon" />
+                  <Icon size={17} className="sidebar__link-icon" />
                   {!collapsed && (
                     <div className="sidebar__link-text-group">
                       <span className="sidebar__link-label">{item.label}</span>

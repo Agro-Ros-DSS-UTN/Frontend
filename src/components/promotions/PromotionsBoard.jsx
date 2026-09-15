@@ -10,6 +10,7 @@ import {
   Trash2,
   Pencil,
   Tag,
+  Download,
 } from 'lucide-react';
 import { promotionsApi } from '../../api/operations.api';
 import { FormInput, FormTextarea } from '../ui/FormInput';
@@ -180,6 +181,27 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
       p.condiciones ? `\n📌 Condiciones: ${p.condiciones}` : ''
     }${p.fechaFin ? `\n📅 Válida hasta: ${p.fechaFin}` : ''}`;
 
+  const handleExportCSV = () => {
+    const headers = ['Nombre', 'Beneficio', 'Descripción', 'Condiciones', 'Fecha de Inicio', 'Fecha de Fin'];
+    const rows = filtered.map((p) => [
+      `"${(p.nombre || '').replace(/"/g, '""')}"`,
+      `"${(p.beneficio || '').replace(/"/g, '""')}"`,
+      `"${(p.descripcion || '').replace(/"/g, '""')}"`,
+      `"${(p.condiciones || '').replace(/"/g, '""')}"`,
+      `"${p.fechaInicio || ''}"`,
+      `"${p.fechaFin || ''}"`,
+    ]);
+    const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Promociones_AgroRos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleCopy = (p) => {
     navigator.clipboard?.writeText(promoText(p));
     setCopiedId(p.id);
@@ -200,10 +222,18 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
               : 'Campañas, combos y descuentos vigentes para el equipo comercial.'}
           </p>
         </div>
-        <button type="button" className="promo-board__add-btn" onClick={openCreate}>
-          <Plus size={16} />
-          <span>Crear Promoción</span>
-        </button>
+        <div className="crm-page-header-actions">
+          <button type="button" className="crm-btn-primary" onClick={openCreate}>
+            <Plus size={16} />
+            <span>Crear Promoción</span>
+          </button>
+          {!isSeller && (
+            <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
+              <Download size={15} />
+              <span>Exportar</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="promo-board__stats">

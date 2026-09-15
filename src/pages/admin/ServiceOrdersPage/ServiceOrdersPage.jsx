@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   FileCheck2,
-  RotateCw,
   Plus,
   Search,
   Filter,
@@ -13,7 +12,6 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  Star,
   Printer,
   ChevronRight,
   Eye,
@@ -23,10 +21,10 @@ import {
   Sparkles,
   ShieldCheck,
   Award,
-  Users,
   FlaskConical,
   CheckSquare,
-  FileText
+  FileText,
+  PenLine
 } from 'lucide-react';
 import {
   WORK_TYPES,
@@ -39,7 +37,49 @@ import { employeesApi } from '../../../api/employees.api';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer';
 import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput';
 import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete';
+import { SignaturePad } from '../../../components/ui/SignaturePad';
+import { MultiImageUpload } from '../../../components/ui/MultiImageUpload';
+import logoImg from '../../../assets/logo.png';
 import './ServiceOrdersPage.css';
+
+// Infiere el "Tipo de instalación" (Silo / Celda) a partir del tipo de trabajo,
+// para la columna homónima de las plantillas impresas.
+const inferTipoInstalacion = (tipoTrabajo = '') => {
+  const t = tipoTrabajo.toLowerCase();
+  if (t.includes('celda')) return 'Celda';
+  if (t.includes('silo')) return 'Silo';
+  return '—';
+};
+
+// Catálogo del Resultado de la evaluación (spec "Evaluación de Servicio digital")
+const EVAL_RESULTADOS = [
+  { value: 'Sin insectos vivos', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+  { value: 'Con insectos vivos', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+  { value: 'Seguimiento', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+  { value: 'Refumigación', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+];
+
+const getResultadoInfo = (resultado) =>
+  EVAL_RESULTADOS.find((r) => r.value === resultado) || {
+    color: '#64748b',
+    bg: '#f1f5f9',
+    border: '#e2e8f0',
+  };
+
+const LUGARES_TOMA_MUESTRA = ['Superficie', 'Medio', 'Fondo', 'Boca de carga', 'Ducto de descarga'];
+
+const emptyEvalForm = () => ({
+  fechaEvaluacion: new Date().toISOString().slice(0, 10),
+  estadoCereal: 'A',
+  lugarToma: '',
+  resultado: 'Sin insectos vivos',
+  ppmPH3: '',
+  observaciones: '',
+  recomendaciones: '',
+  fotos: [],
+  firmaCliente: null,
+  firmaTecnico: null,
+});
 
 export const ServiceOrdersPage = () => {
   const [orders, setOrders] = useState(() => getStoredServiceOrders());
@@ -57,6 +97,8 @@ export const ServiceOrdersPage = () => {
   const [evalTargetOrder, setEvalTargetOrder] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printTargetOrder, setPrintTargetOrder] = useState(null);
+  const [showEvalPrintModal, setShowEvalPrintModal] = useState(false);
+  const [evalPrintOrder, setEvalPrintOrder] = useState(null);
 
   // Fetch orders from backend database
   const loadOrders = async () => {
@@ -111,6 +153,9 @@ export const ServiceOrdersPage = () => {
     estado: 'Programada',
     tecnicoAplicador: '',
     observacionesOrden: '',
+    recomendaciones: '',
+    firmaTecnico: null,
+    firmaCliente: null,
     productosAplicados: [
       {
         producto: 'Fosfuro de Aluminio (Pastillas)',
@@ -123,18 +168,9 @@ export const ServiceOrdersPage = () => {
     ]
   });
 
-  // Evaluation Form State
-  const [evalForm, setEvalForm] = useState({
-    calificacion: 5,
-    conformidad: 'Conforme',
-    cumplimientoEPP: true,
-    puntualidad: true,
-    limpiezaArea: true,
-    observacionesTecnicas: '',
-    responsableReceptor: '',
-    dniReceptor: '',
-    cargoReceptor: 'Encargado de Planta'
-  });
+  // Evaluation Form State (Evaluación de Servicio digital)
+  const [evalForm, setEvalForm] = useState(emptyEvalForm());
+  const [evalErrors, setEvalErrors] = useState({});
 
   // Calculate Next Correlative Order Number
   const generateNextOrderNumber = () => {
@@ -163,6 +199,9 @@ export const ServiceOrdersPage = () => {
       estado: 'Programada',
       tecnicoAplicador: '',
       observacionesOrden: '',
+      recomendaciones: '',
+      firmaTecnico: null,
+      firmaCliente: null,
       productosAplicados: [
         {
           producto: 'Fosfuro de Aluminio (Pastillas)',
@@ -197,6 +236,9 @@ export const ServiceOrdersPage = () => {
       estado: order.estado,
       tecnicoAplicador: order.tecnicoAplicador || '',
       observacionesOrden: order.observacionesOrden || '',
+      recomendaciones: order.recomendaciones || '',
+      firmaTecnico: order.firmaTecnico || null,
+      firmaCliente: order.firmaCliente || null,
       productosAplicados: order.productosAplicados && order.productosAplicados.length > 0
         ? [...order.productosAplicados]
         : []
@@ -289,23 +331,32 @@ export const ServiceOrdersPage = () => {
     }
   };
 
-  // Open Evaluation Drawer
+  // Open Evaluation Drawer — la evaluación queda vinculada a esta Orden de Servicio
   const handleOpenEvalDrawer = (order) => {
     setEvalTargetOrder(order);
-    if (order.evaluacion) {
-      setEvalForm({ ...order.evaluacion });
-    } else {
+    setEvalErrors({});
+    const ev = order.evaluacion;
+    if (ev) {
+      let fotos = [];
+      try {
+        fotos = Array.isArray(ev.fotos) ? ev.fotos : (ev.fotos ? JSON.parse(ev.fotos) : []);
+      } catch (_) {
+        fotos = [];
+      }
       setEvalForm({
-        calificacion: 5,
-        conformidad: 'Conforme',
-        cumplimientoEPP: true,
-        puntualidad: true,
-        limpiezaArea: true,
-        observacionesTecnicas: '',
-        responsableReceptor: '',
-        dniReceptor: '',
-        cargoReceptor: 'Encargado de Planta'
+        fechaEvaluacion: ev.fechaEvaluacion ? String(ev.fechaEvaluacion).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        estadoCereal: ev.estadoCereal || 'A',
+        lugarToma: ev.lugarToma || '',
+        resultado: ev.resultado || 'Sin insectos vivos',
+        ppmPH3: ev.ppmPH3 ?? '',
+        observaciones: ev.observaciones || '',
+        recomendaciones: ev.recomendaciones || '',
+        fotos,
+        firmaCliente: ev.firmaCliente || null,
+        firmaTecnico: ev.firmaTecnico || null,
       });
+    } else {
+      setEvalForm(emptyEvalForm());
     }
     setShowEvalDrawer(true);
   };
@@ -315,10 +366,19 @@ export const ServiceOrdersPage = () => {
     e.preventDefault();
     if (!evalTargetOrder) return;
 
-    const evaluationPayload = {
-      ...evalForm,
-      fechaEvaluacion: new Date().toISOString()
-    };
+    const newErrors = {};
+    if (!evalForm.fechaEvaluacion) newErrors.fechaEvaluacion = 'Seleccioná la fecha de evaluación.';
+    if (!evalForm.estadoCereal) newErrors.estadoCereal = 'Seleccioná el estado del cereal.';
+    if (!evalForm.lugarToma?.trim()) newErrors.lugarToma = 'Indicá el lugar de toma de muestra.';
+    if (!evalForm.resultado) newErrors.resultado = 'Seleccioná el resultado.';
+    if (!evalForm.firmaTecnico) newErrors.firmaTecnico = 'La firma del técnico es obligatoria.';
+    if (Object.keys(newErrors).length > 0) {
+      setEvalErrors(newErrors);
+      return;
+    }
+    setEvalErrors({});
+
+    const evaluationPayload = { ...evalForm };
 
     try {
       let savedOrderFromApi = null;
@@ -366,21 +426,23 @@ export const ServiceOrdersPage = () => {
       alert('No hay órdenes para exportar.');
       return;
     }
-    const headers = ['Nro Orden', 'Fecha', 'Cliente', 'Centro', 'Planta', 'Direccion', 'Localidad', 'Provincia', 'Tipo Trabajo', 'Estado', 'Tecnico', 'Evaluacion Estrellas', 'Conformidad'];
+    const headers = ['Nro Orden', 'Fecha', 'Cliente', 'Centro', 'Planta', 'Silo', 'Direccion', 'Localidad', 'Provincia', 'Tipo Trabajo', 'Estado', 'Tecnico', 'Fecha Evaluacion', 'Resultado Evaluacion', 'Estado Cereal'];
     const rows = orders.map(o => [
       o.numeroOrden,
       o.fecha,
       o.clienteNombre,
       o.centroNombre,
       o.plantaNombre,
+      o.silo || '',
       o.direccion || '',
       o.localidad,
       o.provincia,
       o.tipoTrabajo,
       o.estado,
       o.tecnicoAplicador || '',
-      o.evaluacion?.calificacion || 'Sin evaluar',
-      o.evaluacion?.conformidad || ''
+      o.evaluacion?.fechaEvaluacion ? String(o.evaluacion.fechaEvaluacion).slice(0, 10) : '',
+      o.evaluacion?.resultado || 'Sin evaluar',
+      o.evaluacion?.estadoCereal || ''
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,﻿' +
@@ -440,12 +502,11 @@ export const ServiceOrdersPage = () => {
     const total = orders.length;
     const enEjecucion = orders.filter(o => o.estado === 'En Ejecución').length;
     const completadas = orders.filter(o => o.estado === 'Completada').length;
-    const evaluadas = orders.filter(o => o.evaluacion && o.evaluacion.calificacion);
-    const avgRating = evaluadas.length > 0
-      ? (evaluadas.reduce((acc, curr) => acc + curr.evaluacion.calificacion, 0) / evaluadas.length).toFixed(1)
-      : '5.0';
+    const evaluadas = orders.filter(o => o.evaluacion && o.evaluacion.resultado);
+    const sinInsectos = evaluadas.filter(o => o.evaluacion.resultado === 'Sin insectos vivos').length;
+    const pctSinInsectos = evaluadas.length > 0 ? Math.round((sinInsectos / evaluadas.length) * 100) : 0;
 
-    return { total, enEjecucion, completadas, avgRating, totalEvaluadas: evaluadas.length };
+    return { total, enEjecucion, completadas, totalEvaluadas: evaluadas.length, pctSinInsectos };
   }, [orders]);
 
   // Opciones de técnico/operario a partir de los empleados registrados
@@ -469,7 +530,7 @@ export const ServiceOrdersPage = () => {
       <div className="so-page__header">
         <div>
           <div className="so-page__title-row">
-            <h1 className="so-page__title">Órdenes de Servicio</h1>
+            <h1 className="so-page__title">Orden/Evaluación de Servicio</h1>
             <span className="so-page__beta-badge">
               <Sparkles size={11} />
               <span>Beta</span>
@@ -480,24 +541,14 @@ export const ServiceOrdersPage = () => {
           </p>
         </div>
 
-        <div className="so-page__header-actions">
-          <button
-            type="button"
-            className="so-page__export-btn"
-            onClick={loadOrders}
-            title="Sincronizar con base de datos"
-            disabled={isLoading}
-          >
-            <RotateCw size={16} style={{ animation: isLoading ? 'spin 1s linear infinite' : 'none' }} />
-            <span>{isLoading ? 'Cargando...' : 'Sincronizar'}</span>
-          </button>
-          <button type="button" className="so-page__export-btn" onClick={handleExportCSV}>
-            <Download size={16} />
-            <span>Exportar</span>
-          </button>
-          <button type="button" className="so-page__add-btn" onClick={handleOpenCreateDrawer}>
+        <div className="crm-page-header-actions">
+          <button type="button" className="crm-btn-primary" onClick={handleOpenCreateDrawer}>
             <Plus size={16} />
             <span>Nueva Orden de Servicio</span>
+          </button>
+          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
+            <Download size={16} />
+            <span>Exportar</span>
           </button>
         </div>
       </div>
@@ -539,8 +590,8 @@ export const ServiceOrdersPage = () => {
             <Award size={22} />
           </div>
           <div className="so-kpi-info">
-            <span className="so-kpi-label">SATISFACCIÓN TÉCNICA</span>
-            <div className="so-kpi-value">{kpis.avgRating} ★ <span className="so-kpi-sub">({kpis.totalEvaluadas} evals)</span></div>
+            <span className="so-kpi-label">SIN INSECTOS VIVOS</span>
+            <div className="so-kpi-value">{kpis.pctSinInsectos}% <span className="so-kpi-sub">({kpis.totalEvaluadas} evaluadas)</span></div>
           </div>
         </div>
       </div>
@@ -647,7 +698,7 @@ export const ServiceOrdersPage = () => {
                 <tr>
                   <th>N.º ORDEN</th>
                   <th>FECHA</th>
-                  <th>CLIENTE (EMPRESA MADRE)</th>
+                  <th>CLIENTE</th>
                   <th>CENTRO & PLANTA</th>
                   <th>TIPO DE TRABAJO</th>
                   <th>ESTADO</th>
@@ -728,20 +779,20 @@ export const ServiceOrdersPage = () => {
                             className="so-eval-box"
                             onClick={() => handleOpenEvalDrawer(order)}
                             style={{ cursor: 'pointer' }}
-                            title="Hacé click para ver o editar la evaluación técnica"
+                            title="Hacé click para ver o editar la evaluación de servicio"
                           >
-                            <div className="so-stars-row">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  size={13}
-                                  className={star <= (order.evaluacion.calificacion || 0) ? 'so-star-icon--filled' : 'so-star-icon--empty'}
-                                />
-                              ))}
-                              <span className="so-eval-score-text">{order.evaluacion.calificacion}.0</span>
-                            </div>
-                            <span className={`so-conformity-label so-conformity-label--${order.evaluacion.conformidad?.toLowerCase().includes('observ') ? 'observaciones' : order.evaluacion.conformidad?.toLowerCase().includes('no') ? 'no-conforme' : 'conforme'}`}>
-                              {order.evaluacion.conformidad}
+                            <span
+                              className="so-eval-resultado"
+                              style={{
+                                color: getResultadoInfo(order.evaluacion.resultado).color,
+                                backgroundColor: getResultadoInfo(order.evaluacion.resultado).bg,
+                                borderColor: getResultadoInfo(order.evaluacion.resultado).border,
+                              }}
+                            >
+                              {order.evaluacion.resultado || 'Sin resultado'}
+                            </span>
+                            <span className="so-eval-meta">
+                              Cereal {order.evaluacion.estadoCereal || '—'} · {order.evaluacion.fechaEvaluacion ? String(order.evaluacion.fechaEvaluacion).slice(0, 10) : 'sin fecha'}
                             </span>
                           </div>
                         ) : (
@@ -749,9 +800,9 @@ export const ServiceOrdersPage = () => {
                             type="button"
                             className="so-btn-eval-pending"
                             onClick={() => handleOpenEvalDrawer(order)}
-                            title="Cargar evaluación de servicio técnico"
+                            title="Cargar evaluación de servicio digital"
                           >
-                            <Star size={13} />
+                            <ShieldCheck size={13} />
                             <span>+ Cargar Evaluación</span>
                           </button>
                         )}
@@ -763,7 +814,7 @@ export const ServiceOrdersPage = () => {
                           <button
                             type="button"
                             className="so-action-icon-btn so-action-icon-btn--print"
-                            title="Ver / Imprimir Acta Digital"
+                            title="Ver / Imprimir Orden de Servicio"
                             onClick={() => {
                               setPrintTargetOrder(order);
                               setShowPrintModal(true);
@@ -771,6 +822,20 @@ export const ServiceOrdersPage = () => {
                           >
                             <Printer size={15} />
                           </button>
+
+                          {order.evaluacion && (
+                            <button
+                              type="button"
+                              className="so-action-icon-btn so-action-icon-btn--eval-print"
+                              title="Ver / Imprimir Evaluación de Servicio"
+                              onClick={() => {
+                                setEvalPrintOrder(order);
+                                setShowEvalPrintModal(true);
+                              }}
+                            >
+                              <FileText size={15} />
+                            </button>
+                          )}
 
                           <button
                             type="button"
@@ -1018,6 +1083,33 @@ export const ServiceOrdersPage = () => {
             </div>
           </div>
 
+          {/* Recomendaciones especiales para el Cliente */}
+          <FormTextarea
+            label="Recomendaciones Especiales para el Cliente (Opcional)"
+            name="recomendaciones"
+            value={orderForm.recomendaciones}
+            onChange={(e) => setOrderField('recomendaciones', e.target.value)}
+            placeholder="Ej: Prender aireadores y proceder al retiro del cereal luego de 96 hs de liberado el servicio..."
+            rows={2}
+          />
+
+          {/* Firmas (Opcional) — no siempre se firma al momento de la orden */}
+          <div className="so-drawer-signatures">
+            <span className="so-drawer-signatures__title">
+              <PenLine size={13} /> Firmas (Opcional)
+            </span>
+            <SignaturePad
+              label="Firma del Técnico / Aplicador"
+              value={orderForm.firmaTecnico}
+              onChange={(firmaTecnico) => setOrderField('firmaTecnico', firmaTecnico)}
+            />
+            <SignaturePad
+              label="Firma del Cliente"
+              value={orderForm.firmaCliente}
+              onChange={(firmaCliente) => setOrderField('firmaCliente', firmaCliente)}
+            />
+          </div>
+
           {/* Botones Fijos Inferiores (Exacto a Imagen 1) */}
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: 'auto', paddingTop: '1.25rem', borderTop: '1px solid #e2e8f0' }}>
             <button
@@ -1040,124 +1132,149 @@ export const ServiceOrdersPage = () => {
       </SlideDrawer>
 
       {/* ═══════════════════════════════════════════════════════════════
-          SLIDE DRAWER: Evaluación de Servicio (Estilo Imagen 1)
+          SLIDE DRAWER: Evaluación de Servicio digital
+          (siempre vinculada a la Orden de Servicio desde la que se abrió)
           ═══════════════════════════════════════════════════════════════ */}
       <SlideDrawer
         isOpen={showEvalDrawer}
         onClose={() => setShowEvalDrawer(false)}
-        title={`Evaluación de Servicio • ${evalTargetOrder?.numeroOrden || ''}`}
-        width="540px"
+        title={`Evaluación de Servicio · ${evalTargetOrder?.numeroOrden || ''}`}
+        width="560px"
       >
         <form onSubmit={handleSaveEvaluation} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
-          {/* Tarjeta de Calificación 1-5 Estrellas */}
-          <div className="so-eval-stars-card">
-            <span className="so-eval-stars-title">Calificación General de la Fumigación</span>
-            <div className="so-interactive-stars">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  className={`so-star-btn ${star <= evalForm.calificacion ? 'active' : ''}`}
-                  onClick={() => setEvalForm({ ...evalForm, calificacion: star })}
-                >
-                  <Star size={32} />
-                </button>
-              ))}
+          {/* Orden de Servicio (relación) — se autocompleta al abrir esta evaluación */}
+          {evalTargetOrder && (
+            <div className="so-eval-os-summary">
+              <span className="so-eval-os-summary__label">
+                <FileCheck2 size={13} /> Orden de Servicio vinculada
+              </span>
+              <div className="so-eval-os-summary__grid">
+                <div><strong>N.º de Orden:</strong> {evalTargetOrder.numeroOrden}</div>
+                <div><strong>Fecha del servicio:</strong> {evalTargetOrder.fecha}</div>
+                <div><strong>Cliente:</strong> {evalTargetOrder.clienteNombre}</div>
+                <div><strong>Centro / Filial:</strong> {evalTargetOrder.centroNombre || '—'}</div>
+                <div><strong>Planta / Instalación:</strong> {evalTargetOrder.plantaNombre}</div>
+                <div><strong>Silo:</strong> {evalTargetOrder.silo || '—'}</div>
+              </div>
             </div>
-            <span className="so-star-text-badge">
-              {evalForm.calificacion === 5 ? 'Excelente (5 / 5)' :
-               evalForm.calificacion === 4 ? 'Muy Bueno (4 / 5)' :
-               evalForm.calificacion === 3 ? 'Aceptable (3 / 5)' :
-               evalForm.calificacion === 2 ? 'Regular (2 / 5)' : 'Insatisfactorio (1 / 5)'}
-            </span>
-          </div>
-
-          {/* Nivel de Conformidad */}
-          <div className="form-input-field">
-            <label className="form-input-label">Nivel de Conformidad del Cliente *</label>
-            <div className="so-conformity-options">
-              {['Conforme', 'Conforme con Observaciones', 'No Conforme'].map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  className={`so-conformity-pill ${evalForm.conformidad === opt ? 'active' : ''}`}
-                  onClick={() => setEvalForm({ ...evalForm, conformidad: opt })}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Checklist de Parámetros */}
-          <div className="so-checklist-group">
-            <label className="so-check-item">
-              <input
-                type="checkbox"
-                checked={evalForm.cumplimientoEPP}
-                onChange={(e) => setEvalForm({ ...evalForm, cumplimientoEPP: e.target.checked })}
-              />
-              <span>Uso adecuado de EPP y medidas de bioseguridad del operario</span>
-            </label>
-
-            <label className="so-check-item">
-              <input
-                type="checkbox"
-                checked={evalForm.puntualidad}
-                onChange={(e) => setEvalForm({ ...evalForm, puntualidad: e.target.checked })}
-              />
-              <span>Puntualidad en la ejecución y coordinación técnica</span>
-            </label>
-
-            <label className="so-check-item">
-              <input
-                type="checkbox"
-                checked={evalForm.limpiezaArea}
-                onChange={(e) => setEvalForm({ ...evalForm, limpiezaArea: e.target.checked })}
-              />
-              <span>Orden, limpieza y retiro de envases vacíos de fitosanitarios</span>
-            </label>
-          </div>
-
-          {/* Observaciones Técnicas */}
-          <FormTextarea
-            label="Observaciones Técnicas y Recomendaciones"
-            name="observacionesTecnicas"
-            value={evalForm.observacionesTecnicas}
-            onChange={(e) => setEvalForm({ ...evalForm, observacionesTecnicas: e.target.value })}
-            placeholder="Medición de gases fosfina, hermeticidad constatada, recomendaciones..."
-            rows={3}
-          />
-
-          {/* Receptor en Planta */}
-          <FormInput
-            label="Nombre y Apellido del Receptor en Planta"
-            name="responsableReceptor"
-            value={evalForm.responsableReceptor}
-            onChange={(e) => setEvalForm({ ...evalForm, responsableReceptor: e.target.value })}
-            placeholder="Ej: Ing. Carlos Rossi"
-            required
-            icon={Users}
-          />
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <FormInput
-              label="DNI"
-              name="dniReceptor"
-              value={evalForm.dniReceptor}
-              onChange={(e) => setEvalForm({ ...evalForm, dniReceptor: e.target.value })}
-              placeholder="24.891.432"
+              label="Fecha de Evaluación"
+              name="fechaEvaluacion"
+              type="date"
+              value={evalForm.fechaEvaluacion}
+              onChange={(e) => setEvalForm({ ...evalForm, fechaEvaluacion: e.target.value })}
+              required
+              error={evalErrors.fechaEvaluacion}
             />
-            <FormInput
-              label="Cargo en Planta"
-              name="cargoReceptor"
-              value={evalForm.cargoReceptor}
-              onChange={(e) => setEvalForm({ ...evalForm, cargoReceptor: e.target.value })}
-              placeholder="Encargado de Planta"
+            <FormSelect
+              label="Estado del Cereal"
+              name="estadoCereal"
+              value={evalForm.estadoCereal}
+              onChange={(e) => setEvalForm({ ...evalForm, estadoCereal: e.target.value })}
+              options={[
+                { value: 'A', label: 'A' },
+                { value: 'B', label: 'B' },
+                { value: 'C', label: 'C' },
+              ]}
+              required
+              error={evalErrors.estadoCereal}
             />
           </div>
 
-          {/* Botones Fijos Inferiores (Exacto a Imagen 1) */}
+          <FormInput
+            label="Lugar de Toma de Muestra"
+            name="lugarToma"
+            list="so-lugares-toma-muestra"
+            value={evalForm.lugarToma}
+            onChange={(e) => setEvalForm({ ...evalForm, lugarToma: e.target.value })}
+            placeholder="Ej: Superficie"
+            required
+            error={evalErrors.lugarToma}
+          />
+          <datalist id="so-lugares-toma-muestra">
+            {LUGARES_TOMA_MUESTRA.map((l) => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
+
+          {/* Resultado */}
+          <div className="form-input-field">
+            <label className="form-input-label">
+              Resultado <span className="form-input-required">*</span>
+            </label>
+            <div className="so-eval-resultado-options">
+              {EVAL_RESULTADOS.map((r) => {
+                const active = evalForm.resultado === r.value;
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    className={`so-eval-resultado-pill ${active ? 'active' : ''}`}
+                    style={active ? { borderColor: r.color, color: r.color, background: r.bg } : undefined}
+                    onClick={() => setEvalForm({ ...evalForm, resultado: r.value })}
+                  >
+                    {r.value}
+                  </button>
+                );
+              })}
+            </div>
+            {evalErrors.resultado && <span className="form-input-error">{evalErrors.resultado}</span>}
+          </div>
+
+          <FormInput
+            label="PPM PH3 (Opcional)"
+            name="ppmPH3"
+            type="number"
+            step="0.01"
+            min="0"
+            value={evalForm.ppmPH3}
+            onChange={(e) => setEvalForm({ ...evalForm, ppmPH3: e.target.value })}
+            placeholder="Ej: 300"
+          />
+
+          <FormTextarea
+            label="Observaciones (Opcional)"
+            name="observaciones"
+            value={evalForm.observaciones}
+            onChange={(e) => setEvalForm({ ...evalForm, observaciones: e.target.value })}
+            placeholder="Condiciones del muestreo, hallazgos relevantes..."
+            rows={2}
+          />
+
+          <FormTextarea
+            label="Recomendaciones (Opcional)"
+            name="recomendaciones"
+            value={evalForm.recomendaciones}
+            onChange={(e) => setEvalForm({ ...evalForm, recomendaciones: e.target.value })}
+            placeholder="Próximos pasos sugeridos para el cliente..."
+            rows={2}
+          />
+
+          <MultiImageUpload
+            label="Fotos (Opcional)"
+            value={evalForm.fotos}
+            onChange={(fotos) => setEvalForm({ ...evalForm, fotos })}
+            maxFiles={6}
+          />
+
+          <SignaturePad
+            label="Firma Cliente (Opcional)"
+            value={evalForm.firmaCliente}
+            onChange={(firmaCliente) => setEvalForm({ ...evalForm, firmaCliente })}
+          />
+
+          <SignaturePad
+            label="Firma Técnico"
+            required
+            value={evalForm.firmaTecnico}
+            onChange={(firmaTecnico) => setEvalForm({ ...evalForm, firmaTecnico })}
+            error={evalErrors.firmaTecnico}
+          />
+
+          {/* Botones Fijos Inferiores */}
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: 'auto', paddingTop: '1.25rem', borderTop: '1px solid #e2e8f0' }}>
             <button
               type="submit"
@@ -1179,14 +1296,14 @@ export const ServiceOrdersPage = () => {
       </SlideDrawer>
 
       {/* ═══════════════════════════════════════════════════════════════
-          MODAL: Acta / Comprobante Digital Imprimible
+          MODAL: Plantilla "Orden de Servicio" (réplica del formulario físico)
           ═══════════════════════════════════════════════════════════════ */}
       {showPrintModal && printTargetOrder && (
         <div className="so-modal-overlay" onClick={() => setShowPrintModal(false)}>
           <div className="so-modal so-modal--print" onClick={e => e.stopPropagation()}>
             <div className="so-modal__header">
               <div className="so-modal__header-left">
-                <h2>Acta Digital de Orden de Servicio</h2>
+                <h2>Orden de Servicio</h2>
                 <span className="so-modal-sub">{printTargetOrder.numeroOrden}</span>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1206,123 +1323,337 @@ export const ServiceOrdersPage = () => {
             </div>
 
             <div className="so-print-sheet">
-              {/* Encabezado Comprobante */}
-              <div className="so-print-header">
-                <div>
-                  <h1 className="so-print-brand">AGROQUÍMICA ROSARIO S.R.L.</h1>
-                  <p className="so-print-company-data">
-                    División Control de Plagas Agrícolas y Fumigación Profesional<br />
-                    CUIT: 30-71458921-8 • Casa Central: Rosario, Santa Fe<br />
-                    Tel: +54 341 456-7890 • www.agroros.com.ar
-                  </p>
+              {/* Membrete */}
+              <div className="so-print-letterhead">
+                <div className="so-print-letterhead__brand">
+                  <div className="so-print-logo-badge">
+                    <img src={logoImg} alt="Agroquímica Rosario" />
+                  </div>
+                  <div>
+                    <h1 className="so-print-brand-name">AGROQUÍMICA ROSARIO S.A.</h1>
+                    <p className="so-print-brand-tagline">
+                      División Control de Plagas Agrícolas y Fumigación Profesional<br />
+                      CUIT: 30-71458921-8 • Casa Central: Rosario, Santa Fe<br />
+                      Tel: +54 341 456-7890 • www.agroros.com.ar
+                    </p>
+                  </div>
                 </div>
-                <div className="so-print-os-badge">
-                  <span className="so-print-os-label">ORDEN DE SERVICIO</span>
-                  <span className="so-print-os-number">{printTargetOrder.numeroOrden}</span>
-                  <span className="so-print-os-date">Fecha: {printTargetOrder.fecha}</span>
-                </div>
-              </div>
-
-              {/* Ficha Cliente & Planta */}
-              <div className="so-print-section-grid">
-                <div className="so-print-box">
-                  <strong style={{ color: '#0f172a', display: 'block', marginBottom: '4px' }}>DATOS DEL CLIENTE</strong>
-                  <div><strong>Empresa:</strong> {printTargetOrder.clienteNombre}</div>
-                  <div><strong>Centro / Filial:</strong> {printTargetOrder.centroNombre || 'Sin especificar'}</div>
-                  <div><strong>Planta de Acopio:</strong> {printTargetOrder.plantaNombre}</div>
-                  <div><strong>Silo / Batería:</strong> {printTargetOrder.silo || 'Sin especificar'}</div>
-                </div>
-
-                <div className="so-print-box">
-                  <strong style={{ color: '#0f172a', display: 'block', marginBottom: '4px' }}>UBICACIÓN Y TRABAJO</strong>
-                  <div><strong>Dirección:</strong> {printTargetOrder.direccion || 'Sin especificar'}</div>
-                  <div><strong>Localidad:</strong> {printTargetOrder.localidad} ({printTargetOrder.provincia})</div>
-                  <div><strong>Tipo de Trabajo:</strong> {printTargetOrder.tipoTrabajo}</div>
-                  <div><strong>Técnico Responsable:</strong> {printTargetOrder.tecnicoAplicador}</div>
+                <div className="so-print-doc-stamp">
+                  <div className="so-print-invalid-badge">
+                    <span className="so-print-invalid-badge__x">X</span>
+                    <span>DOCUMENTO NO VÁLIDO COMO FACTURA</span>
+                  </div>
+                  <span className="so-print-doc-title">ORDEN DE SERVICIO</span>
+                  <div className="so-print-doc-number">{printTargetOrder.numeroOrden}</div>
                 </div>
               </div>
 
-              {/* Tratamiento Químico Aplicado */}
+              {/* Campos del encabezado, apilados como en el formulario físico */}
+              <div className="so-print-fields">
+                <div className="so-print-field-row"><strong>Fecha:</strong> <span>{printTargetOrder.fecha}</span></div>
+                <div className="so-print-field-row"><strong>Cliente:</strong> <span>{printTargetOrder.clienteNombre}</span></div>
+                {printTargetOrder.centroNombre && (
+                  <div className="so-print-field-row"><strong>Centro / Filial:</strong> <span>{printTargetOrder.centroNombre}</span></div>
+                )}
+                <div className="so-print-field-row"><strong>Dirección:</strong> <span>{printTargetOrder.direccion || '—'}</span></div>
+                <div className="so-print-field-row">
+                  <strong>Localidad:</strong> <span>{printTargetOrder.localidad}{printTargetOrder.provincia ? ` (${printTargetOrder.provincia})` : ''}</span>
+                </div>
+                <div className="so-print-field-row"><strong>Técnico Responsable:</strong> <span>{printTargetOrder.tecnicoAplicador || 'Sin asignar'}</span></div>
+                <div className="so-print-field-row so-print-field-row--checkbox">
+                  <strong>Tipo de Trabajo</strong>
+                  <div className="so-print-checkbox-list">
+                    {WORK_TYPES.map((t) => (
+                      <span key={t} className={`so-print-checkbox ${printTargetOrder.tipoTrabajo === t ? 'checked' : ''}`}>
+                        <span className="so-print-checkbox__box" />
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Detalle del servicio */}
+              <h3 className="so-print-section-title">Detalle del servicio</h3>
               <div className="so-print-table-wrap">
-                <h3 className="so-print-table-title">PRODUCTOS QUÍMICOS Y TRATAMIENTO APLICADO</h3>
                 <table className="so-print-table">
                   <thead>
                     <tr>
-                      <th>PRODUCTO</th>
-                      <th>PRINCIPIO ACTIVO</th>
-                      <th>DOSIS</th>
-                      <th>LOTE</th>
-                      <th>T. CARENCIA</th>
-                      <th>CANTIDAD</th>
+                      <th rowSpan={2}>Tipo<br />instalación</th>
+                      <th rowSpan={2}>Nº</th>
+                      <th rowSpan={2}>Capacidad<br />(tn)</th>
+                      <th rowSpan={2}>Grano a<br />tratar</th>
+                      <th rowSpan={2}>Cantidad<br />(tn)</th>
+                      <th colSpan={3}>Estado</th>
+                      <th rowSpan={2}>Producto a<br />utilizar</th>
+                      <th rowSpan={2}>Dosis</th>
+                    </tr>
+                    <tr>
+                      <th>Cereal</th>
+                      <th>Instalaciones</th>
+                      <th>Infestación</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {printTargetOrder.productosAplicados && printTargetOrder.productosAplicados.length > 0 ? (
-                      printTargetOrder.productosAplicados.map((p, i) => (
-                        <tr key={i}>
-                          <td><strong>{p.producto}</strong></td>
-                          <td>{p.principioActivo}</td>
-                          <td>{p.dosis}</td>
-                          <td>{p.lote}</td>
-                          <td>{p.tiempoCarencia}</td>
-                          <td>{p.cantidadTotal}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan="6">Sin productos detallados</td></tr>
-                    )}
+                    <tr>
+                      <td>{inferTipoInstalacion(printTargetOrder.tipoTrabajo)}</td>
+                      <td>{printTargetOrder.silo || '—'}</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>
+                        {printTargetOrder.productosAplicados && printTargetOrder.productosAplicados.length > 0 ? (
+                          printTargetOrder.productosAplicados.map((p, i) => (
+                            <div key={i}><strong>{p.producto}</strong></div>
+                          ))
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {printTargetOrder.productosAplicados && printTargetOrder.productosAplicados.length > 0 ? (
+                          printTargetOrder.productosAplicados.map((p, i) => (
+                            <div key={i}>{p.dosis || '—'}</div>
+                          ))
+                        ) : '—'}
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
+                {printTargetOrder.productosAplicados && printTargetOrder.productosAplicados.some(p => p.principioActivo || p.lote || p.tiempoCarencia || p.cantidadTotal) && (
+                  <div className="so-print-table-note">
+                    {printTargetOrder.productosAplicados.map((p, i) => (
+                      <div key={i}>
+                        <strong>{p.producto}:</strong>{' '}
+                        {p.principioActivo && <>P.A. {p.principioActivo} · </>}
+                        {p.lote && <>Lote {p.lote} · </>}
+                        {p.tiempoCarencia && <>Carencia {p.tiempoCarencia} · </>}
+                        {p.cantidadTotal && <>Cantidad total {p.cantidadTotal}</>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="so-print-eval-note">
+                  Capacidad, grano a tratar, cantidad (tn) y estado no se registran hoy como datos del sistema; se completan a mano si hace falta.
+                </p>
+                <ul className="so-print-disclaimers">
+                  <li>Se entrega junto a esta Orden muestra de cada instalación a tratar.</li>
+                  <li>Se han leído las Precauciones Mínimas detalladas en la carilla posterior.</li>
+                </ul>
               </div>
 
-              {/* Evaluación del Servicio */}
-              {printTargetOrder.evaluacion ? (
-                <div className="so-print-eval-box">
-                  <h3 className="so-print-table-title">EVALUACIÓN DE CONFORMIDAD DEL SERVICIO</h3>
-                  <div className="so-print-eval-grid">
-                    <div>
-                      <strong>Calificación:</strong> {printTargetOrder.evaluacion.calificacion} / 5 Estrellas (★)
-                    </div>
-                    <div>
-                      <strong>Conformidad:</strong> {printTargetOrder.evaluacion.conformidad}
-                    </div>
-                    <div>
-                      <strong>Cumplimiento de EPP:</strong> {printTargetOrder.evaluacion.cumplimientoEPP ? 'Sí ✓' : 'No'}
-                    </div>
-                    <div>
-                      <strong>Puntualidad:</strong> {printTargetOrder.evaluacion.puntualidad ? 'Sí ✓' : 'No'}
-                    </div>
-                  </div>
-                  {printTargetOrder.evaluacion.observacionesTecnicas && (
-                    <div style={{ marginTop: '8px', fontSize: '12px' }}>
-                      <strong>Observaciones:</strong> {printTargetOrder.evaluacion.observacionesTecnicas}
-                    </div>
-                  )}
-                  <div style={{ marginTop: '8px', fontSize: '12px' }}>
-                    <strong>Receptor en Planta:</strong> {printTargetOrder.evaluacion.responsableReceptor} ({printTargetOrder.evaluacion.cargoReceptor || 'Encargado'}) — DNI: {printTargetOrder.evaluacion.dniReceptor || 'Constatado'}
-                  </div>
-                </div>
-              ) : (
-                <div className="so-print-eval-box" style={{ background: '#fffbeb', borderColor: '#fde68a' }}>
-                  <strong>Evaluación Pendiente:</strong> La orden aún no cuenta con evaluación registrada por el receptor de planta.
-                </div>
-              )}
+              {/* Observaciones */}
+              <div className="so-print-box-plain">
+                <h3 className="so-print-box-plain__title">Observaciones</h3>
+                <p className="so-print-box-plain__text">{printTargetOrder.observacionesOrden || 'Sin observaciones.'}</p>
+              </div>
 
-              {/* Firmas */}
+              {/* Recomendaciones especiales para el Cliente */}
+              <div className="so-print-box-plain">
+                <h3 className="so-print-box-plain__title">Recomendaciones especiales para el Cliente</h3>
+                <p className="so-print-box-plain__text">{printTargetOrder.recomendaciones || 'Sin recomendaciones especiales.'}</p>
+              </div>
+
+              {/* Firmas (opcionales — no siempre se firman en el momento de la orden) */}
               <div className="so-print-signatures">
                 <div className="so-signature-line">
-                  <div className="so-signature-space"></div>
-                  <span>Firma y Matrícula del Aplicador</span>
+                  {printTargetOrder.firmaTecnico ? (
+                    <img src={printTargetOrder.firmaTecnico} alt="Firma del técnico" className="so-signature-img" />
+                  ) : (
+                    <div className="so-signature-space"></div>
+                  )}
+                  <span>Firma y Matrícula del Técnico / Aplicador</span>
                 </div>
                 <div className="so-signature-line">
-                  <div className="so-signature-space"></div>
-                  <span>Firma y Aclaración Receptor de Planta</span>
+                  {printTargetOrder.firmaCliente ? (
+                    <img src={printTargetOrder.firmaCliente} alt="Firma del cliente" className="so-signature-img" />
+                  ) : (
+                    <div className="so-signature-space"></div>
+                  )}
+                  <span>Firma y Aclaración del Cliente</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+          MODAL: Plantilla "Evaluación de Servicio" (réplica del formulario físico)
+          ═══════════════════════════════════════════════════════════════ */}
+      {showEvalPrintModal && evalPrintOrder && evalPrintOrder.evaluacion && (() => {
+        const ev = evalPrintOrder.evaluacion;
+        let fotosEv = [];
+        try {
+          fotosEv = Array.isArray(ev.fotos) ? ev.fotos : (ev.fotos ? JSON.parse(ev.fotos) : []);
+        } catch (_) {
+          fotosEv = [];
+        }
+
+        return (
+          <div className="so-modal-overlay" onClick={() => setShowEvalPrintModal(false)}>
+            <div className="so-modal so-modal--print" onClick={e => e.stopPropagation()}>
+              <div className="so-modal__header">
+                <div className="so-modal__header-left">
+                  <h2>Evaluación de Servicio</h2>
+                  <span className="so-modal-sub">OS {evalPrintOrder.numeroOrden}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="so-page__export-btn"
+                    onClick={() => window.print()}
+                    style={{ padding: '7px 14px', fontSize: '13px' }}
+                  >
+                    <Printer size={15} />
+                    <span>Imprimir / Guardar PDF</span>
+                  </button>
+                  <button type="button" className="so-modal__close" onClick={() => setShowEvalPrintModal(false)}>
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="so-print-sheet">
+                {/* Membrete */}
+                <div className="so-print-letterhead">
+                  <div className="so-print-letterhead__brand">
+                    <div className="so-print-logo-badge">
+                      <img src={logoImg} alt="Agroquímica Rosario" />
+                    </div>
+                    <div>
+                      <h1 className="so-print-brand-name">AGROQUÍMICA ROSARIO S.A.</h1>
+                      <p className="so-print-brand-tagline">
+                        División Control de Plagas Agrícolas y Fumigación Profesional<br />
+                        CUIT: 30-71458921-8 • Casa Central: Rosario, Santa Fe<br />
+                        Tel: +54 341 456-7890 • www.agroros.com.ar
+                      </p>
+                    </div>
+                  </div>
+                  <div className="so-print-doc-stamp">
+                    <div className="so-print-invalid-badge">
+                      <span className="so-print-invalid-badge__x">X</span>
+                      <span>DOCUMENTO NO VÁLIDO COMO FACTURA</span>
+                    </div>
+                    <span className="so-print-doc-title">EVALUACIÓN DE SERVICIO</span>
+                    <div className="so-print-doc-number">{evalPrintOrder.numeroOrden}</div>
+                  </div>
+                </div>
+
+                {/* Campos del encabezado — igual al formulario físico */}
+                <div className="so-print-fields">
+                  <div className="so-print-field-row">
+                    <strong>Fecha:</strong> <span>{ev.fechaEvaluacion ? String(ev.fechaEvaluacion).slice(0, 10) : '—'}</span>
+                  </div>
+                  <div className="so-print-field-row"><strong>Cliente:</strong> <span>{evalPrintOrder.clienteNombre}</span></div>
+                  <div className="so-print-field-row">
+                    <strong>Localidad:</strong> <span>{evalPrintOrder.localidad}{evalPrintOrder.provincia ? ` (${evalPrintOrder.provincia})` : ''}</span>
+                  </div>
+                  <div className="so-print-field-row"><strong>Orden de Servicio:</strong> <span>{evalPrintOrder.numeroOrden}</span></div>
+                </div>
+
+                {/* Detalle del servicio — Estado de la muestra */}
+                <h3 className="so-print-section-title">Detalle del servicio</h3>
+                <div className="so-print-table-wrap">
+                  <table className="so-print-table">
+                    <thead>
+                      <tr>
+                        <th rowSpan={2}>Tipo<br />instalación</th>
+                        <th rowSpan={2}>Nº</th>
+                        <th rowSpan={2}>Capacidad<br />(tn)</th>
+                        <th rowSpan={2}>Grano<br />tratado</th>
+                        <th rowSpan={2}>Cantidad<br />(tn)</th>
+                        <th colSpan={3}>Estado de la muestra</th>
+                      </tr>
+                      <tr>
+                        <th>Estado cereal (1)</th>
+                        <th>Lugar toma muestra</th>
+                        <th>RESULTADO (1)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>{inferTipoInstalacion(evalPrintOrder.tipoTrabajo)}</td>
+                        <td>{evalPrintOrder.silo || '—'}</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td><strong>{ev.estadoCereal || '—'}</strong></td>
+                        <td>{ev.lugarToma || '—'}</td>
+                        <td><strong>{ev.resultado || '—'}</strong></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p className="so-print-eval-note">
+                    Capacidad, grano tratado y cantidad (tn) todavía no se registran como datos del sistema; se completan a mano si hace falta.
+                  </p>
+                  <p className="so-print-eval-note">(1) Referencias al dorso.</p>
+                </div>
+
+                {/* Observaciones + PPM PH3 */}
+                <div className="so-print-box-plain">
+                  <h3 className="so-print-box-plain__title">Observaciones</h3>
+                  <p className="so-print-box-plain__text">
+                    <strong>PPM PH3:</strong> {(ev.ppmPH3 !== null && ev.ppmPH3 !== undefined && ev.ppmPH3 !== '') ? ev.ppmPH3 : '—'}
+                    {ev.observaciones ? <><br />{ev.observaciones}</> : null}
+                  </p>
+                </div>
+
+                {/* Recomendaciones especiales para el Cliente */}
+                <div className="so-print-box-plain">
+                  <h3 className="so-print-box-plain__title">Recomendaciones especiales para el Cliente</h3>
+                  <p className="so-print-box-plain__text">{ev.recomendaciones || 'Sin recomendaciones especiales.'}</p>
+                </div>
+
+                {/* Fotos adjuntas */}
+                {fotosEv.length > 0 && (
+                  <div className="so-print-box-plain">
+                    <h3 className="so-print-box-plain__title">Fotos adjuntas ({fotosEv.length})</h3>
+                    <div className="so-print-eval-photos">
+                      {fotosEv.map((src, idx) => (
+                        <img key={idx} src={src} alt={`Foto ${idx + 1}`} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Referencias — leyenda del dorso del formulario físico */}
+                <div className="so-print-legend">
+                  <strong>Referencias:</strong>
+                  <span>IM: Insectos Muertos</span>
+                  <span>AIV: Alta Infestación Vivos</span>
+                  <span>MIV: Mediana Infestación Vivos</span>
+                  <span>BIV: Baja Infestación Vivos</span>
+                  <span>SI: No se observan insectos</span>
+                  <span>GP: Grano Picado</span>
+                  <span>SP: Grano Sin Picado</span>
+                </div>
+
+                {/* Firmas */}
+                <div className="so-print-signatures">
+                  <div className="so-signature-line">
+                    {ev.firmaTecnico ? (
+                      <img src={ev.firmaTecnico} alt="Firma del técnico" className="so-signature-img" />
+                    ) : (
+                      <div className="so-signature-space"></div>
+                    )}
+                    <span>Firma y Matrícula del Técnico</span>
+                  </div>
+                  <div className="so-signature-line">
+                    {ev.firmaCliente ? (
+                      <img src={ev.firmaCliente} alt="Firma del cliente" className="so-signature-img" />
+                    ) : (
+                      <div className="so-signature-space"></div>
+                    )}
+                    <span>Firma y Aclaración del Cliente</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

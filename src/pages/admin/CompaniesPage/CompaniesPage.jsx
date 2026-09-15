@@ -395,13 +395,13 @@ export const CompaniesPage = () => {
             {companies.length} empresas registradas en el CRM con sus contactos y negocios asociados
           </p>
         </div>
-        <div className="companies-page__header-actions">
-          <button className="companies-page__add-btn" onClick={() => setShowModal(true)}>
+        <div className="crm-page-header-actions">
+          <button className="crm-btn-primary" onClick={() => setShowModal(true)}>
             <Plus size={16} />
             Agregar empresa
           </button>
           <button
-            className="companies-page__export-btn"
+            className="crm-btn-export"
             onClick={handleExportCompanies}
             title="Exportar empresas a planilla CSV/Excel"
           >

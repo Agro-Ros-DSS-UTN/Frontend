@@ -299,14 +299,10 @@ export const OpportunitiesPage = () => {
           </div>
         </div>
 
-        <div className="deals-page__header-actions">
-          <button type="button" className="deals-btn deals-btn--export" onClick={handleExportDeals}>
-            <Download size={15} />
-            <span>Exportar</span>
-          </button>
+        <div className="crm-page-header-actions">
           <button
             type="button"
-            className="deals-btn deals-btn--primary"
+            className="crm-btn-primary"
             onClick={() => {
               setErrors({});
               setForm(emptyForm(ownerName));
@@ -315,6 +311,10 @@ export const OpportunitiesPage = () => {
           >
             <Plus size={16} />
             <span>Crear Negocio</span>
+          </button>
+          <button type="button" className="crm-btn-export" onClick={handleExportDeals}>
+            <Download size={15} />
+            <span>Exportar</span>
           </button>
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
   Pencil,
   Trash2,
   Calendar,
+  Download,
 } from 'lucide-react';
 import { employeesApi } from '../../../api/employees.api';
 import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput';
@@ -148,6 +149,30 @@ export const EmployeesPage = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Nombre y Apellido', 'DNI', 'Matrícula', 'Puesto', 'Teléfono', 'Email', 'Empresa', 'Fecha de Ingreso', 'Estado'];
+    const rows = filtered.map((e) => [
+      `"${(e.nombreApellido || '').replace(/"/g, '""')}"`,
+      `"${e.dni || ''}"`,
+      `"${e.matricula || ''}"`,
+      `"${e.puesto || ''}"`,
+      `"${e.telefono || ''}"`,
+      `"${e.email || ''}"`,
+      `"${(e.empresa || '').replace(/"/g, '""')}"`,
+      `"${e.fechaIngreso || ''}"`,
+      `"${e.activo === false ? 'Inactivo' : 'Activo'}"`,
+    ]);
+    const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Empleados_AgroRos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDelete = async (emp) => {
     if (!window.confirm(`¿Eliminar al empleado "${emp.nombreApellido}"?`)) return;
     setEmployees((prev) => prev.filter((x) => x.id !== emp.id));
@@ -171,10 +196,16 @@ export const EmployeesPage = () => {
             Registro del personal operativo (aplicadores, operarios y ayudantes). No acceden al sistema.
           </p>
         </div>
-        <button type="button" className="emp-page__add-btn" onClick={openCreate}>
-          <Plus size={16} />
-          <span>Registrar Empleado</span>
-        </button>
+        <div className="crm-page-header-actions">
+          <button type="button" className="crm-btn-primary" onClick={openCreate}>
+            <Plus size={16} />
+            <span>Registrar Empleado</span>
+          </button>
+          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
+            <Download size={15} />
+            <span>Exportar</span>
+          </button>
+        </div>
       </div>
 
       <div className="emp-stats">

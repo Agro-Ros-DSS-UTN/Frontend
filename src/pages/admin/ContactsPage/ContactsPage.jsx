@@ -271,12 +271,12 @@ export const ContactsPage = () => {
             {clients.length} contactos registrados en el CRM
           </p>
         </div>
-        <div className="contacts-page__header-actions">
-          <button className="contacts-page__add-btn" onClick={() => setShowModal(true)}>
+        <div className="crm-page-header-actions">
+          <button className="crm-btn-primary" onClick={() => setShowModal(true)}>
             <Plus size={16} />
             Agregar contacto
           </button>
-          <button className="contacts-page__export-btn" onClick={handleExportContacts}>
+          <button className="crm-btn-export" onClick={handleExportContacts}>
             <Download size={16} />
             Exportar
           </button>

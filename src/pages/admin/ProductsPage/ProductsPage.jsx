@@ -400,14 +400,14 @@ export const ProductsPage = () => {
             Gestión comercial de agroquímicos, fertilizantes foliares, semillas y servicios técnicos en campo
           </p>
         </div>
-        <div className="products-page__header-actions">
-          <button type="button" className="products-page__export-btn" onClick={handleExportCSV}>
-            <Download size={15} />
-            <span>Exportar CSV</span>
-          </button>
-          <button type="button" className="products-page__add-btn" onClick={handleOpenCreateModal}>
+        <div className="crm-page-header-actions">
+          <button type="button" className="crm-btn-primary" onClick={handleOpenCreateModal}>
             <Plus size={16} />
             <span>Nuevo Producto</span>
+          </button>
+          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
+            <Download size={15} />
+            <span>Exportar</span>
           </button>
         </div>
       </div>

@@ -495,46 +495,24 @@
 .so-eval-box {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  align-items: flex-start;
 }
 
-.so-stars-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.so-star-icon--filled {
-  color: #f59e0b;
-  fill: #f59e0b;
-}
-
-.so-star-icon--empty {
-  color: #cbd5e1;
-}
-
-.so-eval-score-text {
+.so-eval-resultado {
+  display: inline-block;
   font-size: 11px;
   font-weight: 700;
-  color: #b45309;
-  margin-left: 4px;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
 }
 
-.so-conformity-label {
-  font-size: 11px;
+.so-eval-meta {
+  font-size: 10.5px;
+  color: #94a3b8;
   font-weight: 600;
-}
-
-.so-conformity-label--conforme {
-  color: #059669;
-}
-
-.so-conformity-label--observaciones {
-  color: #d97706;
-}
-
-.so-conformity-label--no-conforme {
-  color: #dc2626;
 }
 
 .so-btn-eval-pending {
@@ -596,6 +574,12 @@
   color: #d97706;
   border-color: #fde68a;
   background: #fffbeb;
+}
+
+.so-action-icon-btn--eval-print:hover {
+  color: #7c3aed;
+  border-color: #ddd6fe;
+  background: #f5f3ff;
 }
 
 .so-action-icon-btn--edit:hover {
@@ -684,7 +668,7 @@
 }
 
 .so-modal--print {
-  max-width: 900px !important;
+  max-width: 1060px !important;
 }
 
 @keyframes soScaleIn {
@@ -953,253 +937,387 @@
   border-top: 1px solid #e2e8f0 !important;
 }
 
-/* ── Modal de Evaluación de Servicio ── */
-.so-eval-stars-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+/* ── Drawer de Evaluación de Servicio digital ── */
+.so-eval-os-summary {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
   border-radius: 12px;
-  padding: 20px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  padding: 12px 14px;
 }
 
-.so-eval-stars-title {
-  font-size: 13.5px;
-  font-weight: 700;
+.so-eval-os-summary__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #15803d;
+  margin-bottom: 8px;
+}
+
+.so-eval-os-summary__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  font-size: 12.5px;
   color: #334155;
 }
 
-.so-interactive-stars {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin: 4px 0;
-}
-
-.so-star-btn {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  color: #cbd5e1;
-  transition: all 0.15s;
-}
-
-.so-star-btn.active {
-  color: #f59e0b;
-}
-
-.so-star-btn:hover {
-  transform: scale(1.2);
-}
-
-.so-star-text-badge {
-  font-size: 13px;
+.so-eval-os-summary__grid strong {
+  color: #0f172a;
   font-weight: 700;
-  color: #b45309;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  padding: 3px 12px;
-  border-radius: 9999px;
 }
 
-.so-conformity-options {
+.so-eval-resultado-options {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
 }
 
-.so-conformity-pill {
+.so-eval-resultado-pill {
   padding: 10px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: #ffffff;
   color: #475569;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
   text-align: center;
 }
 
-.so-conformity-pill:hover {
+.so-eval-resultado-pill:hover {
   background: #f8fafc;
   border-color: #94a3b8;
 }
 
-.so-conformity-pill.active {
-  background: #ecfdf5;
-  border-color: #1a7d6b;
-  color: #1a7d6b;
-  box-shadow: 0 0 0 2px rgba(26, 125, 107, 0.15);
+.so-eval-resultado-pill.active {
+  box-shadow: 0 0 0 2px currentColor inset;
 }
 
-.so-checklist-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 14px 18px;
-}
-
-.so-check-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  font-size: 13px;
-  color: #334155;
-  font-weight: 500;
-}
-
-.so-check-item input[type="checkbox"] {
-  width: 17px;
-  height: 17px;
-  border-radius: 4px;
-  accent-color: #1a7d6b;
-  cursor: pointer;
-}
-
-/* ── Modal Acta Digital Imprimible ── */
+/* ── Plantillas impresas: Orden de Servicio / Evaluación de Servicio ──
+   Réplica del formulario físico de Agroquímica Rosario S.A. (papel numerado) */
 .so-print-sheet {
   background: #ffffff;
   padding: 28px 32px;
   overflow-y: auto;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: Arial, 'Segoe UI', Helvetica, sans-serif;
   color: #0f172a;
+  font-size: 12.5px;
 }
 
-.so-print-header {
+/* Encabezado / membrete */
+.so-print-letterhead {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 2px solid #1a7d6b;
-  padding-bottom: 16px;
-  margin-bottom: 20px;
+  gap: 16px;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
 }
 
-.so-print-brand {
-  font-size: 20px;
+.so-print-letterhead__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.so-print-logo-badge {
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 8px;
+}
+
+.so-print-logo-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.so-print-brand-name {
+  font-size: 18px;
   font-weight: 800;
-  color: #1a7d6b;
-  margin: 0 0 4px;
+  color: #0f172a;
+  margin: 0 0 3px;
+  letter-spacing: -0.2px;
 }
 
-.so-print-company-data {
-  font-size: 11.5px;
-  color: #64748b;
+.so-print-brand-tagline {
+  font-size: 11px;
+  color: #475569;
   line-height: 1.4;
   margin: 0;
 }
 
-.so-print-os-badge {
-  text-align: right;
+.so-print-doc-stamp {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
-.so-print-os-label {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #64748b;
-}
-
-.so-print-os-number {
-  font-family: monospace;
-  font-size: 16px;
-  font-weight: 700;
-  color: #1a7d6b;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  padding: 2px 8px;
+.so-print-invalid-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #94a3b8;
   border-radius: 4px;
-  margin: 3px 0;
-}
-
-.so-print-os-date {
-  font-size: 12px;
+  padding: 3px 8px;
+  font-size: 8.5px;
+  font-weight: 700;
   color: #475569;
+  text-align: right;
+  line-height: 1.1;
+  max-width: 190px;
 }
 
-.so-print-section-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 20px;
+.so-print-invalid-badge__x {
+  font-size: 13px;
+  font-weight: 900;
+  color: #0f172a;
+  border: 1.5px solid #0f172a;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.so-print-box {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 12px 14px;
-  background: #f8fafc;
+.so-print-doc-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1d4ed8;
+  letter-spacing: 0.2px;
+  text-align: right;
+  max-width: 260px;
+}
+
+.so-print-doc-number {
+  font-family: 'Courier New', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #b91c1c;
+  border: 1.5px solid #0f172a;
+  padding: 3px 10px;
+}
+
+/* Campos apilados (Fecha / Cliente / Dirección / Localidad / ...) */
+.so-print-fields {
+  margin-bottom: 4px;
+}
+
+.so-print-field-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid #0f172a;
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+
+.so-print-fields .so-print-field-row + .so-print-field-row {
+  border-top: none;
+}
+
+.so-print-field-row strong {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.so-print-field-row--checkbox {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.so-print-checkbox-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+}
+
+.so-print-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
-  line-height: 1.6;
+  color: #334155;
+}
+
+.so-print-checkbox__box {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid #0f172a;
+  display: inline-block;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.so-print-checkbox.checked {
+  font-weight: 800;
+}
+
+.so-print-checkbox.checked .so-print-checkbox__box {
+  background: #0f172a;
+}
+
+.so-print-checkbox.checked .so-print-checkbox__box::after {
+  content: '✓';
+  position: absolute;
+  top: -4px;
+  left: 1px;
+  font-size: 10px;
+  color: #ffffff;
+  line-height: 1;
+}
+
+/* Título de sección tipo formulario ("Detalle del servicio") */
+.so-print-section-title {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #0f172a;
+  margin: 18px 0 8px;
 }
 
 .so-print-table-wrap {
-  margin-bottom: 20px;
-}
-
-.so-print-table-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #475569;
-  letter-spacing: 0.4px;
-  margin: 0 0 8px;
+  margin-bottom: 6px;
+  overflow-x: auto;
 }
 
 .so-print-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .so-print-table th {
   background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  padding: 6px 10px;
-  color: #334155;
+  border: 1px solid #0f172a;
+  padding: 5px 8px;
+  color: #0f172a;
   font-weight: 700;
-  font-size: 10.5px;
-  text-align: left;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.25;
 }
 
 .so-print-table td {
-  border: 1px solid #e2e8f0;
-  padding: 6px 10px;
+  border: 1px solid #0f172a;
+  padding: 6px 8px;
   color: #1e293b;
+  text-align: center;
+  vertical-align: top;
 }
 
-.so-print-eval-box {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 12px 16px;
+.so-print-table td:last-child,
+.so-print-table td:nth-last-child(2) {
+  text-align: left;
+}
+
+.so-print-table-note {
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.so-print-eval-note {
+  margin: 6px 0 0;
+  font-size: 10.5px;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.so-print-disclaimers {
+  margin: 10px 0 18px;
+  padding-left: 18px;
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+/* Observaciones / Recomendaciones — cajas planas tipo formulario */
+.so-print-box-plain {
+  border: 1px solid #0f172a;
+  margin-bottom: 16px;
+}
+
+.so-print-box-plain__title {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid #0f172a;
   background: #f8fafc;
-  margin-bottom: 24px;
 }
 
-.so-print-eval-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  font-size: 12.5px;
+.so-print-box-plain__text {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #1e293b;
+  line-height: 1.6;
+  min-height: 20px;
+  white-space: pre-wrap;
 }
 
+.so-print-eval-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 10px;
+}
+
+.so-print-eval-photos img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
+/* Referencias (leyenda del dorso del formulario) */
+.so-print-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: center;
+  border-top: 1px dashed #94a3b8;
+  padding-top: 10px;
+  margin-bottom: 18px;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.so-print-legend strong {
+  color: #334155;
+  font-size: 10.5px;
+}
+
+/* Firmas */
 .so-print-signatures {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 48px;
-  margin-top: 36px;
+  margin-top: 30px;
   padding-top: 10px;
 }
 
@@ -1208,14 +1326,19 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  font-size: 12px;
-  color: #475569;
-  border-top: 1px solid #94a3b8;
+  font-size: 11.5px;
+  color: #334155;
+  border-top: 1px solid #0f172a;
   padding-top: 6px;
 }
 
 .so-signature-space {
   height: 48px;
+}
+
+.so-signature-img {
+  height: 48px;
+  object-fit: contain;
 }
 
 @media print {
@@ -1303,6 +1426,27 @@ button.btn-rounded-secondary:hover {
 }
 
 .so-drawer-chem-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1a7d6b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.so-drawer-signatures {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.so-drawer-signatures__title {
   font-size: 0.85rem;
   font-weight: 700;
   color: #1a7d6b;

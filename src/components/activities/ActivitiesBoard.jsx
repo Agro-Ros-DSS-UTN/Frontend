@@ -16,6 +16,7 @@ import {
   Trash2,
   Maximize2,
   CheckSquare,
+  Download,
 } from 'lucide-react';
 import { activitiesApi, tasksApi } from '../../api/operations.api';
 import { useAuth } from '../../context/AuthContext';
@@ -285,6 +286,27 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Fecha y Hora', 'Tipo de Contacto', 'Empresa', 'Descripción', 'Monto de Venta', 'Autor'];
+    const rows = filteredActivities.map((a) => [
+      `"${a.fechaHora || ''}"`,
+      `"${a.tipoContacto || ''}"`,
+      `"${(a.empresa || '').replace(/"/g, '""')}"`,
+      `"${(a.descripcion || '').replace(/"/g, '""')}"`,
+      `"${a.montoVenta || ''}"`,
+      `"${(a.autorNombre || '').replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Actividades_AgroRos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="act-board">
       {/* Banner */}
@@ -296,18 +318,26 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             fotos agronómicas y acuerdos
           </p>
         </div>
-        <button
-          type="button"
-          className="act-board__register-btn"
-          onClick={() => {
-            setErrors({});
-            setForm(emptyForm());
-            setShowDrawer(true);
-          }}
-        >
-          <Plus size={18} />
-          <span>Registrar Actividad en Campo</span>
-        </button>
+        <div className="crm-page-header-actions">
+          <button
+            type="button"
+            className="crm-btn-primary"
+            onClick={() => {
+              setErrors({});
+              setForm(emptyForm());
+              setShowDrawer(true);
+            }}
+          >
+            <Plus size={18} />
+            <span>Registrar Actividad en Campo</span>
+          </button>
+          {variant === 'admin' && (
+            <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
+              <Download size={15} />
+              <span>Exportar</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
