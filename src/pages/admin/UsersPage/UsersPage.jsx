@@ -28,9 +28,12 @@ import {
   updateUser as apiUpdateUser,
   deleteUser as apiDeleteUser,
 } from '../../../data/api';
+import { authApi } from '../../../api/auth.api';
+import { useAuth } from '../../../context/AuthContext';
 import { mockUsers } from '../../../data/mockData';
-import { FormInput, FormSelect } from '../../../components/ui/FormInput';
-import { SlideDrawer } from '../../../components/ui/SlideDrawer';
+import { FormInput, FormSelect } from '../../../components/ui/FormInput/FormInput';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
+import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
 import './UsersPage.css';
 
 const TABS = [
@@ -38,6 +41,8 @@ const TABS = [
   { key: 'admin', label: 'Administradores' },
   { key: 'vendedor', label: 'Vendedores' },
 ];
+
+const MAX_PASSWORD_LENGTH = 64;
 
 const COLUMNS = [
   { key: 'nombreApellido', label: 'Usuario', sortable: true },
@@ -49,6 +54,7 @@ const COLUMNS = [
 const PAGE_SIZE = 10;
 
 export const UsersPage = () => {
+  const { currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
@@ -67,7 +73,13 @@ export const UsersPage = () => {
   // Modal (Slide-over drawer) State
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('create');
+  const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Re-autenticación de admin al modificar la contraseña de OTRO usuario
+  const [adminReauthPassword, setAdminReauthPassword] = useState('');
+  const [showAdminReauth, setShowAdminReauth] = useState(false);
+  const [reauthError, setReauthError] = useState('');
 
   // Form State & Errors
   const [form, setForm] = useState({
@@ -207,6 +219,9 @@ export const UsersPage = () => {
     setErrors({});
     setModalMode('create');
     setShowPassword(false);
+    setAdminReauthPassword('');
+    setShowAdminReauth(false);
+    setReauthError('');
     setShowModal(true);
   };
 
@@ -223,12 +238,40 @@ export const UsersPage = () => {
     setErrors({});
     setModalMode('edit');
     setShowPassword(false);
+    setAdminReauthPassword('');
+    setShowAdminReauth(false);
+    setReauthError('');
     setShowModal(true);
   };
+
+  // Mismas 4 reglas que el cambio de contraseña en Mi Perfil: 8+ caracteres,
+  // mayúscula, número y símbolo — con barra de fuerza roja/naranja/verde.
+  const passwordChecks = {
+    length: form.password.length >= 8,
+    upper: /[A-Z]/.test(form.password),
+    number: /[0-9]/.test(form.password),
+    symbol: /[^A-Za-z0-9]/.test(form.password),
+  };
+  const passwordScore = Object.values(passwordChecks).filter(Boolean).length;
+  const passwordStrength =
+    form.password.length === 0
+      ? null
+      : passwordScore <= 1
+      ? { label: 'Débil', color: 'red' }
+      : passwordScore <= 3
+      ? { label: 'Media', color: 'orange' }
+      : { label: 'Fuerte', color: 'green' };
+
+  // Modificar la contraseña de un usuario ya existente exige re-confirmar la
+  // propia contraseña del admin logueado (no aplica al crear un usuario nuevo).
+  const isChangingExistingPassword = modalMode === 'edit' && form.password.length > 0;
 
   const handleCloseModal = () => {
     setShowModal(false);
     setErrors({});
+    setAdminReauthPassword('');
+    setShowAdminReauth(false);
+    setReauthError('');
   };
 
   const handleFormChange = (e) => {
@@ -242,16 +285,40 @@ export const UsersPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Evita envíos duplicados (doble click / doble submit mientras se guarda),
+    // que antes generaban varias filas fantasma del mismo usuario en la tabla.
+    if (submitting) return;
+
     const newErrors = {};
     if (!form.idUser?.trim()) newErrors.idUser = 'Ingresá el ID único de usuario.';
     if (!form.nombreApellido?.trim()) newErrors.nombreApellido = 'El nombre y apellido es obligatorio.';
     if (modalMode === 'create' && !form.password) newErrors.password = 'La contraseña es obligatoria para nuevos usuarios.';
+    if (form.password && passwordScore < 4) newErrors.password = 'La contraseña no cumple todos los requisitos de seguridad.';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
     setErrors({});
+    setReauthError('');
+
+    // Modificar la contraseña de un usuario existente exige confirmar la
+    // propia contraseña del admin logueado antes de aplicar el cambio.
+    if (isChangingExistingPassword) {
+      if (!adminReauthPassword) {
+        setReauthError('Ingresá tu contraseña de administrador para confirmar este cambio.');
+        return;
+      }
+      setSubmitting(true);
+      try {
+        await authApi.login(currentUser?.idUser, adminReauthPassword);
+      } catch (err) {
+        setReauthError(err?.response?.data?.message || 'Tu contraseña de administrador es incorrecta.');
+        setSubmitting(false);
+        return;
+      }
+      setSubmitting(false);
+    }
 
     const payload = {
       idUser: form.idUser.trim(),
@@ -262,30 +329,29 @@ export const UsersPage = () => {
       accountStatement: form.accountStatement,
     };
 
-    if (modalMode === 'create') {
-      try {
+    setSubmitting(true);
+    try {
+      if (modalMode === 'create') {
         const created = await apiCreateUser(payload);
         const newUser = created?.data || created || payload;
         setUsers(prev => [newUser, ...prev]);
         showToast('Usuario creado exitosamente en MySQL');
-      } catch (err) {
-        console.warn('Error al guardar en backend:', err);
-        setUsers(prev => [payload, ...prev]);
-        showToast('Usuario agregado (modo offline)');
-      }
-    } else {
-      try {
+      } else {
         await apiUpdateUser(form.idUser, payload);
+        setUsers(prev =>
+          prev.map(u => ((u.idUser || u.id) === form.idUser ? { ...u, ...payload } : u))
+        );
         showToast('Usuario actualizado exitosamente');
-      } catch (err) {
-        console.warn('Error al actualizar:', err);
       }
-      setUsers(prev =>
-        prev.map(u => ((u.idUser || u.id) === form.idUser ? { ...u, ...payload } : u))
-      );
+      handleCloseModal();
+    } catch (err) {
+      console.warn('Error al guardar usuario:', err);
+      // No se agrega una fila local sin persistir: eso era lo que provocaba
+      // usuarios "fantasma" duplicados en pantalla ante cada reintento fallido.
+      setErrors({ idUser: err.message || 'No se pudo guardar el usuario. Verificá que el ID no esté en uso.' });
+    } finally {
+      setSubmitting(false);
     }
-
-    handleCloseModal();
   };
 
   const handleDeleteUser = async (id, e) => {
@@ -340,16 +406,14 @@ export const UsersPage = () => {
             Administrá los perfiles, permisos y credenciales de acceso para Administradores y Vendedores
           </p>
         </div>
-        <div className="crm-page-header-actions">
-          <button type="button" className="crm-btn-primary" onClick={handleOpenCreateModal}>
-            <Plus size={16} />
-            <span>Nuevo Usuario</span>
-          </button>
-          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
-            <Download size={15} />
-            <span>Exportar</span>
-          </button>
-        </div>
+        <PageHeaderActions>
+          <PrimaryActionButton icon={Plus} onClick={handleOpenCreateModal}>
+            Nuevo Usuario
+          </PrimaryActionButton>
+          <ExportActionButton icon={Download} onClick={handleExportCSV}>
+            Exportar
+          </ExportActionButton>
+        </PageHeaderActions>
       </div>
 
       {/* Main Unified Card */}
@@ -649,6 +713,7 @@ export const UsersPage = () => {
                 onChange={handleFormChange}
                 placeholder={modalMode === 'edit' ? 'Nueva contraseña (opcional)' : 'Ingresá la contraseña'}
                 className="form-input-control"
+                maxLength={MAX_PASSWORD_LENGTH}
               />
               <button
                 type="button"
@@ -659,6 +724,48 @@ export const UsersPage = () => {
               </button>
             </div>
             {errors.password && <span className="form-input-error">{errors.password}</span>}
+
+            {passwordStrength && (
+              <>
+                <div className="profile-password-strength">
+                  <div className="profile-password-strength__bars">
+                    {[0, 1, 2, 3].map((i) => (
+                      <span
+                        key={i}
+                        className={`profile-password-strength__bar ${i < passwordScore ? passwordStrength.color : ''}`}
+                      />
+                    ))}
+                  </div>
+                  <span className={`profile-password-strength__label ${passwordStrength.color}`}>
+                    {passwordStrength.label}
+                  </span>
+                </div>
+                <ul className="profile-password-rules">
+                  <li className={passwordChecks.length ? 'ok' : ''}>Entre 8 y {MAX_PASSWORD_LENGTH} caracteres</li>
+                  <li className={passwordChecks.upper ? 'ok' : ''}>Al menos una mayúscula</li>
+                  <li className={passwordChecks.number ? 'ok' : ''}>Al menos un número</li>
+                  <li className={passwordChecks.symbol ? 'ok' : ''}>Al menos un símbolo (ej: @ # $ % !)</li>
+                </ul>
+              </>
+            )}
+
+            {isChangingExistingPassword && (
+              <div style={{ marginTop: '12px', padding: '12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px' }}>
+                <label className="form-input-label" style={{ color: '#92400e' }}>
+                  Confirmá tu contraseña de Administrador para aplicar este cambio *
+                </label>
+                <div className={`form-input-wrapper ${reauthError ? 'form-input-wrapper--error' : ''}`}>
+                  <input
+                    type="password"
+                    value={adminReauthPassword}
+                    onChange={(e) => { setAdminReauthPassword(e.target.value); setReauthError(''); }}
+                    placeholder="Tu contraseña actual"
+                    className="form-input-control"
+                  />
+                </div>
+                {reauthError && <span className="form-input-error">{reauthError}</span>}
+              </div>
+            )}
           </div>
 
           <FormSelect
@@ -687,15 +794,17 @@ export const UsersPage = () => {
             <button
               type="submit"
               className="btn-rounded-primary"
-              style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
+              style={{ flex: 1, padding: '12px', justifyContent: 'center', opacity: submitting ? 0.7 : 1 }}
+              disabled={submitting}
             >
-              {modalMode === 'edit' ? 'Guardar Cambios' : 'Crear Usuario'}
+              {submitting ? 'Guardando…' : modalMode === 'edit' ? 'Guardar Cambios' : 'Crear Usuario'}
             </button>
             <button
               type="button"
               className="roadmaps-btn roadmaps-btn--outline"
               style={{ padding: '12px 18px' }}
               onClick={handleCloseModal}
+              disabled={submitting}
             >
               Cancelar
             </button>

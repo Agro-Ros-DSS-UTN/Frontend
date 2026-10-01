@@ -7,6 +7,7 @@ import { SellerLayout } from './components/layout/SellerLayout';
 import { LoginPage } from './pages/auth/LoginPage';
 
 // Admin Pages (Organizadas en carpetas individuales)
+import { AdminHomePage } from './pages/admin/AdminHomePage/AdminHomePage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboard/AdminDashboard';
 import { ContactsPage } from './pages/admin/ContactsPage/ContactsPage';
 import { CompaniesPage } from './pages/admin/CompaniesPage/CompaniesPage';
@@ -19,7 +20,6 @@ import { CampaignsPage } from './pages/admin/CampaignsPage/CampaignsPage';
 import { ActivitiesPage } from './pages/admin/ActivitiesPage/ActivitiesPage';
 import { UsersPage } from './pages/admin/UsersPage/UsersPage';
 import { ProfilePage } from './pages/admin/ProfilePage/ProfilePage';
-import { SettingsPage } from './pages/admin/SettingsPage/SettingsPage';
 import { ServiceOrdersPage } from './pages/admin/ServiceOrdersPage/ServiceOrdersPage';
 import { EmployeesPage } from './pages/admin/EmployeesPage/EmployeesPage';
 
@@ -43,7 +43,7 @@ const AppRoutes = () => {
         path="/login"
         element={
           isAuthenticated ? (
-            <Navigate to={userRole === 'admin' ? '/admin/dashboard' : '/seller/dashboard'} replace />
+            <Navigate to={userRole === 'admin' ? '/admin/inicio' : '/seller/dashboard'} replace />
           ) : (
             <LoginPage onLoginSuccess={(userData) => login(userData)} />
           )
@@ -59,7 +59,8 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route index element={<Navigate to="inicio" replace />} />
+        <Route path="inicio" element={<AdminHomePage />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
         <Route path="usuarios" element={<UsersPage />} />
         <Route path="contactos" element={<ContactsPage />} />
@@ -75,7 +76,7 @@ const AppRoutes = () => {
         <Route path="campañas" element={<CampaignsPage />} />
         <Route path="actividades" element={<ActivitiesPage />} />
         <Route path="perfil" element={<ProfilePage />} />
-        <Route path="configuracion" element={<SettingsPage />} />
+        <Route path="configuracion" element={<Navigate to="/admin/perfil" replace />} />
       </Route>
 
       {/* Seller Routes (Field Commercial Portal) */}
@@ -108,7 +109,7 @@ const AppRoutes = () => {
               !isAuthenticated
                 ? '/login'
                 : userRole === 'admin'
-                ? '/admin/dashboard'
+                ? '/admin/inicio'
                 : '/seller/dashboard'
             }
             replace

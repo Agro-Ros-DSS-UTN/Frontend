@@ -8,9 +8,9 @@
   gap: var(--space-5);
 }
 
-/* ── Welcome Banner ── */
+/* ── Welcome Banner (misma paleta que el Inicio del admin) ── */
 .seller-banner {
-  background: linear-gradient(135deg, #115e52 0%, #1a7d6b 60%, #059669 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%);
   border-radius: var(--radius-xl);
   padding: var(--space-6);
   color: #ffffff;
@@ -18,7 +18,7 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--space-4);
-  box-shadow: 0 10px 30px rgba(26, 125, 107, 0.25);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
   flex-wrap: wrap;
 }
 
@@ -33,7 +33,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.14);
   padding: 3px 10px;
   border-radius: var(--radius-full);
   margin-bottom: var(--space-2);
@@ -49,7 +49,7 @@
 
 .seller-banner__desc {
   font-size: var(--text-base);
-  color: #e6fffa;
+  color: #cbd5e1;
   margin: 0;
   line-height: 1.5;
 }
@@ -88,11 +88,11 @@
 
 .seller-btn--primary-solid {
   background: #ffffff;
-  color: #115e52;
+  color: #0f172a;
 }
 
 .seller-btn--primary-solid:hover {
-  background: #f0fdf4;
+  background: #f1f5f9;
   transform: translateY(-1px);
 }
 

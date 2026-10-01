@@ -1,6 +1,6 @@
-/* DbLoader — estado de carga contra la base de datos (tema claro) */
+/* LoadingState — estado de carga contra la base de datos (tema claro) */
 
-.db-loader {
+.loading-state {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
@@ -14,29 +14,29 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.db-loader__spinner {
+.loading-state__spinner {
   width: 42px;
   height: 42px;
   border: 3.5px solid #e2e8f0;
   border-top-color: #1a7d6b;
   border-radius: 50%;
-  animation: dbLoaderSpin 0.7s linear infinite;
+  animation: loadingStateSpin 0.7s linear infinite;
 }
 
-@keyframes dbLoaderSpin {
+@keyframes loadingStateSpin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.db-loader__title {
+.loading-state__title {
   font-size: 1.1rem;
   font-weight: 800;
   color: #0f172a;
   margin: 0;
 }
 
-.db-loader__message {
+.loading-state__message {
   font-size: 0.86rem;
   color: #64748b;
   margin: 0;

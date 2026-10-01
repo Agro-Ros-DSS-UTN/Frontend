@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { triggerSessionExpired } from '../utils/sessionExpired';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -27,3 +28,19 @@ apiClient.interceptors.request.use((config) => {
 }, (error) => {
   return Promise.reject(error);
 });
+
+// Si el backend rechaza el token (expiró, es inválido o no se mandó en una
+// ruta protegida), se dispara la pantalla bloqueante de "sesión expirada" en
+// vez de dejar que la pantalla actual se quede silenciosamente vacía.
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const url = error?.config?.url || '';
+    const isLoginAttempt = url.includes('/users/login');
+    if ((status === 401 || status === 403) && !isLoginAttempt) {
+      triggerSessionExpired();
+    }
+    return Promise.reject(error);
+  }
+);

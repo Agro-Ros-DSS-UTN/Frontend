@@ -1,5 +1,6 @@
 ﻿import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import './SlideDrawer.css';
 
 /**
@@ -19,6 +20,8 @@ export const SlideDrawer = ({
   children,
   width = '540px',
 }) => {
+  const overlayCloseHandlers = useOverlayClose(onClose);
+
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape' && isOpen) onClose();
@@ -30,11 +33,10 @@ export const SlideDrawer = ({
   if (!isOpen) return null;
 
   return (
-    <div className="slide-drawer-overlay" onClick={onClose}>
+    <div className="slide-drawer-overlay" {...overlayCloseHandlers}>
       <div
         className="slide-drawer-panel"
         style={{ width, maxWidth: '95vw' }}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="slide-drawer-header">
           <h2 className="slide-drawer-title">{title}</h2>

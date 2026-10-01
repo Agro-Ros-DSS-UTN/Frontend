@@ -1,8 +1,8 @@
 ﻿import { DollarSign, Plus, Check } from 'lucide-react';
 import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/mockData';
-import { SlideDrawer } from '../../../components/ui/SlideDrawer';
-import { FormInput, FormTextarea, FormSelect } from '../../../components/ui/FormInput';
-import { ImageUpload } from '../../../components/ui/ImageUpload';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
+import { FormInput, FormTextarea, FormSelect } from '../../../components/ui/FormInput/FormInput';
+import { ImageUpload } from '../../../components/ui/ImageUpload/ImageUpload';
 
 export const ProductFormDrawer = ({
   isOpen,

@@ -1,5 +1,7 @@
 /* eslint-disable */
 import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import {
   Search,
   Filter,
@@ -14,7 +16,6 @@ import {
   ChevronRight,
   Mail,
   Phone,
-  Eye,
   Edit,
   Trash2,
   ExternalLink,
@@ -25,15 +26,9 @@ import {
   FileText,
 } from 'lucide-react';
 import { CONTACT_TYPES } from '../../../data/mockData';
-import { fetchClients, fetchClientCompanies, createClient, deleteClient } from '../../../data/api';
-import { DbLoader } from '../../../components/ui/DbLoader';
+import { fetchClients, fetchClientCompanies, createClient, updateClient, deleteClient } from '../../../data/api';
+import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import './ContactsPage.css';
-
-const TABS = [
-  { key: 'all',   label: 'Todos los contactos', count: null },
-  { key: 'mine',  label: 'Mis contactos',        count: null },
-  { key: 'unassigned', label: 'Sin asignar',     count: null },
-];
 
 const COLUMNS = [
   { key: 'nombreApellido', label: 'Nombre',           sortable: true },
@@ -44,27 +39,33 @@ const COLUMNS = [
   { key: 'fechaAgregado',  label: 'Fecha de registro', sortable: true },
 ];
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export const ContactsPage = () => {
   const [clients, setClients] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
+  const [loadError, setLoadError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
+  }, [location.state]);
   const [sortBy, setSortBy] = useState('nombreApellido');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [editingClient, setEditingClient] = useState(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const contactModalOverlayHandlers = useOverlayClose(() => { setShowModal(false); setEditingClient(null); });
 
   // Carga real desde la base de datos (sin datos mock de relleno)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setLoadError('');
       try {
         const [clientsData, companiesData] = await Promise.all([
           fetchClients(),
@@ -74,6 +75,12 @@ export const ContactsPage = () => {
         setCompanies(Array.isArray(companiesData) ? companiesData : []);
       } catch (err) {
         console.error('Error al obtener contactos desde la base de datos:', err);
+        const isAuthError = /token|autenticaci[oó]n|401|403/i.test(err?.message || '');
+        setLoadError(
+          isAuthError
+            ? 'Tu sesión expiró. Cerrá sesión y volvé a iniciar para ver los datos reales.'
+            : 'No se pudo conectar con la base de datos. Verificá tu conexión e intentá de nuevo.'
+        );
         setClients([]);
         setCompanies([]);
       } finally {
@@ -95,7 +102,7 @@ export const ContactsPage = () => {
   };
 
   // Form state: { numDoc, nombreApellido, direccionMail, tipoClient, codigoPostal, clientCompanyId }
-  const [form, setForm] = useState({
+  const emptyContactForm = {
     numDoc: '',
     nombreApellido: '',
     direccionMail: '',
@@ -105,7 +112,30 @@ export const ContactsPage = () => {
     telefono: '',
     clientCompanyId: '',
     nota: '',
-  });
+  };
+  const [form, setForm] = useState(emptyContactForm);
+
+  const openCreateModal = () => {
+    setEditingClient(null);
+    setForm(emptyContactForm);
+    setShowModal(true);
+  };
+
+  const openEditModal = (client) => {
+    setEditingClient(client);
+    setForm({
+      numDoc: client.numDoc || '',
+      nombreApellido: client.nombreApellido || '',
+      direccionMail: client.direccionMail || '',
+      tipoClient: client.tipoClient || 'Productor',
+      localidad: client.localidad || 'Casilda',
+      codigoPostal: client.codigoPostal || '2170',
+      telefono: Array.isArray(client.telefonos) ? (client.telefonos[0] || '') : (client.telefonos || ''),
+      clientCompanyId: client.clientCompanyId || '',
+      nota: client.nota || '',
+    });
+    setShowModal(true);
+  };
 
   // Filter & Sort
   const filteredClients = useMemo(() => {
@@ -185,9 +215,9 @@ export const ContactsPage = () => {
       .toUpperCase();
   };
 
-  const handleCreate = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newClientPayload = {
+    const payload = {
       numDoc: form.numDoc || `20-${Math.floor(10000000 + Math.random() * 90000000)}-4`,
       nombreApellido: form.nombreApellido,
       direccionMail: form.direccionMail,
@@ -195,30 +225,31 @@ export const ContactsPage = () => {
       localidad: form.localidad,
       codigoPostal: form.codigoPostal || '2170',
       clientCompanyId: form.clientCompanyId ? Number(form.clientCompanyId) : null,
-      telefonos: form.telefono ? [form.telefono] : ['+54 341 456-7890'],
+      telefonos: form.telefono ? [form.telefono] : [],
       nota: form.nota,
-      fechaAgregado: new Date().toISOString(),
     };
 
-    try {
-      const created = await createClient(newClientPayload);
-      setClients(prev => [created || { id: Date.now(), ...newClientPayload }, ...prev]);
-    } catch (err) {
-      setClients(prev => [{ id: Date.now(), ...newClientPayload }, ...prev]);
+    if (editingClient) {
+      try {
+        const updated = await updateClient(editingClient.numDoc, payload);
+        setClients((prev) => prev.map((c) => (c.numDoc === editingClient.numDoc ? { ...c, ...payload, ...(updated?.data || updated || {}) } : c)));
+      } catch (err) {
+        console.error('Error al editar contacto:', err);
+        setClients((prev) => prev.map((c) => (c.numDoc === editingClient.numDoc ? { ...c, ...payload } : c)));
+      }
+    } else {
+      const newClientPayload = { ...payload, fechaAgregado: new Date().toISOString() };
+      try {
+        const created = await createClient(newClientPayload);
+        setClients(prev => [created || { id: Date.now(), ...newClientPayload }, ...prev]);
+      } catch (err) {
+        setClients(prev => [{ id: Date.now(), ...newClientPayload }, ...prev]);
+      }
     }
 
     setShowModal(false);
-    setForm({
-      numDoc: '',
-      nombreApellido: '',
-      direccionMail: '',
-      tipoClient: 'Productor',
-      localidad: 'Casilda',
-      codigoPostal: '2170',
-      telefono: '',
-      clientCompanyId: mockCompanies[0]?.id || '',
-      nota: '',
-    });
+    setEditingClient(null);
+    setForm(emptyContactForm);
   };
 
   // Export contacts to CSV
@@ -267,12 +298,9 @@ export const ContactsPage = () => {
       <div className="contacts-page__header">
         <div>
           <h1 className="contacts-page__title">Contactos</h1>
-          <p className="contacts-page__subtitle">
-            {clients.length} contactos registrados en el CRM
-          </p>
         </div>
         <div className="crm-page-header-actions">
-          <button className="crm-btn-primary" onClick={() => setShowModal(true)}>
+          <button className="crm-btn-primary" onClick={openCreateModal}>
             <Plus size={16} />
             Agregar contacto
           </button>
@@ -285,20 +313,12 @@ export const ContactsPage = () => {
 
       {/* Main Content Card */}
       <div className="contacts-page__card">
-        {/* Tabs */}
+        {/* Contador */}
         <div className="contacts-page__tabs">
-          {TABS.map(tab => (
-            <button
-              key={tab.key}
-              className={`contacts-page__tab ${activeTab === tab.key ? 'contacts-page__tab--active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-              {tab.key === 'all' && (
-                <span className="contacts-page__tab-badge">{clients.length}</span>
-              )}
-            </button>
-          ))}
+          <span className="contacts-page__tab contacts-page__tab--active">
+            Todos los contactos
+            <span className="contacts-page__tab-badge">{clients.length}</span>
+          </span>
         </div>
 
         {/* Toolbar / Search & Filters */}
@@ -351,9 +371,14 @@ export const ContactsPage = () => {
         )}
 
         {/* Table */}
+        {loadError && !loading && (
+          <div style={{ padding: '12px 16px', marginBottom: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', color: '#991b1b', fontSize: '0.85rem', fontWeight: 600 }}>
+            {loadError}
+          </div>
+        )}
         {loading ? (
           <div style={{ padding: '20px' }}>
-            <DbLoader
+            <LoadingState
               title="Conectando con la base de datos…"
               message="Aguardá un instante mientras traemos los contactos registrados."
             />
@@ -454,10 +479,7 @@ export const ContactsPage = () => {
                       <td className="contacts-table__date">{client.fechaAgregado}</td>
                       <td className="contacts-table__actions-col">
                         <div className="contacts-table__actions">
-                          <button className="contacts-table__action-btn" title="Ver detalle" onClick={() => setSelectedClient(client)}>
-                            <Eye size={15} />
-                          </button>
-                          <button className="contacts-table__action-btn" title="Editar" onClick={() => setSelectedClient(client)}>
+                          <button className="contacts-table__action-btn" title="Editar" onClick={() => openEditModal(client)}>
                             <Edit size={15} />
                           </button>
                           <button className="contacts-table__action-btn contacts-table__action-btn--danger" title="Eliminar" onClick={() => handleDelete(client)}>
@@ -511,16 +533,16 @@ export const ContactsPage = () => {
 
       {/* ── Modal: Agregar Contacto (Dominio) ── */}
       {showModal && (
-        <div className="contact-modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="contact-modal-overlay" {...contactModalOverlayHandlers}>
           <div className="contact-modal" onClick={e => e.stopPropagation()}>
             <div className="contact-modal__header">
-              <h2>Registrar Nuevo Contacto / Cliente</h2>
-              <button className="contact-modal__close" onClick={() => setShowModal(false)}>
+              <h2>{editingClient ? 'Editar Contacto' : 'Registrar Nuevo Contacto / Cliente'}</h2>
+              <button className="contact-modal__close" onClick={() => { setShowModal(false); setEditingClient(null); }}>
                 <X size={20} />
               </button>
             </div>
 
-            <form className="contact-modal__form" onSubmit={handleCreate}>
+            <form className="contact-modal__form" onSubmit={handleSubmit}>
               {/* Nombre y Apellido */}
               <div className="contact-field">
                 <label><User size={14} /> Nombre y Apellido / Razón Social *</label>
@@ -543,6 +565,8 @@ export const ContactsPage = () => {
                   placeholder="Ej: 20-27845631-4"
                   value={form.numDoc}
                   onChange={(e) => setForm(prev => ({ ...prev, numDoc: e.target.value }))}
+                  disabled={!!editingClient}
+                  title={editingClient ? 'El documento no se puede modificar una vez creado el contacto' : undefined}
                   required
                 />
               </div>
@@ -646,8 +670,8 @@ export const ContactsPage = () => {
 
               {/* Acciones */}
               <div className="contact-modal__actions">
-                <button type="submit" className="contact-btn-primary">Registrar Contacto</button>
-                <button type="button" className="contact-btn-outline" onClick={() => setShowModal(false)}>Cancelar</button>
+                <button type="submit" className="contact-btn-primary">{editingClient ? 'Guardar Cambios' : 'Registrar Contacto'}</button>
+                <button type="button" className="contact-btn-outline" onClick={() => { setShowModal(false); setEditingClient(null); }}>Cancelar</button>
               </div>
             </form>
           </div>

@@ -1,6 +1,7 @@
 ﻿import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
+  Home,
   LayoutDashboard,
   Users,
   UserCog,
@@ -24,13 +25,14 @@ import { useSidebarResize } from './useSidebarResize';
 import './Sidebar.css';
 
 const adminNavItems = [
+  { path: '/admin/inicio',        icon: Home,            label: 'Inicio', dividerAfter: true },
   { path: '/admin/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/admin/usuarios',      icon: UserCog,         label: 'Usuarios' },
   { path: '/admin/contactos',     icon: Users,           label: 'Contactos' },
   { path: '/admin/empresas',      icon: Building2,       label: 'Empresas' },
   { path: '/admin/negocios',      icon: Handshake,       label: 'Negocios' },
   { path: '/admin/tareas',           icon: CheckSquare,     label: 'Tareas' },
-  { path: '/admin/ordenes-servicio', icon: FileCheck2,       label: 'Orden/Evaluación de Servicio', badge: 'Beta' },
+  { path: '/admin/ordenes-servicio', icon: FileCheck2,       label: 'Orden/Evaluación de Servicio' },
   { path: '/admin/empleados',     icon: HardHat,         label: 'Empleados' },
   { path: '/admin/productos',     icon: Package,         label: 'Productos' },
   { path: '/admin/objetivos',     icon: Target,          label: 'Objetivos' },
@@ -111,7 +113,13 @@ export const Sidebar = () => {
                 </NavLink>
               </li>
             );
-          })}
+          }).reduce((acc, li, i) => {
+            acc.push(li);
+            if (adminNavItems[i].dividerAfter) {
+              acc.push(<li key={`divider-${i}`} className="sidebar__divider" aria-hidden="true" />);
+            }
+            return acc;
+          }, [])}
         </ul>
       </nav>
 

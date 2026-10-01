@@ -1,4 +1,5 @@
 import { X, Compass, MapPin, Clock, CheckCircle2, Route as RouteIcon, User, CalendarDays } from 'lucide-react';
+import { useOverlayClose } from '../../hooks/useOverlayClose';
 import './RoadmapDetailModal.css';
 
 /**
@@ -13,6 +14,8 @@ import './RoadmapDetailModal.css';
  *  - onClose: () => void
  */
 export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
+  const overlayHandlers = useOverlayClose(onClose);
+
   if (!route) return null;
 
   const total = route.totalVisitas || route.paradas?.length || 0;
@@ -20,8 +23,8 @@ export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
-    <div className="rdm-overlay" onClick={onClose}>
-      <div className="rdm" onClick={(e) => e.stopPropagation()}>
+    <div className="rdm-overlay" {...overlayHandlers}>
+      <div className="rdm">
         <div className="rdm__header">
           <h2>Detalle de Hoja de Ruta</h2>
           <button type="button" className="rdm__close" onClick={onClose}>

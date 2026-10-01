@@ -1,8 +1,8 @@
 ﻿/* Global CSS Reset and Theme for AgroRos CRM */
 @import './design-tokens.css';
-@import '../components/ui/FormInput.css';
-@import '../components/ui/DataTable.css';
-@import '../components/ui/SlideDrawer.css';
+@import '../components/ui/FormInput/FormInput.css';
+@import '../components/ui/DataTable/DataTable.css';
+@import '../components/ui/SlideDrawer/SlideDrawer.css';
 
 
 
@@ -60,13 +60,13 @@ button:focus {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 10px 22px;
   background-color: var(--color-primary, #1a7d6b);
   color: #ffffff;
   border: none;
-  border-radius: var(--radius-md, 8px);
+  border-radius: 9999px;
   font-size: var(--text-sm, 0.875rem);
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--font-sans, system-ui, sans-serif);
   cursor: pointer;
   white-space: nowrap;
@@ -84,13 +84,13 @@ button:focus {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 10px 22px;
   background-color: #ffffff;
   color: var(--text-secondary, #475569);
   border: 1px solid var(--border-medium, #e2e8f0);
-  border-radius: var(--radius-md, 8px);
+  border-radius: 9999px;
   font-size: var(--text-sm, 0.875rem);
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--font-sans, system-ui, sans-serif);
   cursor: pointer;
   white-space: nowrap;
@@ -253,6 +253,90 @@ button:focus {
   box-shadow: 0 6px 16px rgba(220, 38, 38, 0.35) !important;
   transform: translateY(-1px) !important;
 }
+/* ── PANTALLA BLOQUEANTE: SESIÓN EXPIRADA ── */
+.session-expired-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(15, 23, 42, 0.92) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  z-index: 9999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  box-sizing: border-box !important;
+  animation: logoutFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.session-expired-card {
+  background: #ffffff !important;
+  width: 100% !important;
+  max-width: 420px !important;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.5) !important;
+  padding: 40px 32px !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+  animation: logoutScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.session-expired-icon {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 16px !important;
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 auto 20px auto !important;
+}
+
+.session-expired-card h1 {
+  font-size: 1.6rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin: 0 0 10px 0 !important;
+}
+
+.session-expired-card p {
+  font-size: 0.95rem !important;
+  color: #64748b !important;
+  line-height: 1.5 !important;
+  margin: 0 0 28px 0 !important;
+}
+
+.session-expired-btn {
+  width: 100% !important;
+  padding: 14px 20px !important;
+  border-radius: 12px !important;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3) !important;
+  transition: all 0.15s ease !important;
+}
+
+.session-expired-btn:hover {
+  background: #b91c1c !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.4) !important;
+}
+
 /* â”€â”€ ESTILOS GLOBALES DE BOTONES REDONDEADOS TIPO "RANDOM LETTER SWAP" (ADMIN & SELLER UI) â”€â”€ */
 button.btn-rounded-primary,
 button.topbar-btn-primary,

@@ -1,6 +1,10 @@
 ﻿import React, { createContext, useContext, useState, useEffect } from 'react';
-import { LogOut, X } from 'lucide-react';
+import { LogOut, X, AlertTriangle } from 'lucide-react';
 import { authApi } from '../api/auth.api';
+import { useOverlayClose } from '../hooks/useOverlayClose';
+import { setSessionExpiredHandler } from '../utils/sessionExpired';
+import { AnimatedLogOutIcon } from '../components/ui/AnimatedLogOutIcon/AnimatedLogOutIcon';
+import { useHover } from '../hooks/useHover';
 import '../styles/global.css';
 
 const AuthContext = createContext(null);
@@ -43,6 +47,18 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const logoutModalOverlayHandlers = useOverlayClose(() => setShowLogoutModal(false));
+  const [confirmLogoutHoverProps, isConfirmLogoutHovered] = useHover();
+  const [reloginHoverProps, isReloginHovered] = useHover();
+
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Registra el puente global (apiClient/data/api.jsx) que dispara esta
+  // pantalla bloqueante apenas el backend rechaza el token (401/403).
+  useEffect(() => {
+    setSessionExpiredHandler(() => setSessionExpired(true));
+    return () => setSessionExpiredHandler(null);
+  }, []);
 
   // Al iniciar sesion o recargar, cargar la foto de perfil desde la base de datos
   useEffect(() => {
@@ -155,6 +171,11 @@ export const AuthProvider = ({ children }) => {
     setShowLogoutModal(false);
   };
 
+  const handleSessionExpiredRelogin = () => {
+    setSessionExpired(false);
+    confirmLogout();
+  };
+
   const isAuthenticated = !!currentUser;
   const userRole = (currentUser?.role || currentUser?.rol || '').toLowerCase();
   const isAdmin = userRole === 'admin';
@@ -176,8 +197,29 @@ export const AuthProvider = ({ children }) => {
     }}>
       {children}
 
+      {sessionExpired && (
+        <div className="session-expired-overlay">
+          <div className="session-expired-card">
+            <div className="session-expired-icon">
+              <AlertTriangle size={36} />
+            </div>
+            <h1>Tu sesión expiró</h1>
+            <p>Por tu seguridad, tenés que iniciar sesión de nuevo para seguir usando el CRM.</p>
+            <button
+              type="button"
+              className="session-expired-btn"
+              onClick={handleSessionExpiredRelogin}
+              {...reloginHoverProps}
+            >
+              <AnimatedLogOutIcon size={18} forceAnimate={isReloginHovered} />
+              <span>Volver a iniciar sesión</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {showLogoutModal && (
-        <div className="logout-modal-overlay" onClick={cancelLogout}>
+        <div className="logout-modal-overlay" {...logoutModalOverlayHandlers}>
           <div className="logout-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="logout-modal-header">
               <div className="logout-icon-badge">
@@ -213,8 +255,9 @@ export const AuthProvider = ({ children }) => {
                 type="button"
                 className="logout-btn-confirm"
                 onClick={confirmLogout}
+                {...confirmLogoutHoverProps}
               >
-                <LogOut size={16} /> Sí, cerrar sesión
+                <AnimatedLogOutIcon size={16} forceAnimate={isConfirmLogoutHovered} /> Aceptar
               </button>
             </div>
           </div>

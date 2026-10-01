@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import {
   Target,
   Plus,
@@ -19,6 +20,7 @@ import {
 import { objectivesApi } from '../../../api/operations.api';
 import { authApi } from '../../../api/auth.api';
 import { companiesApi } from '../../../api/companies.api';
+import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
 import './ObjectivesPage.css';
 
 export const ObjectivesPage = () => {
@@ -27,6 +29,7 @@ export const ObjectivesPage = () => {
   const [companiesList, setCompaniesList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const objectivesModalOverlayHandlers = useOverlayClose(() => setShowModal(false));
 
   const [form, setForm] = useState({
     sellerId: '',
@@ -168,19 +171,14 @@ export const ObjectivesPage = () => {
             Asignación semanal de metas, incentivos y monitoreo en tiempo real por Vendedor
           </p>
         </div>
-        <div className="crm-page-header-actions">
-          <button
-            className="crm-btn-primary"
-            onClick={() => setShowModal(true)}
-          >
-            <Plus size={16} />
-            <span>Asignar Nuevo Objetivo</span>
-          </button>
-          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
-            <Download size={15} />
-            <span>Exportar</span>
-          </button>
-        </div>
+        <PageHeaderActions>
+          <PrimaryActionButton icon={Plus} onClick={() => setShowModal(true)}>
+            Asignar Nuevo Objetivo
+          </PrimaryActionButton>
+          <ExportActionButton icon={Download} onClick={handleExportCSV}>
+            Exportar
+          </ExportActionButton>
+        </PageHeaderActions>
       </div>
 
       {/* KPI Cards Bar */}
@@ -287,7 +285,7 @@ export const ObjectivesPage = () => {
 
       {/* Modal: Asignar Nuevo Objetivo */}
       {showModal && (
-        <div className="objectives-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center' }} onClick={() => setShowModal(false)}>
+        <div className="objectives-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center' }} {...objectivesModalOverlayHandlers}>
           <div style={{ background: '#ffffff', width: '520px', maxWidth: '92vw', borderRadius: '16px', padding: '24px', boxShadow: '0 16px 36px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
               <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#0f172a' }}>Asignar Objetivo Semanal (Admin)</h2>

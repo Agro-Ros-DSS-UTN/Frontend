@@ -370,3 +370,143 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Tabs: Hoy / Registro Mensual ── */
+.seller-roadmap-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.seller-roadmap-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.seller-roadmap-tab:hover {
+  color: var(--text-primary);
+}
+
+.seller-roadmap-tab.active {
+  color: #16a34a;
+  border-bottom-color: #16a34a;
+}
+
+/* ── Empty state ── */
+.seller-roadmap-empty {
+  background: var(--bg-card);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* ── Registro Mensual (historial) ── */
+.seller-roadmap-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seller-roadmap-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.seller-roadmap-history-item:hover {
+  border-color: #1a7d6b;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.seller-roadmap-history-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seller-roadmap-history-zona {
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.seller-roadmap-history-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.seller-roadmap-history-duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+/* ── Duración total (hoja finalizada) ── */
+.seller-roadmap-duration-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #0f172a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+/* ── Paradas agregadas en el camino / links ── */
+.seller-roadmap-adhoc-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.seller-roadmap-stop-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.seller-roadmap-stop-link:hover {
+  text-decoration: underline;
+}

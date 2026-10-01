@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Handshake,
   Plus,
@@ -23,10 +24,10 @@ import {
   updateOpportunity,
 } from '../../../data/api';
 import { useAuth } from '../../../context/AuthContext';
-import { FormInput, FormSelect } from '../../../components/ui/FormInput';
-import { SlideDrawer } from '../../../components/ui/SlideDrawer';
-import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete';
-import { DbLoader } from '../../../components/ui/DbLoader';
+import { FormInput, FormSelect } from '../../../components/ui/FormInput/FormInput';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
+import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
+import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import './OpportunitiesPage.css';
 
 const OWNER_OPTIONS = ['Manuel Fernández', 'Martín Gutiérrez', 'Ana Rodríguez', 'Diego Morales'];
@@ -89,6 +90,10 @@ export const OpportunitiesPage = () => {
   const [activeTab, setActiveTab] = useState('todos');
   const [viewMode, setViewMode] = useState('table');
   const [searchQuery, setSearchQuery] = useState('');
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
+  }, [location.state]);
   const [stageFilter, setStageFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
 
@@ -434,7 +439,7 @@ export const OpportunitiesPage = () => {
 
         {loading ? (
           <div style={{ padding: '20px' }}>
-            <DbLoader
+            <LoadingState
               title="Conectando con la base de datos…"
               message="Aguardá un instante mientras traemos los negocios registrados."
             />

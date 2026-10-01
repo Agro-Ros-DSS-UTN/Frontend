@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { getDashboardData, OPPORTUNITY_STATES } from '../../../data/api';
 import { activitiesApi } from '../../../api/operations.api';
-import { VoiceNotePlayer } from '../../../components/ui/VoiceRecorder';
+import { VoiceNotePlayer } from '../../../components/ui/VoiceRecorder/VoiceRecorder';
 import './AdminDashboard.css';
 
 /* ── Canvas Chart Helpers ── */

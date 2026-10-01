@@ -10,7 +10,7 @@
   FileText,
   Sparkles,
 } from 'lucide-react';
-import { SlideDrawer } from '../../../components/ui/SlideDrawer';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 
 export const ProductDetailDrawer = ({
   product,

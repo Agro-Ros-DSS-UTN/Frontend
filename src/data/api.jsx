@@ -7,6 +7,7 @@ import {
   mockActivities,
   mockUsers,
 } from './mockData';
+import { triggerSessionExpired } from '../utils/sessionExpired';
 
    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -37,6 +38,9 @@ const request = async (endpoint, options = {}) => {
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
+      if ((response.status === 401 || response.status === 403) && !endpoint.includes('/users/login')) {
+        triggerSessionExpired();
+      }
       throw new Error(data?.message || `Error en la solicitud: ${response.status} ${response.statusText}`);
     }
 

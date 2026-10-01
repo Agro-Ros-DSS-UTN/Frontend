@@ -20,7 +20,7 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
     });
 
     if (!normalizedAllowed.includes(normalizedRole)) {
-      const redirect = normalizedRole === 'admin' ? '/admin/dashboard' : '/seller/dashboard';
+      const redirect = normalizedRole === 'admin' ? '/admin/inicio' : '/seller/dashboard';
       return <Navigate to={redirect} replace />;
     }
   }

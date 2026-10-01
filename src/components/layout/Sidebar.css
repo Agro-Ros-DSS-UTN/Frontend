@@ -133,6 +133,15 @@
   position: relative;
 }
 
+/* Separador marcado entre "Inicio" y el resto de la navegación (estilo HubSpot) */
+.sidebar__divider {
+  height: 2px;
+  margin: 10px 6px 12px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 2px;
+  list-style: none;
+}
+
 .sidebar__link {
   display: flex;
   align-items: center;

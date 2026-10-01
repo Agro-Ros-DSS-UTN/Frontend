@@ -9,11 +9,10 @@ import {
   Clock,
   Phone,
   ChevronRight,
-  Plus,
   Compass,
 } from 'lucide-react';
 import { objectivesApi, roadmapsApi, tasksApi } from '../../../api/operations.api';
-import { DbLoader } from '../../../components/ui/DbLoader';
+import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import './SellerDashboardPage.css';
 
 const isCompleted = (estado) => /complet/i.test(String(estado || ''));
@@ -89,10 +88,42 @@ export const SellerDashboardPage = () => {
     [tasks]
   );
 
+  const pendingObjectivesCount = useMemo(
+    () =>
+      objectives.filter((o) => !isCompleted(o.estado) && (Number(o.progresoActual) || 0) < (Number(o.cantidadMeta) || 0))
+        .length,
+    [objectives]
+  );
+
+  // Resumen dinámico del banner: solo menciona lo que realmente tiene pendiente.
+  const pendingSummary = useMemo(() => {
+    const clauses = [];
+    if (pendingStops.length > 0) {
+      clauses.push(`${pendingStops.length} ${pendingStops.length === 1 ? 'visita pendiente' : 'visitas pendientes'} hoy en tu Hoja de Ruta`);
+    }
+    if (pendingObjectivesCount > 0) {
+      clauses.push(`${pendingObjectivesCount} ${pendingObjectivesCount === 1 ? 'objetivo pendiente' : 'objetivos pendientes'}`);
+    }
+    if (pendingTasks.length > 0) {
+      clauses.push(`${pendingTasks.length} ${pendingTasks.length === 1 ? 'tarea pendiente' : 'tareas pendientes'}`);
+    }
+
+    if (clauses.length === 0) {
+      return { text: '¡Estás al día! No tenés pendientes por ahora.', bold: null };
+    }
+
+    const joined =
+      clauses.length === 1
+        ? clauses[0]
+        : `${clauses.slice(0, -1).join(', ')} y ${clauses[clauses.length - 1]}`;
+
+    return { text: `Tenés ${joined}.`, bold: joined };
+  }, [pendingStops.length, pendingObjectivesCount, pendingTasks.length]);
+
   if (loading) {
     return (
       <div className="seller-dashboard">
-        <DbLoader
+        <LoadingState
           title="Conectando con la base de datos…"
           message="Traendo tu objetivo semanal, tu hoja de ruta y tus tareas asignadas."
         />
@@ -107,28 +138,18 @@ export const SellerDashboardPage = () => {
         <div className="seller-banner__content">
           <div className="seller-banner__badge">
             {activeObjective?.periodoSemana ? `Semana ${activeObjective.periodoSemana} · ` : ''}
-            Operaciones en Territorio
+            Operaciones Pendientes
           </div>
           <h1 className="seller-banner__title">
             ¡Bienvenido, {currentUser?.nombreApellido || currentUser?.name || currentUser?.idUser || 'Vendedor'}!
           </h1>
           <p className="seller-banner__desc">
-            Tenés <strong>{pendingStops.length} visitas pendientes</strong> hoy en tu Hoja de Ruta.
+            {pendingSummary.bold ? (
+              <>Tenés <strong>{pendingSummary.bold}</strong>.</>
+            ) : (
+              pendingSummary.text
+            )}
           </p>
-        </div>
-        <div className="seller-banner__actions">
-          <button
-            className="seller-btn seller-btn--light"
-            onClick={() => navigate('/seller/hoja-de-ruta')}
-          >
-            <MapPin size={16} /> Ver Hoja de Ruta de Hoy
-          </button>
-          <button
-            className="seller-btn seller-btn--primary-solid"
-            onClick={() => navigate('/seller/actividades')}
-          >
-            <Plus size={16} /> Cargar Actividad en Campo
-          </button>
         </div>
       </div>
 

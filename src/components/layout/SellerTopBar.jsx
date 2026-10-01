@@ -3,22 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   Search,
-  Bell,
   Settings,
-  HelpCircle,
   ChevronDown,
-  LogOut,
-  User,
   Plus,
 } from 'lucide-react';
+import { GlobalSearch } from '../ui/GlobalSearch/GlobalSearch';
+import { NotificationCenter } from '../ui/NotificationCenter/NotificationCenter';
+import { HelpCenter } from '../ui/HelpCenter/HelpCenter';
+import { AnimatedLogOutIcon } from '../ui/AnimatedLogOutIcon/AnimatedLogOutIcon';
+import { UserProfileSidebar } from '../ui/UserProfileSidebar/UserProfileSidebar';
+import { useHover } from '../../hooks/useHover';
 import './TopBar.css';
 
 export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
   const { currentUser, logout, profileImage } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const menuRef = useRef(null);
+  const [logoutHoverProps, isLogoutHovered] = useHover();
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -30,13 +33,21 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const handleSlash = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+    };
+    window.addEventListener('keydown', handleSlash);
+    return () => window.removeEventListener('keydown', handleSlash);
+  }, []);
+
   const initials = currentUser?.nombreApellido
     ? currentUser.nombreApellido.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
     : 'VG';
-
-  const userRoleDisplay = currentUser?.rol === 'vendedor' || currentUser?.role === 'vendedor' || currentUser?.role === 'seller'
-    ? 'Vendedor'
-    : 'Administrador';
 
   return (
     <header className="topbar">
@@ -51,18 +62,15 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
 
       <div className="topbar__center">
         <div className="topbar__search-container">
-          <div className="topbar__search">
+          <button type="button" className="topbar__search" onClick={() => setShowSearch(true)}>
             <Search size={16} className="topbar__search-icon" />
-            <input
-              type="text"
-              className="topbar__search-input"
-              placeholder="Buscar cliente, campo o localidad..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+            <span className="topbar__search-input topbar__search-input--trigger">Buscar o preguntar...</span>
+            <kbd className="topbar__search-kbd">/</kbd>
+          </button>
         </div>
       </div>
+
+      <GlobalSearch isOpen={showSearch} onClose={() => setShowSearch(false)} />
 
       <div className="topbar__right">
         {onQuickAddActivity && (
@@ -76,10 +84,7 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
           </button>
         )}
 
-        <button type="button" className="topbar__icon-btn" title="Notificaciones">
-          <Bell size={18} />
-          <span className="topbar__notification-badge">2</span>
-        </button>
+        <NotificationCenter variant="seller" />
         <button
           type="button"
           className="topbar__icon-btn"
@@ -88,9 +93,7 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
         >
           <Settings size={18} />
         </button>
-        <button type="button" className="topbar__icon-btn" title="Ayuda">
-          <HelpCircle size={18} />
-        </button>
+        <HelpCenter variant="seller" />
 
         {/* User Pill Button */}
         <div className="topbar__user-wrapper" ref={menuRef}>
@@ -113,65 +116,25 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
           </button>
 
           {showUserMenu && (
-            <div className="topbar__dropdown">
-              <div className="topbar__dropdown-header">
-                <div className="topbar__avatar topbar__avatar--lg">
-                  {profileImage ? (
-                    <img src={profileImage} alt="Avatar" className="topbar__avatar-img" />
-                  ) : (
-                    initials
-                  )}
-                </div>
-                <div className="topbar__dropdown-header-info">
-                  <div className="topbar__dropdown-name-row">
-                    <span className="topbar__dropdown-name">
-                      {currentUser?.nombreApellido || 'Vendedor de Prueba 3'}
-                    </span>
-                    <span className="topbar__dropdown-role-badge topbar__dropdown-role-badge--seller">
-                      {userRoleDisplay}
-                    </span>
-                  </div>
-                  <div className="topbar__dropdown-email">
-                    {currentUser?.direccionMail || 'vendedor3@agroquimicarosario.com'}
-                  </div>
-                </div>
-              </div>
-              <div className="topbar__dropdown-divider" />
-              <button
-                type="button"
-                className="topbar__dropdown-item"
-                onClick={() => {
-                  navigate('/seller/perfil');
-                  setShowUserMenu(false);
-                }}
-              >
-                <User size={16} />
-                <span>Mi perfil</span>
-              </button>
-              <button
-                type="button"
-                className="topbar__dropdown-item"
-                onClick={() => {
-                  navigate('/seller/perfil');
-                  setShowUserMenu(false);
-                }}
-              >
-                <Settings size={16} />
-                <span>Configuración</span>
-              </button>
-              <div className="topbar__dropdown-divider" />
-              <button
-                type="button"
-                className="topbar__dropdown-item topbar__dropdown-item--danger"
-                onClick={() => {
+            <UserProfileSidebar
+              className="topbar__dropdown"
+              user={{
+                name: currentUser?.nombreApellido || 'Vendedor de Prueba 3',
+                email: currentUser?.direccionMail || 'vendedor3@agroquimicarosario.com',
+                avatarUrl: profileImage || null,
+                initials,
+              }}
+              navItems={[]}
+              logoutItem={{
+                icon: <AnimatedLogOutIcon size={16} forceAnimate={isLogoutHovered} />,
+                label: 'Cerrar sesión',
+                onClick: () => {
                   setShowUserMenu(false);
                   logout();
-                }}
-              >
-                <LogOut size={16} />
-                <span>Cerrar sesión</span>
-              </button>
-            </div>
+                },
+                ...logoutHoverProps,
+              }}
+            />
           )}
         </div>
       </div>

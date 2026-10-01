@@ -13,10 +13,11 @@ import {
   Download,
 } from 'lucide-react';
 import { employeesApi } from '../../../api/employees.api';
-import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput';
-import { SlideDrawer } from '../../../components/ui/SlideDrawer';
-import { ImageUpload } from '../../../components/ui/ImageUpload';
-import { DbLoader } from '../../../components/ui/DbLoader';
+import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput/FormInput';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
+import { ImageUpload } from '../../../components/ui/ImageUpload/ImageUpload';
+import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
 import './EmployeesPage.css';
 
 const PUESTO_OPTIONS = [
@@ -196,16 +197,14 @@ export const EmployeesPage = () => {
             Registro del personal operativo (aplicadores, operarios y ayudantes). No acceden al sistema.
           </p>
         </div>
-        <div className="crm-page-header-actions">
-          <button type="button" className="crm-btn-primary" onClick={openCreate}>
-            <Plus size={16} />
-            <span>Registrar Empleado</span>
-          </button>
-          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
-            <Download size={15} />
-            <span>Exportar</span>
-          </button>
-        </div>
+        <PageHeaderActions>
+          <PrimaryActionButton icon={Plus} onClick={openCreate}>
+            Registrar Empleado
+          </PrimaryActionButton>
+          <ExportActionButton icon={Download} onClick={handleExportCSV}>
+            Exportar
+          </ExportActionButton>
+        </PageHeaderActions>
       </div>
 
       <div className="emp-stats">
@@ -236,7 +235,7 @@ export const EmployeesPage = () => {
       </div>
 
       {loading ? (
-        <DbLoader
+        <LoadingState
           title="Conectando con la base de datos…"
           message="Aguardá un instante mientras traemos el personal registrado."
         />

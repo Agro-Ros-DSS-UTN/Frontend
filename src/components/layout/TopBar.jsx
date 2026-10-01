@@ -3,58 +3,51 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   Search,
-  Bell,
   Settings,
-  HelpCircle,
   ChevronDown,
-  LogOut,
-  User,
-  Plus,
-  Building2,
-  Handshake,
-  CheckSquare,
-  Package,
-  MapPin,
-  ClipboardList,
-  Megaphone,
-  Target,
 } from 'lucide-react';
+import { GlobalSearch } from '../ui/GlobalSearch/GlobalSearch';
+import { NotificationCenter } from '../ui/NotificationCenter/NotificationCenter';
+import { HelpCenter } from '../ui/HelpCenter/HelpCenter';
+import { AnimatedLogOutIcon } from '../ui/AnimatedLogOutIcon/AnimatedLogOutIcon';
+import { UserProfileSidebar } from '../ui/UserProfileSidebar/UserProfileSidebar';
+import { useHover } from '../../hooks/useHover';
 import './TopBar.css';
 
 export const TopBar = ({ title, subtitle }) => {
   const { currentUser, logout, profileImage } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const menuRef = useRef(null);
-  const quickAddRef = useRef(null);
+  const [logoutHoverProps, isLogoutHovered] = useHover();
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowUserMenu(false);
       }
-      if (quickAddRef.current && !quickAddRef.current.contains(e.target)) {
-        setShowQuickAdd(false);
-      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Atajo "/" para abrir el buscador global desde cualquier lado (si no hay un input enfocado)
+  useEffect(() => {
+    const handleSlash = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+    };
+    window.addEventListener('keydown', handleSlash);
+    return () => window.removeEventListener('keydown', handleSlash);
+  }, []);
+
   const initials = currentUser?.nombreApellido
     ? currentUser.nombreApellido.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
     : 'AD';
-
-  const handleQuickNavigate = (path) => {
-    navigate(path);
-    setShowQuickAdd(false);
-  };
-
-  const userRoleDisplay = currentUser?.rol === 'vendedor' || currentUser?.role === 'vendedor' || currentUser?.role === 'seller'
-    ? 'Vendedor'
-    : 'Administrador';
 
   return (
     <header className="topbar">
@@ -69,126 +62,27 @@ export const TopBar = ({ title, subtitle }) => {
 
       <div className="topbar__center">
         <div className="topbar__search-container">
-          <div className="topbar__search">
+          <button type="button" className="topbar__search" onClick={() => setShowSearch(true)}>
             <Search size={16} className="topbar__search-icon" />
-            <input
-              type="text"
-              className="topbar__search-input"
-              placeholder="Buscar o preguntar..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Quick Add Button (+) */}
-          <div className="topbar__quick-add-wrapper" ref={quickAddRef}>
-            <button
-              type="button"
-              className={`topbar__quick-add-btn ${showQuickAdd ? 'topbar__quick-add-btn--active' : ''}`}
-              onClick={() => setShowQuickAdd(!showQuickAdd)}
-              title="Crear nuevo registro"
-              aria-label="Crear registro"
-            >
-              <Plus size={18} />
-            </button>
-
-            {showQuickAdd && (
-              <div className="topbar__quick-add-menu">
-                <div className="topbar__quick-add-title">Dar de alta</div>
-                <button
-                  type="button"
-                  className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/contactos')}
-                >
-                  <User size={16} className="quick-add-icon" />
-                  <span>Contacto / Productor</span>
-                </button>
-                <button
-                  type="button"
-                  className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/empresas')}
-                >
-                  <Building2 size={16} className="quick-add-icon" />
-                  <span>Empresa</span>
-                </button>
-                <button
-                  type="button"
-                  className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/negocios')}
-                >
-                  <Handshake size={16} className="quick-add-icon" />
-                  <span>Negocio</span>
-                </button>
-                <button
-                  type="button"
-                  className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/tareas')}
-                >
-                  <CheckSquare size={16} className="quick-add-icon" />
-                  <span>Tarea</span>
-                </button>
-                <button
-                  type="button"
-                  className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/productos')}
-                >
-                  <Package size={16} className="quick-add-icon" />
-                  <span>Producto</span>
-                </button>
-                <button
-                  type="button"
-                  className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/rutas')}
-                >
-                  <MapPin size={16} className="quick-add-icon" />
-                  <span>Hoja de Ruta</span>
-                </button>
-                <button
-                  type="button"
-                  className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/actividades')}
-                >
-                  <ClipboardList size={16} className="quick-add-icon" />
-                  <span>Seguimiento / Actividad</span>
-                </button>
-                <button
-                  type="button"
-                  className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/campañas')}
-                >
-                  <Megaphone size={16} className="quick-add-icon" />
-                  <span>Campaña</span>
-                </button>
-                <button
-                  type="button"
-                  className="topbar__quick-add-item"
-                  onClick={() => handleQuickNavigate('/admin/objetivos')}
-                >
-                  <Target size={16} className="quick-add-icon" />
-                  <span>Objetivo</span>
-                </button>
-              </div>
-            )}
-          </div>
+            <span className="topbar__search-input topbar__search-input--trigger">Buscar o preguntar...</span>
+            <kbd className="topbar__search-kbd">/</kbd>
+          </button>
         </div>
       </div>
 
+      <GlobalSearch isOpen={showSearch} onClose={() => setShowSearch(false)} />
+
       <div className="topbar__right">
-        <button type="button" className="topbar__icon-btn" title="Notificaciones">
-          <Bell size={18} />
-          <span className="topbar__notification-badge">3</span>
-        </button>
+        <NotificationCenter variant="admin" />
         <button
           type="button"
           className="topbar__icon-btn"
           title="Configuración"
-          onClick={() => navigate('/admin/configuracion')}
+          onClick={() => navigate('/admin/perfil')}
         >
           <Settings size={18} />
         </button>
-        <button type="button" className="topbar__icon-btn" title="Ayuda">
-          <HelpCircle size={18} />
-        </button>
+        <HelpCenter variant="admin" />
 
         {/* User Dropdown */}
         <div className="topbar__user-wrapper" ref={menuRef}>
@@ -209,61 +103,25 @@ export const TopBar = ({ title, subtitle }) => {
           </button>
 
           {showUserMenu && (
-            <div className="topbar__dropdown">
-              <div className="topbar__dropdown-header">
-                <div className="topbar__avatar topbar__avatar--lg">
-                  {profileImage ? (
-                    <img src={profileImage} alt="Avatar" className="topbar__avatar-img" />
-                  ) : (
-                    initials
-                  )}
-                </div>
-                <div className="topbar__dropdown-header-info">
-                  <div className="topbar__dropdown-name-row">
-                    <span className="topbar__dropdown-name">{currentUser?.nombreApellido || 'Admin Creado'}</span>
-                    <span className="topbar__dropdown-role-badge topbar__dropdown-role-badge--admin">
-                      {userRoleDisplay}
-                    </span>
-                  </div>
-                  <div className="topbar__dropdown-email">{currentUser?.direccionMail || 'admin.nuevo@agroquimicarosario.com.ar'}</div>
-                </div>
-              </div>
-              <div className="topbar__dropdown-divider" />
-              <button
-                type="button"
-                className="topbar__dropdown-item"
-                onClick={() => {
-                  setShowUserMenu(false);
-                  navigate('/admin/perfil');
-                }}
-              >
-                <User size={16} />
-                <span>Mi perfil</span>
-              </button>
-              <button
-                type="button"
-                className="topbar__dropdown-item"
-                onClick={() => {
-                  setShowUserMenu(false);
-                  navigate('/admin/configuracion');
-                }}
-              >
-                <Settings size={16} />
-                <span>Configuración</span>
-              </button>
-              <div className="topbar__dropdown-divider" />
-              <button
-                type="button"
-                className="topbar__dropdown-item topbar__dropdown-item--danger"
-                onClick={() => {
+            <UserProfileSidebar
+              className="topbar__dropdown"
+              user={{
+                name: currentUser?.nombreApellido || 'Admin Creado',
+                email: currentUser?.direccionMail || 'admin.nuevo@agroquimicarosario.com.ar',
+                avatarUrl: profileImage || null,
+                initials,
+              }}
+              navItems={[]}
+              logoutItem={{
+                icon: <AnimatedLogOutIcon size={16} forceAnimate={isLogoutHovered} />,
+                label: 'Cerrar sesión',
+                onClick: () => {
                   setShowUserMenu(false);
                   logout();
-                }}
-              >
-                <LogOut size={16} />
-                <span>Cerrar sesión</span>
-              </button>
-            </div>
+                },
+                ...logoutHoverProps,
+              }}
+            />
           )}
         </div>
       </div>

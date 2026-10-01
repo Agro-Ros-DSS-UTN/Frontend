@@ -13,9 +13,9 @@ import {
   Download,
 } from 'lucide-react';
 import { promotionsApi } from '../../api/operations.api';
-import { FormInput, FormTextarea } from '../ui/FormInput';
-import { SlideDrawer } from '../ui/SlideDrawer';
-import { DbLoader } from '../ui/DbLoader';
+import { FormInput, FormTextarea } from '../ui/FormInput/FormInput';
+import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
+import { LoadingState } from '../ui/LoadingState/LoadingState';
 import './PromotionsBoard.css';
 
 const ACCENTS = [
@@ -260,7 +260,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
       </div>
 
       {loading ? (
-        <DbLoader
+        <LoadingState
           title="Conectando con la base de datos…"
           message="Aguardá un instante mientras traemos las promociones vigentes."
         />

@@ -1,136 +1,199 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
   Car,
   CheckCircle2,
   Clock,
-  Phone,
   MessageSquare,
   Navigation,
-  ExternalLink,
-  ChevronRight,
-  User,
-  Building2,
   Plus,
   Compass,
   Play,
   Check,
-  Pause,
-  AlertCircle,
+  Square,
   Maximize2,
   Minimize2,
   Eye,
-  X
+  X,
+  Calendar,
+  History,
+  Timer,
+  Link as LinkIcon,
+  Trash2
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useAuth } from '../../../context/AuthContext';
 import { mockRoadmaps } from '../../../data/mockData';
 import { roadmapsApi } from '../../../api/operations.api';
-import { RandomLetterSwap } from '../../../components/ui/RandomLetterSwap';
-import { DbLoader } from '../../../components/ui/DbLoader';
+import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
+import { FormInput, FormTextarea } from '../../../components/ui/FormInput/FormInput';
+import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
+import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
 import { RoadmapDetailModal } from '../../../components/roadmaps/RoadmapDetailModal';
+import { useOverlayClose } from '../../../hooks/useOverlayClose';
+import '../../admin/RoadmapsPage/RoadmapsPage.css';
 import './SellerRoadmapPage.css';
+
+const formatRoadmap = (r, idx = 0) => ({
+  id: r.id,
+  vendedorId: r.sellerId,
+  vendedor: r.Seller?.User?.nombreApellido || 'Vendedor Oficial',
+  color: '#16a34a',
+  zona: r.nombreZona || r.descripcion || 'Zona Comercial Asignada',
+  fecha: r.fechaRuta || new Date().toISOString().split('T')[0],
+  horaRuta: r.horaRuta || null,
+  fechaFinPropuesta: r.fechaFinPropuesta || null,
+  horaFinPropuesta: r.horaFinPropuesta || null,
+  totalKm: r.distanciaEstimadaKm || 120,
+  totalVisitas: r.paradas?.length || 0,
+  visitasCompletadas: r.paradas?.filter((p) => p.estadoParada === 'completada').length || 0,
+  estado: r.estado || 'planificada',
+  observaciones: r.observaciones || r.descripcion || '',
+  fechaHoraInicioReal: r.fechaHoraInicioReal || null,
+  fechaHoraFinReal: r.fechaHoraFinReal || null,
+  paradas: (r.paradas || []).map((p, i) => ({
+    id: p.id,
+    orden: p.orden || i + 1,
+    cliente: p.nombreLugar,
+    direccion: p.direccion || 'Sin dirección',
+    localidad: r.nombreZona || 'Santa Fe',
+    coords: [p.latitud || -32.85 - i * 0.04, p.longitud || -61.45 - i * 0.04],
+    servicio: p.notas || 'Visita comercial asignada',
+    contacto: 'Contacto Comercial',
+    horaEstimada: p.horaEstimada || '10:00',
+    url: p.url || null,
+    origen: p.origen || 'planificada',
+    estado: p.estadoParada === 'completada' ? 'Completada' : p.estadoParada === 'en_camino' ? 'En camino' : 'Pendiente',
+  })),
+});
+
+// Algunas empresas cargadas en la base nunca tuvieron una dirección real
+// (quedó literalmente "Sin dirección" como dato) — no tiene sentido
+// autocompletar el campo con ese texto como si fuera una dirección válida.
+const isRealAddress = (addr) => !!addr && !/^sin direcci[oó]n$/i.test(addr.trim());
+
+const formatDuration = (ms) => {
+  if (!ms || ms < 0) return '—';
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m} min`;
+};
 
 export const SellerRoadmapPage = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const mapContainerRef = useRef(null);
   const fullscreenMapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const fullscreenMapInstanceRef = useRef(null);
 
+  const [allRoutes, setAllRoutes] = useState([]);
   const [route, setRoute] = useState(null);
   const [selectedStop, setSelectedStop] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isRouteStarted, setIsRouteStarted] = useState(false);
+  const [activeTab, setActiveTab] = useState('hoy');
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [historyDetailRoute, setHistoryDetailRoute] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
+  const [acting, setActing] = useState(false);
+
+  const [showAddStop, setShowAddStop] = useState(false);
+  const [stopForm, setStopForm] = useState({ texto: '', url: '' });
+
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+  const emptyCreateForm = {
+    nombreZona: '',
+    fechaRuta: new Date().toISOString().slice(0, 10),
+    horaRuta: '09:00',
+    fechaFinPropuesta: '',
+    horaFinPropuesta: '',
+    observaciones: '',
+    destino: '',
+    destinoCompany: null, // { id, nombre, direccion } — empresa real de la DB
+    direccionDestino: '',
+    addSecondStop: false,
+    segundaParada: '',
+    segundaParadaCompany: null,
+    direccionSegundaParada: '',
+  };
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [creating, setCreating] = useState(false);
+
+  const addStopOverlayHandlers = useOverlayClose(() => setShowAddStop(false));
 
   const showToast = (msg) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 3000);
   };
 
-  // Fetch Seller Roadmap directly from MySQL Database API
-  const fetchSellerRoute = async () => {
+  const idUser = currentUser?.idUser || currentUser?.id;
+
+  const fetchSellerRoutes = async () => {
     try {
       setLoading(true);
-      const res = await roadmapsApi.getAll();
-      const rawRoadmaps = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+      if (!idUser) {
+        setAllRoutes([]);
+        setRoute(mockRoadmaps[0] ? { ...mockRoadmaps[0], estado: 'planificada', paradas: mockRoadmaps[0].paradas || [] } : null);
+        return;
+      }
 
-      if (rawRoadmaps.length > 0) {
-        const r = rawRoadmaps[0];
-        const formattedRoute = {
-          id: r.id,
-          vendedorId: r.sellerId,
-          vendedor: r.Seller?.User?.nombreApellido || 'Vendedor Oficial',
-          color: '#16a34a',
-          zona: r.nombreZona || r.descripcion || 'Zona Comercial Asignada',
-          fecha: r.fechaRuta || new Date().toISOString().split('T')[0],
-          totalKm: r.distanciaEstimadaKm || 120,
-          totalVisitas: r.paradas?.length || 0,
-          visitasCompletadas: r.paradas?.filter(p => p.estadoParada === 'completada').length || 0,
-          estado: r.estado || 'planificada',
-          observaciones: r.observaciones || r.descripcion || '',
-          paradas: (r.paradas || []).map((p, idx) => ({
-            id: p.id,
-            orden: p.orden || (idx + 1),
-            cliente: p.nombreLugar,
-            direccion: p.direccion || 'Sin dirección',
-            localidad: r.nombreZona || 'Santa Fe',
-            coords: [p.latitud || (-32.85 - (idx * 0.04)), p.longitud || (-61.45 - (idx * 0.04))],
-            servicio: p.notas || 'Visita comercial asignada',
-            contacto: 'Contacto Comercial',
-            horaEstimada: p.horaEstimada || '10:00',
-            estado: p.estadoParada === 'completada' ? 'Completada' : (p.estadoParada === 'en_camino' ? 'En camino' : 'Pendiente')
-          }))
-        };
-        setRoute(formattedRoute);
-        setIsRouteStarted(formattedRoute.estado === 'en_camino' || formattedRoute.estado === 'en_ruta');
+      const res = await roadmapsApi.getByUser(idUser);
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+
+      if (raw.length > 0) {
+        const formatted = raw.map(formatRoadmap).sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+        setAllRoutes(formatted);
+
+        // Prioriza cualquier hoja de ruta activa (en curso o planificada) sin
+        // importar la fecha exacta — una ruta planificada para otro día
+        // igual tiene que poder verse e iniciarse desde acá, no solo "la de
+        // hoy" (eso dejaba afuera rutas reales asignadas por el admin).
+        const active =
+          formatted.find((r) => r.estado === 'en_curso') ||
+          formatted.find((r) => r.estado === 'planificada') ||
+          null;
+        setRoute(active);
       } else {
-        const r = mockRoadmaps[0];
-        setRoute({
-          id: r.id,
-          vendedor: r.vendedor,
-          zona: r.zona,
-          fecha: r.fecha,
-          totalKm: r.totalKm,
-          totalVisitas: r.paradas?.length || 0,
-          visitasCompletadas: r.visitasCompletadas || 0,
-          estado: 'planificada',
-          observaciones: 'Itinerario de visitas comerciales en campo.',
-          paradas: r.paradas.map(p => ({ ...p, estado: p.estado || 'Pendiente' }))
-        });
+        setAllRoutes([]);
+        setRoute(null);
       }
     } catch (err) {
       console.error('Error fetching seller roadmap from MySQL:', err);
-      setRoute(mockRoadmaps[0]);
+      setAllRoutes([]);
+      setRoute(null);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSellerRoute();
-  }, []);
+    fetchSellerRoutes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idUser]);
 
-  // URL para Google Maps GPS
+  const pastRoutes = useMemo(
+    () => allRoutes.filter((r) => r.estado === 'finalizada'),
+    [allRoutes]
+  );
+
+  // URL para Google Maps GPS — conecta todas las paradas en un solo recorrido
   const googleMapsUrl = useMemo(() => {
     if (!route || !route.paradas || route.paradas.length === 0) return '#';
     const destination = route.paradas[route.paradas.length - 1].coords.join(',');
-    const waypoints = route.paradas.slice(0, -1).map(p => p.coords.join(',')).join('|');
-    return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+    const waypoints = route.paradas.slice(0, -1).map((p) => p.coords.join(',')).join('|');
+    return `https://www.google.com/maps/dir/?api=1&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
   }, [route]);
 
   // Leaflet Map Rendering Helper
   const renderLeafletMap = (containerEl) => {
     if (!containerEl || !route) return null;
 
-    const map = L.map(containerEl, {
-      zoomControl: true,
-      scrollWheelZoom: true,
-    }).setView([-32.95, -60.66], 11);
+    const map = L.map(containerEl, { zoomControl: true, scrollWheelZoom: true }).setView([-32.95, -60.66], 11);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; CARTO | CRM AgroRos',
@@ -145,15 +208,11 @@ export const SellerRoadmapPage = () => {
       polylineCoords.push(stop.coords);
       const isCompleted = stop.estado === 'Completada';
       const isCurrent = stop.estado === 'En camino';
-      const markerBg = isCompleted ? '#16a34a' : (isCurrent ? '#0284c7' : '#1a7d6b');
+      const markerBg = isCompleted ? '#16a34a' : isCurrent ? '#0284c7' : '#1a7d6b';
 
       const customIcon = L.divIcon({
         className: 'leaflet-custom-marker-wrapper',
-        html: `
-          <div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''}" style="background-color: ${markerBg};">
-            <span>${stop.orden}</span>
-          </div>
-        `,
+        html: `<div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''}" style="background-color: ${markerBg};"><span>${stop.orden}</span></div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
         popupAnchor: [0, -16],
@@ -164,18 +223,10 @@ export const SellerRoadmapPage = () => {
 
       marker.bindPopup(`
         <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width: 190px; padding: 2px;">
-          <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #16a34a; margin-bottom: 2px;">
-            Parada #${stop.orden}
-          </div>
-          <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">
-            ${stop.cliente}
-          </div>
-          <div style="font-size: 11px; color: #64748b; margin-bottom: 4px;">
-            📍 ${stop.direccion}, ${stop.localidad}
-          </div>
-          <div style="font-size: 11px; color: #334155;">
-            <strong>Servicio:</strong> ${stop.servicio}
-          </div>
+          <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #16a34a; margin-bottom: 2px;">Parada #${stop.orden}</div>
+          <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">${stop.cliente}</div>
+          <div style="font-size: 11px; color: #64748b; margin-bottom: 4px;">📍 ${stop.direccion}, ${stop.localidad}</div>
+          <div style="font-size: 11px; color: #334155;"><strong>Servicio:</strong> ${stop.servicio}</div>
         </div>
       `);
 
@@ -183,121 +234,206 @@ export const SellerRoadmapPage = () => {
     });
 
     if (polylineCoords.length > 0) {
-      L.polyline(polylineCoords, {
-        color: '#16a34a',
-        weight: 4,
-        opacity: 0.85,
-        dashArray: '8, 8',
-      }).addTo(map);
+      L.polyline(polylineCoords, { color: '#16a34a', weight: 4, opacity: 0.85, dashArray: '8, 8' }).addTo(map);
     }
-
     if (markers.length > 0) {
       const group = L.featureGroup(markers);
       map.fitBounds(group.getBounds().pad(0.2));
     }
-
     return map;
   };
 
-  // Standard Leaflet Map Effect
   useEffect(() => {
     if (loading || !route || !mapContainerRef.current || isMapFullscreen) return;
-
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
     }
-
     mapInstanceRef.current = renderLeafletMap(mapContainerRef.current);
-
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, route, isMapFullscreen]);
 
-  // Fullscreen Leaflet Map Effect
   useEffect(() => {
     if (!isMapFullscreen || !fullscreenMapContainerRef.current || !route) return;
-
     if (fullscreenMapInstanceRef.current) {
       fullscreenMapInstanceRef.current.remove();
       fullscreenMapInstanceRef.current = null;
     }
-
     fullscreenMapInstanceRef.current = renderLeafletMap(fullscreenMapContainerRef.current);
-
     setTimeout(() => {
-      if (fullscreenMapInstanceRef.current) {
-        fullscreenMapInstanceRef.current.invalidateSize();
-      }
+      if (fullscreenMapInstanceRef.current) fullscreenMapInstanceRef.current.invalidateSize();
     }, 150);
-
     return () => {
       if (fullscreenMapInstanceRef.current) {
         fullscreenMapInstanceRef.current.remove();
         fullscreenMapInstanceRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMapFullscreen, route]);
 
-  // Iniciar / Pausar Hoja de Ruta en MySQL
-  const handleToggleStartRoute = async () => {
-    const nextState = !isRouteStarted;
-    setIsRouteStarted(nextState);
-
+  // ── Ciclo de vida real: Iniciar / Fin de Hoja de Ruta ──
+  const handleStartRoute = async () => {
+    if (!route?.id || acting) return;
+    setActing(true);
     try {
-      if (route?.id) {
-        await roadmapsApi.updateStatus(route.id, nextState ? 'en_camino' : 'planificada');
-      }
-      showToast(nextState ? '🚀 ¡Hoja de Ruta iniciada! Monitoreo activo.' : '⏸️ Hoja de Ruta pausada.');
+      await roadmapsApi.start(route.id);
+      showToast('🚀 ¡Hoja de Ruta iniciada!');
+      await fetchSellerRoutes();
     } catch (err) {
-      console.warn('Error al actualizar estado de ruta en backend:', err);
-      showToast(nextState ? 'Ruta iniciada.' : 'Ruta pausada.');
+      console.error('Error al iniciar hoja de ruta:', err);
+      showToast('No se pudo iniciar la hoja de ruta.');
+    } finally {
+      setActing(false);
     }
   };
 
-  // Toggle stop completion status in backend API
+  const handleEndRoute = async () => {
+    if (!route?.id || acting) return;
+    if (!window.confirm('¿Finalizar la hoja de ruta? No vas a poder agregar más paradas después.')) return;
+    setActing(true);
+    try {
+      await roadmapsApi.end(route.id);
+      showToast('🏁 Hoja de Ruta finalizada.');
+      await fetchSellerRoutes();
+    } catch (err) {
+      console.error('Error al finalizar hoja de ruta:', err);
+      showToast('No se pudo finalizar la hoja de ruta.');
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const handleAddStopSubmit = async (e) => {
+    e.preventDefault();
+    if (!stopForm.texto.trim() || !route?.id) return;
+    setActing(true);
+    try {
+      await roadmapsApi.addStop(route.id, { texto: stopForm.texto.trim(), url: stopForm.url.trim() || null });
+      setShowAddStop(false);
+      setStopForm({ texto: '', url: '' });
+      showToast('📍 Parada agregada al recorrido.');
+      await fetchSellerRoutes();
+    } catch (err) {
+      console.error('Error al agregar parada:', err);
+      showToast('No se pudo agregar la parada.');
+    } finally {
+      setActing(false);
+    }
+  };
+
   const handleToggleStopStatus = async (stop) => {
     try {
       const newStatus = stop.estado === 'Completada' ? 'pendiente' : 'completada';
-      if (stop.id) {
-        await roadmapsApi.updateStopStatus(stop.id, newStatus);
-      }
-      setRoute(prev => ({
+      if (stop.id) await roadmapsApi.updateStopStatus(stop.id, newStatus);
+      setRoute((prev) => ({
         ...prev,
-        paradas: prev.paradas.map(p => p.orden === stop.orden ? { ...p, estado: newStatus === 'completada' ? 'Completada' : 'Pendiente' } : p),
-        visitasCompletadas: prev.visitasCompletadas + (newStatus === 'completada' ? 1 : -1)
+        paradas: prev.paradas.map((p) => (p.orden === stop.orden ? { ...p, estado: newStatus === 'completada' ? 'Completada' : 'Pendiente' } : p)),
+        visitasCompletadas: prev.visitasCompletadas + (newStatus === 'completada' ? 1 : -1),
       }));
       showToast(newStatus === 'completada' ? `✅ Parada #${stop.orden} completada` : `Parada #${stop.orden} marcada pendiente`);
     } catch (err) {
       console.error('Error updating stop status:', err);
-      setRoute(prev => ({
-        ...prev,
-        paradas: prev.paradas.map(p => p.orden === stop.orden ? { ...p, estado: stop.estado === 'Completada' ? 'Pendiente' : 'Completada' } : p),
-      }));
     }
   };
 
+  const [createFormError, setCreateFormError] = useState('');
+
+  const handleCreateRoadmap = async (e) => {
+    e.preventDefault();
+    setCreateFormError('');
+
+    if (!createForm.nombreZona.trim() || !idUser) return;
+    if (!createForm.fechaFinPropuesta) {
+      setCreateFormError('La fecha de fin propuesta es obligatoria.');
+      return;
+    }
+    if (!createForm.destino.trim()) {
+      setCreateFormError('El destino principal es obligatorio.');
+      return;
+    }
+    if (createForm.addSecondStop && !createForm.segundaParada.trim()) {
+      setCreateFormError('Completá la empresa de la segunda parada o desmarcá la opción.');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const paradas = [
+        {
+          orden: 1,
+          clientCompanyId: createForm.destinoCompany?.id ?? null,
+          nombreLugar: createForm.destino.trim(),
+          direccion: createForm.direccionDestino || (isRealAddress(createForm.destinoCompany?.direccion) ? createForm.destinoCompany.direccion : ''),
+          horaEstimada: createForm.horaRuta || '09:00',
+        },
+      ];
+
+      if (createForm.addSecondStop && createForm.segundaParada.trim()) {
+        paradas.push({
+          orden: 2,
+          clientCompanyId: createForm.segundaParadaCompany?.id ?? null,
+          nombreLugar: createForm.segundaParada.trim(),
+          direccion: createForm.direccionSegundaParada || (isRealAddress(createForm.segundaParadaCompany?.direccion) ? createForm.segundaParadaCompany.direccion : ''),
+          horaEstimada: createForm.horaFinPropuesta || createForm.horaRuta || '09:00',
+        });
+      }
+
+      const payload = {
+        nombreZona: createForm.nombreZona.trim(),
+        descripcion: createForm.observaciones || `Hoja de ruta para ${createForm.nombreZona}`,
+        fechaRuta: createForm.fechaRuta,
+        horaRuta: createForm.horaRuta || null,
+        fechaFinPropuesta: createForm.fechaFinPropuesta,
+        horaFinPropuesta: createForm.horaFinPropuesta || null,
+        idUserAsignado: idUser,
+        observaciones: createForm.observaciones || null,
+        paradas,
+      };
+      await roadmapsApi.create(payload);
+      setShowCreateDrawer(false);
+      setCreateForm(emptyCreateForm);
+      showToast('✅ Hoja de ruta planificada correctamente.');
+      await fetchSellerRoutes();
+    } catch (err) {
+      console.error('Error al planificar hoja de ruta:', err);
+      showToast('No se pudo guardar la hoja de ruta.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteRoadmap = async (routeId, zona) => {
+    if (!routeId) return;
+    if (!window.confirm(`¿Eliminar la hoja de ruta "${zona || 'seleccionada'}"? Esta acción no se puede deshacer.`)) return;
+    setActing(true);
+    try {
+      await roadmapsApi.delete(routeId);
+      showToast('🗑️ Hoja de ruta eliminada.');
+      await fetchSellerRoutes();
+    } catch (err) {
+      console.error('Error al eliminar hoja de ruta:', err);
+      const msg = err?.response?.data?.message || 'No se pudo eliminar la hoja de ruta.';
+      showToast(msg);
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const durationMs = route?.fechaHoraInicioReal && route?.fechaHoraFinReal
+    ? new Date(route.fechaHoraFinReal) - new Date(route.fechaHoraInicioReal)
+    : null;
+
   return (
     <div className="seller-roadmap-page">
-      {/* Toast Notificación */}
       {toastMsg && (
-        <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          background: '#0f172a',
-          color: '#ffffff',
-          padding: '12px 20px',
-          borderRadius: '12px',
-          fontWeight: 700,
-          fontSize: '0.9rem',
-          zIndex: 999999,
-          boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-        }}>
+        <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: '#0f172a', color: '#ffffff', padding: '12px 20px', borderRadius: '12px', fontWeight: 700, fontSize: '0.9rem', zIndex: 999999, boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
           {toastMsg}
         </div>
       )}
@@ -305,26 +441,51 @@ export const SellerRoadmapPage = () => {
       {/* Header */}
       <div className="seller-roadmap-header">
         <div>
-          <h1 className="seller-roadmap-title">Hoja de Ruta del Día</h1>
-          <p className="seller-roadmap-subtitle">
-            <strong>{route?.zona || 'Recorrido Comercial'}</strong> {route?.fecha ? `• ${route.fecha}` : ''} • <strong>{route?.totalKm || 120} km de recorrido</strong>
-          </p>
+          <h1 className="seller-roadmap-title">Hoja de Ruta</h1>
+          <p className="seller-roadmap-subtitle">Tu recorrido, tus paradas, a tu ritmo.</p>
         </div>
-        <div className="seller-roadmap-stats">
-          <span className="roadmap-stat-pill">
-            <CheckCircle2 size={14} className="text-green" />
-            {route?.visitasCompletadas || 0} de {route?.totalVisitas || 0} visitas completadas
-          </span>
-        </div>
+        <button type="button" className="crm-btn-primary" onClick={() => setShowCreateDrawer(true)}>
+          <Plus size={16} />
+          <span>Planificar Hoja de Ruta</span>
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="seller-roadmap-tabs">
+        <button type="button" className={`seller-roadmap-tab ${activeTab === 'hoy' ? 'active' : ''}`} onClick={() => setActiveTab('hoy')}>
+          <Calendar size={14} /> Hoy
+        </button>
+        <button type="button" className={`seller-roadmap-tab ${activeTab === 'historial' ? 'active' : ''}`} onClick={() => setActiveTab('historial')}>
+          <History size={14} /> Registro Mensual ({pastRoutes.length})
+        </button>
       </div>
 
       {loading ? (
-        <DbLoader
-          title="Conectando con la base de datos…"
-          message="Aguardá un instante mientras sincronizamos tu hoja de ruta."
-        />
+        <LoadingState title="Conectando con la base de datos…" message="Aguardá un instante mientras sincronizamos tu hoja de ruta." />
+      ) : activeTab === 'historial' ? (
+        <div className="seller-roadmap-history">
+          {pastRoutes.length === 0 ? (
+            <div className="seller-roadmap-empty">No tenés hojas de ruta finalizadas todavía.</div>
+          ) : (
+            pastRoutes.map((r) => {
+              const dur = r.fechaHoraInicioReal && r.fechaHoraFinReal ? new Date(r.fechaHoraFinReal) - new Date(r.fechaHoraInicioReal) : null;
+              return (
+                <div key={r.id} className="seller-roadmap-history-item" onClick={() => setHistoryDetailRoute(r)}>
+                  <div className="seller-roadmap-history-main">
+                    <span className="seller-roadmap-history-zona">{r.zona}</span>
+                    <span className="seller-roadmap-history-meta">{r.fecha} · {r.paradas.length} paradas · {r.totalKm} km</span>
+                  </div>
+                  <span className="seller-roadmap-history-duration"><Timer size={13} /> {formatDuration(dur)}</span>
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : !route ? (
+        <div className="seller-roadmap-empty">
+          No tenés ninguna hoja de ruta para hoy. Podés planificar una con "Planificar Hoja de Ruta".
+        </div>
       ) : (
-        /* Main Container */
         <div className="seller-roadmap-grid">
           {/* Map Container */}
           <div className="seller-roadmap-map-card">
@@ -334,111 +495,97 @@ export const SellerRoadmapPage = () => {
                 <span>Navegación Territorial en Campo</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <a
-                  href={googleMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="map-ext-link"
-                  title="Abrir en Google Maps Móvil"
-                >
-                  <Compass size={13} /> Abrir GPS Google Maps
+                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="map-ext-link" title="Abrir recorrido completo en Google Maps">
+                  <Compass size={13} /> Abrir en Maps
                 </a>
-
-                <button
-                  type="button"
-                  className="roadmaps-btn roadmaps-btn--outline"
-                  style={{ padding: '4px 10px', fontSize: '11px' }}
-                  onClick={() => setIsMapFullscreen(true)}
-                  title="Agrandar mapa a pantalla completa"
-                >
+                <button type="button" className="roadmaps-btn roadmaps-btn--outline" style={{ padding: '4px 10px', fontSize: '11px' }} onClick={() => setIsMapFullscreen(true)} title="Agrandar mapa a pantalla completa">
                   <Maximize2 size={13} />
                   <span>Agrandar Mapa</span>
                 </button>
               </div>
             </div>
-
             <div className="seller-leaflet-box" ref={mapContainerRef} />
           </div>
 
-          {/* Actionable Stops List Panel (Idéntico formato al Admin) */}
+          {/* Stops Panel */}
           <div className="seller-stops-list-card">
             <div className="roadmap-stops-header" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#16a34a', letterSpacing: '0.5px' }}>
-                    ZONA DE RECORRIDO
-                  </span>
-                  <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 0 0', lineHeight: 1.2 }}>
-                    {route?.zona || 'Recorrido Comercial'}
-                  </h2>
+                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#16a34a', letterSpacing: '0.5px' }}>ZONA DE RECORRIDO</span>
+                  <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 0 0', lineHeight: 1.2 }}>{route.zona}</h2>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className="roadmap-status-badge" style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700, borderRadius: '8px', height: '32px', display: 'inline-flex', alignItems: 'center' }}>
-                    {isRouteStarted ? 'En curso' : 'Planificada'}
+                    {route.estado === 'en_curso' ? 'En curso' : route.estado === 'finalizada' ? 'Finalizada' : 'Planificada'}
                   </span>
-
                   <button
                     type="button"
-                    className="btn-rounded-primary"
-                    onClick={handleToggleStartRoute}
-                    style={{
-                      height: '32px',
-                      padding: '6px 14px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      borderRadius: '8px',
-                      background: isRouteStarted ? '#0284c7 !important' : 'var(--color-primary) !important',
-                      boxShadow: isRouteStarted ? '0 4px 12px rgba(2, 132, 199, 0.35) !important' : ''
-                    }}
+                    className="roadmaps-btn roadmaps-btn--outline"
+                    style={{ padding: '6px 10px', color: '#dc2626', borderColor: '#fecaca' }}
+                    title="Eliminar esta hoja de ruta"
+                    onClick={() => handleDeleteRoadmap(route.id, route.zona)}
                   >
-                    <RandomLetterSwap label={isRouteStarted ? 'Pausar' : 'Iniciar Ruta'}>
-                      {isRouteStarted ? <Pause size={14} /> : <Play size={14} />}
-                    </RandomLetterSwap>
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
 
               <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
-                Vendedor: <strong style={{ color: '#0f172a' }}>{route?.vendedor}</strong> • Fecha: {route?.fecha}
+                Fecha: {route.fecha} {route.horaRuta ? `· ${route.horaRuta} hs` : ''}
               </div>
 
-              {/* Observaciones del Recorrido */}
-              {route?.observaciones && (
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', fontSize: '0.8rem', color: '#334155', marginTop: '2px' }}>
+              {route.observaciones && (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', fontSize: '0.8rem', color: '#334155' }}>
                   <strong style={{ color: '#0f172a' }}>Notas del Recorrido:</strong> {route.observaciones}
                 </div>
               )}
 
-              {/* Botón Ver Detalle Completo de Ruta */}
-              <button
-                type="button"
-                className="roadmaps-btn roadmaps-btn--outline"
-                style={{ padding: '6px 12px', fontSize: '0.8rem', width: '100%', justifyContent: 'center', marginTop: '4px' }}
-                onClick={() => setShowDetailModal(true)}
-              >
+              {route.estado === 'finalizada' && (
+                <div className="seller-roadmap-duration-box">
+                  <Timer size={14} /> Duración total: <strong>{formatDuration(durationMs)}</strong>
+                </div>
+              )}
+
+              {/* Botones de ciclo de vida */}
+              {route.estado !== 'finalizada' && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {route.estado === 'planificada' && (
+                    <button type="button" className="btn-rounded-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleStartRoute} disabled={acting}>
+                      <Play size={14} /> Iniciar Hoja de Ruta
+                    </button>
+                  )}
+                  {route.estado === 'en_curso' && (
+                    <>
+                      <button type="button" className="roadmaps-btn roadmaps-btn--outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowAddStop(true)}>
+                        <MapPin size={14} /> Registrar Parada
+                      </button>
+                      <button type="button" className="btn-rounded-primary" style={{ flex: 1, justifyContent: 'center', background: '#dc2626' }} onClick={handleEndRoute} disabled={acting}>
+                        <Square size={14} /> Fin de Hoja de Ruta
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <button type="button" className="roadmaps-btn roadmaps-btn--outline" style={{ padding: '6px 12px', fontSize: '0.8rem', width: '100%', justifyContent: 'center', marginTop: '4px' }} onClick={() => setShowDetailModal(true)}>
                 <Eye size={14} />
                 <span>Ver Detalle Completo de Ruta</span>
               </button>
             </div>
 
             <div className="seller-stops-toolbar">
-              <h3 className="stops-list-title">Paradas del Día</h3>
-              <span className="seller-stops-progress">
-                {route?.visitasCompletadas || 0}/{route?.totalVisitas || 0} completadas
-              </span>
+              <h3 className="stops-list-title">Paradas del Recorrido</h3>
+              <span className="seller-stops-progress">{route.visitasCompletadas}/{route.totalVisitas} completadas</span>
             </div>
 
             <div className="seller-stops-flow">
-              {route?.paradas && route.paradas.map((stop) => {
+              {route.paradas.map((stop) => {
                 const isSelected = selectedStop?.orden === stop.orden;
                 const statusKey = stop.estado.toLowerCase().replace(' ', '-');
                 const isDone = statusKey === 'completada';
                 return (
-                  <div
-                    key={stop.orden}
-                    className={`seller-stop-card ${isSelected ? 'selected' : ''} ${isDone ? 'is-done' : ''}`}
-                    onClick={() => setSelectedStop(stop)}
-                  >
+                  <div key={stop.orden} className={`seller-stop-card ${isSelected ? 'selected' : ''} ${isDone ? 'is-done' : ''}`} onClick={() => setSelectedStop(stop)}>
                     <div className="stop-card-top">
                       <button
                         type="button"
@@ -456,40 +603,32 @@ export const SellerRoadmapPage = () => {
                           <span className="stop-card-client">{stop.cliente}</span>
                           <span className="stop-card-time"><Clock size={12} /> {stop.horaEstimada} hs</span>
                         </div>
-                        <div className="stop-card-addr">
-                          <MapPin size={12} /> {stop.direccion}, {stop.localidad}
-                        </div>
+                        {stop.direccion && stop.direccion !== 'Sin dirección' && (
+                          <div className="stop-card-addr"><MapPin size={12} /> {stop.direccion}, {stop.localidad}</div>
+                        )}
                         <div className="stop-card-service">{stop.servicio}</div>
-                        <span className={`stop-card-badge ${statusKey}`}>{stop.estado}</span>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <span className={`stop-card-badge ${statusKey}`}>{stop.estado}</span>
+                          {stop.origen === 'agregada_en_ruta' && <span className="seller-roadmap-adhoc-badge">Agregada en el camino</span>}
+                          {stop.url && (
+                            <a href={stop.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="seller-roadmap-stop-link">
+                              <LinkIcon size={11} /> Link
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     <div className="stop-card-footer">
                       <div className="stop-contact-name">Contacto: {stop.contacto}</div>
                       <div className="stop-actions-group">
-                        <a
-                          href={`https://maps.google.com/?q=${stop.coords[0]},${stop.coords[1]}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="stop-action-btn waze"
-                          title="Cómo llegar en Google Maps"
-                        >
+                        <a href={`https://maps.google.com/?q=${stop.coords[0]},${stop.coords[1]}`} target="_blank" rel="noopener noreferrer" className="stop-action-btn waze" title="Cómo llegar en Google Maps">
                           <Navigation size={13} />
                         </a>
-                        <a
-                          href={`https://wa.me/5493414567890?text=Hola%20${encodeURIComponent(stop.contacto)},%20te%20escribo%20de%20Agroqu%C3%ADmica%20Rosario%20en%20referencia%20a%20la%20visita%20de%20hoy.`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="stop-action-btn whatsapp"
-                          title="Enviar WhatsApp"
-                        >
+                        <a href={`https://wa.me/5493414567890?text=Hola%20${encodeURIComponent(stop.contacto)},%20te%20escribo%20de%20Agroqu%C3%ADmica%20Rosario%20en%20referencia%20a%20la%20visita%20de%20hoy.`} target="_blank" rel="noopener noreferrer" className="stop-action-btn whatsapp" title="Enviar WhatsApp">
                           <MessageSquare size={13} />
                         </a>
-                        <button
-                          className="stop-action-btn register"
-                          onClick={() => navigate('/seller/actividades')}
-                          title="Registrar Resultado de la Visita"
-                        >
+                        <button className="stop-action-btn register" onClick={() => navigate('/seller/actividades')} title="Registrar Resultado de la Visita">
                           <CheckCircle2 size={13} />
                           <span>Registrar</span>
                         </button>
@@ -508,9 +647,7 @@ export const SellerRoadmapPage = () => {
         <div className="roadmaps-modal-overlay" style={{ zIndex: 9999999, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', padding: '24px', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ background: '#ffffff', width: '92vw', height: '88vh', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ margin: 0, fontWeight: 800, color: '#0f172a' }}>
-                Mapa de Rutas Territoriales — {route?.zona}
-              </h3>
+              <h3 style={{ margin: 0, fontWeight: 800, color: '#0f172a' }}>Mapa de Rutas Territoriales — {route?.zona}</h3>
               <button className="roadmaps-btn roadmaps-btn--outline" onClick={() => setIsMapFullscreen(false)}>
                 <Minimize2 size={16} /> Salir de Pantalla Completa
               </button>
@@ -522,12 +659,172 @@ export const SellerRoadmapPage = () => {
 
       {/* ── Modal: Detalle Completo de Hoja de Ruta ── */}
       {showDetailModal && route && (
-        <RoadmapDetailModal
-          route={route}
-          googleMapsUrl={googleMapsUrl}
-          onClose={() => setShowDetailModal(false)}
-        />
+        <RoadmapDetailModal route={route} googleMapsUrl={googleMapsUrl} onClose={() => setShowDetailModal(false)} />
       )}
+      {historyDetailRoute && (
+        <RoadmapDetailModal route={historyDetailRoute} googleMapsUrl="#" onClose={() => setHistoryDetailRoute(null)} />
+      )}
+
+      {/* ── Modal: Registrar Parada (ad-hoc) ── */}
+      {showAddStop && (
+        <div className="roadmaps-modal-overlay" {...addStopOverlayHandlers}>
+          <div className="roadmaps-modal" style={{ maxWidth: '420px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="roadmaps-modal__header">
+              <h2>Registrar Parada</h2>
+              <button className="roadmaps-modal__close" onClick={() => setShowAddStop(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form className="roadmaps-modal__form" onSubmit={handleAddStopSubmit}>
+              <div className="roadmaps-form-field">
+                <label>¿Dónde paraste? *</label>
+                <input
+                  type="text"
+                  className="roadmaps-input"
+                  placeholder="Ej: YPF Ruta 9, Villa Constitución"
+                  value={stopForm.texto}
+                  onChange={(e) => setStopForm((p) => ({ ...p, texto: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="roadmaps-form-field">
+                <label>Link (opcional)</label>
+                <input
+                  type="url"
+                  className="roadmaps-input"
+                  placeholder="https://maps.google.com/..."
+                  value={stopForm.url}
+                  onChange={(e) => setStopForm((p) => ({ ...p, url: e.target.value }))}
+                />
+              </div>
+              <button type="submit" className="btn-rounded-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }} disabled={acting}>
+                {acting ? 'Guardando…' : 'Agregar Parada'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Drawer: Planificar Hoja de Ruta propia ── */}
+      <SlideDrawer isOpen={showCreateDrawer} onClose={() => setShowCreateDrawer(false)} title="Planificar Hoja de Ruta" width="480px">
+        <form onSubmit={handleCreateRoadmap} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+          <FormInput
+            label="Nombre de la Zona / Recorrido"
+            name="nombreZona"
+            value={createForm.nombreZona}
+            onChange={(e) => setCreateForm((p) => ({ ...p, nombreZona: e.target.value }))}
+            placeholder="Ej: Zona Litoral - Rosario a Santa Fe"
+            required
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <FormInput label="Fecha de Inicio" name="fechaRuta" type="date" value={createForm.fechaRuta} onChange={(e) => setCreateForm((p) => ({ ...p, fechaRuta: e.target.value }))} required />
+            <FormInput label="Hora de Inicio" name="horaRuta" type="time" value={createForm.horaRuta} onChange={(e) => setCreateForm((p) => ({ ...p, horaRuta: e.target.value }))} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <FormInput
+              label="Fecha de Fin (propuesta)"
+              name="fechaFinPropuesta"
+              type="date"
+              value={createForm.fechaFinPropuesta}
+              onChange={(e) => setCreateForm((p) => ({ ...p, fechaFinPropuesta: e.target.value }))}
+              required
+            />
+            <FormInput label="Hora de Fin (propuesta)" name="horaFinPropuesta" type="time" value={createForm.horaFinPropuesta} onChange={(e) => setCreateForm((p) => ({ ...p, horaFinPropuesta: e.target.value }))} />
+          </div>
+
+          <CompanyAutocomplete
+            label="Destino principal"
+            name="destino"
+            value={createForm.destino}
+            onChange={(nombre, company) =>
+              setCreateForm((p) => ({
+                ...p,
+                destino: nombre,
+                destinoCompany: company,
+                direccionDestino: isRealAddress(company?.direccion) ? company.direccion : '',
+              }))
+            }
+            placeholder="Buscá una empresa cargada en la base…"
+            required
+          />
+          <FormInput
+            label="Dirección del destino"
+            name="direccionDestino"
+            value={createForm.direccionDestino}
+            onChange={(e) => setCreateForm((p) => ({ ...p, direccionDestino: e.target.value }))}
+            placeholder={
+              createForm.destinoCompany && !isRealAddress(createForm.destinoCompany.direccion)
+                ? 'Ninguna dirección para esta empresa — completar'
+                : 'Se autocompleta al elegir la empresa (editable)'
+            }
+          />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <FlipCheckbox
+              id="addSecondStop"
+              checked={createForm.addSecondStop}
+              onChange={(e) => setCreateForm((p) => ({ ...p, addSecondStop: e.target.checked }))}
+            />
+            <label htmlFor="addSecondStop" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+              Agregar una parada
+            </label>
+          </div>
+
+          {createForm.addSecondStop && (
+            <>
+              <CompanyAutocomplete
+                label="Segunda parada"
+                name="segundaParada"
+                value={createForm.segundaParada}
+                onChange={(nombre, company) =>
+                  setCreateForm((p) => ({
+                    ...p,
+                    segundaParada: nombre,
+                    segundaParadaCompany: company,
+                    direccionSegundaParada: isRealAddress(company?.direccion) ? company.direccion : '',
+                  }))
+                }
+                placeholder="Buscá otra empresa cargada en la base…"
+                required
+              />
+              <FormInput
+                label="Dirección de la segunda parada"
+                name="direccionSegundaParada"
+                value={createForm.direccionSegundaParada}
+                onChange={(e) => setCreateForm((p) => ({ ...p, direccionSegundaParada: e.target.value }))}
+                placeholder={
+                  createForm.segundaParadaCompany && !isRealAddress(createForm.segundaParadaCompany.direccion)
+                    ? 'Ninguna dirección para esta empresa — completar'
+                    : 'Se autocompleta al elegir la empresa (editable)'
+                }
+              />
+            </>
+          )}
+
+          <FormTextarea
+            label="Notas"
+            name="observaciones"
+            value={createForm.observaciones}
+            onChange={(e) => setCreateForm((p) => ({ ...p, observaciones: e.target.value }))}
+            rows={2}
+          />
+
+          {createFormError && (
+            <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b', fontSize: '0.8rem', fontWeight: 600 }}>
+              {createFormError}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <button type="submit" className="btn-rounded-primary" style={{ flex: 1, padding: '12px', justifyContent: 'center' }} disabled={creating}>
+              {creating ? 'Guardando…' : 'Planificar Hoja de Ruta'}
+            </button>
+            <button type="button" className="roadmaps-btn roadmaps-btn--outline" style={{ padding: '12px 18px' }} onClick={() => setShowCreateDrawer(false)}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </SlideDrawer>
     </div>
   );
 };

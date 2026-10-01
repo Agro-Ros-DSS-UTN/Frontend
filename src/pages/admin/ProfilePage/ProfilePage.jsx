@@ -14,7 +14,8 @@ import {
   Plus,
   Trash2,
   ChevronLeft,
-  X,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { mockSellers } from '../../../data/mockData';
@@ -22,9 +23,10 @@ import './ProfilePage.css';
 
 const TABS = [
   { key: 'perfil', label: 'Perfil' },
-  { key: 'correo', label: 'Correo' },
-  { key: 'seguridad', label: 'Seguridad' },
+  { key: 'password', label: 'Contraseña' },
 ];
+
+const MAX_PASSWORD_LENGTH = 64;
 
 export const ProfilePage = () => {
   const { currentUser, profileImage, updateProfileImage, updateCurrentUser } = useAuth();
@@ -58,6 +60,75 @@ export const ProfilePage = () => {
   });
 
   const [phones, setPhones] = useState(['+54 341 456-7890']);
+
+  // ── Cambio de contraseña ──
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
+
+  const passwordChecks = {
+    length: newPassword.length >= 8,
+    upper: /[A-Z]/.test(newPassword),
+    number: /[0-9]/.test(newPassword),
+    symbol: /[^A-Za-z0-9]/.test(newPassword),
+  };
+  const passwordScore = Object.values(passwordChecks).filter(Boolean).length;
+  const passwordStrength =
+    newPassword.length === 0
+      ? null
+      : passwordScore <= 1
+      ? { label: 'Débil', color: 'red' }
+      : passwordScore <= 3
+      ? { label: 'Media', color: 'orange' }
+      : { label: 'Fuerte', color: 'green' };
+
+  const canSubmitPassword =
+    currentPassword.length > 0 &&
+    passwordScore === 4 &&
+    confirmPassword.length > 0 &&
+    newPassword === confirmPassword;
+
+  const handlePasswordUpdate = async () => {
+    setPasswordError('');
+    if (!currentPassword) {
+      setPasswordError('Ingresá tu contraseña actual.');
+      return;
+    }
+    if (passwordScore < 4) {
+      setPasswordError('La nueva contraseña no cumple todos los requisitos de seguridad.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const userId = currentUser?.idUser || currentUser?.id;
+      // Verifica la contraseña actual reutilizando el propio endpoint de login
+      await authApi.login(userId, currentPassword);
+      await authApi.updateUser(userId, { password: newPassword });
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordSaved(true);
+      setTimeout(() => setPasswordSaved(false), 3000);
+    } catch (err) {
+      setPasswordError(err?.response?.data?.message || 'La contraseña actual es incorrecta.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const blockPaste = (e) => e.preventDefault();
 
   const updateField = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -162,7 +233,7 @@ export const ProfilePage = () => {
       <div className="profile-page__back">
         <button
           className="profile-page__back-btn"
-          onClick={() => navigate(isSeller ? '/seller/dashboard' : '/admin/dashboard')}
+          onClick={() => navigate(isSeller ? '/seller/dashboard' : '/admin/inicio')}
         >
           <ChevronLeft size={16} />
           Volver a Inicio
@@ -193,7 +264,6 @@ export const ProfilePage = () => {
           {/* Global Section */}
           <section className="profile-section">
             <h2 className="profile-section__title">Global</h2>
-            <p className="profile-section__desc">Esto se aplica a todas las cuentas del CRM que tenés.</p>
 
             {/* Profile Image */}
             <div className="profile-field">
@@ -260,9 +330,6 @@ export const ProfilePage = () => {
                       Eliminar foto de perfil
                     </button>
                   )}
-                  <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                    Sincronizada con la base de datos (disponible en todos tus dispositivos)
-                  </span>
                 </div>
               </div>
             </div>
@@ -456,60 +523,102 @@ export const ProfilePage = () => {
         </div>
       )}
 
-      {activeTab === 'correo' && (
+      {activeTab === 'password' && (
         <div className="profile-page__content">
           <section className="profile-section">
-            <h2 className="profile-section__title">Configuración de correo</h2>
-            <p className="profile-section__desc">Configurá tu firma de correo y preferencias de envío.</p>
-
-            <div className="profile-field">
-              <label className="profile-field__label">Firma de correo electrónico</label>
-              <textarea
-                className="profile-field__textarea"
-                rows={4}
-                placeholder="Escribí tu firma aquí..."
-                defaultValue={`${currentUser?.nombreApellido || ''}\n${currentUser?.direccionMail || ''}\nAgroquímica Rosario`}
-              />
-            </div>
-
-            <div className="profile-field">
-              <label className="profile-field__label">Correo de respuesta</label>
-              <input
-                type="email"
-                className="profile-field__input"
-                defaultValue={currentUser?.direccionMail || ''}
-              />
-            </div>
-          </section>
-        </div>
-      )}
-
-      {activeTab === 'seguridad' && (
-        <div className="profile-page__content">
-          <section className="profile-section">
-            <h2 className="profile-section__title">Seguridad</h2>
-            <p className="profile-section__desc">Gestioná tu contraseña y opciones de seguridad.</p>
+            <h2 className="profile-section__title">Contraseña</h2>
+            <p className="profile-section__desc">Actualizá la contraseña de tu cuenta.</p>
 
             <div className="profile-field">
               <label className="profile-field__label">Contraseña actual</label>
-              <input type="password" className="profile-field__input" placeholder="••••••••" />
+              <div className="profile-password-wrap">
+                <input
+                  type={showCurrent ? 'text' : 'password'}
+                  className="profile-field__input"
+                  placeholder="••••••••"
+                  value={currentPassword}
+                  onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(''); }}
+                />
+                <button type="button" className="profile-password-eye" onClick={() => setShowCurrent((s) => !s)}>
+                  {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
 
             <div className="profile-field">
               <label className="profile-field__label">Nueva contraseña</label>
-              <input type="password" className="profile-field__input" placeholder="Ingresá una nueva contraseña" />
+              <div className="profile-password-wrap">
+                <input
+                  type={showNew ? 'text' : 'password'}
+                  className="profile-field__input"
+                  placeholder="Ingresá una nueva contraseña"
+                  value={newPassword}
+                  onChange={(e) => { setNewPassword(e.target.value); setPasswordError(''); }}
+                  maxLength={MAX_PASSWORD_LENGTH}
+                />
+                <button type="button" className="profile-password-eye" onClick={() => setShowNew((s) => !s)}>
+                  {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+
+              {passwordStrength && (
+                <div className="profile-password-strength">
+                  <div className="profile-password-strength__bars">
+                    {[0, 1, 2, 3].map((i) => (
+                      <span
+                        key={i}
+                        className={`profile-password-strength__bar ${i < passwordScore ? passwordStrength.color : ''}`}
+                      />
+                    ))}
+                  </div>
+                  <span className={`profile-password-strength__label ${passwordStrength.color}`}>
+                    {passwordStrength.label}
+                  </span>
+                </div>
+              )}
+
+              <ul className="profile-password-rules">
+                <li className={passwordChecks.length ? 'ok' : ''}>Entre 8 y {MAX_PASSWORD_LENGTH} caracteres</li>
+                <li className={passwordChecks.upper ? 'ok' : ''}>Al menos una mayúscula</li>
+                <li className={passwordChecks.number ? 'ok' : ''}>Al menos un número</li>
+                <li className={passwordChecks.symbol ? 'ok' : ''}>Al menos un símbolo (ej: @ # $ % !)</li>
+              </ul>
             </div>
 
             <div className="profile-field">
               <label className="profile-field__label">Confirmar nueva contraseña</label>
-              <input type="password" className="profile-field__input" placeholder="Repetí la nueva contraseña" />
+              <div className="profile-password-wrap">
+                <input
+                  type={showConfirm ? 'text' : 'password'}
+                  className="profile-field__input"
+                  placeholder="Repetí la nueva contraseña"
+                  value={confirmPassword}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(''); }}
+                  onPaste={blockPaste}
+                  onCopy={blockPaste}
+                  onCut={blockPaste}
+                  maxLength={MAX_PASSWORD_LENGTH}
+                />
+                <button type="button" className="profile-password-eye" onClick={() => setShowConfirm((s) => !s)}>
+                  {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
 
+            {passwordError && <p className="profile-password-error">{passwordError}</p>}
+
             <div className="profile-page__actions">
-              <button className="profile-page__save-btn">
+              <button
+                className="profile-page__save-btn"
+                onClick={handlePasswordUpdate}
+                disabled={!canSubmitPassword || passwordSaving}
+              >
                 <Save size={16} />
-                Actualizar contraseña
+                {passwordSaving ? 'Actualizando...' : 'Actualizar contraseña'}
               </button>
+              {passwordSaved && (
+                <span className="profile-page__saved-msg">✓ Contraseña actualizada correctamente</span>
+              )}
             </div>
           </section>
         </div>

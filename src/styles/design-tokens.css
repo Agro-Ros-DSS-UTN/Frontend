@@ -22,20 +22,25 @@
   --color-secondary-light:#d1fae5;
   --color-secondary-50:   #ecfdf5;
 
-  /* ── Sidebar (Black Theme HubSpot-style) ── */
-  --sidebar-bg:           #1c1c1c;
-  --sidebar-bg-hover:     #2a2a2a;
-  --sidebar-bg-active:    #333333;
-  --sidebar-text:         #a3a3a3;
+  /* ── Azul marino de marca (tomado del isologo AR) ── */
+  --color-brand-navy:       #1c3a5e;
+  --color-brand-navy-light: #2c5079;
+  --color-brand-navy-dark:  #142a45;
+
+  /* ── Sidebar (Navy de marca) ── */
+  --sidebar-bg:           var(--color-brand-navy);
+  --sidebar-bg-hover:     var(--color-brand-navy-light);
+  --sidebar-bg-active:    #35608f;
+  --sidebar-text:         #a8bcd4;
   --sidebar-text-active:  #ffffff;
   --sidebar-width:        260px;
   --sidebar-width-collapsed: 68px;
-  --sidebar-border:       rgba(255, 255, 255, 0.06);
+  --sidebar-border:       rgba(255, 255, 255, 0.08);
 
-  /* ── TopBar (Dark/Black HubSpot-style) ── */
-  --topbar-bg:            #1c1c1c;
+  /* ── TopBar (Navy de marca) ── */
+  --topbar-bg:            var(--color-brand-navy);
   --topbar-height:        52px;
-  --topbar-border:        #333333;
+  --topbar-border:        var(--color-brand-navy-light);
   --topbar-shadow:        none;
 
   /* ── Grises (Escala Neutral) ── */

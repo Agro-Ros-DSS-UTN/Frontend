@@ -1,14 +1,13 @@
 ﻿import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
-  LayoutDashboard,
+  Home,
   MapPin,
   Users,
   Building2,
   CheckSquare,
   ClipboardList,
   Sparkles,
-  User,
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
@@ -18,14 +17,13 @@ import { useSidebarResize } from './useSidebarResize';
 import './Sidebar.css';
 
 const sellerNavItems = [
-  { path: '/seller/dashboard',    icon: LayoutDashboard, label: 'Inicio / Metas' },
+  { path: '/seller/dashboard',    icon: Home,            label: 'Inicio', dividerAfter: true },
   { path: '/seller/hoja-de-ruta', icon: MapPin,          label: 'Hoja de Ruta' },
   { path: '/seller/contactos',    icon: Users,           label: 'Contactos' },
   { path: '/seller/empresas',     icon: Building2,       label: 'Empresas' },
   { path: '/seller/tareas',       icon: CheckSquare,     label: 'Tareas' },
   { path: '/seller/actividades',  icon: ClipboardList,   label: 'Actividades' },
   { path: '/seller/promociones',  icon: Sparkles,        label: 'Promociones' },
-  { path: '/seller/perfil',       icon: User,            label: 'Mi Perfil' },
 ];
 
 export const SellerSidebar = () => {
@@ -62,6 +60,7 @@ export const SellerSidebar = () => {
           {!collapsed && (
             <div className="sidebar__logo-text">
               <span className="sidebar__logo-title">Agroquímica Rosario</span>
+              <span className="sidebar__logo-subtitle">CRM</span>
             </div>
           )}
         </div>
@@ -79,13 +78,19 @@ export const SellerSidebar = () => {
                   to={item.path}
                   className={`sidebar__link ${isActive ? 'sidebar__link--active' : ''}`}
                 >
-                  <Icon size={20} className="sidebar__link-icon" />
+                  <Icon size={17} className="sidebar__link-icon" />
                   {!collapsed && <span className="sidebar__link-label">{item.label}</span>}
                   {collapsed && <span className="sidebar__nav-tooltip">{item.label}</span>}
                 </NavLink>
               </li>
             );
-          })}
+          }).reduce((acc, li, i) => {
+            acc.push(li);
+            if (sellerNavItems[i].dividerAfter) {
+              acc.push(<li key={`divider-${i}`} className="sidebar__divider" aria-hidden="true" />);
+            }
+            return acc;
+          }, [])}
         </ul>
       </nav>
 

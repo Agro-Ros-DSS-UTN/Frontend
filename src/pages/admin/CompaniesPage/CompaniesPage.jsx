@@ -1,4 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useOverlayClose } from '../../../hooks/useOverlayClose';
+import { useAuth } from '../../../context/AuthContext';
 import {
   Search,
   Filter,
@@ -19,7 +22,6 @@ import {
   FileText,
   Truck,
   Layers,
-  Sparkles,
   Users,
   Handshake,
   ClipboardList,
@@ -33,46 +35,68 @@ import {
   Briefcase,
   CheckCircle2,
   User,
-  Check,
   ChevronUp,
+  Network,
 } from 'lucide-react';
 import {
   fetchClientCompanies,
   createClientCompany,
+  updateClientCompany,
+  deleteClientCompany,
   fetchClients,
   getOpportunities,
   getActivities,
 } from '../../../data/api';
-import { Button } from '../../../components/ui/Button';
-import { DbLoader } from '../../../components/ui/DbLoader';
+import { authApi } from '../../../api/auth.api';
+import { Button } from '../../../components/ui/Button/Button';
+import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
+import { CompanyTreeModal } from '../../../components/companies/CompanyTreeModal';
 import './CompaniesPage.css';
 
+const TIPO_EMPRESA_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
+
 const COLUMNS = [
-  { key: 'nombreEmpresa',    label: 'Empresa',          sortable: true },
-  { key: 'cuit',             label: 'CUIT',             sortable: true },
-  { key: 'tipoEmpresa',     label: 'Tipo',             sortable: true },
-  { key: 'localidad',       label: 'Localidad',        sortable: true },
-  { key: 'superficieHa',    label: 'Superficie (Ha)',  sortable: true },
-  { key: 'proveedorActual', label: 'Proveedor Actual', sortable: true },
-  { key: 'fechaRegistro',   label: 'Registro',         sortable: true },
+  { key: 'nombreEmpresa',     label: 'Empresa',               sortable: true },
+  { key: 'cuit',              label: 'CUIT',                  sortable: true },
+  { key: 'tipoEmpresa',       label: 'Tipo',                  sortable: true },
+  { key: 'localidad',         label: 'Localidad',             sortable: true },
+  { key: 'contactoAsociado',  label: 'Contacto Asociado',     sortable: false },
+  { key: 'proveedorActual',   label: 'Proveedor Actual',      sortable: true },
+  { key: 'creadoPorNombre',   label: 'Propietario del Registro', sortable: false },
+  { key: 'fechaRegistro',     label: 'Registro',              sortable: true },
+  { key: 'superficieHa',      label: 'Superficie (Ha)',       sortable: true },
 ];
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export const CompaniesPage = () => {
+  const { currentUser } = useAuth();
   const [companies, setCompanies] = useState([]);
   const [clients, setClients] = useState([]);
   const [opportunities, setOpportunities] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
+  }, [location.state]);
   const [sortBy, setSortBy] = useState('nombreEmpresa');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(null);
+  const [typeFilter, setTypeFilter] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedCompanyForDetail, setSelectedCompanyForDetail] = useState(null);
+  const [inspectingCompanyId, setInspectingCompanyId] = useState(null);
+  const companyModalOverlayHandlers = useOverlayClose(() => { setShowModal(false); setEditingCompany(null); });
+  const companyDetailOverlayHandlers = useOverlayClose(() => setSelectedCompanyForDetail(null));
   const [detailActiveTab, setDetailActiveTab] = useState('contactos'); // 'contactos' | 'negocios' | 'actividades'
 
   // Contact association state for "Registrar Empresa" modal
@@ -90,6 +114,24 @@ export const CompaniesPage = () => {
     numDoc: '',
     nota: '',
   });
+
+  // ── Empresa con regiones (Empresa Madre -> Regiones -> Subsedes) ──
+  const [esConRegiones, setEsConRegiones] = useState(false);
+  const [encargadoGeneral, setEncargadoGeneral] = useState('');
+  const emptyRegion = () => ({ nombre: '', encargado: '', sedePrincipal: '', subsedes: [] });
+  const emptySubsede = () => ({ nombre: '', encargado: '', direccion: '' });
+  const [regiones, setRegiones] = useState([]);
+  const [creandoJerarquia, setCreandoJerarquia] = useState(false);
+
+  const addRegion = () => setRegiones((prev) => [...prev, emptyRegion()]);
+  const removeRegion = (idx) => setRegiones((prev) => prev.filter((_, i) => i !== idx));
+  const updateRegion = (idx, field, value) => setRegiones((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+  const addSubsede = (regionIdx) => setRegiones((prev) => prev.map((r, i) => (i === regionIdx ? { ...r, subsedes: [...r.subsedes, emptySubsede()] } : r)));
+  const removeSubsede = (regionIdx, subIdx) => setRegiones((prev) => prev.map((r, i) => (i === regionIdx ? { ...r, subsedes: r.subsedes.filter((_, si) => si !== subIdx) } : r)));
+  const updateSubsede = (regionIdx, subIdx, field, value) => setRegiones((prev) => prev.map((r, i) => (i === regionIdx ? {
+    ...r,
+    subsedes: r.subsedes.map((s, si) => (si === subIdx ? { ...s, [field]: value } : s)),
+  } : r)));
 
   // Cerrar el dropdown de contactos al hacer clic fuera del buscador o presionar Escape
   useEffect(() => {
@@ -110,18 +152,29 @@ export const CompaniesPage = () => {
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [compRes, cliRes, oppRes, actRes] = await Promise.allSettled([
+      setLoadError('');
+      const [compRes, cliRes, oppRes, actRes, usrRes] = await Promise.allSettled([
         fetchClientCompanies(),
         fetchClients(),
         getOpportunities(),
         getActivities(),
+        authApi.getAllUsers(),
       ]);
       setCompanies(compRes.status === 'fulfilled' && Array.isArray(compRes.value) ? compRes.value : []);
       setClients(cliRes.status === 'fulfilled' && Array.isArray(cliRes.value) ? cliRes.value : []);
       setOpportunities(oppRes.status === 'fulfilled' && Array.isArray(oppRes.value) ? oppRes.value : []);
       setActivities(actRes.status === 'fulfilled' && Array.isArray(actRes.value) ? actRes.value : []);
+      const usersList = usrRes.status === 'fulfilled' ? (Array.isArray(usrRes.value) ? usrRes.value : usrRes.value?.data || []) : [];
+      setUsers(usersList);
       if (compRes.status === 'rejected') {
         console.error('Error al obtener empresas desde la base de datos:', compRes.reason);
+        const errMsg = compRes.reason?.message || '';
+        const isAuthError = /token|autenticaci[oó]n|401|403/i.test(errMsg);
+        setLoadError(
+          isAuthError
+            ? 'Tu sesión expiró. Cerrá sesión y volvé a iniciar para ver los datos reales.'
+            : 'No se pudo conectar con la base de datos. Verificá tu conexión e intentá de nuevo.'
+        );
       }
       setLoading(false);
     };
@@ -129,18 +182,50 @@ export const CompaniesPage = () => {
   }, []);
 
   // Form state matching backend payload: { nombreEmpresa, cuit, direccionEmpresa, tipoEmpresa, superficieHa, localityCodPostal }
-  const [form, setForm] = useState({
+  const emptyCompanyForm = {
     nombreEmpresa: '',
     cuit: '',
     tipoEmpresa: 'Productor',
     direccionEmpresa: '',
     localidad: 'Casilda',
     localityCodPostal: '2170',
-    superficieHa: 450,
-    proveedorActual: 'Syngenta',
-    cultivoPrincipal: 'Soja / Maíz',
+    superficieHa: '',
+    proveedorActual: '',
     descEmpresa: '',
-  });
+    creadoPorId: currentUser?.idUser || '',
+  };
+  const [form, setForm] = useState(emptyCompanyForm);
+
+  const openCreateModal = () => {
+    setEditingCompany(null);
+    setForm(emptyCompanyForm);
+    setIncludeContact(true);
+    setContactMode('existing');
+    setSelectedExistingContact(null);
+    setEsConRegiones(false);
+    setEncargadoGeneral('');
+    setRegiones([]);
+    setShowModal(true);
+  };
+
+  const openEditModal = (company) => {
+    setEditingCompany(company);
+    setForm({
+      nombreEmpresa: company.nombreEmpresa || '',
+      cuit: company.cuit || '',
+      tipoEmpresa: company.tipoEmpresa || 'Productor',
+      direccionEmpresa: company.direccionEmpresa || '',
+      localidad: company.Locality?.nomLocalidad || company.localidad || '',
+      localityCodPostal: company.localityCodPostal || '2170',
+      superficieHa: company.superficieHa || '',
+      proveedorActual: company.proveedorActual || '',
+      descEmpresa: company.descEmpresa || '',
+      creadoPorId: company.creadoPorId || '',
+    });
+    setIncludeContact(false);
+    setEsConRegiones(false);
+    setShowModal(true);
+  };
 
   // Filter contacts for smart search in company registration modal
   const filteredContactsForSearch = useMemo(() => {
@@ -161,16 +246,22 @@ export const CompaniesPage = () => {
   }, [clients, contactSearchQuery]);
 
   const filteredCompanies = useMemo(() => {
-    let result = [...companies];
+    // El listado principal solo muestra el nivel superior (independientes y
+    // empresas madre) — las regiones y subsedes se ven desde "Inspeccionar".
+    let result = companies.filter((c) => !c.parentCompanyId);
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(c =>
         c.nombreEmpresa.toLowerCase().includes(q) ||
         c.cuit.includes(q) ||
-        c.localidad?.toLowerCase().includes(q) ||
+        (c.Locality?.nomLocalidad || c.localidad || '').toLowerCase().includes(q) ||
         c.tipoEmpresa?.toLowerCase().includes(q)
       );
+    }
+
+    if (typeFilter) {
+      result = result.filter((c) => c.tipoEmpresa === typeFilter);
     }
 
     result.sort((a, b) => {
@@ -182,7 +273,18 @@ export const CompaniesPage = () => {
     });
 
     return result;
-  }, [companies, searchQuery, sortBy, sortDir]);
+  }, [companies, searchQuery, typeFilter, sortBy, sortDir]);
+
+  // Primer contacto vinculado a cada empresa, para la columna "Contacto Asociado"
+  const companyContactMap = useMemo(() => {
+    const map = new Map();
+    clients.forEach((cl) => {
+      if (cl.clientCompanyId && !map.has(cl.clientCompanyId)) {
+        map.set(cl.clientCompanyId, cl);
+      }
+    });
+    return map;
+  }, [clients]);
 
   const totalPages = Math.ceil(filteredCompanies.length / PAGE_SIZE);
   const paginatedCompanies = filteredCompanies.slice(
@@ -220,7 +322,7 @@ export const CompaniesPage = () => {
   };
 
   const formatSurface = (val) => {
-    if (!val) return '--';
+    if (!val) return '-';
     return `${Number(val).toLocaleString('es-AR')} ha`;
   };
 
@@ -229,14 +331,158 @@ export const CompaniesPage = () => {
     return `$${Number(val).toLocaleString('es-AR')}`;
   };
 
-  const handleCreate = async (e) => {
+  const resetCompanyModalState = () => {
+    setShowModal(false);
+    setEditingCompany(null);
+    setForm(emptyCompanyForm);
+    setIncludeContact(true);
+    setContactMode('existing');
+    setSelectedExistingContact(null);
+    setContactSearchQuery('');
+    setContactDropdownOpen(false);
+    setNewContact({
+      nombreApellido: '',
+      tipoClient: 'Encargado de Planta',
+      telefono: '',
+      direccionMail: '',
+      numDoc: '',
+      nota: '',
+    });
+    setEsConRegiones(false);
+    setEncargadoGeneral('');
+    setRegiones([]);
+  };
+
+  // Crea la empresa madre + cada región + cada subsede en secuencia (cada
+  // nodo del árbol es una empresa más, enlazada por `parentCompanyId`), con
+  // el encargado de cada nivel como un Contacto vinculado vía `newContact`.
+  const handleCreateJerarquia = async () => {
+    if (!form.nombreEmpresa.trim()) {
+      alert('Ingresá el nombre de la empresa madre.');
+      return false;
+    }
+    setCreandoJerarquia(true);
+    try {
+      const madreRes = await createClientCompany({
+        nombreEmpresa: form.nombreEmpresa,
+        cuit: form.cuit || ('30-' + Math.floor(10000000 + Math.random() * 90000000) + '-9'),
+        tipoEmpresa: form.tipoEmpresa,
+        direccionEmpresa: form.direccionEmpresa || 'Casa Central',
+        localidad: form.localidad,
+        localityCodPostal: form.localityCodPostal || '2170',
+        descEmpresa: form.descEmpresa,
+        creadoPorId: form.creadoPorId || currentUser?.idUser || null,
+        parentCompanyId: null,
+        nivelEmpresa: 'madre',
+        newContact: encargadoGeneral.trim() ? {
+          nombreApellido: encargadoGeneral.trim(),
+          tipoClient: 'Encargado Regional',
+          nota: `Encargado general de ${form.nombreEmpresa}`,
+        } : null,
+      });
+      const madre = madreRes?.data || madreRes;
+      const madreCreador = users.find((u) => u.idUser === form.creadoPorId);
+
+      for (const region of regiones) {
+        if (!region.nombre.trim()) continue;
+        const regionRes = await createClientCompany({
+          nombreEmpresa: region.nombre.trim(),
+          cuit: madre.cuit,
+          tipoEmpresa: form.tipoEmpresa,
+          direccionEmpresa: region.sedePrincipal || 'Sede Regional',
+          localidad: form.localidad,
+          localityCodPostal: form.localityCodPostal || '2170',
+          creadoPorId: form.creadoPorId || currentUser?.idUser || null,
+          parentCompanyId: madre.id,
+          nivelEmpresa: 'region',
+          newContact: region.encargado.trim() ? {
+            nombreApellido: region.encargado.trim(),
+            tipoClient: 'Encargado Regional',
+            nota: `Encargado de la región ${region.nombre}`,
+          } : null,
+        });
+        const regionCompany = regionRes?.data || regionRes;
+
+        for (const sub of region.subsedes) {
+          if (!sub.nombre.trim()) continue;
+          await createClientCompany({
+            nombreEmpresa: sub.nombre.trim(),
+            cuit: madre.cuit,
+            tipoEmpresa: form.tipoEmpresa,
+            direccionEmpresa: sub.direccion || region.sedePrincipal || 'Subsede',
+            localidad: form.localidad,
+            localityCodPostal: form.localityCodPostal || '2170',
+            creadoPorId: form.creadoPorId || currentUser?.idUser || null,
+            parentCompanyId: regionCompany.id,
+            nivelEmpresa: 'subsede',
+            newContact: sub.encargado.trim() ? {
+              nombreApellido: sub.encargado.trim(),
+              tipoClient: 'Encargado de Planta',
+              nota: `Encargado de la subsede ${sub.nombre}`,
+            } : null,
+          });
+        }
+      }
+
+      setCompanies((prev) => [{ ...madre, creadoPorNombre: madreCreador?.nombreApellido || null }, ...prev]);
+      return true;
+    } catch (err) {
+      console.error('Error al crear la jerarquía de empresa:', err);
+      alert('Se produjo un error creando la estructura. Revisá los datos y probá de nuevo (puede que algunos niveles ya se hayan guardado).');
+      return false;
+    } finally {
+      setCreandoJerarquia(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (esConRegiones && !editingCompany) {
+      const ok = await handleCreateJerarquia();
+      if (ok) resetCompanyModalState();
+      return;
+    }
 
     if (includeContact && contactMode === 'new' && !newContact.nombreApellido.trim()) {
       alert('Por favor ingrese el nombre y apellido del nuevo contacto.');
       return;
     }
 
+    // ── Modo edición: actualiza la empresa existente ──
+    if (editingCompany) {
+      const updatePayload = {
+        nombreEmpresa: form.nombreEmpresa,
+        cuit: form.cuit,
+        tipoEmpresa: form.tipoEmpresa,
+        direccionEmpresa: form.direccionEmpresa,
+        localidad: form.localidad,
+        localityCodPostal: form.localityCodPostal || '2170',
+        superficieHa: form.superficieHa === '' ? null : Number(form.superficieHa),
+        proveedorActual: form.proveedorActual,
+        descEmpresa: form.descEmpresa,
+        creadoPorId: form.creadoPorId || null,
+      };
+      try {
+        const response = await updateClientCompany(editingCompany.id, updatePayload);
+        const updatedCompany = response?.data || response;
+        const creador = users.find((u) => u.idUser === form.creadoPorId);
+        setCompanies((prev) => prev.map((c) => (c.id === editingCompany.id ? {
+          ...c,
+          ...updatePayload,
+          ...updatedCompany,
+          creadoPorNombre: creador?.nombreApellido || c.creadoPorNombre || null,
+        } : c)));
+      } catch (err) {
+        console.error('Error al editar empresa:', err);
+        alert('No se pudo guardar los cambios de la empresa.');
+        return;
+      }
+      resetCompanyModalState();
+      return;
+    }
+
+    // ── Modo alta: crea una empresa nueva ──
     const newCompPayload = {
       nombreEmpresa: form.nombreEmpresa,
       cuit: form.cuit || ('30-' + Math.floor(10000000 + Math.random() * 90000000) + '-9'),
@@ -244,9 +490,10 @@ export const CompaniesPage = () => {
       direccionEmpresa: form.direccionEmpresa || 'Ruta Provincial',
       localidad: form.localidad,
       localityCodPostal: form.localityCodPostal || '2170',
-      superficieHa: Number(form.superficieHa) || 0,
+      superficieHa: form.superficieHa === '' ? null : Number(form.superficieHa),
       proveedorActual: form.proveedorActual,
       descEmpresa: form.descEmpresa,
+      creadoPorId: form.creadoPorId || currentUser?.idUser || null,
       fechaRegistro: new Date().toISOString(),
       existingContactNumDoc: (includeContact && contactMode === 'existing' && selectedExistingContact) ? (selectedExistingContact.numDoc || selectedExistingContact.id) : null,
       newContact: (includeContact && contactMode === 'new' && newContact.nombreApellido.trim()) ? {
@@ -264,8 +511,9 @@ export const CompaniesPage = () => {
       const response = await createClientCompany(newCompPayload);
       const createdCompany = response?.data || response || { id: Date.now(), ...newCompPayload };
       const companyId = createdCompany.id;
+      const creador = users.find((u) => u.idUser === newCompPayload.creadoPorId);
 
-      setCompanies(prev => [createdCompany, ...prev]);
+      setCompanies(prev => [{ ...createdCompany, creadoPorNombre: creador?.nombreApellido || null }, ...prev]);
 
       if (includeContact && contactMode === 'existing' && selectedExistingContact) {
         setClients(prevClients => prevClients.map(cl => {
@@ -295,36 +543,22 @@ export const CompaniesPage = () => {
       }
     } catch (err) {
       console.error('Error al registrar empresa:', err);
-      const fallbackCompany = { id: Date.now(), ...newCompPayload };
-      setCompanies(prev => [fallbackCompany, ...prev]);
+      alert('No se pudo registrar la empresa.');
+      return;
     }
 
-    setShowModal(false);
-    setForm({
-      nombreEmpresa: '',
-      cuit: '',
-      tipoEmpresa: 'Productor',
-      direccionEmpresa: '',
-      localidad: 'Casilda',
-      localityCodPostal: '2170',
-      superficieHa: 450,
-      proveedorActual: 'Syngenta',
-      cultivoPrincipal: 'Soja / Maíz',
-      descEmpresa: '',
-    });
-    setIncludeContact(true);
-    setContactMode('existing');
-    setSelectedExistingContact(null);
-    setContactSearchQuery('');
-    setContactDropdownOpen(false);
-    setNewContact({
-      nombreApellido: '',
-      tipoClient: 'Encargado de Planta',
-      telefono: '',
-      direccionMail: '',
-      numDoc: '',
-      nota: '',
-    });
+    resetCompanyModalState();
+  };
+
+  const handleDeleteCompany = async (company) => {
+    if (!window.confirm(`¿Eliminar la empresa "${company.nombreEmpresa}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      await deleteClientCompany(company.id);
+      setCompanies((prev) => prev.filter((c) => c.id !== company.id));
+    } catch (err) {
+      console.error('Error al eliminar empresa:', err);
+      alert('No se pudo eliminar la empresa.');
+    }
   };
 
   const handleExportCompanies = () => {
@@ -391,12 +625,9 @@ export const CompaniesPage = () => {
       <div className="companies-page__header">
         <div>
           <h1 className="companies-page__title">Empresas Clientes</h1>
-          <p className="companies-page__subtitle">
-            {companies.length} empresas registradas en el CRM con sus contactos y negocios asociados
-          </p>
         </div>
         <div className="crm-page-header-actions">
-          <button className="crm-btn-primary" onClick={() => setShowModal(true)}>
+          <button className="crm-btn-primary" onClick={openCreateModal}>
             <Plus size={16} />
             Agregar empresa
           </button>
@@ -413,6 +644,14 @@ export const CompaniesPage = () => {
 
       {/* Card */}
       <div className="companies-page__card">
+        {/* Contador */}
+        <div className="contacts-page__tabs">
+          <span className="contacts-page__tab contacts-page__tab--active">
+            Todas las empresas
+            <span className="contacts-page__tab-badge">{companies.length}</span>
+          </span>
+        </div>
+
         {/* Toolbar */}
         <div className="companies-page__toolbar">
           <div className="companies-page__search">
@@ -427,12 +666,48 @@ export const CompaniesPage = () => {
               }}
             />
           </div>
+          <div className="contacts-page__toolbar-actions">
+            <button
+              className={`contacts-page__filter-btn ${showFilters || typeFilter ? 'contacts-page__filter-btn--active' : ''}`}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter size={16} />
+              Tipo de empresa
+              {typeFilter && <span className="contacts-page__filter-active-dot" />}
+            </button>
+          </div>
         </div>
 
+        {showFilters && (
+          <div className="contacts-page__filter-panel">
+            <span className="contacts-page__filter-panel-label">Filtrar por tipo:</span>
+            <button
+              className={`contacts-page__filter-chip ${!typeFilter ? 'contacts-page__filter-chip--active' : ''}`}
+              onClick={() => { setTypeFilter(''); setCurrentPage(1); }}
+            >
+              Todos
+            </button>
+            {TIPO_EMPRESA_OPTIONS.map((type) => (
+              <button
+                key={type}
+                className={`contacts-page__filter-chip ${typeFilter === type ? 'contacts-page__filter-chip--active' : ''}`}
+                onClick={() => { setTypeFilter(typeFilter === type ? '' : type); setCurrentPage(1); }}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Table */}
+        {loadError && !loading && (
+          <div style={{ padding: '12px 16px', marginBottom: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', color: '#991b1b', fontSize: '0.85rem', fontWeight: 600 }}>
+            {loadError}
+          </div>
+        )}
         {loading ? (
           <div style={{ padding: '20px' }}>
-            <DbLoader
+            <LoadingState
               title="Conectando con la base de datos…"
               message="Aguardá un instante mientras traemos las empresas registradas."
             />
@@ -493,7 +768,12 @@ export const CompaniesPage = () => {
                           <Building2 size={16} />
                         </div>
                         <div>
-                          <span className="companies-table__name">{company.nombreEmpresa}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="companies-table__name">{company.nombreEmpresa}</span>
+                            {company.nivelEmpresa === 'madre' && (
+                              <span className="company-tree__madre-label" title="Empresa con regiones y subsedes">(Regional)</span>
+                            )}
+                          </div>
                           {company.descEmpresa && (
                             <span className="companies-table__desc">{company.descEmpresa}</span>
                           )}
@@ -506,30 +786,51 @@ export const CompaniesPage = () => {
                         {company.tipoEmpresa}
                       </span>
                     </td>
-                    <td>{company.localidad}</td>
-                    <td className="companies-table__surface">
-                      <Ruler size={13} className="inline-icon" />
-                      {formatSurface(company.superficieHa)}
+                    <td>{company.Locality?.nomLocalidad || company.localidad || '-'}</td>
+                    <td>
+                      {companyContactMap.get(company.id)
+                        ? companyContactMap.get(company.id).nombreApellido
+                        : <span className="companies-table__provider">Sin contacto asociado</span>}
                     </td>
                     <td>
                       <span className="companies-table__provider">
                         {company.proveedorActual || 'Sin especificar'}
                       </span>
                     </td>
+                    <td>
+                      {company.creadoPorNombre ? (
+                        <span className="companies-table__owner">{company.creadoPorNombre}</span>
+                      ) : (
+                        <span className="companies-table__provider">Sin especificar</span>
+                      )}
+                    </td>
                     <td className="companies-table__date">{formatDate(company.fechaRegistro)}</td>
+                    <td className="companies-table__surface">
+                      {company.superficieHa ? <Ruler size={13} className="inline-icon" /> : null}
+                      {formatSurface(company.superficieHa)}
+                    </td>
                     <td className="companies-table__actions-col" onClick={e => e.stopPropagation()}>
                       <div className="companies-table__actions">
+                        {company.nivelEmpresa === 'madre' && (
+                          <button
+                            className="companies-table__action-btn"
+                            title="Inspeccionar regiones y subsedes"
+                            onClick={() => setInspectingCompanyId(company.id)}
+                          >
+                            <Network size={15} />
+                          </button>
+                        )}
                         <button
                           className="companies-table__action-btn"
-                          title="Ver ficha relacional"
-                          onClick={() => setSelectedCompanyForDetail(company)}
+                          title="Editar empresa"
+                          onClick={() => openEditModal(company)}
                         >
-                          <Eye size={15} />
+                          <Edit size={15} />
                         </button>
                         <button
                           className="companies-table__action-btn companies-table__action-btn--danger"
                           title="Eliminar"
-                          onClick={() => setCompanies(prev => prev.filter(c => c.id !== company.id))}
+                          onClick={() => handleDeleteCompany(company)}
                         >
                           <Trash2 size={15} />
                         </button>
@@ -580,16 +881,16 @@ export const CompaniesPage = () => {
 
       {/* ── Modal: Registrar Empresa Cliente ── */}
       {showModal && (
-        <div className="comp-modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="comp-modal-overlay" {...companyModalOverlayHandlers}>
           <div className="comp-modal" onClick={e => e.stopPropagation()}>
             <div className="comp-modal__header">
-              <h2>Registrar Empresa Cliente</h2>
-              <button className="comp-modal__close" onClick={() => setShowModal(false)}>
+              <h2>{editingCompany ? 'Editar Empresa Cliente' : 'Registrar Empresa Cliente'}</h2>
+              <button className="comp-modal__close" onClick={() => { setShowModal(false); setEditingCompany(null); }}>
                 <X size={20} />
               </button>
             </div>
 
-            <form className="comp-modal__form" onSubmit={handleCreate}>
+            <form className="comp-modal__form" onSubmit={handleSubmit}>
               {/* Nombre Empresa */}
               <div className="comp-field">
                 <label><Building2 size={14} /> Nombre / Razón Social de la Empresa *</label>
@@ -631,6 +932,23 @@ export const CompaniesPage = () => {
                 </select>
               </div>
 
+              {/* Propietario del Registro */}
+              <div className="comp-field">
+                <label><UserCheck size={14} /> Propietario del Registro</label>
+                <select
+                  className="comp-select"
+                  value={form.creadoPorId}
+                  onChange={(e) => setForm(prev => ({ ...prev, creadoPorId: e.target.value }))}
+                >
+                  <option value="">Sin especificar</option>
+                  {users.map((u) => (
+                    <option key={u.idUser} value={u.idUser}>
+                      {u.nombreApellido || u.idUser} ({(u.role || '').toLowerCase() === 'admin' ? 'Administrador' : 'Vendedor'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Dirección & Localidad */}
               <div className="comp-field-row">
                 <div className="comp-field" style={{ flex: 2 }}>
@@ -638,7 +956,7 @@ export const CompaniesPage = () => {
                   <input
                     type="text"
                     className="comp-input"
-                    placeholder="Ruta 33 Km 748"
+                    placeholder="-"
                     value={form.direccionEmpresa}
                     onChange={(e) => setForm(prev => ({ ...prev, direccionEmpresa: e.target.value }))}
                   />
@@ -662,7 +980,7 @@ export const CompaniesPage = () => {
                   <input
                     type="number"
                     className="comp-input"
-                    placeholder="450"
+                    placeholder="-"
                     value={form.superficieHa}
                     onChange={(e) => setForm(prev => ({ ...prev, superficieHa: e.target.value }))}
                   />
@@ -672,7 +990,7 @@ export const CompaniesPage = () => {
                   <input
                     type="text"
                     className="comp-input"
-                    placeholder="Syngenta, Bayer..."
+                    placeholder="-"
                     value={form.proveedorActual}
                     onChange={(e) => setForm(prev => ({ ...prev, proveedorActual: e.target.value }))}
                   />
@@ -691,31 +1009,111 @@ export const CompaniesPage = () => {
                 />
               </div>
 
-              {/* Botones */}
-              {/* ── Sección: Contacto Referente / Encargado de la Empresa ── */}
-              <div className={`comp-contact-section ${!includeContact ? 'comp-contact-section--collapsed' : ''}`}>
-                <div className="comp-contact-section__header">
-                  <label className="comp-checkbox-wrapper">
-                    <input
-                      type="checkbox"
-                      className="comp-checkbox-native"
-                      checked={includeContact}
-                      onChange={(e) => {
-                        setIncludeContact(e.target.checked);
-                        if (!e.target.checked) {
-                          setSelectedExistingContact(null);
-                          setContactSearchQuery('');
-                          setContactDropdownOpen(false);
-                        }
-                      }}
+              {/* ── Empresa con regiones (Empresa Madre -> Regiones -> Subsedes), solo al crear ── */}
+              {!editingCompany && (
+                <div className="comp-contact-section">
+                  <div className="comp-contact-section__header">
+                    <FlipCheckbox
+                      id="esConRegiones"
+                      checked={esConRegiones}
+                      onChange={(e) => setEsConRegiones(e.target.checked)}
                     />
-                    <span className={`comp-checkbox-box ${includeContact ? 'checked' : ''}`}>
-                      {includeContact && <Check size={13} strokeWidth={3} />}
-                    </span>
-                    <div className="comp-checkbox-label-content">
-                      <span className="comp-checkbox-title">Asociar o dar de alta un contacto referente</span>
-                      <span className="comp-checkbox-subtitle">Vincular un encargado o responsable con esta empresa</span>
+                    <label htmlFor="esConRegiones" className="comp-checkbox-label-content">
+                      <span className="comp-checkbox-title">¿Es una empresa con regiones?</span>
+                    </label>
+                  </div>
+
+                  {esConRegiones && (
+                    <div className="company-hierarchy-form">
+                      <div className="comp-field">
+                        <label><User size={14} /> Encargado General de la Empresa</label>
+                        <input
+                          type="text"
+                          className="comp-input"
+                          placeholder="Ej: Ing. Roberto Sánchez"
+                          value={encargadoGeneral}
+                          onChange={(e) => setEncargadoGeneral(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="company-hierarchy-form__regions">
+                        {regiones.map((region, rIdx) => (
+                          <div key={rIdx} className="company-hierarchy-form__region-block">
+                            <div className="company-hierarchy-form__region-header">
+                              <span>Región #{rIdx + 1}</span>
+                              <button type="button" className="company-hierarchy-form__remove" onClick={() => removeRegion(rIdx)}>
+                                <X size={13} /> Quitar región
+                              </button>
+                            </div>
+                            <div className="comp-field-row">
+                              <div className="comp-field" style={{ flex: 1 }}>
+                                <label>Nombre de la Región *</label>
+                                <input type="text" className="comp-input" placeholder="Ej: Regional 1" value={region.nombre} onChange={(e) => updateRegion(rIdx, 'nombre', e.target.value)} />
+                              </div>
+                              <div className="comp-field" style={{ flex: 1 }}>
+                                <label>Encargado Regional</label>
+                                <input type="text" className="comp-input" placeholder="Nombre y apellido" value={region.encargado} onChange={(e) => updateRegion(rIdx, 'encargado', e.target.value)} />
+                              </div>
+                            </div>
+                            <div className="comp-field">
+                              <label><MapPin size={14} /> Sede Principal de la Región</label>
+                              <input type="text" className="comp-input" placeholder="Dirección de la sede regional" value={region.sedePrincipal} onChange={(e) => updateRegion(rIdx, 'sedePrincipal', e.target.value)} />
+                            </div>
+
+                            <div className="company-hierarchy-form__subsedes">
+                              {region.subsedes.map((sub, sIdx) => (
+                                <div key={sIdx} className="company-hierarchy-form__subsede-block">
+                                  <div className="comp-field-row">
+                                    <div className="comp-field" style={{ flex: 1 }}>
+                                      <label>Subsede #{sIdx + 1}</label>
+                                      <input type="text" className="comp-input" placeholder="Ej: Sub Centro A" value={sub.nombre} onChange={(e) => updateSubsede(rIdx, sIdx, 'nombre', e.target.value)} />
+                                    </div>
+                                    <div className="comp-field" style={{ flex: 1 }}>
+                                      <label>Encargado de Planta</label>
+                                      <input type="text" className="comp-input" placeholder="Nombre y apellido" value={sub.encargado} onChange={(e) => updateSubsede(rIdx, sIdx, 'encargado', e.target.value)} />
+                                    </div>
+                                    <button type="button" className="company-hierarchy-form__remove-sub" onClick={() => removeSubsede(rIdx, sIdx)} title="Quitar subsede">
+                                      <X size={13} />
+                                    </button>
+                                  </div>
+                                  <input type="text" className="comp-input" placeholder="Dirección de la subsede (opcional)" value={sub.direccion} onChange={(e) => updateSubsede(rIdx, sIdx, 'direccion', e.target.value)} />
+                                </div>
+                              ))}
+                              <button type="button" className="company-hierarchy-form__add-sub" onClick={() => addSubsede(rIdx)}>
+                                <Plus size={13} /> Agregar Subsede
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <button type="button" className="company-hierarchy-form__add-region" onClick={addRegion}>
+                          <Plus size={14} /> Agregar Región
+                        </button>
+                      </div>
                     </div>
+                  )}
+                </div>
+              )}
+
+              {/* Botones */}
+              {/* ── Sección: Contacto Referente / Encargado de la Empresa (solo al crear, y no para empresas con regiones) ── */}
+              {!editingCompany && !esConRegiones && (
+              <div className="comp-contact-section">
+                <div className="comp-contact-section__header">
+                  <FlipCheckbox
+                    id="includeContact"
+                    checked={includeContact}
+                    onChange={(e) => {
+                      setIncludeContact(e.target.checked);
+                      if (!e.target.checked) {
+                        setSelectedExistingContact(null);
+                        setContactSearchQuery('');
+                        setContactDropdownOpen(false);
+                      }
+                    }}
+                  />
+                  <label htmlFor="includeContact" className="comp-checkbox-label-content">
+                    <span className="comp-checkbox-title">Asociar o dar de alta un contacto referente</span>
+                    <span className="comp-checkbox-subtitle">Vincular un encargado o responsable con esta empresa</span>
                   </label>
                 </div>
 
@@ -962,15 +1360,12 @@ export const CompaniesPage = () => {
                           </div>
                         </div>
 
-                        <div className="comp-contact-new-note">
-                          <Sparkles size={13} />
-                          <span>Se dará de alta este contacto y quedará vinculado a esta nueva empresa.</span>
-                        </div>
                       </div>
                     )}
                   </div>
                 )}
               </div>
+              )}
 
               {/* Botones de Acción con shadcn/ui Button */}
               <div className="comp-modal__actions">
@@ -978,7 +1373,7 @@ export const CompaniesPage = () => {
                   type="button"
                   variant="outline"
                   size="md"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => { setShowModal(false); setEditingCompany(null); }}
                 >
                   Cancelar
                 </Button>
@@ -987,8 +1382,11 @@ export const CompaniesPage = () => {
                   variant="primary"
                   size="md"
                   icon={Building2}
+                  disabled={creandoJerarquia}
                 >
-                  Registrar Empresa
+                  {creandoJerarquia
+                    ? 'Guardando estructura…'
+                    : editingCompany ? 'Guardar Cambios' : esConRegiones ? 'Guardar Empresa y Estructura' : 'Registrar Empresa'}
                 </Button>
               </div>
             </form>
@@ -998,7 +1396,7 @@ export const CompaniesPage = () => {
 
       {/* ── 360° Drawer / Ficha Relacional de Empresa (1:N) ── */}
       {selectedCompanyForDetail && (
-        <div className="comp-modal-overlay" onClick={() => setSelectedCompanyForDetail(null)}>
+        <div className="comp-modal-overlay" {...companyDetailOverlayHandlers}>
           <div className="comp-modal comp-modal--wide" onClick={e => e.stopPropagation()}>
             <div className="comp-modal__header">
               <div className="comp-detail-header-box">
@@ -1149,6 +1547,11 @@ export const CompaniesPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Inspeccionar: Empresa Madre -> Regiones -> Subsedes ── */}
+      {inspectingCompanyId && (
+        <CompanyTreeModal companyId={inspectingCompanyId} onClose={() => setInspectingCompanyId(null)} />
       )}
     </div>
   );

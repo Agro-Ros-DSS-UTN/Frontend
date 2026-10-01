@@ -20,7 +20,7 @@ import {
   updateProduct as apiUpdateProduct,
   deleteProduct as apiDeleteProduct,
 } from '../../../data/api';
-import { DataTable } from '../../../components/ui/DataTable';
+import { DataTable } from '../../../components/ui/DataTable/DataTable';
 import {
   INITIAL_PRODUCT_FORM,
   PRODUCT_TABS,
@@ -28,6 +28,7 @@ import {
 } from './ProductsPage.data';
 import { ProductFormDrawer } from './ProductFormDrawer';
 import { ProductDetailDrawer } from './ProductDetailDrawer';
+import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
 import './ProductsPage.css';
 
 export const ProductsPage = () => {
@@ -400,16 +401,14 @@ export const ProductsPage = () => {
             Gestión comercial de agroquímicos, fertilizantes foliares, semillas y servicios técnicos en campo
           </p>
         </div>
-        <div className="crm-page-header-actions">
-          <button type="button" className="crm-btn-primary" onClick={handleOpenCreateModal}>
-            <Plus size={16} />
-            <span>Nuevo Producto</span>
-          </button>
-          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
-            <Download size={15} />
-            <span>Exportar</span>
-          </button>
-        </div>
+        <PageHeaderActions>
+          <PrimaryActionButton icon={Plus} onClick={handleOpenCreateModal}>
+            Nuevo Producto
+          </PrimaryActionButton>
+          <ExportActionButton icon={Download} onClick={handleExportCSV}>
+            Exportar
+          </ExportActionButton>
+        </PageHeaderActions>
       </div>
 
       {/* Main Unified Card */}

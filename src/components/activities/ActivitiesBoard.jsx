@@ -20,12 +20,13 @@ import {
 } from 'lucide-react';
 import { activitiesApi, tasksApi } from '../../api/operations.api';
 import { useAuth } from '../../context/AuthContext';
-import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput';
-import { SlideDrawer } from '../ui/SlideDrawer';
-import { ImageUpload } from '../ui/ImageUpload';
-import { VoiceRecorderWidget, VoiceNotePlayer } from '../ui/VoiceRecorder';
-import { CompanyAutocomplete } from '../ui/CompanyAutocomplete';
-import { DbLoader } from '../ui/DbLoader';
+import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput/FormInput';
+import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
+import { ImageUpload } from '../ui/ImageUpload/ImageUpload';
+import { VoiceRecorderWidget, VoiceNotePlayer } from '../ui/VoiceRecorder/VoiceRecorder';
+import { CompanyAutocomplete } from '../ui/CompanyAutocomplete/CompanyAutocomplete';
+import { LoadingState } from '../ui/LoadingState/LoadingState';
+import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../ui/PageHeaderActions/PageHeaderActions';
 import './ActivitiesBoard.css';
 
 const TIPOS_CONTACTO = [
@@ -312,32 +313,30 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
       {/* Banner */}
       <div className="act-board__banner">
         <div className="act-board__banner-left">
-          <h1 className="act-board__title">Actividades Comerciales y de Campo</h1>
+          <h1 className="act-board__title">Actividades Comerciales</h1>
           <p className="act-board__subtitle">
             Canal colaborativo en tiempo real con Administración: registro de visitas, notas de voz,
             fotos agronómicas y acuerdos
           </p>
         </div>
-        <div className="crm-page-header-actions">
-          <button
-            type="button"
-            className="crm-btn-primary"
+        <PageHeaderActions>
+          <PrimaryActionButton
+            icon={Plus}
+            iconSize={18}
             onClick={() => {
               setErrors({});
               setForm(emptyForm());
               setShowDrawer(true);
             }}
           >
-            <Plus size={18} />
-            <span>Registrar Actividad en Campo</span>
-          </button>
+            Registrar Actividad
+          </PrimaryActionButton>
           {variant === 'admin' && (
-            <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
-              <Download size={15} />
-              <span>Exportar</span>
-            </button>
+            <ExportActionButton icon={Download} onClick={handleExportCSV}>
+              Exportar
+            </ExportActionButton>
           )}
-        </div>
+        </PageHeaderActions>
       </div>
 
       {/* Stats */}
@@ -453,7 +452,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
       {/* Feed */}
       <div className="act-board__feed">
         {loading ? (
-          <DbLoader
+          <LoadingState
             title="Conectando con la base de datos…"
             message="Aguardá mientras cargamos las actividades sincronizadas."
           />

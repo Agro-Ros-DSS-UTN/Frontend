@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import {
   MapPin,
   Calendar,
@@ -33,7 +34,7 @@ import 'leaflet/dist/leaflet.css';
 import { roadmapsApi } from '../../../api/operations.api';
 import { authApi } from '../../../api/auth.api';
 import { companiesApi } from '../../../api/companies.api';
-import { DbLoader } from '../../../components/ui/DbLoader';
+import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import { RoadmapDetailModal } from '../../../components/roadmaps/RoadmapDetailModal';
 import './RoadmapsPage.css';
 
@@ -66,6 +67,7 @@ export const RoadmapsPage = () => {
   const [selectedStop, setSelectedStop] = useState(null);
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const createModalOverlayHandlers = useOverlayClose(() => setShowCreateModal(false));
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -80,6 +82,7 @@ export const RoadmapsPage = () => {
 
   // Quick Create Company Modal State
   const [showQuickCompanyModal, setShowQuickCompanyModal] = useState(false);
+  const quickCompanyModalOverlayHandlers = useOverlayClose(() => setShowQuickCompanyModal(false));
   const [quickCompanyTargetStopIndex, setQuickCompanyTargetStopIndex] = useState(null);
   const [quickCompanyData, setQuickCompanyData] = useState({
     nombreEmpresa: '',
@@ -93,6 +96,9 @@ export const RoadmapsPage = () => {
     nombreZona: '',
     sellerId: '',
     fechaRuta: new Date().toISOString().split('T')[0],
+    horaRuta: '09:00',
+    fechaFinPropuesta: '',
+    horaFinPropuesta: '',
     distanciaEstimadaKm: 120,
     observaciones: '',
     paradas: [
@@ -165,12 +171,14 @@ export const RoadmapsPage = () => {
       if (usersRes.status === 'fulfilled') {
         const rawUsers = usersRes.value?.data || usersRes.value || [];
         if (Array.isArray(rawUsers)) {
-          const sellersOnly = rawUsers.filter(u =>
-            (u.role || u.rol || '').toLowerCase().trim() === 'vendedor'
+          // Cualquier usuario activo puede recibir una hoja de ruta: un vendedor
+          // (el caso más común) o un administrador organizando su propio viaje.
+          const assignableUsers = rawUsers.filter(
+            (u) => String(u.accountStatement || u.estado || 'Activo').toLowerCase().includes('activ')
           );
-          setSellersList(sellersOnly);
-          if (sellersOnly.length > 0) {
-            setFormData(prev => ({ ...prev, sellerId: sellersOnly[0].idUser || sellersOnly[0].id }));
+          setSellersList(assignableUsers);
+          if (assignableUsers.length > 0) {
+            setFormData(prev => ({ ...prev, sellerId: assignableUsers[0].idUser || assignableUsers[0].id }));
           }
         }
       }
@@ -210,11 +218,12 @@ export const RoadmapsPage = () => {
     return apiRoadmaps.filter(r => String(r.vendedorId) === String(selectedSellerId));
   }, [selectedSellerId, apiRoadmaps]);
 
-  // Selected route object
+  // Selected route object — null mientras esté seleccionado "Todos los
+  // vendedores" (no tiene sentido navegar por Maps sin una ruta puntual).
   const currentRoute = useMemo(() => {
-    if (apiRoadmaps.length === 0) return null;
-    return apiRoadmaps.find(r => r.id === selectedRouteId) || apiRoadmaps[0];
-  }, [selectedRouteId, apiRoadmaps]);
+    if (selectedSellerId === 'all' || apiRoadmaps.length === 0) return null;
+    return apiRoadmaps.find(r => r.id === selectedRouteId) || null;
+  }, [selectedRouteId, selectedSellerId, apiRoadmaps]);
 
   // KPI Calculations
   const totalKmToday = routesToday.reduce((sum, r) => sum + (r.totalKm || 0), 0);
@@ -303,6 +312,7 @@ export const RoadmapsPage = () => {
         marker.on('click', () => {
           setSelectedStop(stop);
           setSelectedRouteId(route.id);
+          setSelectedSellerId(String(route.vendedorId));
         });
       });
 
@@ -517,7 +527,10 @@ export const RoadmapsPage = () => {
         nombreZona: formData.nombreZona || 'Zona Personalizada',
         descripcion: formData.observaciones || `Hoja de ruta para zona ${formData.nombreZona}`,
         fechaRuta: formData.fechaRuta,
-        sellerId: selectedSeller ? (selectedSeller.idUser || selectedSeller.id) : 1,
+        horaRuta: formData.horaRuta || null,
+        fechaFinPropuesta: formData.fechaFinPropuesta || null,
+        horaFinPropuesta: formData.horaFinPropuesta || null,
+        idUserAsignado: selectedSeller ? (selectedSeller.idUser || selectedSeller.id) : null,
         distanciaEstimadaKm: Number(formData.distanciaEstimadaKm) || 100,
         observaciones: formData.observaciones,
         paradas: formData.paradas.map((p, idx) => ({
@@ -540,6 +553,9 @@ export const RoadmapsPage = () => {
         nombreZona: '',
         sellerId: sellersList[0]?.idUser || sellersList[0]?.id || '',
         fechaRuta: new Date().toISOString().split('T')[0],
+        horaRuta: '09:00',
+        fechaFinPropuesta: '',
+        horaFinPropuesta: '',
         distanciaEstimadaKm: 120,
         observaciones: '',
         paradas: [
@@ -618,7 +634,7 @@ export const RoadmapsPage = () => {
       </div>
 
       {loading ? (
-        <DbLoader
+        <LoadingState
           title="Conectando con la base de datos…"
           message="Aguardá un instante mientras sincronizamos las hojas de ruta y sus paradas."
         />
@@ -665,7 +681,10 @@ export const RoadmapsPage = () => {
               <button
                 type="button"
                 className={`rv-card rv-card--all ${selectedSellerId === 'all' ? 'is-active' : ''}`}
-                onClick={() => setSelectedSellerId('all')}
+                onClick={() => {
+                  setSelectedSellerId('all');
+                  setSelectedRouteId(null);
+                }}
               >
                 <span className="rv-card__name">Todos los vendedores</span>
                 <span className="rv-card__sub">
@@ -762,6 +781,11 @@ export const RoadmapsPage = () => {
               </div>
 
               {/* Side Timeline Details with RED TRASH CAN TO DELETE ROADMAP */}
+              {!currentRoute && (
+                <div className="roadmap-stops-panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '2.5rem 1.5rem', color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>
+                  Seleccioná un vendedor arriba para ver el detalle de su hoja de ruta y navegar por Maps.
+                </div>
+              )}
               {currentRoute && (
                 <div className="roadmap-stops-panel">
                   <div className="roadmap-stops-header" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
@@ -954,6 +978,7 @@ export const RoadmapsPage = () => {
                               style={{ padding: '4px 8px', fontSize: '0.75rem' }}
                               onClick={() => {
                                 setSelectedRouteId(row.id);
+                                setSelectedSellerId(String(row.vendedorId));
                                 setShowDetailModal(true);
                               }}
                             >
@@ -1032,7 +1057,7 @@ export const RoadmapsPage = () => {
 
       {/* ── Modal: Planificar Nueva Hoja de Ruta (Drawer Scrollable con Sticky Footer) ── */}
       {showCreateModal && (
-        <div className="roadmaps-modal-overlay" onClick={() => setShowCreateModal(false)}>
+        <div className="roadmaps-modal-overlay" {...createModalOverlayHandlers}>
           <div className="roadmaps-modal" onClick={e => e.stopPropagation()}>
             <div className="roadmaps-modal__header">
               <h2>Planificar Nueva Hoja de Ruta</h2>
@@ -1056,30 +1081,60 @@ export const RoadmapsPage = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div className="roadmaps-form-field">
-                  <label>Vendedor asignado *</label>
+                  <label>Asignar a *</label>
                   <select
                     className="roadmaps-select"
                     value={formData.sellerId}
                     onChange={e => setFormData({ ...formData, sellerId: e.target.value })}
                     required
                   >
-                    <option value="">Seleccionar Vendedor...</option>
+                    <option value="">Seleccionar persona...</option>
                     {sellersList.map((u, idx) => (
                       <option key={u.idUser || u.id || idx} value={u.idUser || u.id}>
-                        {u.nombreApellido || u.idUser} ({u.role || u.rol || 'vendedor'})
+                        {u.nombreApellido || u.idUser} ({(u.role || u.rol || 'vendedor').toLowerCase() === 'admin' ? 'Administrador' : 'Vendedor'})
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="roadmaps-form-field">
-                  <label>Fecha de la Ruta *</label>
+                  <label>Fecha de Inicio *</label>
                   <input
                     type="date"
                     className="roadmaps-input"
                     value={formData.fechaRuta}
                     onChange={e => setFormData({ ...formData, fechaRuta: e.target.value })}
                     required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                <div className="roadmaps-form-field">
+                  <label>Hora de Inicio</label>
+                  <input
+                    type="time"
+                    className="roadmaps-input"
+                    value={formData.horaRuta}
+                    onChange={e => setFormData({ ...formData, horaRuta: e.target.value })}
+                  />
+                </div>
+                <div className="roadmaps-form-field">
+                  <label>Fecha de Fin (propuesta)</label>
+                  <input
+                    type="date"
+                    className="roadmaps-input"
+                    value={formData.fechaFinPropuesta}
+                    onChange={e => setFormData({ ...formData, fechaFinPropuesta: e.target.value })}
+                  />
+                </div>
+                <div className="roadmaps-form-field">
+                  <label>Hora de Fin (propuesta)</label>
+                  <input
+                    type="time"
+                    className="roadmaps-input"
+                    value={formData.horaFinPropuesta}
+                    onChange={e => setFormData({ ...formData, horaFinPropuesta: e.target.value })}
                   />
                 </div>
               </div>
@@ -1300,7 +1355,7 @@ export const RoadmapsPage = () => {
 
       {/* ── Mini-Modal: Alta Rápida de Empresa / Localidad en Base de Datos ── */}
       {showQuickCompanyModal && (
-        <div className="roadmaps-modal-overlay" style={{ zIndex: 999999 }} onClick={() => setShowQuickCompanyModal(false)}>
+        <div className="roadmaps-modal-overlay" style={{ zIndex: 999999 }} {...quickCompanyModalOverlayHandlers}>
           <div className="roadmaps-modal" style={{ width: '460px', height: 'auto', maxHeight: '90vh', margin: 'auto', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
             <div className="roadmaps-modal__header">
               <h2>Alta Rápida de Empresa / Localidad</h2>

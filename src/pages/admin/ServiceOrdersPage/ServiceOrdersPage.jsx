@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   FileCheck2,
   Plus,
@@ -34,12 +35,13 @@ import {
 } from '../../../data/serviceOrdersData';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { employeesApi } from '../../../api/employees.api';
-import { SlideDrawer } from '../../../components/ui/SlideDrawer';
-import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput';
-import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete';
-import { SignaturePad } from '../../../components/ui/SignaturePad';
-import { MultiImageUpload } from '../../../components/ui/MultiImageUpload';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
+import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput/FormInput';
+import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
+import { SignaturePad } from '../../../components/ui/SignaturePad/SignaturePad';
+import { MultiImageUpload } from '../../../components/ui/MultiImageUpload/MultiImageUpload';
 import logoImg from '../../../assets/logo.png';
+import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import './ServiceOrdersPage.css';
 
 // Infiere el "Tipo de instalación" (Silo / Celda) a partir del tipo de trabajo,
@@ -86,6 +88,10 @@ export const ServiceOrdersPage = () => {
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
+  }, [location.state]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [workTypeFilter, setWorkTypeFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'ejecucion' | 'completadas' | 'sin-evaluar'
@@ -99,6 +105,8 @@ export const ServiceOrdersPage = () => {
   const [printTargetOrder, setPrintTargetOrder] = useState(null);
   const [showEvalPrintModal, setShowEvalPrintModal] = useState(false);
   const [evalPrintOrder, setEvalPrintOrder] = useState(null);
+  const printModalOverlayHandlers = useOverlayClose(() => setShowPrintModal(false));
+  const evalPrintModalOverlayHandlers = useOverlayClose(() => setShowEvalPrintModal(false));
 
   // Fetch orders from backend database
   const loadOrders = async () => {
@@ -1299,7 +1307,7 @@ export const ServiceOrdersPage = () => {
           MODAL: Plantilla "Orden de Servicio" (réplica del formulario físico)
           ═══════════════════════════════════════════════════════════════ */}
       {showPrintModal && printTargetOrder && (
-        <div className="so-modal-overlay" onClick={() => setShowPrintModal(false)}>
+        <div className="so-modal-overlay" {...printModalOverlayHandlers}>
           <div className="so-modal so-modal--print" onClick={e => e.stopPropagation()}>
             <div className="so-modal__header">
               <div className="so-modal__header-left">
@@ -1492,7 +1500,7 @@ export const ServiceOrdersPage = () => {
         }
 
         return (
-          <div className="so-modal-overlay" onClick={() => setShowEvalPrintModal(false)}>
+          <div className="so-modal-overlay" {...evalPrintModalOverlayHandlers}>
             <div className="so-modal so-modal--print" onClick={e => e.stopPropagation()}>
               <div className="so-modal__header">
                 <div className="so-modal__header-left">

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   CheckSquare,
   Plus,
@@ -14,9 +15,9 @@ import {
 } from 'lucide-react';
 import { tasksApi } from '../../api/operations.api';
 import { useAuth } from '../../context/AuthContext';
-import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput';
-import { SlideDrawer } from '../ui/SlideDrawer';
-import { CompanyAutocomplete } from '../ui/CompanyAutocomplete';
+import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput/FormInput';
+import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
+import { CompanyAutocomplete } from '../ui/CompanyAutocomplete/CompanyAutocomplete';
 import './TasksBoard.css';
 
 const TIPO_OPTIONS = [
@@ -78,6 +79,10 @@ export const TasksBoard = ({ variant = 'admin' }) => {
   const [tasks, setTasks] = useState([]);
   const [activeTab, setActiveTab] = useState('todo');
   const [searchQuery, setSearchQuery] = useState('');
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
+  }, [location.state]);
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [showDrawer, setShowDrawer] = useState(false);
@@ -284,7 +289,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       {/* Stats */}
       <div className="tasks-board__stats">
         <div className="tasks-board__stat">
-          <div className="tasks-board__stat-icon" style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}>
+          <div className="tasks-board__stat-icon tasks-board__stat-icon--green">
             <ListTodo size={22} />
           </div>
           <div>
@@ -295,7 +300,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         </div>
 
         <div className="tasks-board__stat">
-          <div className="tasks-board__stat-icon" style={{ backgroundColor: '#fffbeb', color: '#d97706' }}>
+          <div className="tasks-board__stat-icon tasks-board__stat-icon--amber">
             <Clock size={22} />
           </div>
           <div>
@@ -306,7 +311,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         </div>
 
         <div className="tasks-board__stat">
-          <div className="tasks-board__stat-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+          <div className="tasks-board__stat-icon tasks-board__stat-icon--blue">
             <CheckSquare size={22} />
           </div>
           <div>
@@ -371,22 +376,19 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           <table className="tasks-board__table">
             <thead>
               <tr>
-                <th style={{ width: '44px', paddingLeft: '20px' }}></th>
+                <th className="tasks-board__th-checkbox"></th>
                 <th>Título / Tarea</th>
                 <th>Empresa / Cliente</th>
                 <th>Fecha Límite</th>
                 <th>Prioridad</th>
                 <th>Asignado a</th>
-                <th style={{ width: '52px' }}></th>
+                <th className="tasks-board__th-actions"></th>
               </tr>
             </thead>
             <tbody>
               {filteredTasks.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={colCount}
-                    style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontStyle: 'italic' }}
-                  >
+                  <td colSpan={colCount} className="tasks-board__empty-cell">
                     {loading ? 'Cargando tareas…' : 'No hay tareas para mostrar. Creá una nueva con “Crear Tarea”.'}
                   </td>
                 </tr>
@@ -395,44 +397,28 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                   const isCompleted = t.estado === 'Completada';
                   return (
                     <tr key={t.id} className={isCompleted ? 'tasks-board__row--done' : ''}>
-                      <td style={{ paddingLeft: '20px' }}>
+                      <td className="tasks-board__td-checkbox">
                         <input
                           type="checkbox"
                           checked={isCompleted}
                           onChange={() => handleToggleComplete(t.id)}
-                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#1a7d6b' }}
+                          className="tasks-board__checkbox-input"
                         />
                       </td>
                       <td>
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            color: isCompleted ? '#94a3b8' : '#0f172a',
-                            textDecoration: isCompleted ? 'line-through' : 'none',
-                          }}
-                        >
+                        <div className={`tasks-board__task-title ${isCompleted ? 'tasks-board__task-title--done' : ''}`}>
                           {t.titulo}
                         </div>
-                        <div
-                          style={{
-                            fontSize: '11px',
-                            color: '#64748b',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            marginTop: '2px',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          {getTypeIcon(t.tipo)} <span style={{ textTransform: 'capitalize' }}>{t.tipo}</span>
+                        <div className="tasks-board__task-type-row">
+                          {getTypeIcon(t.tipo)} <span className="tasks-board__task-type-label">{t.tipo}</span>
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600, color: '#334155' }}>{t.empresa || '—'}</div>
-                        {t.contacto && <div style={{ fontSize: '11px', color: '#64748b' }}>{t.contacto}</div>}
+                        <div className="tasks-board__empresa-name">{t.empresa || '—'}</div>
+                        {t.contacto && <div className="tasks-board__empresa-contact">{t.contacto}</div>}
                       </td>
                       <td>
-                        <span style={{ fontSize: '0.85rem', color: '#334155' }}>
+                        <span className="tasks-board__fecha-text">
                           {t.fechaVencimiento || '—'} {t.horaVencimiento ? `(${t.horaVencimiento} hs)` : ''}
                         </span>
                       </td>
@@ -442,7 +428,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                         </span>
                       </td>
                       <td>
-                        <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600 }}>
+                        <span className="tasks-board__asignado-text">
                           {t.asignadoA}
                         </span>
                       </td>
@@ -451,7 +437,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                           type="button"
                           onClick={() => handleDeleteTask(t.id, t.titulo)}
                           title="Eliminar tarea"
-                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                          className="tasks-board__delete-btn"
                         >
                           <Trash2 size={15} />
                         </button>
@@ -472,11 +458,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         title="Crear Nueva Tarea"
         width="520px"
       >
-        <form
-          onSubmit={handleCreateTaskSubmit}
-          noValidate
-          style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}
-        >
+        <form onSubmit={handleCreateTaskSubmit} noValidate className="tasks-board__form">
           <FormInput
             label="Título de la Tarea"
             name="titulo"
@@ -487,7 +469,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             error={errors.titulo}
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="tasks-board__form-row">
             <FormSelect
               label="Tipo de Actividad"
               name="tipo"
@@ -508,7 +490,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="tasks-board__form-row">
             <FormInput
               label="Fecha Límite"
               name="fechaVencimiento"
@@ -543,27 +525,17 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             rows={2}
           />
 
-          <div
-            style={{
-              display: 'flex',
-              gap: '0.75rem',
-              marginTop: '0.5rem',
-              paddingTop: '1rem',
-              borderTop: '1px solid #e2e8f0',
-            }}
-          >
+          <div className="tasks-board__form-actions">
             <button
               type="submit"
-              className="btn-rounded-primary"
-              style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
+              className="btn-rounded-primary tasks-board__submit-btn"
               disabled={loading}
             >
               {loading ? 'Guardando…' : 'Guardar Tarea'}
             </button>
             <button
               type="button"
-              className="roadmaps-btn roadmaps-btn--outline"
-              style={{ padding: '12px 18px' }}
+              className="roadmaps-btn roadmaps-btn--outline tasks-board__cancel-btn"
               onClick={() => setShowDrawer(false)}
             >
               Cancelar

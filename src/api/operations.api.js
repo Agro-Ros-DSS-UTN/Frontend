@@ -47,12 +47,30 @@ export const roadmapsApi = {
     const response = await apiClient.get(`/roadmaps/seller/${sellerId}`);
     return response.data;
   },
+  // Hojas de ruta asignadas a un usuario puntual (admin o vendedor) — no
+  // depende de que exista una fila en `vendedores`.
+  getByUser: async (idUser) => {
+    const response = await apiClient.get(`/roadmaps/user/${idUser}`);
+    return response.data;
+  },
   create: async (data) => {
     const response = await apiClient.post('/roadmaps', data);
     return response.data;
   },
   updateStopStatus: async (stopId, estadoParada) => {
     const response = await apiClient.patch(`/roadmaps/stops/${stopId}/status`, { estadoParada });
+    return response.data;
+  },
+  start: async (id) => {
+    const response = await apiClient.put(`/roadmaps/${id}/start`);
+    return response.data;
+  },
+  end: async (id) => {
+    const response = await apiClient.put(`/roadmaps/${id}/end`);
+    return response.data;
+  },
+  addStop: async (id, { texto, url }) => {
+    const response = await apiClient.post(`/roadmaps/${id}/stops`, { texto, url });
     return response.data;
   },
   delete: async (id) => {

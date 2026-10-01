@@ -9,6 +9,12 @@ export const companiesApi = {
     const response = await apiClient.get(`/clientCompany/${id}`);
     return response.data;
   },
+  // Jerarquía completa (madre + regiones + subsedes) a partir de cualquier
+  // id de ese árbol — usado por la vista "Inspeccionar".
+  getTree: async (id) => {
+    const response = await apiClient.get(`/clientCompany/${id}/tree`);
+    return response.data;
+  },
   create: async (data) => {
     const response = await apiClient.post('/clientCompany', data);
     return response.data;
