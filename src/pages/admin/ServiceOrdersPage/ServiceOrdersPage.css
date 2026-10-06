@@ -1489,3 +1489,75 @@ button.btn-rounded-secondary:hover {
   border-color: #1a7d6b !important;
   box-shadow: 0 0 0 2px rgba(26, 125, 107, 0.12) !important;
 }
+
+/* ── Ajustes de tabla: sin contornos verdes ── */
+.so-order-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.so-order-link:hover {
+  text-decoration: underline;
+}
+
+.so-th-eval {
+  min-width: 200px;
+  white-space: nowrap;
+}
+
+.so-eval-box {
+  min-width: 190px;
+}
+
+.so-eval-resultado-text {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.so-eval-meta {
+  white-space: nowrap;
+}
+
+.so-edit-menu-wrap {
+  position: relative;
+}
+
+.so-edit-menu {
+  position: absolute;
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  min-width: 230px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.so-edit-menu button {
+  padding: 9px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.so-edit-menu button:hover {
+  background: #f1f5f9;
+}

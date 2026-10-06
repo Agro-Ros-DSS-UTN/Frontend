@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   FileCheck2,
+  Pencil,
   Plus,
   Search,
   Filter,
@@ -16,15 +17,12 @@ import {
   Printer,
   ChevronRight,
   Eye,
-  Edit,
   Trash2,
   Layers,
-  Sparkles,
   ShieldCheck,
   Award,
   FlaskConical,
   CheckSquare,
-  FileText,
   PenLine
 } from 'lucide-react';
 import {
@@ -38,6 +36,7 @@ import { employeesApi } from '../../../api/employees.api';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput/FormInput';
 import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
+import { ServiceOrderSummary } from '../../../components/serviceOrders/ServiceOrderSummary';
 import { SignaturePad } from '../../../components/ui/SignaturePad/SignaturePad';
 import { MultiImageUpload } from '../../../components/ui/MultiImageUpload/MultiImageUpload';
 import logoImg from '../../../assets/logo.png';
@@ -102,6 +101,17 @@ export const ServiceOrdersPage = () => {
   const [showEvalDrawer, setShowEvalDrawer] = useState(false);
   const [evalTargetOrder, setEvalTargetOrder] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [summaryOrder, setSummaryOrder] = useState(null);
+  const [editMenuOrderId, setEditMenuOrderId] = useState(null);
+
+  useEffect(() => {
+    if (editMenuOrderId === null) return undefined;
+    const close = (e) => {
+      if (!e.target.closest('.so-edit-menu-wrap')) setEditMenuOrderId(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [editMenuOrderId]);
   const [printTargetOrder, setPrintTargetOrder] = useState(null);
   const [showEvalPrintModal, setShowEvalPrintModal] = useState(false);
   const [evalPrintOrder, setEvalPrintOrder] = useState(null);
@@ -539,10 +549,6 @@ export const ServiceOrdersPage = () => {
         <div>
           <div className="so-page__title-row">
             <h1 className="so-page__title">Orden/Evaluación de Servicio</h1>
-            <span className="so-page__beta-badge">
-              <Sparkles size={11} />
-              <span>Beta</span>
-            </span>
           </div>
           <p className="so-page__subtitle">
             Gestión digital de servicios de fumigación, desinsectación, tratamiento en silos y evaluaciones de campo
@@ -710,7 +716,7 @@ export const ServiceOrdersPage = () => {
                   <th>CENTRO & PLANTA</th>
                   <th>TIPO DE TRABAJO</th>
                   <th>ESTADO</th>
-                  <th>EVALUACIÓN</th>
+                  <th className="so-th-eval">EVALUACIÓN</th>
                   <th style={{ textAlign: 'right' }}>ACCIONES</th>
                 </tr>
               </thead>
@@ -727,15 +733,11 @@ export const ServiceOrdersPage = () => {
                       <td>
                         <button
                           type="button"
-                          className="so-order-tag-btn"
-                          onClick={() => {
-                            setPrintTargetOrder(order);
-                            setShowPrintModal(true);
-                          }}
-                          title="Ver Comprobante / Acta Digital"
+                          className="so-order-link"
+                          onClick={() => setSummaryOrder(order)}
+                          title="Ver resumen de la orden y su evaluación"
                         >
-                          <FileCheck2 size={13} />
-                          <span>{order.numeroOrden}</span>
+                          {order.numeroOrden}
                         </button>
                       </td>
 
@@ -747,7 +749,9 @@ export const ServiceOrdersPage = () => {
                       {/* Cliente */}
                       <td>
                         <div className="so-client-cell">
-                          <span className="so-client-name">{order.clienteNombre}</span>
+                          <button type="button" className="so-client-name so-order-link" onClick={() => setSummaryOrder(order)}>
+                            {order.clienteNombre}
+                          </button>
                           <span className="so-client-sub">{order.centroNombre}</span>
                         </div>
                       </td>
@@ -772,11 +776,8 @@ export const ServiceOrdersPage = () => {
 
                       {/* Estado */}
                       <td>
-                        <span
-                          className="so-status-badge"
-                          style={{ color: statusInfo.color, backgroundColor: statusInfo.bg, borderColor: statusInfo.color + '40' }}
-                        >
-                          ● {order.estado}
+                        <span className={`crm-status-pill ${/complet/i.test(order.estado || '') ? 'crm-status-pill--ok' : ''}`}>
+                          {order.estado}
                         </span>
                       </td>
 
@@ -789,14 +790,7 @@ export const ServiceOrdersPage = () => {
                             style={{ cursor: 'pointer' }}
                             title="Hacé click para ver o editar la evaluación de servicio"
                           >
-                            <span
-                              className="so-eval-resultado"
-                              style={{
-                                color: getResultadoInfo(order.evaluacion.resultado).color,
-                                backgroundColor: getResultadoInfo(order.evaluacion.resultado).bg,
-                                borderColor: getResultadoInfo(order.evaluacion.resultado).border,
-                              }}
-                            >
+                            <span className="so-eval-resultado-text">
                               {order.evaluacion.resultado || 'Sin resultado'}
                             </span>
                             <span className="so-eval-meta">
@@ -831,37 +825,42 @@ export const ServiceOrdersPage = () => {
                             <Printer size={15} />
                           </button>
 
-                          {order.evaluacion && (
+                          <div className="so-edit-menu-wrap">
                             <button
                               type="button"
-                              className="so-action-icon-btn so-action-icon-btn--eval-print"
-                              title="Ver / Imprimir Evaluación de Servicio"
-                              onClick={() => {
-                                setEvalPrintOrder(order);
-                                setShowEvalPrintModal(true);
-                              }}
+                              className="so-action-icon-btn so-action-icon-btn--edit"
+                              title="Editar"
+                              aria-haspopup="menu"
+                              aria-expanded={editMenuOrderId === order.id}
+                              onClick={() => setEditMenuOrderId(editMenuOrderId === order.id ? null : order.id)}
                             >
-                              <FileText size={15} />
+                              <Pencil size={15} />
                             </button>
-                          )}
-
-                          <button
-                            type="button"
-                            className="so-action-icon-btn so-action-icon-btn--eval"
-                            title={order.evaluacion ? "Editar Evaluación de Servicio" : "Cargar Evaluación de Servicio"}
-                            onClick={() => handleOpenEvalDrawer(order)}
-                          >
-                            <Award size={15} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className="so-action-icon-btn so-action-icon-btn--edit"
-                            title="Editar Orden de Servicio"
-                            onClick={() => handleOpenEditDrawer(order)}
-                          >
-                            <Edit size={15} />
-                          </button>
+                            {editMenuOrderId === order.id && (
+                              <div className="so-edit-menu" role="menu">
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setEditMenuOrderId(null);
+                                    handleOpenEditDrawer(order);
+                                  }}
+                                >
+                                  Editar orden de servicio
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setEditMenuOrderId(null);
+                                    handleOpenEvalDrawer(order);
+                                  }}
+                                >
+                                  {order.evaluacion ? 'Editar evaluación de servicio' : 'Cargar evaluación de servicio'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
 
                           <button
                             type="button"
@@ -1662,6 +1661,32 @@ export const ServiceOrdersPage = () => {
           </div>
         );
       })()}
+      {summaryOrder && (
+        <ServiceOrderSummary
+          order={summaryOrder}
+          onClose={() => setSummaryOrder(null)}
+          onEditOrder={() => {
+            const order = summaryOrder;
+            setSummaryOrder(null);
+            handleOpenEditDrawer(order);
+          }}
+          onEditEval={() => {
+            const order = summaryOrder;
+            setSummaryOrder(null);
+            handleOpenEvalDrawer(order);
+          }}
+          onPrintOrder={() => {
+            setPrintTargetOrder(summaryOrder);
+            setSummaryOrder(null);
+            setShowPrintModal(true);
+          }}
+          onPrintEval={() => {
+            setEvalPrintOrder(summaryOrder);
+            setSummaryOrder(null);
+            setShowEvalPrintModal(true);
+          }}
+        />
+      )}
     </div>
   );
 };

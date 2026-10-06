@@ -464,6 +464,48 @@
   border-top: 1px dashed #e2e8f0;
 }
 
+.act-board__task-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.act-board__task-number {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.act-board__task-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #ef4444;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.act-board__task-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.act-board__task-add label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
 /* ── Lightbox ── */
 .act-board__lightbox {
   position: fixed;
@@ -510,4 +552,68 @@
     width: 100%;
     justify-content: center;
   }
+}
+
+/* ── Tabla de actividades (reusa los estilos de TasksBoard) ── */
+.act-table__type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.act-table__desc {
+  max-width: 360px;
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.act-table__attach-btn {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.act-table__attach-btn:hover { color: #0f172a; border-color: #cbd5e1; background: #f8fafc; }
+
+.act-table__chevron--open { transform: rotate(180deg); }
+
+.act-table__detail-row td {
+  background: #f8fafc;
+}
+
+.act-table__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.act-table__audio { width: min(100%, 420px); }
+
+.act-table__thumb {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
+.act-table__thumb img {
+  display: block;
+  width: 140px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
 }

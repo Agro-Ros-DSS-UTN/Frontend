@@ -27,8 +27,9 @@ import {
   Camera,
   FileText,
 } from 'lucide-react';
-import { getDashboardData, OPPORTUNITY_STATES } from '../../../data/api';
-import { activitiesApi } from '../../../api/operations.api';
+import { useNavigate } from 'react-router-dom';
+import { getDashboardData, OPPORTUNITY_STATES, fetchClientCompanies } from '../../../data/api';
+import { activitiesApi, tasksApi } from '../../../api/operations.api';
 import { VoiceNotePlayer } from '../../../components/ui/VoiceRecorder/VoiceRecorder';
 import './AdminDashboard.css';
 
@@ -280,6 +281,9 @@ const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
 /* ── Admin Dashboard Page (Real DB Integration) ── */
 
 export const AdminDashboardPage = () => {
+  const navigate = useNavigate();
+  const [companies, setCompanies] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [clients, setClients] = useState([]);
   const [opportunities, setOpportunities] = useState([]);
   const [activities, setActivities] = useState([]);
@@ -309,6 +313,14 @@ export const AdminDashboardPage = () => {
         setMonthlySales(data.monthlySales || []);
         setProductLines(data.productLines || []);
 
+        // Empresas (para "propietario del registro") y tareas (para "tareas concretadas")
+        const [companiesRes, tasksRes] = await Promise.allSettled([fetchClientCompanies(), tasksApi.getAll()]);
+        if (companiesRes.status === 'fulfilled') setCompanies(companiesRes.value || []);
+        if (tasksRes.status === 'fulfilled') {
+          const rawTasks = tasksRes.value;
+          setTasks(Array.isArray(rawTasks) ? rawTasks : rawTasks?.data || []);
+        }
+
         // Cargar actividades sincronizadas de MySQL
         try {
           const acts = await activitiesApi.getAll();
@@ -331,7 +343,7 @@ export const AdminDashboardPage = () => {
               descripcion: a.descripcion || 'Sin descripción',
               montoVenta: a.montoVenta ? Number(a.montoVenta) : null,
               fechaHora: a.fechaHora || new Date().toISOString(),
-              autorNombre: a.autorNombre || (a.sellerId === 1 ? 'Martín Gutiérrez (Vendedor)' : 'Administración'),
+              autorNombre: a.autorNombre || 'Administración',
               fotoUrl: parsedAttachments?.fotoUrl || null,
               audioData: parsedAttachments?.audioData || null,
             };
@@ -801,9 +813,13 @@ export const AdminDashboardPage = () => {
         <div className="sellers-grid">
           {sellers.map((seller) => {
             const name = seller.nombreApellido || seller.user?.nombreApellido || 'Sin nombre';
-            const sellerOpps = filteredOpps.filter((o) => o.sellerId === seller.id || o.vendedor === name);
-            const sellerVol = sellerOpps.reduce((sum, o) => sum + (Number(o.volumenFacturado) || 0), 0);
-            const sellerObj = objectives.find((o) => o.sellerId === seller.id || o.vendedor === name);
+            const sellerUserId = seller.idUser || seller.user?.idUser;
+            const sellerOpps = filteredOpps.filter((o) => o.propietarioId === sellerUserId || o.vendedor === name);
+            const sellerCompanies = companies.filter((c) => !c.parentCompanyId && c.creadoPorId === sellerUserId).length;
+            const sellerFinishedTasks = tasks.filter(
+              (t) => t.finalizadoPorId === sellerUserId && /finaliz|complet/i.test(String(t.estado || ''))
+            ).length;
+            const sellerObj = objectives.find((o) => o.idUser === sellerUserId || o.vendedor === name);
 
             const progress = sellerObj && sellerObj.cantidadMeta > 0
               ? Math.min(100, (sellerObj.cumplido / sellerObj.cantidadMeta) * 100)
@@ -824,10 +840,24 @@ export const AdminDashboardPage = () => {
                     <span className="seller-card__stat-value">{sellerOpps.length}</span>
                     <span className="seller-card__stat-label">Oportunidades</span>
                   </div>
-                  <div className="seller-card__stat">
-                    <span className="seller-card__stat-value">{formatCurrency(sellerVol)}</span>
-                    <span className="seller-card__stat-label">Facturado</span>
-                  </div>
+                  <button
+                    type="button"
+                    className="seller-card__stat seller-card__stat--link"
+                    onClick={() => navigate('/admin/empresas', { state: { prefillSearch: name } })}
+                    title="Ver las empresas donde es propietario del registro"
+                  >
+                    <span className="seller-card__stat-value">{sellerCompanies}</span>
+                    <span className="seller-card__stat-label">Clientes / empresas registradas</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="seller-card__stat seller-card__stat--link"
+                    onClick={() => navigate('/admin/tareas')}
+                    title="Ver tareas"
+                  >
+                    <span className="seller-card__stat-value">{sellerFinishedTasks}</span>
+                    <span className="seller-card__stat-label">Tareas concretadas</span>
+                  </button>
                 </div>
                 {sellerObj && (
                   <div className="seller-card__objective">

@@ -12,12 +12,16 @@ import {
   ListTodo,
   Trash2,
   Download,
+  Pencil,
+  CheckCircle2,
 } from 'lucide-react';
-import { tasksApi } from '../../api/operations.api';
+import { tasksApi, activitiesApi } from '../../api/operations.api';
+import { authApi } from '../../api/auth.api';
 import { useAuth } from '../../context/AuthContext';
 import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput/FormInput';
 import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
 import { CompanyAutocomplete } from '../ui/CompanyAutocomplete/CompanyAutocomplete';
+import { ContactAutocomplete } from '../ui/ContactAutocomplete/ContactAutocomplete';
 import './TasksBoard.css';
 
 const TIPO_OPTIONS = [
@@ -45,7 +49,7 @@ const VARIANTS = {
   },
 };
 
-const isCompletedEstado = (estado) => /complet/i.test(String(estado || ''));
+const isFinalizedEstado = (estado) => /finaliz|complet/i.test(String(estado || ''));
 
 const normalizeTask = (t) => ({
   id: t.id,
@@ -54,21 +58,39 @@ const normalizeTask = (t) => ({
   fechaVencimiento: t.fechaVencimiento || '',
   horaVencimiento: t.horaVencimiento || '',
   prioridad: t.prioridad || 'Media',
-  estado: isCompletedEstado(t.estado) ? 'Completada' : 'Pendiente',
-  asignadoA: t.asignadoA || t.Seller?.User?.nombreApellido || '—',
+  estado: isFinalizedEstado(t.estado) ? 'Finalizada' : 'Pendiente',
+  asignadoA: t.asignadoA || '—',
+  asignadosIds: (t.asignaciones || []).map((a) => a.idUser),
+  finalizadoPor: t.finalizadoPor?.nombreApellido || '',
+  fechaFinalizacion: t.fechaFinalizacion || null,
+  actividadId: t.formularioActividadId ? String(t.formularioActividadId) : '',
+  actividad: t.FormularioActividad
+    ? {
+        nombre: [t.FormularioActividad.tipoContacto, t.FormularioActividad.empresa].filter(Boolean).join(' · '),
+        fecha: t.FormularioActividad.fechaHora,
+      }
+    : null,
   empresa: t.empresa || '',
   contacto: t.contacto || '',
   notas: t.notas || '',
   creadoPorRol: t.creadoPorRol || 'administrador',
 });
 
+const formatDateTime = (iso) => {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
 const emptyForm = () => ({
   titulo: '',
   tipo: 'llamada',
-  fechaVencimiento: new Date().toISOString().slice(0, 10),
-  horaVencimiento: '11:00',
+  fechaVencimiento: '',
+  horaVencimiento: '',
   prioridad: 'Alta',
   empresa: '',
+  contacto: '',
+  actividadId: '',
   notas: '',
 });
 
@@ -88,6 +110,60 @@ export const TasksBoard = ({ variant = 'admin' }) => {
   const [showDrawer, setShowDrawer] = useState(false);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState(emptyForm());
+  const [assignableUsers, setAssignableUsers] = useState([]);
+  const [selectedAssignees, setSelectedAssignees] = useState([]);
+  const myUserId = currentUser?.idUser || currentUser?.id || null;
+  const isAdmin = String(currentUser?.role || currentUser?.rol || '').toLowerCase() === 'admin';
+  const [notice, setNotice] = useState(null);
+  const [finalizingId, setFinalizingId] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
+
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    if (variant !== 'admin') return;
+    const fetchAssignableUsers = async () => {
+      try {
+        const res = await authApi.getAllUsers();
+        const raw = Array.isArray(res) ? res : res?.data || [];
+        setAssignableUsers(
+          raw.filter((u) => String(u.accountStatement || u.estado || 'Activo').toLowerCase().includes('activ'))
+        );
+      } catch (err) {
+        console.error('Error al obtener usuarios para enganchar a la tarea:', err);
+      }
+    };
+    fetchAssignableUsers();
+  }, [variant]);
+
+  const [activityOptions, setActivityOptions] = useState([]);
+  useEffect(() => {
+    activitiesApi
+      .getAll()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : res?.data || [];
+        setActivityOptions(
+          list.map((a) => {
+            const fecha = a.fechaHora ? new Date(a.fechaHora).toLocaleDateString('es-AR') : '';
+            return {
+              value: String(a.idFormulario),
+              label: [a.tipoContacto, a.empresa, fecha].filter(Boolean).join(' · '),
+            };
+          })
+        );
+      })
+      .catch((err) => console.error('No se pudieron cargar las actividades:', err));
+  }, [variant]);
+
+  const toggleAssignee = (idUser) => {
+    setSelectedAssignees((prev) =>
+      prev.includes(idUser) ? prev.filter((id) => id !== idUser) : [...prev, idUser]
+    );
+  };
 
   const fetchTasks = async () => {
     try {
@@ -114,11 +190,13 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     let result = [...tasks];
 
     if (activeTab === 'todo') {
-      result = result.filter((t) => t.estado !== 'Completada');
-    } else if (activeTab === 'completadas') {
-      result = result.filter((t) => t.estado === 'Completada');
+      result = result.filter((t) => t.estado !== 'Finalizada');
+    } else if (activeTab === 'finalizadas') {
+      result = result
+        .filter((t) => t.estado === 'Finalizada')
+        .sort((a, b) => new Date(b.fechaFinalizacion || 0) - new Date(a.fechaFinalizacion || 0));
     } else if (activeTab === 'hoy') {
-      result = result.filter((t) => t.fechaVencimiento === todayStr);
+      result = result.filter((t) => t.fechaVencimiento === todayStr && t.estado !== 'Finalizada');
     }
 
     if (searchQuery) {
@@ -138,21 +216,32 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     return result;
   }, [tasks, activeTab, searchQuery, priorityFilter, todayStr]);
 
-  const pendientesCount = tasks.filter((t) => t.estado !== 'Completada').length;
-  const completadasCount = tasks.filter((t) => t.estado === 'Completada').length;
+  const pendientesCount = tasks.filter((t) => t.estado !== 'Finalizada').length;
+  const finalizadasCount = tasks.filter((t) => t.estado === 'Finalizada').length;
   const hoyCount = tasks.filter(
-    (t) => t.fechaVencimiento === todayStr && t.estado !== 'Completada'
+    (t) => t.fechaVencimiento === todayStr && t.estado !== 'Finalizada'
   ).length;
 
-  const handleToggleComplete = async (taskId) => {
-    const target = tasks.find((t) => t.id === taskId);
-    const newStatus = target?.estado === 'Completada' ? 'Pendiente' : 'Completada';
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, estado: newStatus } : t)));
+  // Un vendedor solo finaliza tareas asociadas a él; un administrador puede finalizar cualquiera.
+  // El backend vuelve a validar esto: acá solo se evita el viaje y se avisa antes.
+  const canFinalize = (task) =>
+    isAdmin || task.asignadosIds.includes(myUserId);
+
+  const handleFinalizeTask = async (task) => {
+    if (!canFinalize(task)) {
+      setNotice({ type: 'error', text: 'No tiene acceso a finalizar dicha tarea.' });
+      return;
+    }
+    setFinalizingId(task.id);
     try {
-      await tasksApi.updateStatus(taskId, newStatus);
+      await tasksApi.finalize(task.id);
+      setNotice({ type: 'success', text: `Tarea "${task.titulo}" finalizada.` });
+      await fetchTasks();
     } catch (err) {
-      console.error('Error al actualizar estado de tarea:', err);
-      fetchTasks();
+      const message = err?.response?.data?.message || 'No se pudo finalizar la tarea.';
+      setNotice({ type: 'error', text: message });
+    } finally {
+      setFinalizingId(null);
     }
   };
 
@@ -179,40 +268,87 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     const newErrors = {};
     if (!form.titulo?.trim()) newErrors.titulo = 'El título de la tarea es obligatorio.';
     if (!form.fechaVencimiento) newErrors.fechaVencimiento = 'Seleccioná la fecha límite.';
+    if (variant === 'admin' && selectedAssignees.length === 0) {
+      newErrors.asignados = 'Asociá al menos un usuario a la tarea.';
+    }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
     setErrors({});
 
+    const editableFields = {
+      titulo: form.titulo.trim(),
+      descripcion: form.titulo.trim(),
+      tipo: form.tipo,
+      prioridad: form.prioridad,
+      fechaVencimiento: form.fechaVencimiento,
+      horaVencimiento: form.horaVencimiento || null,
+      empresa: form.empresa?.trim() || null,
+      contacto: form.contacto?.trim() || null,
+      formularioActividadId: form.actividadId ? Number(form.actividadId) : null,
+      notas: form.notas?.trim() || null,
+    };
+
     try {
       setLoading(true);
-      const payload = {
-        titulo: form.titulo.trim(),
-        descripcion: form.titulo.trim(),
-        tipo: form.tipo,
-        prioridad: form.prioridad,
-        fechaVencimiento: form.fechaVencimiento,
-        horaVencimiento: form.horaVencimiento,
-        empresa: form.empresa?.trim() || null,
-        notas: form.notas?.trim() || null,
-        estado: 'Pendiente',
-        creadoPorRol: cfg.creadoPorRol,
-        destinatarioRol: cfg.destinatarioRol,
-        asignadoA: currentUser?.nombreApellido || cfg.defaultAsignado,
-        sellerId: currentUser?.idUser || currentUser?.id || null,
-      };
-
-      await tasksApi.create(payload);
-      setShowDrawer(false);
-      setForm(emptyForm());
+      if (editingTask) {
+        const payload = { ...editableFields };
+        if (variant === 'admin') payload.asignadosIds = selectedAssignees;
+        await tasksApi.update(editingTask.id, payload);
+        setNotice({ type: 'success', text: 'Tarea actualizada.' });
+      } else {
+        await tasksApi.create({
+          ...editableFields,
+          estado: 'Pendiente',
+          creadoPorRol: cfg.creadoPorRol,
+          destinatarioRol: cfg.destinatarioRol,
+          asignadoA: currentUser?.nombreApellido || cfg.defaultAsignado,
+          // El vendedor queda asociado a las tareas que él mismo crea, para poder finalizarlas.
+          asignadosIds: variant === 'admin' ? selectedAssignees : [myUserId].filter(Boolean),
+        });
+      }
+      closeDrawer();
       await fetchTasks();
     } catch (err) {
-      console.error('Error al crear tarea:', err);
-      alert('No se pudo guardar la tarea. Revisá los datos e intentá de nuevo.');
+      console.error('Error al guardar tarea:', err);
+      setNotice({ type: 'error', text: 'No se pudo guardar la tarea. Revisá los datos e intentá de nuevo.' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const openCreateDrawer = () => {
+    setEditingTask(null);
+    setErrors({});
+    setForm(emptyForm());
+    setSelectedAssignees([]);
+    setShowDrawer(true);
+  };
+
+  const openEditDrawer = (task) => {
+    setEditingTask(task);
+    setErrors({});
+    setForm({
+      titulo: task.titulo,
+      tipo: task.tipo,
+      fechaVencimiento: task.fechaVencimiento,
+      horaVencimiento: task.horaVencimiento,
+      prioridad: task.prioridad,
+      empresa: task.empresa,
+      contacto: task.contacto,
+      actividadId: task.actividadId,
+      notas: task.notas,
+    });
+    setSelectedAssignees(task.asignadosIds);
+    setShowDrawer(true);
+  };
+
+  const closeDrawer = () => {
+    setShowDrawer(false);
+    setEditingTask(null);
+    setForm(emptyForm());
+    setSelectedAssignees([]);
   };
 
   const handleExportCSV = () => {
@@ -255,34 +391,31 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     }
   };
 
-  const colCount = 7;
+
+  const showingFinalized = activeTab === 'finalizadas';
 
   return (
     <div className="tasks-board">
+      {notice && (
+        <div className={`tasks-board__notice tasks-board__notice--${notice.type}`} role="status">
+          {notice.text}
+        </div>
+      )}
+
       {/* Banner */}
       <div className="tasks-board__banner">
         <div className="tasks-board__banner-left">
           <h1 className="tasks-board__title">Tareas</h1>
         </div>
         <div className="crm-page-header-actions">
-          <button
-            type="button"
-            className="crm-btn-primary"
-            onClick={() => {
-              setErrors({});
-              setForm(emptyForm());
-              setShowDrawer(true);
-            }}
-          >
+          <button type="button" className="crm-btn-primary" onClick={openCreateDrawer}>
             <Plus size={18} />
             <span>Crear Tarea</span>
           </button>
-          {variant === 'admin' && (
-            <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
-              <Download size={15} />
-              <span>Exportar</span>
-            </button>
-          )}
+          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
+            <Download size={15} />
+            <span>Exportar</span>
+          </button>
         </div>
       </div>
 
@@ -315,9 +448,9 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             <CheckSquare size={22} />
           </div>
           <div>
-            <span className="tasks-board__stat-label">Completadas</span>
-            <span className="tasks-board__stat-value">{completadasCount}</span>
-            <span className="tasks-board__stat-sub">Cerradas y archivadas</span>
+            <span className="tasks-board__stat-label">Finalizadas</span>
+            <span className="tasks-board__stat-value">{finalizadasCount}</span>
+            <span className="tasks-board__stat-sub">Tareas concretadas</span>
           </div>
         </div>
       </div>
@@ -342,11 +475,11 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           </button>
           <button
             type="button"
-            className={`tasks-board__tab ${activeTab === 'completadas' ? 'tasks-board__tab--active' : ''}`}
-            onClick={() => setActiveTab('completadas')}
+            className={`tasks-board__tab ${showingFinalized ? 'tasks-board__tab--active' : ''}`}
+            onClick={() => setActiveTab('finalizadas')}
           >
-            <span>Completadas</span>
-            <span className="tasks-board__tab-badge">{completadasCount}</span>
+            <span>Finalizadas</span>
+            <span className="tasks-board__tab-badge">{finalizadasCount}</span>
           </button>
         </div>
 
@@ -376,37 +509,34 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           <table className="tasks-board__table">
             <thead>
               <tr>
-                <th className="tasks-board__th-checkbox"></th>
                 <th>Título / Tarea</th>
-                <th>Empresa / Cliente</th>
+                <th>Empresa / Contacto</th>
+                <th>Actividad</th>
                 <th>Fecha Límite</th>
                 <th>Prioridad</th>
                 <th>Asignado a</th>
+                {showingFinalized && <th>Finalizada por</th>}
                 <th className="tasks-board__th-actions"></th>
               </tr>
             </thead>
             <tbody>
               {filteredTasks.length === 0 ? (
                 <tr>
-                  <td colSpan={colCount} className="tasks-board__empty-cell">
-                    {loading ? 'Cargando tareas…' : 'No hay tareas para mostrar. Creá una nueva con “Crear Tarea”.'}
+                  <td colSpan={showingFinalized ? 8 : 7} className="tasks-board__empty-cell">
+                    {loading
+                      ? 'Cargando tareas…'
+                      : showingFinalized
+                        ? 'Todavía no hay tareas finalizadas.'
+                        : 'No hay tareas para mostrar. Creá una nueva con “Crear Tarea”.'}
                   </td>
                 </tr>
               ) : (
                 filteredTasks.map((t) => {
-                  const isCompleted = t.estado === 'Completada';
+                  const isFinalized = t.estado === 'Finalizada';
                   return (
-                    <tr key={t.id} className={isCompleted ? 'tasks-board__row--done' : ''}>
-                      <td className="tasks-board__td-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={isCompleted}
-                          onChange={() => handleToggleComplete(t.id)}
-                          className="tasks-board__checkbox-input"
-                        />
-                      </td>
+                    <tr key={t.id} className={isFinalized ? 'tasks-board__row--done' : ''}>
                       <td>
-                        <div className={`tasks-board__task-title ${isCompleted ? 'tasks-board__task-title--done' : ''}`}>
+                        <div className={`tasks-board__task-title ${isFinalized ? 'tasks-board__task-title--done' : ''}`}>
                           {t.titulo}
                         </div>
                         <div className="tasks-board__task-type-row">
@@ -416,6 +546,18 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                       <td>
                         <div className="tasks-board__empresa-name">{t.empresa || '—'}</div>
                         {t.contacto && <div className="tasks-board__empresa-contact">{t.contacto}</div>}
+                      </td>
+                      <td>
+                        {t.actividad ? (
+                          <>
+                            <div className="tasks-board__empresa-name">{t.actividad.nombre}</div>
+                            {t.actividad.fecha && (
+                              <div className="tasks-board__empresa-contact">{formatDateTime(t.actividad.fecha)}</div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="tasks-board__empresa-name">—</span>
+                        )}
                       </td>
                       <td>
                         <span className="tasks-board__fecha-text">
@@ -428,19 +570,48 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                         </span>
                       </td>
                       <td>
-                        <span className="tasks-board__asignado-text">
-                          {t.asignadoA}
-                        </span>
+                        <span className="tasks-board__asignado-text">{t.asignadoA}</span>
                       </td>
+                      {showingFinalized && (
+                        <td>
+                          <div className="tasks-board__empresa-name">{t.finalizadoPor || '—'}</div>
+                          {t.fechaFinalizacion && (
+                            <div className="tasks-board__empresa-contact">{formatDateTime(t.fechaFinalizacion)}</div>
+                          )}
+                        </td>
+                      )}
                       <td>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteTask(t.id, t.titulo)}
-                          title="Eliminar tarea"
-                          className="tasks-board__delete-btn"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="tasks-board__row-actions">
+                          {!isFinalized && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEditDrawer(t)}
+                                title="Editar tarea"
+                                className="tasks-board__icon-btn"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleFinalizeTask(t)}
+                                className="tasks-board__finalize-btn"
+                                disabled={finalizingId === t.id}
+                              >
+                                <CheckCircle2 size={14} />
+                                {finalizingId === t.id ? 'Finalizando…' : 'Finalizar tarea'}
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTask(t.id, t.titulo)}
+                            title="Eliminar tarea"
+                            className="tasks-board__delete-btn"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -451,11 +622,11 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         </div>
       </div>
 
-      {/* Drawer: crear tarea */}
+      {/* Drawer: crear / editar tarea */}
       <SlideDrawer
         isOpen={showDrawer}
-        onClose={() => setShowDrawer(false)}
-        title="Crear Nueva Tarea"
+        onClose={closeDrawer}
+        title={editingTask ? 'Editar Tarea' : 'Crear Nueva Tarea'}
         width="520px"
       >
         <form onSubmit={handleCreateTaskSubmit} noValidate className="tasks-board__form">
@@ -509,11 +680,76 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             />
           </div>
 
-          <CompanyAutocomplete
-            label="Empresa / Cliente Asociado"
-            name="empresa"
-            value={form.empresa}
-            onChange={(nombre) => setForm((prev) => ({ ...prev, empresa: nombre }))}
+          <div className="tasks-board__form-row">
+            <CompanyAutocomplete
+              label="Empresa"
+              name="empresa"
+              value={form.empresa}
+              onChange={(nombre) => setForm((prev) => ({ ...prev, empresa: nombre }))}
+            />
+            <ContactAutocomplete
+              label="Contacto"
+              name="contacto"
+              value={form.contacto}
+              onChange={(nombre, contacto) =>
+                setForm((prev) => ({
+                  ...prev,
+                  contacto: nombre,
+                  empresa: !prev.empresa && contacto?.empresa ? contacto.empresa : prev.empresa,
+                }))
+              }
+            />
+          </div>
+
+          {variant === 'admin' && (
+            <div className="tasks-board__assignee-field">
+              <label>
+                Asociar uno o más usuarios <span className="form-input-required">*</span>
+              </label>
+              {myUserId && (
+                <label className="tasks-board__assignee-option tasks-board__assignee-option--me">
+                  <input
+                    type="checkbox"
+                    checked={selectedAssignees.includes(myUserId)}
+                    onChange={() => {
+                      toggleAssignee(myUserId);
+                      if (errors.asignados) setErrors((prev) => ({ ...prev, asignados: '' }));
+                    }}
+                  />
+                  <span>Asociar mi usuario</span>
+                </label>
+              )}
+              <div className={`tasks-board__assignee-list ${errors.asignados ? 'tasks-board__assignee-list--error' : ''}`}>
+                {assignableUsers.filter((u) => (u.idUser || u.id) !== myUserId).map((u) => {
+                  const idUser = u.idUser || u.id;
+                  return (
+                    <label key={idUser} className="tasks-board__assignee-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedAssignees.includes(idUser)}
+                        onChange={() => {
+                          toggleAssignee(idUser);
+                          if (errors.asignados) setErrors((prev) => ({ ...prev, asignados: '' }));
+                        }}
+                      />
+                      <span>{u.nombreApellido || idUser}</span>
+                      <span className="tasks-board__assignee-role">
+                        {(u.role || u.rol || '').toLowerCase().includes('admin') ? 'Administrador' : 'Vendedor'}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {errors.asignados && <span className="form-input-error">{errors.asignados}</span>}
+            </div>
+          )}
+
+          <FormSelect
+            label="Actividad asociada"
+            name="actividadId"
+            value={form.actividadId}
+            onChange={handleFormChange}
+            options={[{ value: '', label: 'Sin actividad asociada' }, ...activityOptions]}
           />
 
           <FormTextarea
@@ -531,12 +767,12 @@ export const TasksBoard = ({ variant = 'admin' }) => {
               className="btn-rounded-primary tasks-board__submit-btn"
               disabled={loading}
             >
-              {loading ? 'Guardando…' : 'Guardar Tarea'}
+              {loading ? 'Guardando…' : editingTask ? 'Guardar Cambios' : 'Guardar Tarea'}
             </button>
             <button
               type="button"
               className="roadmaps-btn roadmaps-btn--outline tasks-board__cancel-btn"
-              onClick={() => setShowDrawer(false)}
+              onClick={closeDrawer}
             >
               Cancelar
             </button>

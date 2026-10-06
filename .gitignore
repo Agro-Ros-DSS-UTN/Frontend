@@ -25,3 +25,6 @@ dist-ssr
 .env
 .env.local
 
+
+# Configuración local de Claude Code
+.claude

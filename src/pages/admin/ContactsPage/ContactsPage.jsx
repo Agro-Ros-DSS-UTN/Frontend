@@ -16,9 +16,8 @@ import {
   ChevronRight,
   Mail,
   Phone,
-  Edit,
+  Pencil,
   Trash2,
-  ExternalLink,
   X,
   User,
   Building2,
@@ -28,6 +27,7 @@ import {
 import { CONTACT_TYPES } from '../../../data/mockData';
 import { fetchClients, fetchClientCompanies, createClient, updateClient, deleteClient } from '../../../data/api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { ContactSummary } from '../../../components/contacts/ContactSummary';
 import './ContactsPage.css';
 
 const COLUMNS = [
@@ -40,6 +40,13 @@ const COLUMNS = [
 ];
 
 const PAGE_SIZE = 20;
+
+const formatRegisterDate = (value) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (isNaN(d)) return value;
+  return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
 
 export const ContactsPage = () => {
   const [clients, setClients] = useState([]);
@@ -56,6 +63,7 @@ export const ContactsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
   const [editingClient, setEditingClient] = useState(null);
+  const [summaryClient, setSummaryClient] = useState(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -448,11 +456,18 @@ export const ContactsPage = () => {
                         <div className="contacts-table__name-cell">
                           <div className="contacts-table__avatar">{initials}</div>
                           <div>
-                            <span className="contacts-table__name">{client.nombreApellido}</span>
+                            <button
+                              type="button"
+                              className="contacts-table__name contacts-table__name-btn"
+                              onClick={() => setSummaryClient(client)}
+                              title="Ver resumen del contacto"
+                            >
+                              {client.nombreApellido}
+                            </button>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                               <span className="contacts-table__doc">{client.numDoc}</span>
                               {(client.empresa || client.clientCompanyId) && (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: 'var(--color-primary, #1a7d6b)', background: 'var(--color-primary-50, #f0fdfa)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(26,125,107,0.2)', fontWeight: 500 }}>
+                                <span className="crm-outline-pill">
                                   <Building2 size={10} />
                                   {client.empresa || companies.find(c => c.id === client.clientCompanyId)?.nombreEmpresa || 'Empresa'}
                                 </span>
@@ -462,25 +477,27 @@ export const ContactsPage = () => {
                         </div>
                       </td>
                       <td>
-                        <a href={`mailto:${client.direccionMail}`} className="contacts-table__email">
-                          {client.direccionMail}
-                          <ExternalLink size={12} />
-                        </a>
+                        {client.direccionMail && client.direccionMail !== '-' ? (
+                          <a href={`mailto:${client.direccionMail}`} className="contacts-table__email" title="Enviar un correo">
+                            {client.direccionMail}
+                            <Mail size={12} />
+                          </a>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="contacts-table__phone">
                         {Array.isArray(client.telefonos) ? client.telefonos[0] : (client.telefonos || '—')}
                       </td>
                       <td>
-                        <span className={`contacts-table__type-badge contacts-table__type-badge--${(client.tipoClient || 'productor').toLowerCase()}`}>
-                          {client.tipoClient}
-                        </span>
+                        <span className="crm-outline-pill">{client.tipoClient || '—'}</span>
                       </td>
                       <td>{client.localidad || '—'}</td>
-                      <td className="contacts-table__date">{client.fechaAgregado}</td>
+                      <td className="contacts-table__date">{formatRegisterDate(client.fechaAgregado)}</td>
                       <td className="contacts-table__actions-col">
                         <div className="contacts-table__actions">
                           <button className="contacts-table__action-btn" title="Editar" onClick={() => openEditModal(client)}>
-                            <Edit size={15} />
+                            <Pencil size={15} />
                           </button>
                           <button className="contacts-table__action-btn contacts-table__action-btn--danger" title="Eliminar" onClick={() => handleDelete(client)}>
                             <Trash2 size={15} />
@@ -676,6 +693,18 @@ export const ContactsPage = () => {
             </form>
           </div>
         </div>
+      )}
+      {summaryClient && (
+        <ContactSummary
+          contact={summaryClient}
+          companyName={summaryClient.empresa || companies.find((c) => c.id === summaryClient.clientCompanyId)?.nombreEmpresa}
+          onClose={() => setSummaryClient(null)}
+          onEdit={() => {
+            const client = summaryClient;
+            setSummaryClient(null);
+            openEditModal(client);
+          }}
+        />
       )}
     </div>
   );

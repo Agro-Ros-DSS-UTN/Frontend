@@ -454,7 +454,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--color-primary);
+  color: #0f172a;
   text-decoration: none;
   font-size: var(--text-sm);
   transition: color var(--transition-fast);
@@ -511,37 +511,33 @@
 
 .contacts-table__actions {
   display: flex;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.contacts-table__row:hover .contacts-table__actions {
-  opacity: 1;
+  gap: 6px;
 }
 
 .contacts-table__action-btn {
-  width: 30px;
-  height: 30px;
-  display: flex;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 6px;
+  color: #64748b;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all 150ms ease;
 }
 
 .contacts-table__action-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  color: #1a7d6b;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
 }
 
 .contacts-table__action-btn--danger:hover {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
+  color: #ef4444;
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 
 /* ── Empty State ── */
@@ -725,4 +721,17 @@
   font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
+}
+
+.contacts-table__name-btn {
+  display: block;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.contacts-table__name-btn:hover {
+  text-decoration: underline;
 }

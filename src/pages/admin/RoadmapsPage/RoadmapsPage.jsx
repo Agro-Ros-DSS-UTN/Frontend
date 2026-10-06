@@ -12,7 +12,6 @@ import {
   Plus,
   Search,
   Filter,
-  ExternalLink,
   ChevronRight,
   User,
   Building2,
@@ -33,32 +32,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { roadmapsApi } from '../../../api/operations.api';
 import { authApi } from '../../../api/auth.api';
-import { companiesApi } from '../../../api/companies.api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import { RoadmapDetailModal } from '../../../components/roadmaps/RoadmapDetailModal';
+import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
+import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
+import { MAX_ROADMAP_STOPS } from '../../../utils/timeOptions';
 import './RoadmapsPage.css';
 
 // Base de datos de ejemplo amplia de empresas y localidades agrícolas
-const sampleCompanies = [
-  { id: 101, nombreEmpresa: 'Cargill S.A.', direccionEmpresa: 'Ruta Nacional 8 Km 222', localidad: 'Pergamino', latitud: -33.89, longitud: -60.57 },
-  { id: 102, nombreEmpresa: 'Bunge Argentina S.A.', direccionEmpresa: 'Av. Circunvalación 4500', localidad: 'Rosario', latitud: -32.95, longitud: -60.66 },
-  { id: 103, nombreEmpresa: 'Syngenta Agro S.A.', direccionEmpresa: 'Ruta 33 Km 45', localidad: 'Casilda', latitud: -33.04, longitud: -61.16 },
-  { id: 104, nombreEmpresa: 'Cooperativa Agrícola de Pergamino', direccionEmpresa: 'Calle San Martín 890', localidad: 'Pergamino', latitud: -33.88, longitud: -60.58 },
-  { id: 105, nombreEmpresa: 'Establecimiento Don Pedro', direccionEmpresa: 'Camino Rural S/N', localidad: 'Cañada de Gómez', latitud: -32.81, longitud: -61.39 },
-  { id: 106, nombreEmpresa: 'Empresa Los Álamos S.A.', direccionEmpresa: 'Ruta Provincial 91', localidad: 'Totoras', latitud: -32.58, longitud: -61.24 },
-  { id: 107, nombreEmpresa: 'Casilda Agro S.R.L.', direccionEmpresa: 'Bv. Ovidio Lagos 1250', localidad: 'Casilda', latitud: -33.04, longitud: -61.17 },
-  { id: 108, nombreEmpresa: 'Agroservicios Venado Tuerto', direccionEmpresa: 'Ruta 8 Km 365', localidad: 'Venado Tuerto', latitud: -33.74, longitud: -61.96 },
-  { id: 109, nombreEmpresa: 'Agropecuario Rafaela S.A.', direccionEmpresa: 'Bv. Santa Fe 890', localidad: 'Rafaela', latitud: -31.25, longitud: -61.49 },
-  { id: 110, nombreEmpresa: 'Don Mario Semillas', direccionEmpresa: 'Ruta 7 Km 210', localidad: 'Chacabuco', latitud: -34.64, longitud: -60.46 }
-];
-
-// Opciones de Horarios Limpios (de 06:00 a 22:00 hs en intervalos de 30 min)
-const TIME_OPTIONS = [
-  '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
-  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-  '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'
-];
 
 export const RoadmapsPage = () => {
   const navigate = useNavigate();
@@ -75,21 +56,6 @@ export const RoadmapsPage = () => {
   // DB State
   const [apiRoadmaps, setApiRoadmaps] = useState([]);
   const [sellersList, setSellersList] = useState([]);
-  const [companiesList, setCompaniesList] = useState(sampleCompanies);
-
-  // Active suggestions dropdown index per stop
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(null);
-
-  // Quick Create Company Modal State
-  const [showQuickCompanyModal, setShowQuickCompanyModal] = useState(false);
-  const quickCompanyModalOverlayHandlers = useOverlayClose(() => setShowQuickCompanyModal(false));
-  const [quickCompanyTargetStopIndex, setQuickCompanyTargetStopIndex] = useState(null);
-  const [quickCompanyData, setQuickCompanyData] = useState({
-    nombreEmpresa: '',
-    direccionEmpresa: '',
-    localidad: '',
-    cuit: ''
-  });
 
   // Form State for creating Roadmap with Zone Name
   const [formData, setFormData] = useState({
@@ -124,10 +90,9 @@ export const RoadmapsPage = () => {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const [roadmapsRes, usersRes, companiesRes] = await Promise.allSettled([
+      const [roadmapsRes, usersRes] = await Promise.allSettled([
         roadmapsApi.getAll(),
-        authApi.getAllUsers(),
-        companiesApi.getAll()
+        authApi.getAllUsers()
       ]);
 
       // 1. Process Roadmaps from DB
@@ -137,8 +102,8 @@ export const RoadmapsPage = () => {
           const colors = ['#1a7d6b', '#0284c7', '#d97706', '#8b5cf6', '#ec4899'];
           const formatted = rawRoadmaps.map((r, i) => ({
             id: r.id,
-            vendedorId: r.sellerId,
-            vendedor: r.Seller?.User?.nombreApellido || `Vendedor #${r.sellerId}`,
+            vendedorId: r.idUserAsignado,
+            vendedor: r.asignado?.nombreApellido || 'Sin asignar',
             color: colors[i % colors.length],
             zona: r.nombreZona || r.descripcion || 'Zona Comercial',
             fecha: r.fechaRuta,
@@ -183,26 +148,8 @@ export const RoadmapsPage = () => {
         }
       }
 
-      // 3. Process Companies from DB & Merge with sample dataset
-      if (companiesRes.status === 'fulfilled') {
-        const rawCompanies = companiesRes.value?.data || companiesRes.value || [];
-        if (Array.isArray(rawCompanies) && rawCompanies.length > 0) {
-          const formattedDbCompanies = rawCompanies.map(c => ({
-            id: c.id,
-            nombreEmpresa: c.nombreEmpresa || c.nombre,
-            direccionEmpresa: c.direccionEmpresa || c.direccion || 'Dirección registrada',
-            localidad: c.Locality?.nomLocalidad || c.localityCodPostal || 'Santa Fe',
-            latitud: -32.85,
-            longitud: -61.45
-          }));
-          setCompaniesList([...formattedDbCompanies, ...sampleCompanies]);
-        } else {
-          setCompaniesList(sampleCompanies);
-        }
-      }
     } catch (err) {
       console.error('Error fetching data from API:', err);
-      setCompaniesList(sampleCompanies);
     } finally {
       setLoading(false);
     }
@@ -406,22 +353,25 @@ export const RoadmapsPage = () => {
 
   // Modal Handlers
   const handleAddStopField = () => {
-    setFormData(prev => ({
-      ...prev,
-      paradas: [
-        ...prev.paradas,
-        {
-          clientCompanyId: '',
-          nombreLugar: '',
-          direccion: '',
-          localidad: '',
-          latitud: -33.00 - (prev.paradas.length * 0.05),
-          longitud: -61.20 - (prev.paradas.length * 0.05),
-          horaEstimada: '10:00',
-          notas: ''
-        }
-      ]
-    }));
+    setFormData(prev => {
+      if (prev.paradas.length >= MAX_ROADMAP_STOPS) return prev;
+      return {
+        ...prev,
+        paradas: [
+          ...prev.paradas,
+          {
+            clientCompanyId: '',
+            nombreLugar: '',
+            direccion: '',
+            localidad: '',
+            latitud: -33.00 - (prev.paradas.length * 0.05),
+            longitud: -61.20 - (prev.paradas.length * 0.05),
+            horaEstimada: '10:00',
+            notas: ''
+          }
+        ]
+      };
+    });
   };
 
   const handleRemoveStopField = (index) => {
@@ -437,83 +387,22 @@ export const RoadmapsPage = () => {
       newStops[index] = { ...newStops[index], [field]: value };
       return { ...prev, paradas: newStops };
     });
-    if (field === 'nombreLugar' || field === 'direccion') {
-      setActiveSuggestionIndex(index);
-    }
   };
 
-  // Select a suggestion on click
-  const handleSelectSuggestion = (index, company) => {
+  // Al elegir (o tipear) una empresa en el autocompletado de una parada —
+  // autocompleta dirección y localidad si matchea una empresa real de la base.
+  const handleStopCompanySelect = (index, nombre, company) => {
     setFormData(prev => {
       const newStops = [...prev.paradas];
       newStops[index] = {
         ...newStops[index],
-        clientCompanyId: company.id || '',
-        nombreLugar: company.nombreEmpresa,
-        direccion: company.direccionEmpresa,
-        localidad: company.localidad,
-        latitud: company.latitud || -32.85,
-        longitud: company.longitud || -61.45
+        nombreLugar: nombre,
+        clientCompanyId: company?.id || '',
+        direccion: company?.direccion || newStops[index].direccion,
+        localidad: company?.loc || newStops[index].localidad,
       };
       return { ...prev, paradas: newStops };
     });
-    setActiveSuggestionIndex(null);
-  };
-
-  // Trigger quick create company modal
-  const handleOpenQuickCreateCompany = (stopIndex) => {
-    const currentTypedName = formData.paradas[stopIndex]?.nombreLugar || '';
-    const currentTypedAddress = formData.paradas[stopIndex]?.direccion || '';
-    const currentTypedLocality = formData.paradas[stopIndex]?.localidad || '';
-
-    setQuickCompanyTargetStopIndex(stopIndex);
-    setQuickCompanyData({
-      nombreEmpresa: currentTypedName,
-      direccionEmpresa: currentTypedAddress,
-      localidad: currentTypedLocality || 'Casilda',
-      cuit: `30-${Math.floor(10000000 + Math.random() * 90000000)}-${Math.floor(Math.random() * 9)}`
-    });
-    setActiveSuggestionIndex(null);
-    setShowQuickCompanyModal(true);
-  };
-
-  // Submit Quick Create Company
-  const handleSaveQuickCompanySubmit = async (e) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      const newComp = await companiesApi.create({
-        nombreEmpresa: quickCompanyData.nombreEmpresa,
-        cuit: quickCompanyData.cuit,
-        direccionEmpresa: quickCompanyData.direccionEmpresa || 'Dirección registrada',
-        tipoEmpresa: 'Productor',
-        superficieHa: 100,
-        localityCodPostal: '2170'
-      });
-
-      const formattedNewComp = {
-        id: newComp?.id || Date.now(),
-        nombreEmpresa: quickCompanyData.nombreEmpresa,
-        direccionEmpresa: quickCompanyData.direccionEmpresa,
-        localidad: quickCompanyData.localidad || 'Casilda',
-        latitud: -32.85,
-        longitud: -61.45
-      };
-
-      setCompaniesList(prev => [formattedNewComp, ...prev]);
-
-      if (quickCompanyTargetStopIndex !== null) {
-        handleSelectSuggestion(quickCompanyTargetStopIndex, formattedNewComp);
-      }
-
-      setShowQuickCompanyModal(false);
-      alert(`¡Empresa "${quickCompanyData.nombreEmpresa}" creada exitosamente en la Base de Datos!`);
-    } catch (err) {
-      console.error('Error creating quick company:', err);
-      alert('Se guardó la empresa localmente.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Submit Roadmap Creation
@@ -725,16 +614,16 @@ export const RoadmapsPage = () => {
           {/* Empty State Banner if no Roadmaps exist in DB */}
           {apiRoadmaps.length === 0 && !loading && (
             <div style={{
-              background: '#f0fdf4',
-              border: '1px solid #bbf7d0',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
               borderRadius: '12px',
               padding: '2rem',
               textAlign: 'center',
               margin: '1rem 0'
             }}>
-              <AlertCircle size={36} color="#16a34a" style={{ marginBottom: '0.5rem' }} />
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#166534', fontWeight: 800 }}>No hay hojas de ruta cargadas en el sistema</h3>
-              <p style={{ color: '#15803d', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              <AlertCircle size={36} color="#94a3b8" style={{ marginBottom: '0.5rem' }} />
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontWeight: 800 }}>No hay hojas de ruta cargadas en el sistema</h3>
+              <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
                 Planifica tu primera hoja de ruta seleccionando vendedores y lugares o empresas cargadas.
               </p>
               <button
@@ -1141,178 +1030,48 @@ export const RoadmapsPage = () => {
 
               {/* Dynamic Paradas List */}
               <div className="roadmaps-form-field" style={{ marginTop: '0.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <label style={{ margin: 0, fontWeight: 700 }}>Paradas del Recorrido ({formData.paradas.length})</label>
-                  <button
-                    type="button"
-                    className="roadmaps-btn roadmaps-btn--outline"
-                    style={{ padding: '4px 10px', fontSize: '0.8rem' }}
-                    onClick={handleAddStopField}
-                  >
-                    <Plus size={14} /> Agregar Parada
-                  </button>
-                </div>
-
-                <div style={{ paddingRight: '4px' }}>
-                  {formData.paradas.map((stop, idx) => {
-                    const searchTerm = (stop.nombreLugar || stop.direccion || '').toLowerCase().trim();
-                    const matchingSuggestions = searchTerm.length >= 2
-                      ? companiesList.filter(c =>
-                          c.nombreEmpresa.toLowerCase().includes(searchTerm) ||
-                          c.direccionEmpresa.toLowerCase().includes(searchTerm) ||
-                          c.localidad.toLowerCase().includes(searchTerm)
-                        )
-                      : [];
-
-                    return (
-                      <div key={idx} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '14px', position: 'relative', overflow: 'visible' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a7d6b' }}>
-                            Parada #{idx + 1}
-                          </span>
-                          {formData.paradas.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveStopField(idx)}
-                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                              title="Eliminar parada"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.5rem', marginBottom: '6px' }}>
-                          <div style={{ position: 'relative' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '2px', display: 'block' }}>
-                              Empresa o lugar *
-                            </label>
-                            <input
-                              type="text"
-                              className="roadmaps-input"
-                              placeholder="Ej: Cargill, Syngenta..."
-                              value={stop.nombreLugar}
-                              onChange={e => handleStopChange(idx, 'nombreLugar', e.target.value)}
-                              onFocus={() => setActiveSuggestionIndex(idx)}
-                              required
-                            />
-
-                            {/* Clean Floating Suggestions Dropdown */}
-                            {activeSuggestionIndex === idx && (
-                              <div style={{
-                                position: 'absolute',
-                                top: '100%',
-                                left: 0,
-                                right: 0,
-                                background: '#ffffff',
-                                border: '1px solid #1a7d6b',
-                                borderRadius: '8px',
-                                boxShadow: '0 12px 28px rgba(0,0,0,0.25)',
-                                zIndex: 99999,
-                                maxHeight: '200px',
-                                overflowY: 'auto',
-                                marginTop: '4px'
-                              }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
-                                  <span style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
-                                    Sugerencias
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); setActiveSuggestionIndex(null); }}
-                                    style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                    title="Cerrar sugerencias"
-                                  >
-                                    <X size={14} />
-                                  </button>
-                                </div>
-
-                                {matchingSuggestions.length > 0 ? (
-                                  matchingSuggestions.map(comp => (
-                                    <div
-                                      key={comp.id}
-                                      style={{
-                                        padding: '10px 12px',
-                                        fontSize: '12px',
-                                        cursor: 'pointer',
-                                        borderBottom: '1px solid #f1f5f9',
-                                        transition: 'background 120ms ease'
-                                      }}
-                                      className="suggestion-item"
-                                      onClick={() => handleSelectSuggestion(idx, comp)}
-                                    >
-                                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{comp.nombreEmpresa}</div>
-                                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{comp.direccionEmpresa}, {comp.localidad}</div>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <div style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b' }}>
-                                    No hay sugerencias coincidentes.
-                                  </div>
-                                )}
-
-                                <div
-                                  style={{
-                                    padding: '10px 12px',
-                                    fontSize: '12px',
-                                    color: '#1a7d6b',
-                                    fontWeight: 700,
-                                    background: '#f0fdf4',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    borderTop: '1px solid #bbf7d0'
-                                  }}
-                                  onClick={() => handleOpenQuickCreateCompany(idx)}
-                                >
-                                  <Plus size={14} />
-                                  <span>¿No encuentras la empresa o localidad? Crear nueva...</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '2px' }}>
-                              Horario *
-                            </label>
-                            <select
-                              className="roadmaps-select"
-                              style={{ height: '40px' }}
-                              value={stop.horaEstimada}
-                              onChange={e => handleStopChange(idx, 'horaEstimada', e.target.value)}
-                              required
-                            >
-                              <option value="">Seleccionar Hora *</option>
-                              {TIME_OPTIONS.map(t => (
-                                <option key={t} value={t}>{t} hs</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.5rem' }}>
-                          <input
-                            type="text"
-                            className="roadmaps-input"
-                            placeholder="Dirección o ubicación *"
-                            value={stop.direccion}
-                            onChange={e => handleStopChange(idx, 'direccion', e.target.value)}
-                            required
-                          />
-                          <input
-                            type="text"
-                            className="roadmaps-input"
-                            placeholder="Localidad (recuperada)"
-                            value={stop.localidad || ''}
-                            onChange={e => handleStopChange(idx, 'localidad', e.target.value)}
-                          />
-                        </div>
+                {formData.paradas.map((stop, idx) => (
+                  <div key={idx} style={{ marginBottom: '0.75rem' }}>
+                    {idx > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1a7d6b' }}>Parada #{idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveStopField(idx)}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}
+                        >
+                          <Trash2 size={13} /> Quitar
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
+                    )}
+                    <CompanyAutocomplete
+                      label={idx === 0 ? 'Destino principal' : 'Empresa o lugar'}
+                      name={`parada-${idx}`}
+                      value={stop.nombreLugar}
+                      onChange={(nombre, company) => handleStopCompanySelect(idx, nombre, company)}
+                      placeholder="Buscá una empresa cargada en la base…"
+                      required
+                    />
+                    <input
+                      type="text"
+                      className="roadmaps-input"
+                      style={{ marginTop: '0.4rem' }}
+                      placeholder={idx === 0 ? 'Dirección del destino' : 'Dirección de la parada'}
+                      value={stop.direccion}
+                      onChange={e => handleStopChange(idx, 'direccion', e.target.value)}
+                      required
+                    />
+                  </div>
+                ))}
+
+                {formData.paradas.length < MAX_ROADMAP_STOPS && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FlipCheckbox id="addParadaAdmin" checked={false} onChange={e => e.target.checked && handleAddStopField()} />
+                    <label htmlFor="addParadaAdmin" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                      Agregar una parada
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div className="roadmaps-form-field">
@@ -1353,77 +1112,6 @@ export const RoadmapsPage = () => {
         />
       )}
 
-      {/* ── Mini-Modal: Alta Rápida de Empresa / Localidad en Base de Datos ── */}
-      {showQuickCompanyModal && (
-        <div className="roadmaps-modal-overlay" style={{ zIndex: 999999 }} {...quickCompanyModalOverlayHandlers}>
-          <div className="roadmaps-modal" style={{ width: '460px', height: 'auto', maxHeight: '90vh', margin: 'auto', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
-            <div className="roadmaps-modal__header">
-              <h2>Alta Rápida de Empresa / Localidad</h2>
-              <button className="roadmaps-modal__close" onClick={() => setShowQuickCompanyModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <form className="roadmaps-modal__form" onSubmit={handleSaveQuickCompanySubmit}>
-              <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
-                Registra una nueva Empresa o Localidad en la Base de Datos para asignarla inmediatamente a la parada.
-              </p>
-
-              <div className="roadmaps-form-field">
-                <label>Nombre de la Empresa *</label>
-                <input
-                  type="text"
-                  className="roadmaps-input"
-                  placeholder="Ej: Agropecuaria El Sol S.A."
-                  value={quickCompanyData.nombreEmpresa}
-                  onChange={e => setQuickCompanyData({ ...quickCompanyData, nombreEmpresa: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="roadmaps-form-field">
-                <label>Dirección o Ubicación *</label>
-                <input
-                  type="text"
-                  className="roadmaps-input"
-                  placeholder="Ej: Ruta Provincial 18 Km 12"
-                  value={quickCompanyData.direccionEmpresa}
-                  onChange={e => setQuickCompanyData({ ...quickCompanyData, direccionEmpresa: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="roadmaps-form-field">
-                <label>Localidad *</label>
-                <input
-                  type="text"
-                  className="roadmaps-input"
-                  placeholder="Ej: Pergamino / Casilda"
-                  value={quickCompanyData.localidad}
-                  onChange={e => setQuickCompanyData({ ...quickCompanyData, localidad: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="roadmaps-modal__actions" style={{ flexDirection: 'column', gap: '0.5rem' }}>
-                <button type="submit" className="roadmaps-btn roadmaps-btn--primary" disabled={loading}>
-                  {loading ? 'Guardando en BD...' : 'Guardar en BD y Asignar a Parada'}
-                </button>
-                <button
-                  type="button"
-                  className="roadmaps-btn roadmaps-btn--outline"
-                  onClick={() => {
-                    setShowQuickCompanyModal(false);
-                    navigate('/admin/empresas');
-                  }}
-                >
-                  <ExternalLink size={14} /> Ir a Gestión Completa de Empresas (/admin/empresas)
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

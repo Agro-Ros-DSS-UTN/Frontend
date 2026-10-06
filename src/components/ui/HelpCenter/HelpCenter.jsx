@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { HelpCircle, ChevronDown, MessageCircle } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { AnimatedPanel, AnimatedPanelItem } from '../AnimatedPanel/AnimatedPanel';
+import { PrimaryActionButton } from '../PageHeaderActions/PageHeaderActions';
 import './HelpCenter.css';
 
 const SUPPORT_WHATSAPP_NUMBER = '5493412158947';
@@ -89,15 +91,15 @@ export const HelpCenter = ({ variant = 'admin' }) => {
       </button>
 
       {open && (
-        <div className="help-panel">
-          <div className="help-panel__header">
+        <AnimatedPanel className="help-panel">
+          <AnimatedPanelItem className="help-panel__header">
             <span>Centro de Ayuda</span>
-          </div>
+          </AnimatedPanelItem>
 
-          <div className="help-panel__section-label">Cómo usar el sistema</div>
+          <AnimatedPanelItem className="help-panel__section-label">Cómo usar el sistema</AnimatedPanelItem>
           <div className="help-panel__topics">
             {topics.map((t, i) => (
-              <div key={i} className="help-topic">
+              <AnimatedPanelItem key={i} className="help-topic">
                 <button
                   type="button"
                   className="help-topic__q"
@@ -107,22 +109,22 @@ export const HelpCenter = ({ variant = 'admin' }) => {
                   <ChevronDown size={14} className={openTopic === i ? 'help-topic__chevron open' : 'help-topic__chevron'} />
                 </button>
                 {openTopic === i && <p className="help-topic__a">{t.a}</p>}
-              </div>
+              </AnimatedPanelItem>
             ))}
           </div>
 
-          <div className="help-panel__footer">
-            {whatsappUrl ? (
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="help-whatsapp-btn">
-                <MessageCircle size={15} /> Reportar un problema / Contactar soporte
-              </a>
-            ) : (
-              <div className="help-whatsapp-btn help-whatsapp-btn--disabled" title="Falta configurar el número de soporte">
-                <MessageCircle size={15} /> Soporte por WhatsApp (no configurado)
-              </div>
-            )}
-          </div>
-        </div>
+          <AnimatedPanelItem className="help-panel__footer">
+            <PrimaryActionButton
+              icon={MessageCircle}
+              iconSize={15}
+              disabled={!whatsappUrl}
+              onClick={() => whatsappUrl && window.open(whatsappUrl, '_blank', 'noopener,noreferrer')}
+              style={{ width: '100%' }}
+            >
+              Reportar problema
+            </PrimaryActionButton>
+          </AnimatedPanelItem>
+        </AnimatedPanel>
       )}
     </div>
   );

@@ -228,3 +228,35 @@ p {
   box-shadow: 0 6px 16px rgba(220, 38, 38, 0.35) !important;
   transform: translateY(-1px) !important;
 }
+/* Pastilla con contorno oscuro (roles de usuario, tipo de contacto, empresa del contacto) */
+.crm-outline-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid #334155;
+  background: transparent;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Estado positivo: mismo verde que los botones principales (#1a7d6b) */
+.crm-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #f1f5f9;
+  color: #475569;
+}
+.crm-status-pill--ok {
+  background: #1a7d6b;
+  color: #ffffff;
+}

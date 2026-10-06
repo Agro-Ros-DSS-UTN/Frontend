@@ -244,37 +244,13 @@ export const getOpportunities = async () => {
   }
 };
 
-export const createOpportunity = async (oppData) => {
-  const payload = {
-    estado: oppData.estado || 'Lead',
-    potencialidadCliente: oppData.potencialidadCliente || 'Alta',
-    volumenPotencial: Number(oppData.volumenPotencial || oppData.valor) || 0,
-    volumenFacturado: Number(oppData.volumenFacturado) || 0,
-    clientCompanyId: oppData.clientCompanyId ? Number(oppData.clientCompanyId) : 1,
-    sellerId: oppData.sellerId ? Number(oppData.sellerId) : 1,
-  };
 
-  try {
-    return await request('/oportunidades', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    console.info('[API Fallback] Simulando creación de Oportunidad en memoria.');
-    return { id: Date.now(), ...payload };
-  }
-};
-
-export const updateOpportunity = async (id, oppData) => {
-  try {
-    return await request(`/oportunidades/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(oppData),
-    });
-  } catch (err) {
-    return { id, ...oppData };
-  }
-};
+// Propaga el error: si la base no guardó el cambio, la pantalla tiene que enterarse.
+export const updateOpportunity = async (id, oppData) =>
+  request(`/oportunidades/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(oppData),
+  });
 
 // Versión "estricta": consulta la base y propaga el error (sin datos mock).
 export const fetchOpportunities = async () => {
@@ -293,12 +269,13 @@ export const createNegocio = async (oppData) => {
     tipoNegocio: oppData.tipoNegocio || 'Cliente nuevo',
     propietario: oppData.propietario || null,
     contactoNombre: oppData.contactoNombre || null,
+    contactoNumDoc: oppData.contactoNumDoc || null,
+    propietarioId: oppData.propietarioId || null,
     potencialidadCliente: oppData.potencialidadCliente || 'Media',
     volumenPotencial: Number(oppData.volumenPotencial || oppData.valor) || 0,
     volumenFacturado: Number(oppData.volumenFacturado) || 0,
     fechaCierre: oppData.fechaCierre || null,
     clientCompanyId: oppData.clientCompanyId ? Number(oppData.clientCompanyId) : null,
-    sellerId: oppData.sellerId || null,
   };
   const res = await request('/oportunidades', {
     method: 'POST',
@@ -307,13 +284,7 @@ export const createNegocio = async (oppData) => {
   return res?.data || res;
 };
 
-export const deleteOpportunity = async (id) => {
-  try {
-    return await request(`/oportunidades/${id}`, { method: 'DELETE' });
-  } catch (err) {
-    return { success: true, id };
-  }
-};
+export const deleteOpportunity = async (id) => request(`/oportunidades/${id}`, { method: 'DELETE' });
 
 /* ═══════════════════════════════════════════════════════════════
    5. ACTIVIDADES EN CAMPO: /formulario-actividad
@@ -329,26 +300,6 @@ export const getActivities = async () => {
   }
 };
 
-export const createActivity = async (activityData) => {
-  const payload = {
-    tipoContacto: activityData.tipoContacto || activityData.tipo || 'Llamada telefónica',
-    descripcion: activityData.descripcion || activityData.resumen || '',
-    montoVenta: Number(activityData.montoVenta || activityData.monto) || 0,
-    fechaHora: activityData.fechaHora || new Date().toISOString(),
-    sellerId: activityData.sellerId ? Number(activityData.sellerId) : 1,
-    opportunityId: activityData.opportunityId ? Number(activityData.opportunityId) : null,
-  };
-
-  try {
-    return await request('/formularios-actividad', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    console.info('[API Fallback] Simulando registro de actividad en memoria.');
-    return { id: Date.now(), ...payload };
-  }
-};
 
 
 /* ═══════════════════════════════════════════════════════════════

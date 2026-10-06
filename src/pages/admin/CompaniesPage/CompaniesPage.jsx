@@ -13,7 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Edit,
+  Pencil,
   Trash2,
   Building2,
   MapPin,
@@ -22,14 +22,10 @@ import {
   FileText,
   Truck,
   Layers,
-  Users,
-  Handshake,
-  ClipboardList,
   Phone,
   Mail,
   Calendar,
   ExternalLink,
-  DollarSign,
   UserCheck,
   UserPlus,
   Briefcase,
@@ -52,6 +48,7 @@ import { Button } from '../../../components/ui/Button/Button';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
 import { CompanyTreeModal } from '../../../components/companies/CompanyTreeModal';
+import { CompanySummary } from '../../../components/companies/CompanySummary';
 import './CompaniesPage.css';
 
 const TIPO_EMPRESA_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
@@ -61,6 +58,7 @@ const COLUMNS = [
   { key: 'cuit',              label: 'CUIT',                  sortable: true },
   { key: 'tipoEmpresa',       label: 'Tipo',                  sortable: true },
   { key: 'localidad',         label: 'Localidad',             sortable: true },
+  { key: 'direccionEmpresa',  label: 'Dirección',             sortable: true },
   { key: 'contactoAsociado',  label: 'Contacto Asociado',     sortable: false },
   { key: 'proveedorActual',   label: 'Proveedor Actual',      sortable: true },
   { key: 'creadoPorNombre',   label: 'Propietario del Registro', sortable: false },
@@ -96,8 +94,6 @@ export const CompaniesPage = () => {
   const [selectedCompanyForDetail, setSelectedCompanyForDetail] = useState(null);
   const [inspectingCompanyId, setInspectingCompanyId] = useState(null);
   const companyModalOverlayHandlers = useOverlayClose(() => { setShowModal(false); setEditingCompany(null); });
-  const companyDetailOverlayHandlers = useOverlayClose(() => setSelectedCompanyForDetail(null));
-  const [detailActiveTab, setDetailActiveTab] = useState('contactos'); // 'contactos' | 'negocios' | 'actividades'
 
   // Contact association state for "Registrar Empresa" modal
   const [includeContact, setIncludeContact] = useState(true); // Checkbox con tick
@@ -256,7 +252,8 @@ export const CompaniesPage = () => {
         c.nombreEmpresa.toLowerCase().includes(q) ||
         c.cuit.includes(q) ||
         (c.Locality?.nomLocalidad || c.localidad || '').toLowerCase().includes(q) ||
-        c.tipoEmpresa?.toLowerCase().includes(q)
+        c.tipoEmpresa?.toLowerCase().includes(q) ||
+        (c.creadoPorNombre || '').toLowerCase().includes(q)
       );
     }
 
@@ -326,10 +323,6 @@ export const CompaniesPage = () => {
     return `${Number(val).toLocaleString('es-AR')} ha`;
   };
 
-  const formatCurrency = (val) => {
-    if (!val) return '$0';
-    return `$${Number(val).toLocaleString('es-AR')}`;
-  };
 
   const resetCompanyModalState = () => {
     setShowModal(false);
@@ -753,7 +746,6 @@ export const CompaniesPage = () => {
                   <tr
                     key={company.id}
                     className={`companies-table__row ${selectedRows.includes(company.id) ? 'selected' : ''}`}
-                    onClick={() => setSelectedCompanyForDetail(company)}
                   >
                     <td className="companies-table__checkbox-col" onClick={e => e.stopPropagation()}>
                       <input
@@ -769,7 +761,14 @@ export const CompaniesPage = () => {
                         </div>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span className="companies-table__name">{company.nombreEmpresa}</span>
+                            <button
+                              type="button"
+                              className="companies-table__name companies-table__name-btn"
+                              onClick={() => setSelectedCompanyForDetail(company)}
+                              title="Ver resumen de la empresa"
+                            >
+                              {company.nombreEmpresa}
+                            </button>
                             {company.nivelEmpresa === 'madre' && (
                               <span className="company-tree__madre-label" title="Empresa con regiones y subsedes">(Regional)</span>
                             )}
@@ -787,6 +786,7 @@ export const CompaniesPage = () => {
                       </span>
                     </td>
                     <td>{company.Locality?.nomLocalidad || company.localidad || '-'}</td>
+                    <td className="companies-table__address">{company.direccionEmpresa || '-'}</td>
                     <td>
                       {companyContactMap.get(company.id)
                         ? companyContactMap.get(company.id).nombreApellido
@@ -825,7 +825,7 @@ export const CompaniesPage = () => {
                           title="Editar empresa"
                           onClick={() => openEditModal(company)}
                         >
-                          <Edit size={15} />
+                          <Pencil size={15} />
                         </button>
                         <button
                           className="companies-table__action-btn companies-table__action-btn--danger"
@@ -1394,159 +1394,20 @@ export const CompaniesPage = () => {
         </div>
       )}
 
-      {/* ── 360° Drawer / Ficha Relacional de Empresa (1:N) ── */}
+      {/* ── Ficha resumen de la empresa ── */}
       {selectedCompanyForDetail && (
-        <div className="comp-modal-overlay" {...companyDetailOverlayHandlers}>
-          <div className="comp-modal comp-modal--wide" onClick={e => e.stopPropagation()}>
-            <div className="comp-modal__header">
-              <div className="comp-detail-header-box">
-                <div className="companies-table__avatar" style={{ width: '40px', height: '40px' }}>
-                  <Building2 size={20} />
-                </div>
-                <div>
-                  <h2>{selectedCompanyForDetail.nombreEmpresa}</h2>
-                  <span className="comp-detail-sub">
-                    CUIT: {selectedCompanyForDetail.cuit} · {selectedCompanyForDetail.localidad} ({selectedCompanyForDetail.tipoEmpresa})
-                  </span>
-                </div>
-              </div>
-              <button className="comp-modal__close" onClick={() => setSelectedCompanyForDetail(null)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Relational Tabs */}
-            <div className="comp-detail-tabs">
-              <button
-                type="button"
-                className={`comp-tab-btn ${detailActiveTab === 'contactos' ? 'active' : ''}`}
-                onClick={() => setDetailActiveTab('contactos')}
-              >
-                <Users size={15} />
-                <span>Contactos Vinculados ({relatedContacts.length})</span>
-              </button>
-              <button
-                type="button"
-                className={`comp-tab-btn ${detailActiveTab === 'negocios' ? 'active' : ''}`}
-                onClick={() => setDetailActiveTab('negocios')}
-              >
-                <Handshake size={15} />
-                <span>Negocios / Oportunidades ({relatedOpportunities.length})</span>
-              </button>
-              <button
-                type="button"
-                className={`comp-tab-btn ${detailActiveTab === 'actividades' ? 'active' : ''}`}
-                onClick={() => setDetailActiveTab('actividades')}
-              >
-                <ClipboardList size={15} />
-                <span>Actividades en Campo ({relatedActivities.length})</span>
-              </button>
-            </div>
-
-            {/* Detail Body */}
-            <div className="comp-detail-body">
-              {/* TAB 1: Contactos (1:N ClientCompany -> Clients) */}
-              {detailActiveTab === 'contactos' && (
-                <div className="relational-list">
-                  {relatedContacts.length === 0 ? (
-                    <div className="relational-empty">
-                      <Users size={32} className="text-muted" />
-                      <p>No hay contactos vinculados a esta empresa aún.</p>
-                    </div>
-                  ) : (
-                    relatedContacts.map(c => (
-                      <div key={c.id || c.numDoc} className="relational-card">
-                        <div className="relational-card-left">
-                          <div className="contact-avatar-mini">
-                            {(c.nombreApellido || c.nombre || 'U').charAt(0)}
-                          </div>
-                          <div>
-                            <strong className="relational-name">{c.nombreApellido || `${c.nombre || ''} ${c.apellido || ''}`}</strong>
-                            <div className="relational-sub">
-                              <span><Mail size={12} /> {c.direccionMail || c.email}</span>
-                              {c.telefonos && <span><Phone size={12} /> {Array.isArray(c.telefonos) ? c.telefonos[0] : c.telefonos}</span>}
-                            </div>
-                          </div>
-                        </div>
-                        <span className="relational-badge">{c.tipoClient || 'Socio'}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {/* TAB 2: Negocios (1:N ClientCompany -> Opportunities) */}
-              {detailActiveTab === 'negocios' && (
-                <div className="relational-list">
-                  {relatedOpportunities.length === 0 ? (
-                    <div className="relational-empty">
-                      <Handshake size={32} className="text-muted" />
-                      <p>No hay negocios abiertos para esta empresa.</p>
-                    </div>
-                  ) : (
-                    relatedOpportunities.map(o => (
-                      <div key={o.id} className="relational-card">
-                        <div className="relational-card-left">
-                          <div className="deal-icon-mini">
-                            <DollarSign size={16} />
-                          </div>
-                          <div>
-                            <strong className="relational-name">{o.nombreNegocio || o.pipeline || 'Oportunidad'}</strong>
-                            <div className="relational-sub">
-                              <span>Vendedor: {o.propietario || o.vendedor || 'Equipo AgroRos'}</span>
-                              <span>· Cierre: {o.fechaCierre || o.fechaInicio}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="relational-card-right">
-                          <strong className="deal-amount-text">{formatCurrency(o.valor || o.volumenPotencial)}</strong>
-                          <span className="deal-stage-mini-pill">{o.estado}</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {/* TAB 3: Actividades (1:N ClientCompany -> Activities) */}
-              {detailActiveTab === 'actividades' && (
-                <div className="relational-list">
-                  {relatedActivities.length === 0 ? (
-                    <div className="relational-empty">
-                      <ClipboardList size={32} className="text-muted" />
-                      <p>No hay registro de visitas o llamadas recientes con esta empresa.</p>
-                    </div>
-                  ) : (
-                    relatedActivities.map(a => (
-                      <div key={a.idFormulario || a.id} className="relational-card">
-                        <div className="relational-card-left">
-                          <div className="act-type-mini">
-                            {a.tipoContacto === 'Visita' ? <MapPin size={15} /> : <Phone size={15} />}
-                          </div>
-                          <div>
-                            <strong className="relational-name">{a.tipoContacto} por {a.vendedor}</strong>
-                            <p className="relational-desc-text">{a.descripcion}</p>
-                            <span className="relational-date-sub">{formatDate(a.fechaHora)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="comp-modal__actions">
-              <button
-                type="button"
-                className="comp-modal__submit-btn"
-                onClick={() => setSelectedCompanyForDetail(null)}
-              >
-                Cerrar Ficha
-              </button>
-            </div>
-          </div>
-        </div>
+        <CompanySummary
+          company={selectedCompanyForDetail}
+          contacts={relatedContacts}
+          opportunities={relatedOpportunities}
+          activities={relatedActivities}
+          onClose={() => setSelectedCompanyForDetail(null)}
+          onEdit={() => {
+            const company = selectedCompanyForDetail;
+            setSelectedCompanyForDetail(null);
+            openEditModal(company);
+          }}
+        />
       )}
 
       {/* ── Inspeccionar: Empresa Madre -> Regiones -> Subsedes ── */}

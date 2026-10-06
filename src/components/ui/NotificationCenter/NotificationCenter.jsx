@@ -17,6 +17,7 @@ import { roadmapsApi, objectivesApi, promotionsApi, activitiesApi, tasksApi } fr
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { getUsers } from '../../../data/api';
 import { diffNew } from '../../../utils/notificationDiff';
+import { AnimatedPanel, AnimatedPanelItem } from '../AnimatedPanel/AnimatedPanel';
 import './NotificationCenter.css';
 
 const daysLeft = (dateStr) => {
@@ -71,7 +72,7 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             icon: MapPin,
             accent: 'blue',
             title: 'Nueva hoja de ruta',
-            message: `${r.Seller?.User?.nombreApellido || 'Un vendedor'} tiene una ruta asignada: ${r.nombreZona || 'Zona comercial'}`,
+            message: `${r.asignado?.nombreApellido || 'Un usuario'} tiene una ruta asignada: ${r.nombreZona || 'Zona comercial'}`,
             path: '/admin/rutas',
           });
         });
@@ -83,7 +84,7 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             icon: Target,
             accent: 'teal',
             title: 'Nuevo objetivo asignado',
-            message: `${o.Seller?.User?.nombreApellido || 'Un vendedor'} · ${o.descripcion || o.tipoObjetivo || 'Objetivo semanal'}`,
+            message: `${o.vendedor?.nombreApellido || 'Un vendedor'} · ${o.descripcion || o.tipoObjetivo || 'Objetivo semanal'}`,
             path: '/admin/objetivos',
           });
         });
@@ -259,26 +260,26 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
       </button>
 
       {open && (
-        <div className="notif-panel">
-          <div className="notif-panel__header">
+        <AnimatedPanel className="notif-panel">
+          <AnimatedPanelItem className="notif-panel__header">
             <span>Notificaciones</span>
             {items.length > 0 && (
               <button type="button" className="notif-panel__clear" onClick={clearAll}>
                 <CheckCheck size={13} /> Marcar todas como leídas
               </button>
             )}
-          </div>
+          </AnimatedPanelItem>
           <div className="notif-panel__list">
             {items.length === 0 ? (
-              <div className="notif-panel__empty">
+              <AnimatedPanelItem className="notif-panel__empty">
                 <Bell size={26} />
                 <p>No hay novedades por ahora.</p>
-              </div>
+              </AnimatedPanelItem>
             ) : (
               items.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.id} className="notif-item" onClick={() => handleItemClick(item)}>
+                  <AnimatedPanelItem key={item.id} className="notif-item" onClick={() => handleItemClick(item)}>
                     <div className={`notif-item__icon ${item.accent}`}>
                       <Icon size={15} />
                     </div>
@@ -286,12 +287,12 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
                       <span className="notif-item__title">{item.title}</span>
                       <span className="notif-item__message">{item.message}</span>
                     </div>
-                  </div>
+                  </AnimatedPanelItem>
                 );
               })
             )}
           </div>
-        </div>
+        </AnimatedPanel>
       )}
     </div>
   );

@@ -4,8 +4,6 @@ import {
   Phone,
   MapPin,
   Mail,
-  DollarSign,
-  Clock,
   Plus,
   Search,
   MessageSquare,
@@ -14,19 +12,23 @@ import {
   Camera,
   Mic,
   Trash2,
-  Maximize2,
+  Pencil,
   CheckSquare,
   Download,
+  ChevronDown,
 } from 'lucide-react';
 import { activitiesApi, tasksApi } from '../../api/operations.api';
+import { authApi } from '../../api/auth.api';
 import { useAuth } from '../../context/AuthContext';
 import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput/FormInput';
+import { FlipCheckbox } from '../ui/FlipCheckbox/FlipCheckbox';
 import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
 import { ImageUpload } from '../ui/ImageUpload/ImageUpload';
 import { VoiceRecorderWidget, VoiceNotePlayer } from '../ui/VoiceRecorder/VoiceRecorder';
 import { CompanyAutocomplete } from '../ui/CompanyAutocomplete/CompanyAutocomplete';
 import { LoadingState } from '../ui/LoadingState/LoadingState';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../ui/PageHeaderActions/PageHeaderActions';
+import '../tasks/TasksBoard.css';
 import './ActivitiesBoard.css';
 
 const TIPOS_CONTACTO = [
@@ -50,85 +52,96 @@ const VARIANTS = {
   seller: { autorFallback: 'Vendedor', creadoPorRol: 'vendedor' },
 };
 
-const nowDate = () => {
-  try {
-    return new Date().toISOString().slice(0, 10);
-  } catch (_) {
-    return '2026-09-10';
-  }
-};
-const nowTime = () => {
-  try {
-    const d = new Date();
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  } catch (_) {
-    return '12:00';
-  }
-};
+const pad = (n) => String(n).padStart(2, '0');
+const localDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
+// Fecha y hora las elige el usuario: el formulario arranca vacío.
 const emptyForm = () => ({
   tipoContacto: 'Visita',
   empresa: '',
-  fecha: nowDate(),
-  hora: nowTime(),
+  fecha: '',
+  hora: '',
   descripcion: '',
-  montoVenta: '',
   fotoUrl: null,
   audioData: null,
-  // Tarea de seguimiento opcional
   crearTarea: false,
-  tareaTitulo: '',
-  tareaTipo: 'llamada',
-  tareaPrioridad: 'Media',
-  tareaFecha: nowDate(),
-  tareaHora: '09:00',
-  tareaNotas: '',
+  tareas: [],
 });
+
+const MAX_FOLLOWUP_TASKS = 8;
+
+const emptyFollowupTask = () => ({
+  titulo: '',
+  tipo: 'llamada',
+  prioridad: 'Media',
+  fecha: '',
+  hora: '',
+  notas: '',
+  asignados: [],
+});
+
+const parseAttachments = (raw) => {
+  if (!raw) return null;
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch (_) {
+    return { fotoUrl: raw };
+  }
+};
+
+const getContactIcon = (tipo, size = 13) => {
+  const match = TIPOS_CONTACTO.find((t) => t.label.toLowerCase() === String(tipo || '').toLowerCase());
+  const Icon = match?.icon || ClipboardList;
+  return <Icon size={size} />;
+};
 
 export const ActivitiesBoard = ({ variant = 'admin' }) => {
   const cfg = VARIANTS[variant] || VARIANTS.admin;
   const { currentUser } = useAuth();
   const autorNombre = currentUser?.nombreApellido || cfg.autorFallback;
-  const sellerId = currentUser?.idUser || currentUser?.id || null;
+  const myUserId = currentUser?.idUser || currentUser?.id || null;
 
   const [activities, setActivities] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [attachmentFilter, setAttachmentFilter] = useState('all');
   const [showDrawer, setShowDrawer] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState(emptyForm());
+  const [assignableUsers, setAssignableUsers] = useState([]);
+  const [notice, setNotice] = useState(null);
+
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const fetchActivities = async () => {
     try {
       setLoading(true);
       const data = await activitiesApi.getAll();
       const rawList = Array.isArray(data) ? data : data?.data || [];
-      const formatted = rawList.map((a) => {
-        let attachments = null;
-        try {
-          if (a.archivoAdjunto) {
-            attachments =
-              typeof a.archivoAdjunto === 'string' ? JSON.parse(a.archivoAdjunto) : a.archivoAdjunto;
-          }
-        } catch (_) {
-          attachments = { fotoUrl: a.archivoAdjunto };
-        }
-        return {
-          idFormulario: a.idFormulario || a.id,
-          tipoContacto: a.tipoContacto || 'Visita',
-          descripcion: a.descripcion || 'Sin descripción cargada',
-          montoVenta: a.montoVenta ? Number(a.montoVenta) : null,
-          fechaHora: a.fechaHora || new Date().toISOString(),
-          autorNombre: a.autorNombre || 'Equipo AgroRos',
-          empresa: a.empresa || '',
-          fotoUrl: attachments?.fotoUrl || null,
-          audioData: attachments?.audioData || null,
-        };
-      });
-      setActivities(formatted);
+      setActivities(
+        rawList.map((a) => {
+          const attachments = parseAttachments(a.archivoAdjunto);
+          return {
+            idFormulario: a.idFormulario || a.id,
+            tipoContacto: a.tipoContacto || 'Visita',
+            descripcion: a.descripcion || '',
+            fechaHora: a.fechaHora || null,
+            autorNombre: a.autorNombre || 'Equipo AgroRos',
+            empresa: a.empresa || '',
+            fotoUrl: attachments?.fotoUrl || null,
+            audioData: attachments?.audioData || null,
+          };
+        })
+      );
     } catch (err) {
       console.error('Error al obtener actividades desde la base de datos:', err);
       setActivities([]);
@@ -139,6 +152,13 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
 
   useEffect(() => {
     fetchActivities();
+    authApi
+      .getAllUsers()
+      .then((res) => {
+        const raw = Array.isArray(res) ? res : res?.data || [];
+        setAssignableUsers(raw.filter((u) => String(u.accountStatement || 'Activo').toLowerCase().includes('activ')));
+      })
+      .catch((err) => console.error('No se pudieron cargar los usuarios:', err));
   }, []);
 
   const filteredActivities = useMemo(() => {
@@ -158,49 +178,22 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     }
     if (attachmentFilter === 'audios') result = result.filter((a) => !!a.audioData?.url);
     else if (attachmentFilter === 'fotos') result = result.filter((a) => !!a.fotoUrl);
-    else if (attachmentFilter === 'ventas') result = result.filter((a) => a.montoVenta && Number(a.montoVenta) > 0);
     return result;
   }, [activities, searchQuery, typeFilter, attachmentFilter]);
 
-  const totalAudios = useMemo(() => activities.filter((a) => !!a?.audioData?.url).length, [activities]);
-  const totalFotos = useMemo(() => activities.filter((a) => !!a?.fotoUrl).length, [activities]);
-  const totalVentas = useMemo(
-    () => activities.reduce((acc, a) => acc + (Number(a?.montoVenta) || 0), 0),
-    [activities]
-  );
+  const totalAudios = activities.filter((a) => !!a.audioData?.url).length;
+  const totalFotos = activities.filter((a) => !!a.fotoUrl).length;
+  const totalHoy = activities.filter((a) => a.fechaHora && localDateStr(new Date(a.fechaHora)) === localDateStr(new Date())).length;
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return '--';
-    try {
-      return new Date(dateStr).toLocaleDateString('es-AR', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch (_) {
-      return dateStr;
-    }
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
-  const formatCurrency = (val) => (!val ? '$0' : `$${Number(val).toLocaleString('es-AR')}`);
-
-  const getContactIcon = (tipo) => {
-    switch (tipo?.toLowerCase()) {
-      case 'visita':
-        return <MapPin size={15} />;
-      case 'llamada':
-        return <Phone size={15} />;
-      case 'whatsapp':
-        return <MessageSquare size={15} />;
-      case 'email':
-        return <Mail size={15} />;
-      case 'reunión':
-      case 'reunion':
-        return <Building2 size={15} />;
-      default:
-        return <ClipboardList size={15} />;
-    }
+  const formatTime = (dateStr) => {
+    const d = new Date(dateStr);
+    return isNaN(d) ? '' : `${pad(d.getHours())}:${pad(d.getMinutes())} hs`;
   };
 
   const handleFormChange = (e) => {
@@ -209,78 +202,177 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  const handleCreateActivity = async (e) => {
+  const setCrearTarea = (checked) => {
+    setForm((prev) => ({ ...prev, crearTarea: checked, tareas: checked ? [emptyFollowupTask()] : [] }));
+    setErrors((prev) => ({ ...prev, tareas: undefined }));
+  };
+
+  const addFollowupTask = () =>
+    setForm((prev) =>
+      prev.tareas.length >= MAX_FOLLOWUP_TASKS ? prev : { ...prev, tareas: [...prev.tareas, emptyFollowupTask()] }
+    );
+
+  const removeFollowupTask = (idx) => {
+    setForm((prev) => {
+      const tareas = prev.tareas.filter((_, i) => i !== idx);
+      return { ...prev, tareas, crearTarea: tareas.length > 0 };
+    });
+    setErrors((prev) => ({ ...prev, tareas: undefined }));
+  };
+
+  const updateFollowupTask = (idx, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      tareas: prev.tareas.map((t, i) => (i === idx ? { ...t, [field]: value } : t)),
+    }));
+    setErrors((prev) => {
+      if (!prev.tareas?.[idx]?.[field]) return prev;
+      return { ...prev, tareas: { ...prev.tareas, [idx]: { ...prev.tareas[idx], [field]: '' } } };
+    });
+  };
+
+  const toggleFollowupAssignee = (idx, idUser) => {
+    const current = form.tareas[idx]?.asignados || [];
+    updateFollowupTask(
+      idx,
+      'asignados',
+      current.includes(idUser) ? current.filter((id) => id !== idUser) : [...current, idUser]
+    );
+  };
+
+  const openCreateDrawer = () => {
+    setEditingActivity(null);
+    setErrors({});
+    setForm(emptyForm());
+    setShowDrawer(true);
+  };
+
+  const openEditDrawer = (act) => {
+    const d = act.fechaHora ? new Date(act.fechaHora) : null;
+    setEditingActivity(act);
+    setErrors({});
+    setForm({
+      ...emptyForm(),
+      tipoContacto: act.tipoContacto,
+      empresa: act.empresa,
+      fecha: d && !isNaN(d) ? localDateStr(d) : '',
+      hora: d && !isNaN(d) ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '',
+      descripcion: act.descripcion,
+      fotoUrl: act.fotoUrl,
+      audioData: act.audioData,
+    });
+    setShowDrawer(true);
+  };
+
+  const closeDrawer = () => {
+    setShowDrawer(false);
+    setEditingActivity(null);
+    setForm(emptyForm());
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const newErrors = {};
     if (!form.fecha) newErrors.fecha = 'Seleccioná la fecha.';
     if (!form.hora) newErrors.hora = 'Seleccioná la hora.';
-    if (!form.descripcion?.trim()) newErrors.descripcion = 'La descripción de la interacción es obligatoria.';
-    if (form.crearTarea && !form.tareaTitulo?.trim())
-      newErrors.tareaTitulo = 'Poné un título para la tarea de seguimiento.';
+    if (!form.descripcion?.trim()) newErrors.descripcion = 'La descripción de la actividad es obligatoria.';
+    if (!editingActivity && form.crearTarea) {
+      const taskErrors = {};
+      form.tareas.forEach((t, idx) => {
+        const e = {};
+        if (!t.titulo.trim()) e.titulo = 'Poné un título para la tarea.';
+        if (!t.fecha) e.fecha = 'Seleccioná la fecha límite.';
+        if (t.asignados.length === 0) e.asignados = 'Elegí a quién se le asigna la tarea.';
+        if (Object.keys(e).length > 0) taskErrors[idx] = e;
+      });
+      if (Object.keys(taskErrors).length > 0) newErrors.tareas = taskErrors;
+    }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
     setErrors({});
 
+    const activityPayload = {
+      tipoContacto: form.tipoContacto,
+      descripcion: form.descripcion.trim(),
+      empresa: form.empresa?.trim() || null,
+      fechaHora: `${form.fecha}T${form.hora}:00`,
+      archivoAdjunto: { fotoUrl: form.fotoUrl, audioData: form.audioData },
+    };
+
     try {
-      setLoading(true);
-      const combinedDateTime = `${form.fecha}T${form.hora}:00`;
+      setSaving(true);
 
-      await activitiesApi.create({
-        tipoContacto: form.tipoContacto,
-        descripcion: form.descripcion,
-        empresa: form.empresa?.trim() || null,
-        montoVenta: form.montoVenta ? Number(form.montoVenta) : 0,
-        fechaHora: combinedDateTime,
-        sellerId,
-        opportunityId: null,
-        autorNombre,
-        archivoAdjunto: { fotoUrl: form.fotoUrl, audioData: form.audioData },
-      });
+      if (editingActivity) {
+        await activitiesApi.update(editingActivity.idFormulario, activityPayload);
+        setNotice({ type: 'success', text: 'Actividad actualizada.' });
+      } else {
+        const created = await activitiesApi.create({
+          ...activityPayload,
+          idUser: myUserId,
+          opportunityId: null,
+          autorNombre,
+        });
+        const activityId = created?.idFormulario || created?.data?.idFormulario || null;
 
-      // Una actividad puede dar pie a una tarea de campo
-      if (form.crearTarea && form.tareaTitulo.trim()) {
-        try {
-          await tasksApi.create({
-            titulo: form.tareaTitulo.trim(),
-            descripcion: form.tareaTitulo.trim(),
-            tipo: form.tareaTipo,
-            prioridad: form.tareaPrioridad,
-            fechaVencimiento: form.tareaFecha,
-            horaVencimiento: form.tareaHora,
-            empresa: form.empresa?.trim() || null,
-            notas: form.tareaNotas?.trim() || `Generada desde una actividad de tipo ${form.tipoContacto}.`,
-            estado: 'Pendiente',
-            creadoPorRol: cfg.creadoPorRol,
-            destinatarioRol: 'vendedor',
-            asignadoA: autorNombre,
-            sellerId,
-          });
-        } catch (taskErr) {
-          console.error('La actividad se guardó, pero falló la creación de la tarea:', taskErr);
-          alert('La actividad se guardó, pero no se pudo crear la tarea de seguimiento.');
+        if (form.crearTarea && form.tareas.length > 0) {
+          const results = await Promise.allSettled(
+            form.tareas.map((t) =>
+              tasksApi.create({
+                titulo: t.titulo.trim(),
+                descripcion: t.titulo.trim(),
+                tipo: t.tipo,
+                prioridad: t.prioridad,
+                fechaVencimiento: t.fecha,
+                horaVencimiento: t.hora || null,
+                empresa: form.empresa?.trim() || null,
+                notas: t.notas?.trim() || null,
+                estado: 'Pendiente',
+                creadoPorRol: cfg.creadoPorRol,
+                destinatarioRol: 'vendedor',
+                formularioActividadId: activityId,
+                asignadosIds: t.asignados,
+              })
+            )
+          );
+          const failed = results.filter((r) => r.status === 'rejected').length;
+          if (failed > 0) {
+            console.error('Fallaron tareas de seguimiento:', results.filter((r) => r.status === 'rejected'));
+            setNotice({
+              type: 'error',
+              text: `La actividad se guardó, pero no se pudieron crear ${failed} de ${results.length} tareas de seguimiento.`,
+            });
+          } else {
+            setNotice({
+              type: 'success',
+              text: `Actividad registrada con ${results.length} ${results.length === 1 ? 'tarea' : 'tareas'} de seguimiento.`,
+            });
+          }
+        } else {
+          setNotice({ type: 'success', text: 'Actividad registrada.' });
         }
       }
 
-      setShowDrawer(false);
-      setForm(emptyForm());
+      closeDrawer();
       await fetchActivities();
     } catch (err) {
-      console.error('Error al crear la actividad:', err);
-      alert('No se pudo guardar la actividad. Revisá los datos e intentá de nuevo.');
+      console.error('Error al guardar la actividad:', err);
+      setNotice({ type: 'error', text: 'No se pudo guardar la actividad. Revisá los datos e intentá de nuevo.' });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleDeleteActivity = async (id, e) => {
-    if (e) e.stopPropagation();
-    if (!window.confirm('¿Eliminar este registro de actividad de la base de datos?')) return;
-    setActivities((prev) => prev.filter((a) => a.idFormulario !== id));
+  const handleDeleteActivity = async (act) => {
+    const ok = window.confirm(
+      '¿Eliminar esta actividad?\n\nTambién se eliminan las tareas de seguimiento que se hayan generado desde ella.'
+    );
+    if (!ok) return;
+    setActivities((prev) => prev.filter((a) => a.idFormulario !== act.idFormulario));
     try {
-      await activitiesApi.delete(id);
+      await activitiesApi.delete(act.idFormulario);
     } catch (err) {
       console.error('Error al eliminar actividad:', err);
       fetchActivities();
@@ -288,13 +380,13 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   };
 
   const handleExportCSV = () => {
-    const headers = ['Fecha y Hora', 'Tipo de Contacto', 'Empresa', 'Descripción', 'Monto de Venta', 'Autor'];
+    const headers = ['Fecha', 'Hora', 'Tipo de Contacto', 'Empresa', 'Descripción', 'Responsable'];
     const rows = filteredActivities.map((a) => [
-      `"${a.fechaHora || ''}"`,
+      `"${formatDate(a.fechaHora)}"`,
+      `"${a.fechaHora ? formatTime(a.fechaHora) : ''}"`,
       `"${a.tipoContacto || ''}"`,
       `"${(a.empresa || '').replace(/"/g, '""')}"`,
       `"${(a.descripcion || '').replace(/"/g, '""')}"`,
-      `"${a.montoVenta || ''}"`,
       `"${(a.autorNombre || '').replace(/"/g, '""')}"`,
     ]);
     const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
@@ -302,282 +394,231 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Actividades_AgroRos_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Actividades_AgroRos_${localDateStr(new Date())}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   return (
-    <div className="act-board">
-      {/* Banner */}
-      <div className="act-board__banner">
-        <div className="act-board__banner-left">
-          <h1 className="act-board__title">Actividades Comerciales</h1>
-          <p className="act-board__subtitle">
-            Canal colaborativo en tiempo real con Administración: registro de visitas, notas de voz,
-            fotos agronómicas y acuerdos
-          </p>
+    <div className="tasks-board">
+      {notice && (
+        <div className={`tasks-board__notice tasks-board__notice--${notice.type}`} role="status">
+          {notice.text}
+        </div>
+      )}
+
+      <div className="tasks-board__banner">
+        <div className="tasks-board__banner-left">
+          <h1 className="tasks-board__title">Actividades</h1>
         </div>
         <PageHeaderActions>
-          <PrimaryActionButton
-            icon={Plus}
-            iconSize={18}
-            onClick={() => {
-              setErrors({});
-              setForm(emptyForm());
-              setShowDrawer(true);
-            }}
-          >
+          <PrimaryActionButton icon={Plus} iconSize={18} onClick={openCreateDrawer}>
             Registrar Actividad
           </PrimaryActionButton>
-          {variant === 'admin' && (
-            <ExportActionButton icon={Download} onClick={handleExportCSV}>
-              Exportar
-            </ExportActionButton>
-          )}
+          <ExportActionButton icon={Download} onClick={handleExportCSV}>
+            Exportar
+          </ExportActionButton>
         </PageHeaderActions>
       </div>
 
-      {/* Stats */}
-      <div className="act-board__stats">
-        <div className="act-board__stat">
-          <div className="act-board__stat-icon" style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}>
+      <div className="tasks-board__stats">
+        <div className="tasks-board__stat">
+          <div className="tasks-board__stat-icon tasks-board__stat-icon--green">
             <ClipboardList size={22} />
           </div>
           <div>
-            <span className="act-board__stat-label">Total Actividades</span>
-            <span className="act-board__stat-value">{activities.length}</span>
-            <span className="act-board__stat-sub">Sincronizadas en la base de datos</span>
+            <span className="tasks-board__stat-label">Actividades</span>
+            <span className="tasks-board__stat-value">{activities.length}</span>
+            <span className="tasks-board__stat-sub">{totalHoy} registradas hoy</span>
           </div>
         </div>
-        <div className="act-board__stat">
-          <div className="act-board__stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
+        <div className="tasks-board__stat">
+          <div className="tasks-board__stat-icon tasks-board__stat-icon--amber">
             <Mic size={22} />
           </div>
           <div>
-            <span className="act-board__stat-label">Notas de Voz</span>
-            <span className="act-board__stat-value">{totalAudios}</span>
-            <span className="act-board__stat-sub">Audios reproducibles</span>
+            <span className="tasks-board__stat-label">Notas de voz</span>
+            <span className="tasks-board__stat-value">{totalAudios}</span>
+            <span className="tasks-board__stat-sub">Audios adjuntos</span>
           </div>
         </div>
-        <div className="act-board__stat">
-          <div className="act-board__stat-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+        <div className="tasks-board__stat">
+          <div className="tasks-board__stat-icon tasks-board__stat-icon--blue">
             <Camera size={22} />
           </div>
           <div>
-            <span className="act-board__stat-label">Fotos de Lotes</span>
-            <span className="act-board__stat-value">{totalFotos}</span>
-            <span className="act-board__stat-sub">Monitoreo agronómico</span>
-          </div>
-        </div>
-        <div className="act-board__stat">
-          <div className="act-board__stat-icon" style={{ backgroundColor: '#fffbeb', color: '#d97706' }}>
-            <DollarSign size={22} />
-          </div>
-          <div>
-            <span className="act-board__stat-label">Ventas Cerradas</span>
-            <span className="act-board__stat-value">{formatCurrency(totalVentas)}</span>
-            <span className="act-board__stat-sub">En visitas comerciales</span>
+            <span className="tasks-board__stat-label">Imágenes</span>
+            <span className="tasks-board__stat-value">{totalFotos}</span>
+            <span className="tasks-board__stat-sub">Imágenes adjuntas</span>
           </div>
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="act-board__toolbar">
-        <div className="act-board__search">
-          <Search size={16} color="#64748b" />
-          <input
-            type="text"
-            placeholder="Buscar por responsable, empresa o descripción..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <div className="tasks-board__card">
+        <div className="tasks-board__tabs">
+          <button
+            type="button"
+            className={`tasks-board__tab ${typeFilter === '' ? 'tasks-board__tab--active' : ''}`}
+            onClick={() => setTypeFilter('')}
+          >
+            <span>Todas</span>
+            <span className="tasks-board__tab-badge">{activities.length}</span>
+          </button>
+          {TIPOS_CONTACTO.map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              className={`tasks-board__tab ${typeFilter === t.label ? 'tasks-board__tab--active' : ''}`}
+              onClick={() => setTypeFilter(t.label)}
+            >
+              <span>{t.label}</span>
+            </button>
+          ))}
         </div>
 
-        <div className="act-board__filters">
-          <div className="act-board__chips">
-            <button
-              type="button"
-              className={`act-board__chip ${typeFilter === '' ? 'active' : ''}`}
-              onClick={() => setTypeFilter('')}
-            >
-              Todas
-            </button>
-            {TIPOS_CONTACTO.map((t) => (
-              <button
-                key={t.label}
-                type="button"
-                className={`act-board__chip ${typeFilter === t.label ? 'active' : ''}`}
-                onClick={() => setTypeFilter(t.label)}
-              >
-                {t.label}
-              </button>
-            ))}
+        <div className="tasks-board__toolbar">
+          <div className="tasks-board__search">
+            <Search size={16} color="#64748b" />
+            <input
+              type="text"
+              placeholder="Buscar por responsable, empresa o descripción..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-
-          <div className="act-board__att-pills">
-            <button
-              type="button"
-              className={`act-board__att-pill ${attachmentFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setAttachmentFilter('all')}
-            >
-              Todo
-            </button>
-            <button
-              type="button"
-              className={`act-board__att-pill ${attachmentFilter === 'audios' ? 'active' : ''}`}
-              onClick={() => setAttachmentFilter('audios')}
-            >
-              <Mic size={13} /> Con Audios
-            </button>
-            <button
-              type="button"
-              className={`act-board__att-pill ${attachmentFilter === 'fotos' ? 'active' : ''}`}
-              onClick={() => setAttachmentFilter('fotos')}
-            >
-              <Camera size={13} /> Con Fotos
-            </button>
-            <button
-              type="button"
-              className={`act-board__att-pill ${attachmentFilter === 'ventas' ? 'active' : ''}`}
-              onClick={() => setAttachmentFilter('ventas')}
-            >
-              <DollarSign size={13} /> Con Venta
-            </button>
-          </div>
+          <select
+            className="tasks-board__filter"
+            value={attachmentFilter}
+            onChange={(e) => setAttachmentFilter(e.target.value)}
+          >
+            <option value="all">Todos los adjuntos</option>
+            <option value="audios">Con nota de voz</option>
+            <option value="fotos">Con imagen</option>
+          </select>
         </div>
-      </div>
 
-      {/* Feed */}
-      <div className="act-board__feed">
-        {loading ? (
-          <LoadingState
-            title="Conectando con la base de datos…"
-            message="Aguardá mientras cargamos las actividades sincronizadas."
-          />
-        ) : filteredActivities.length === 0 ? (
-          <div className="act-board__empty">
-            <ClipboardList size={40} style={{ color: '#94a3b8', margin: '0 auto 12px', display: 'block' }} />
-            <h3 style={{ margin: '0 0 6px', color: '#0f172a', fontWeight: 700 }}>
-              No se encontraron actividades registradas
-            </h3>
-            <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>
-              Usá el botón “Registrar Actividad en Campo” para cargar un informe o nota de voz.
-            </p>
-          </div>
-        ) : (
-          filteredActivities.map((act) => {
-            const isAdmin = act.autorNombre?.toLowerCase().includes('admin');
-            return (
-              <div key={act.idFormulario} className="act-board__card">
-                <div className="act-board__card-header">
-                  <div className="act-board__card-left">
-                    <div
-                      className="act-board__avatar"
-                      style={{
-                        background: isAdmin ? '#faf5ff' : '#f0fdf4',
-                        color: isAdmin ? '#9333ea' : '#16a34a',
-                        borderColor: isAdmin ? '#e9d5ff' : '#bbf7d0',
-                      }}
-                    >
-                      {act.autorNombre ? act.autorNombre[0].toUpperCase() : 'U'}
-                    </div>
-                    <div>
-                      <h3 className="act-board__card-author">{act.autorNombre}</h3>
-                      <span className="act-board__card-sub">
-                        {act.empresa || (isAdmin ? 'Sede Central / Administración' : 'Equipo Comercial en Campo')}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="act-board__card-right">
-                    <span
-                      className="act-board__type-pill"
-                      style={{
-                        background:
-                          act.tipoContacto?.toLowerCase() === 'visita'
-                            ? '#f0fdf4'
-                            : act.tipoContacto?.toLowerCase() === 'llamada'
-                            ? '#eff6ff'
-                            : '#fffbeb',
-                        color:
-                          act.tipoContacto?.toLowerCase() === 'visita'
-                            ? '#16a34a'
-                            : act.tipoContacto?.toLowerCase() === 'llamada'
-                            ? '#0284c7'
-                            : '#d97706',
-                      }}
-                    >
-                      {getContactIcon(act.tipoContacto)}
-                      <span>{act.tipoContacto}</span>
-                    </span>
-                    <span className="act-board__timestamp">
-                      <Clock size={12} /> {formatDate(act.fechaHora)}
-                    </span>
-                    <button
-                      type="button"
-                      className="act-board__delete-btn"
-                      onClick={(e) => handleDeleteActivity(act.idFormulario, e)}
-                      title="Eliminar de la base de datos"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-
-                <p className="act-board__card-desc">{act.descripcion}</p>
-
-                {act.audioData?.url && (
-                  <div style={{ maxWidth: '480px' }}>
-                    <VoiceNotePlayer
-                      audioUrl={act.audioData.url}
-                      audioName={act.audioData.name || 'Nota de Voz en Lote'}
-                    />
-                  </div>
+        <div className="tasks-board__table-wrapper">
+          {loading ? (
+            <LoadingState title="Conectando con la base de datos…" message="Cargando las actividades registradas." />
+          ) : (
+            <table className="tasks-board__table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Empresa / Cliente</th>
+                  <th>Descripción</th>
+                  <th>Responsable</th>
+                  <th>Adjuntos</th>
+                  <th className="tasks-board__th-actions"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredActivities.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="tasks-board__empty-cell">
+                      No hay actividades para mostrar. Registrá una con “Registrar Actividad”.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredActivities.map((act) => {
+                    const hasAttachments = !!act.audioData?.url || !!act.fotoUrl;
+                    const expanded = expandedId === act.idFormulario;
+                    return [
+                      <tr key={act.idFormulario}>
+                        <td>
+                          <div className="tasks-board__empresa-name">{formatDate(act.fechaHora)}</div>
+                          {act.fechaHora && <div className="tasks-board__empresa-contact">{formatTime(act.fechaHora)}</div>}
+                        </td>
+                        <td>
+                          <span className="act-table__type">
+                            {getContactIcon(act.tipoContacto)} {act.tipoContacto}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="tasks-board__empresa-name">{act.empresa || '—'}</div>
+                        </td>
+                        <td className="act-table__desc">{act.descripcion || '—'}</td>
+                        <td>
+                          <span className="tasks-board__asignado-text">{act.autorNombre}</span>
+                        </td>
+                        <td>
+                          {hasAttachments ? (
+                            <button
+                              type="button"
+                              className="act-table__attach-btn"
+                              onClick={() => setExpandedId(expanded ? null : act.idFormulario)}
+                              title={expanded ? 'Ocultar adjuntos' : 'Ver adjuntos'}
+                            >
+                              {act.audioData?.url && <Mic size={14} />}
+                              {act.fotoUrl && <Camera size={14} />}
+                              <ChevronDown size={13} className={expanded ? 'act-table__chevron--open' : ''} />
+                            </button>
+                          ) : (
+                            <span className="tasks-board__empresa-name">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="tasks-board__row-actions">
+                            <button
+                              type="button"
+                              onClick={() => openEditDrawer(act)}
+                              title="Editar actividad"
+                              className="tasks-board__icon-btn"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteActivity(act)}
+                              title="Eliminar actividad"
+                              className="tasks-board__delete-btn"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>,
+                      expanded && (
+                        <tr key={`${act.idFormulario}-adjuntos`} className="act-table__detail-row">
+                          <td colSpan={7}>
+                            <div className="act-table__attachments">
+                              {act.audioData?.url && (
+                                <div className="act-table__audio">
+                                  <VoiceNotePlayer audioUrl={act.audioData.url} audioName={act.audioData.name || 'Nota de voz'} />
+                                </div>
+                              )}
+                              {act.fotoUrl && (
+                                <button
+                                  type="button"
+                                  className="act-table__thumb"
+                                  onClick={() => setLightboxImage(act.fotoUrl)}
+                                  title="Ver imagen completa"
+                                >
+                                  <img src={act.fotoUrl} alt="Imagen adjunta" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ),
+                    ];
+                  })
                 )}
-
-                {act.fotoUrl && (
-                  <div
-                    className="act-board__photo-box"
-                    onClick={() => setLightboxImage(act.fotoUrl)}
-                    title="Hacé clic para ver la foto ampliada"
-                  >
-                    <img src={act.fotoUrl} alt="Foto del Lote" className="act-board__photo-img" />
-                    <div className="act-board__photo-overlay">
-                      <Maximize2 size={16} />
-                      <span>Ver foto completa</span>
-                    </div>
-                  </div>
-                )}
-
-                {act.montoVenta ? (
-                  <div className="act-board__sale-chip">
-                    <DollarSign size={14} />
-                    <span>
-                      Venta comercial acordada:{' '}
-                      <strong>{formatCurrency(act.montoVenta)}</strong>
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })
-        )}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
-      {/* Drawer: Registrar Actividad en Campo */}
       <SlideDrawer
         isOpen={showDrawer}
-        onClose={() => setShowDrawer(false)}
-        title="Registrar Actividad en Campo"
+        onClose={closeDrawer}
+        title={editingActivity ? 'Editar Actividad' : 'Registrar Actividad'}
         width="560px"
       >
-        <form
-          onSubmit={handleCreateActivity}
-          noValidate
-          style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}
-        >
+        <form onSubmit={handleSubmit} noValidate className="tasks-board__form">
           <FormSelect
             label="Tipo de Interacción"
             name="tipoContacto"
@@ -599,7 +640,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             onChange={(nombre) => setForm((prev) => ({ ...prev, empresa: nombre }))}
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="tasks-board__form-row">
             <FormInput
               label="Fecha de la Interacción"
               name="fecha"
@@ -620,16 +661,6 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             />
           </div>
 
-          <FormInput
-            label="Monto de Venta Acordado ($) (Opcional)"
-            name="montoVenta"
-            type="number"
-            value={form.montoVenta}
-            onChange={handleFormChange}
-            placeholder="Ej: 850000"
-            icon={DollarSign}
-          />
-
           <FormTextarea
             label="Descripción / Relevamiento Técnico"
             name="descripcion"
@@ -642,7 +673,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
           />
 
           <div className="form-input-field">
-            <label className="form-input-label">Nota de Voz en Campo (Micrófono Real)</label>
+            <label className="form-input-label">Nota de voz</label>
             {form.audioData ? (
               <VoiceNotePlayer
                 audioUrl={form.audioData.url}
@@ -651,133 +682,174 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
               />
             ) : (
               <VoiceRecorderWidget
+                iconOnly
+                label="Grabar nota de voz"
                 onAddAudio={(audio) => setForm((prev) => ({ ...prev, audioData: audio }))}
-                label="Grabar Nota de Voz en Campo (Micrófono Real)"
               />
             )}
           </div>
 
           <ImageUpload
-            label="Foto del Lote / Cultivo Monitoreado (Opcional)"
+            label="Imagen a adjuntar"
             value={form.fotoUrl}
             onChange={(url) => setForm((prev) => ({ ...prev, fotoUrl: url }))}
             onRemove={() => setForm((prev) => ({ ...prev, fotoUrl: null }))}
             maxSizeMB={5}
           />
 
-          {/* Tarea de seguimiento generada desde la actividad */}
-          <div className={`act-board__task-section ${form.crearTarea ? 'is-open' : ''}`}>
-            <label className="act-board__task-toggle">
-              <input
-                type="checkbox"
-                name="crearTarea"
-                checked={form.crearTarea}
-                onChange={handleFormChange}
-              />
-              <span className="act-board__task-toggle-box">
-                {form.crearTarea && <CheckSquare size={13} strokeWidth={3} />}
-              </span>
-              <span>
-                <strong>Generar también una tarea de seguimiento</strong>
-                <span className="act-board__task-toggle-sub">
-                  Una actividad con el cliente puede dar pie a una tarea de campo
+          {!editingActivity && (
+            <div className={`act-board__task-section ${form.crearTarea ? 'is-open' : ''}`}>
+              <label className="act-board__task-toggle">
+                <input type="checkbox" checked={form.crearTarea} onChange={(e) => setCrearTarea(e.target.checked)} />
+                <span className="act-board__task-toggle-box">
+                  {form.crearTarea && <CheckSquare size={13} strokeWidth={3} />}
                 </span>
-              </span>
-            </label>
+                <span>
+                  <strong>Generar también tareas de seguimiento</strong>
+                  <span className="act-board__task-toggle-sub">
+                    Quedan asociadas a esta actividad (hasta {MAX_FOLLOWUP_TASKS})
+                  </span>
+                </span>
+              </label>
 
-            {form.crearTarea && (
-              <div className="act-board__task-fields">
-                <FormInput
-                  label="Título de la Tarea"
-                  name="tareaTitulo"
-                  value={form.tareaTitulo}
-                  onChange={handleFormChange}
-                  placeholder="Ej: Enviar cotización de fertilizantes"
-                  required
-                  error={errors.tareaTitulo}
-                />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <FormSelect
-                    label="Tipo de Actividad"
-                    name="tareaTipo"
-                    value={form.tareaTipo}
-                    onChange={handleFormChange}
-                    options={TIPO_TAREA_OPTIONS}
-                  />
-                  <FormSelect
-                    label="Prioridad"
-                    name="tareaPrioridad"
-                    value={form.tareaPrioridad}
-                    onChange={handleFormChange}
-                    options={[
-                      { value: 'Alta', label: 'Alta' },
-                      { value: 'Media', label: 'Media' },
-                      { value: 'Baja', label: 'Baja' },
-                    ]}
-                  />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <FormInput
-                    label="Fecha Límite"
-                    name="tareaFecha"
-                    type="date"
-                    value={form.tareaFecha}
-                    onChange={handleFormChange}
-                  />
-                  <FormInput
-                    label="Hora Estimada"
-                    name="tareaHora"
-                    type="time"
-                    value={form.tareaHora}
-                    onChange={handleFormChange}
-                  />
-                </div>
-                <FormTextarea
-                  label="Notas Adicionales"
-                  name="tareaNotas"
-                  value={form.tareaNotas}
-                  onChange={handleFormChange}
-                  placeholder="Indicaciones o contexto para el seguimiento..."
-                  rows={2}
-                />
-              </div>
-            )}
-          </div>
+              {form.crearTarea &&
+                form.tareas.map((t, idx) => {
+                  const err = errors.tareas?.[idx] || {};
+                  return (
+                    <div key={idx} className="act-board__task-fields">
+                      <div className="act-board__task-head">
+                        <span className="act-board__task-number">Tarea de seguimiento #{idx + 1}</span>
+                        <button type="button" className="act-board__task-remove" onClick={() => removeFollowupTask(idx)}>
+                          <Trash2 size={13} /> Quitar
+                        </button>
+                      </div>
+                      <FormInput
+                        label="Título de la Tarea"
+                        name={`tarea-titulo-${idx}`}
+                        value={t.titulo}
+                        onChange={(e) => updateFollowupTask(idx, 'titulo', e.target.value)}
+                        placeholder="Ej: Enviar cotización de fertilizantes"
+                        required
+                        error={err.titulo}
+                      />
+                      <div className="tasks-board__form-row">
+                        <FormSelect
+                          label="Tipo de Actividad"
+                          name={`tarea-tipo-${idx}`}
+                          value={t.tipo}
+                          onChange={(e) => updateFollowupTask(idx, 'tipo', e.target.value)}
+                          options={TIPO_TAREA_OPTIONS}
+                        />
+                        <FormSelect
+                          label="Prioridad"
+                          name={`tarea-prioridad-${idx}`}
+                          value={t.prioridad}
+                          onChange={(e) => updateFollowupTask(idx, 'prioridad', e.target.value)}
+                          options={[
+                            { value: 'Alta', label: 'Alta' },
+                            { value: 'Media', label: 'Media' },
+                            { value: 'Baja', label: 'Baja' },
+                          ]}
+                        />
+                      </div>
+                      <div className="tasks-board__form-row">
+                        <FormInput
+                          label="Fecha Límite"
+                          name={`tarea-fecha-${idx}`}
+                          type="date"
+                          value={t.fecha}
+                          onChange={(e) => updateFollowupTask(idx, 'fecha', e.target.value)}
+                          required
+                          error={err.fecha}
+                        />
+                        <FormInput
+                          label="Hora Estimada"
+                          name={`tarea-hora-${idx}`}
+                          type="time"
+                          value={t.hora}
+                          onChange={(e) => updateFollowupTask(idx, 'hora', e.target.value)}
+                        />
+                      </div>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: '0.75rem',
-              marginTop: '0.5rem',
-              paddingTop: '1rem',
-              borderTop: '1px solid #e2e8f0',
-            }}
-          >
-            <button
-              type="submit"
-              className="btn-rounded-primary"
-              style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
-              disabled={loading}
-            >
-              {loading ? 'Guardando…' : 'Guardar Actividad'}
+                      <div className="tasks-board__assignee-field">
+                        <label>
+                          Asignar la tarea a <span className="form-input-required">*</span>
+                        </label>
+                        {myUserId && (
+                          <label className="tasks-board__assignee-option tasks-board__assignee-option--me">
+                            <input
+                              type="checkbox"
+                              checked={t.asignados.includes(myUserId)}
+                              onChange={() => toggleFollowupAssignee(idx, myUserId)}
+                            />
+                            <span>Asociar mi usuario</span>
+                          </label>
+                        )}
+                        <div className={`tasks-board__assignee-list ${err.asignados ? 'tasks-board__assignee-list--error' : ''}`}>
+                          {assignableUsers
+                            .filter((u) => (u.idUser || u.id) !== myUserId)
+                            .map((u) => {
+                              const idUser = u.idUser || u.id;
+                              return (
+                                <label key={idUser} className="tasks-board__assignee-option">
+                                  <input
+                                    type="checkbox"
+                                    checked={t.asignados.includes(idUser)}
+                                    onChange={() => toggleFollowupAssignee(idx, idUser)}
+                                  />
+                                  <span>{u.nombreApellido || idUser}</span>
+                                  <span className="tasks-board__assignee-role">
+                                    {(u.role || '').toLowerCase().includes('admin') ? 'Administrador' : 'Vendedor'}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                        {err.asignados && <span className="form-input-error">{err.asignados}</span>}
+                      </div>
+
+                      <FormTextarea
+                        label="Notas Adicionales"
+                        name={`tarea-notas-${idx}`}
+                        value={t.notas}
+                        onChange={(e) => updateFollowupTask(idx, 'notas', e.target.value)}
+                        placeholder="Indicaciones o contexto para el seguimiento..."
+                        rows={2}
+                      />
+                    </div>
+                  );
+                })}
+
+              {form.crearTarea && form.tareas.length < MAX_FOLLOWUP_TASKS && (
+                <div className="act-board__task-add">
+                  <FlipCheckbox
+                    id="addFollowupTask"
+                    checked={false}
+                    onChange={(e) => e.target.checked && addFollowupTask()}
+                  />
+                  <label htmlFor="addFollowupTask">
+                    Agregar otra tarea de seguimiento ({form.tareas.length}/{MAX_FOLLOWUP_TASKS})
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="tasks-board__form-actions">
+            <button type="submit" className="btn-rounded-primary tasks-board__submit-btn" disabled={saving}>
+              {saving ? 'Guardando…' : editingActivity ? 'Guardar Cambios' : 'Guardar Actividad'}
             </button>
-            <button
-              type="button"
-              className="roadmaps-btn roadmaps-btn--outline"
-              style={{ padding: '12px 18px' }}
-              onClick={() => setShowDrawer(false)}
-            >
+            <button type="button" className="roadmaps-btn roadmaps-btn--outline tasks-board__cancel-btn" onClick={closeDrawer}>
               Cancelar
             </button>
           </div>
         </form>
       </SlideDrawer>
 
-      {/* Lightbox */}
       {lightboxImage && (
         <div className="act-board__lightbox" onClick={() => setLightboxImage(null)}>
           <div className="act-board__lightbox-inner">
-            <img src={lightboxImage} alt="Foto ampliada" />
+            <img src={lightboxImage} alt="Imagen ampliada" />
             <button type="button" onClick={() => setLightboxImage(null)} className="act-board__lightbox-close">
               <X size={18} />
             </button>

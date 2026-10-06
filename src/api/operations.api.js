@@ -17,6 +17,10 @@ export const tasksApi = {
     const response = await apiClient.patch(`/tasks/${id}/status`, { estado });
     return response.data;
   },
+  finalize: async (id) => {
+    const response = await apiClient.patch(`/tasks/${id}/finalizar`);
+    return response.data;
+  },
   delete: async (id) => {
     const response = await apiClient.delete(`/tasks/${id}`);
     return response.data;
@@ -30,6 +34,10 @@ export const activitiesApi = {
   },
   create: async (data) => {
     const response = await apiClient.post('/formulario-actividad', data);
+    return response.data;
+  },
+  update: async (id, data) => {
+    const response = await apiClient.put(`/formulario-actividad/${id}`, data);
     return response.data;
   },
   delete: async (id) => {

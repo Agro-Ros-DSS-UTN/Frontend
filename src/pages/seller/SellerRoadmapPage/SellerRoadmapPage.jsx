@@ -34,13 +34,14 @@ import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/
 import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
 import { RoadmapDetailModal } from '../../../components/roadmaps/RoadmapDetailModal';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
+import { TIME_OPTIONS, MAX_ROADMAP_STOPS } from '../../../utils/timeOptions';
 import '../../admin/RoadmapsPage/RoadmapsPage.css';
 import './SellerRoadmapPage.css';
 
 const formatRoadmap = (r, idx = 0) => ({
   id: r.id,
-  vendedorId: r.sellerId,
-  vendedor: r.Seller?.User?.nombreApellido || 'Vendedor Oficial',
+  vendedorId: r.idUserAsignado,
+  vendedor: r.asignado?.nombreApellido || 'Vendedor',
   color: '#16a34a',
   zona: r.nombreZona || r.descripcion || 'Zona Comercial Asignada',
   fecha: r.fechaRuta || new Date().toISOString().split('T')[0],
@@ -106,6 +107,7 @@ export const SellerRoadmapPage = () => {
   const [stopForm, setStopForm] = useState({ texto: '', url: '' });
 
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+  const emptyParada = () => ({ nombreLugar: '', clientCompanyId: '', direccion: '', horaEstimada: '09:00' });
   const emptyCreateForm = {
     nombreZona: '',
     fechaRuta: new Date().toISOString().slice(0, 10),
@@ -113,16 +115,28 @@ export const SellerRoadmapPage = () => {
     fechaFinPropuesta: '',
     horaFinPropuesta: '',
     observaciones: '',
-    destino: '',
-    destinoCompany: null, // { id, nombre, direccion } — empresa real de la DB
-    direccionDestino: '',
-    addSecondStop: false,
-    segundaParada: '',
-    segundaParadaCompany: null,
-    direccionSegundaParada: '',
+    paradas: [emptyParada()],
   };
   const [createForm, setCreateForm] = useState(emptyCreateForm);
   const [creating, setCreating] = useState(false);
+
+  const addParadaField = () => setCreateForm((p) => (p.paradas.length >= MAX_ROADMAP_STOPS ? p : { ...p, paradas: [...p.paradas, emptyParada()] }));
+  const removeParadaField = (idx) => setCreateForm((p) => ({ ...p, paradas: p.paradas.filter((_, i) => i !== idx) }));
+  const updateParadaField = (idx, field, value) => setCreateForm((p) => {
+    const paradas = [...p.paradas];
+    paradas[idx] = { ...paradas[idx], [field]: value };
+    return { ...p, paradas };
+  });
+  const handleParadaCompanySelect = (idx, nombre, company) => setCreateForm((p) => {
+    const paradas = [...p.paradas];
+    paradas[idx] = {
+      ...paradas[idx],
+      nombreLugar: nombre,
+      clientCompanyId: company?.id || '',
+      direccion: isRealAddress(company?.direccion) ? company.direccion : '',
+    };
+    return { ...p, paradas };
+  });
 
   const addStopOverlayHandlers = useOverlayClose(() => setShowAddStop(false));
 
@@ -354,36 +368,20 @@ export const SellerRoadmapPage = () => {
       setCreateFormError('La fecha de fin propuesta es obligatoria.');
       return;
     }
-    if (!createForm.destino.trim()) {
-      setCreateFormError('El destino principal es obligatorio.');
-      return;
-    }
-    if (createForm.addSecondStop && !createForm.segundaParada.trim()) {
-      setCreateFormError('Completá la empresa de la segunda parada o desmarcá la opción.');
+    if (createForm.paradas.some((p) => !p.nombreLugar.trim())) {
+      setCreateFormError('Completá la empresa o lugar de todas las paradas (o quitá las que no vas a usar).');
       return;
     }
 
     setCreating(true);
     try {
-      const paradas = [
-        {
-          orden: 1,
-          clientCompanyId: createForm.destinoCompany?.id ?? null,
-          nombreLugar: createForm.destino.trim(),
-          direccion: createForm.direccionDestino || (isRealAddress(createForm.destinoCompany?.direccion) ? createForm.destinoCompany.direccion : ''),
-          horaEstimada: createForm.horaRuta || '09:00',
-        },
-      ];
-
-      if (createForm.addSecondStop && createForm.segundaParada.trim()) {
-        paradas.push({
-          orden: 2,
-          clientCompanyId: createForm.segundaParadaCompany?.id ?? null,
-          nombreLugar: createForm.segundaParada.trim(),
-          direccion: createForm.direccionSegundaParada || (isRealAddress(createForm.segundaParadaCompany?.direccion) ? createForm.segundaParadaCompany.direccion : ''),
-          horaEstimada: createForm.horaFinPropuesta || createForm.horaRuta || '09:00',
-        });
-      }
+      const paradas = createForm.paradas.map((p, idx) => ({
+        orden: idx + 1,
+        clientCompanyId: p.clientCompanyId || null,
+        nombreLugar: p.nombreLugar.trim(),
+        direccion: p.direccion || '',
+        horaEstimada: p.horaEstimada || '09:00',
+      }));
 
       const payload = {
         nombreZona: createForm.nombreZona.trim(),
@@ -732,73 +730,45 @@ export const SellerRoadmapPage = () => {
             <FormInput label="Hora de Fin (propuesta)" name="horaFinPropuesta" type="time" value={createForm.horaFinPropuesta} onChange={(e) => setCreateForm((p) => ({ ...p, horaFinPropuesta: e.target.value }))} />
           </div>
 
-          <CompanyAutocomplete
-            label="Destino principal"
-            name="destino"
-            value={createForm.destino}
-            onChange={(nombre, company) =>
-              setCreateForm((p) => ({
-                ...p,
-                destino: nombre,
-                destinoCompany: company,
-                direccionDestino: isRealAddress(company?.direccion) ? company.direccion : '',
-              }))
-            }
-            placeholder="Buscá una empresa cargada en la base…"
-            required
-          />
-          <FormInput
-            label="Dirección del destino"
-            name="direccionDestino"
-            value={createForm.direccionDestino}
-            onChange={(e) => setCreateForm((p) => ({ ...p, direccionDestino: e.target.value }))}
-            placeholder={
-              createForm.destinoCompany && !isRealAddress(createForm.destinoCompany.direccion)
-                ? 'Ninguna dirección para esta empresa — completar'
-                : 'Se autocompleta al elegir la empresa (editable)'
-            }
-          />
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <FlipCheckbox
-              id="addSecondStop"
-              checked={createForm.addSecondStop}
-              onChange={(e) => setCreateForm((p) => ({ ...p, addSecondStop: e.target.checked }))}
-            />
-            <label htmlFor="addSecondStop" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
-              Agregar una parada
-            </label>
-          </div>
-
-          {createForm.addSecondStop && (
-            <>
+          {createForm.paradas.map((parada, idx) => (
+            <div key={idx}>
+              {idx > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#16a34a' }}>Parada #{idx + 1}</span>
+                  <button type="button" onClick={() => removeParadaField(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <Trash2 size={13} /> Quitar
+                  </button>
+                </div>
+              )}
               <CompanyAutocomplete
-                label="Segunda parada"
-                name="segundaParada"
-                value={createForm.segundaParada}
-                onChange={(nombre, company) =>
-                  setCreateForm((p) => ({
-                    ...p,
-                    segundaParada: nombre,
-                    segundaParadaCompany: company,
-                    direccionSegundaParada: isRealAddress(company?.direccion) ? company.direccion : '',
-                  }))
-                }
-                placeholder="Buscá otra empresa cargada en la base…"
+                label={idx === 0 ? 'Destino principal' : 'Empresa o lugar'}
+                name={`parada-${idx}`}
+                value={parada.nombreLugar}
+                onChange={(nombre, company) => handleParadaCompanySelect(idx, nombre, company)}
+                placeholder="Buscá una empresa cargada en la base…"
                 required
               />
               <FormInput
-                label="Dirección de la segunda parada"
-                name="direccionSegundaParada"
-                value={createForm.direccionSegundaParada}
-                onChange={(e) => setCreateForm((p) => ({ ...p, direccionSegundaParada: e.target.value }))}
+                label={idx === 0 ? 'Dirección del destino' : 'Dirección de la parada'}
+                name={`parada-direccion-${idx}`}
+                value={parada.direccion}
+                onChange={(e) => updateParadaField(idx, 'direccion', e.target.value)}
                 placeholder={
-                  createForm.segundaParadaCompany && !isRealAddress(createForm.segundaParadaCompany.direccion)
+                  parada.clientCompanyId && !parada.direccion
                     ? 'Ninguna dirección para esta empresa — completar'
                     : 'Se autocompleta al elegir la empresa (editable)'
                 }
               />
-            </>
+            </div>
+          ))}
+
+          {createForm.paradas.length < MAX_ROADMAP_STOPS && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <FlipCheckbox id="addParada" checked={false} onChange={(e) => e.target.checked && addParadaField()} />
+              <label htmlFor="addParada" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                Agregar una parada
+              </label>
+            </div>
           )}
 
           <FormTextarea

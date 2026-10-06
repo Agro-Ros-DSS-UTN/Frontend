@@ -2,26 +2,15 @@
   position: relative;
 }
 
+/* La tarjeta (fondo/borde/radio/sombra/animación de entrada) la da
+   `.animated-panel` — acá solo el posicionamiento propio de este submenú. */
 .help-panel {
   position: absolute;
   top: calc(100% + 8px);
   right: -6px;
   width: 340px;
   max-height: 480px;
-  background: #ffffff;
-  border: 1px solid var(--border-light, #e2e8f0);
-  border-radius: var(--radius-xl, 12px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
   z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  animation: helpDropIn 0.15s ease-out;
-}
-
-@keyframes helpDropIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 .help-panel__header {
@@ -92,33 +81,4 @@
   padding: 10px;
   border-top: 1px solid var(--border-light, #e2e8f0);
   flex-shrink: 0;
-}
-
-.help-whatsapp-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px;
-  border-radius: var(--radius-lg, 8px);
-  background: #25d366;
-  color: #ffffff;
-  font-size: 12.5px;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  border: none;
-  transition: all 150ms ease;
-  box-sizing: border-box;
-}
-
-.help-whatsapp-btn:hover {
-  background: #1fb855;
-}
-
-.help-whatsapp-btn--disabled {
-  background: var(--gray-200, #e2e8f0);
-  color: var(--text-muted, #94a3b8);
-  cursor: not-allowed;
 }

@@ -86,7 +86,7 @@ export const ObjectivesPage = () => {
       const selectedSeller = sellersList.find(s => String(s.idUser || s.id) === String(form.sellerId)) || sellersList[0];
       
       const payload = {
-        sellerId: selectedSeller ? (selectedSeller.idUser || selectedSeller.id) : 1,
+        idUser: selectedSeller ? (selectedSeller.idUser || selectedSeller.id) : null,
         descripcion: form.descripcion || `Objetivo de ${form.tipoObjetivo} - Semana ${form.periodoSemana}`,
         tipoObjetivo: form.tipoObjetivo,
         periodoSemana: Number(form.periodoSemana) || 34,
@@ -122,7 +122,7 @@ export const ObjectivesPage = () => {
   const handleExportCSV = () => {
     const headers = ['Vendedor', 'Semana', 'Tipo de Objetivo', 'Descripción', 'Meta', 'Progreso Actual', 'Estado', 'Empresa Asociada'];
     const rows = objectives.map((obj) => {
-      const sellerName = obj.Seller?.User?.nombreApellido || `Vendedor #${obj.sellerId}`;
+      const sellerName = obj.vendedor?.nombreApellido || 'Sin asignar';
       const empresa = companiesList.find((c) => String(c.id) === String(obj.clientCompanyId));
       return [
         `"${sellerName.replace(/"/g, '""')}"`,
@@ -224,7 +224,7 @@ export const ObjectivesPage = () => {
       <div className="objectives-grid">
         {objectives.length > 0 ? (
           objectives.map(obj => {
-            const sellerName = obj.Seller?.User?.nombreApellido || `Vendedor #${obj.sellerId}`;
+            const sellerName = obj.vendedor?.nombreApellido || 'Sin asignar';
             const meta = Number(obj.cantidadMeta) || 100;
             const actual = Number(obj.progresoActual) || 0;
             const pct = Math.min(100, Math.round((actual / meta) * 100));

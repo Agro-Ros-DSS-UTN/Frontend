@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Building2, X, Check, Plus, ArrowLeft } from 'lucide-react';
+import { Building2, X, Plus, ArrowLeft } from 'lucide-react';
 import { companiesApi } from '../../../api/companies.api';
 import './CompanyAutocomplete.css';
 
@@ -116,9 +116,6 @@ export const CompanyAutocomplete = ({
       .slice(0, 8);
   }, [normalized, query]);
 
-  const exactItem = query ? normalized.find((c) => c.nombre.toLowerCase().trim() === query) : null;
-  const exactMatch = !!exactItem;
-
   // Notifica el nombre y, si coincide con una empresa cargada, su objeto (id incluido)
   const emit = (name) => {
     const hit = normalized.find((c) => c.nombre.toLowerCase().trim() === (name || '').toLowerCase().trim());
@@ -212,12 +209,6 @@ export const CompanyAutocomplete = ({
           </button>
         )}
       </div>
-
-      {exactMatch && (
-        <span className="company-ac__hint">
-          <Check size={12} /> Empresa encontrada en la base de datos
-        </span>
-      )}
 
       {open && showCreateForm && (
         <div className="company-ac__dropdown company-ac__create-panel">

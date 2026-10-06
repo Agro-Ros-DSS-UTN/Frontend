@@ -174,7 +174,7 @@ export const VoiceNotePlayer = ({
 /**
  * VoiceRecorderWidget — Grabador de voz en vivo con micrófono real y temporizador.
  */
-export const VoiceRecorderWidget = ({ onAddAudio, label = 'Grabar Nota de Voz' }) => {
+export const VoiceRecorderWidget = ({ onAddAudio, label = 'Grabar Nota de Voz', iconOnly = false }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -254,11 +254,13 @@ export const VoiceRecorderWidget = ({ onAddAudio, label = 'Grabar Nota de Voz' }
       {!isRecording ? (
         <button
           type="button"
-          className="voice-recorder-trigger-btn"
+          className={iconOnly ? 'voice-recorder-icon-btn' : 'voice-recorder-trigger-btn'}
           onClick={startRecording}
+          title={label}
+          aria-label={label}
         >
-          <Mic size={16} />
-          <span>{label}</span>
+          <Mic size={iconOnly ? 20 : 16} />
+          {!iconOnly && <span>{label}</span>}
         </button>
       ) : (
         <div className="voice-recorder-active-bar">

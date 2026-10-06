@@ -1430,3 +1430,16 @@
 .deals-btn--danger-ghost:hover {
   background: #fee2e2;
 }
+
+.deal-title-btn {
+  display: block;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.deal-title-btn:hover {
+  text-decoration: underline;
+}

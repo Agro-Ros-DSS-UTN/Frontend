@@ -38,7 +38,9 @@ apiClient.interceptors.response.use(
     const status = error?.response?.status;
     const url = error?.config?.url || '';
     const isLoginAttempt = url.includes('/users/login');
-    if ((status === 401 || status === 403) && !isLoginAttempt) {
+    // Un 403 por falta de permiso sobre una acción puntual no es una sesión vencida.
+    const isForbiddenAction = error?.response?.data?.code === 'FORBIDDEN_ACTION';
+    if ((status === 401 || status === 403) && !isLoginAttempt && !isForbiddenAction) {
       triggerSessionExpired();
     }
     return Promise.reject(error);

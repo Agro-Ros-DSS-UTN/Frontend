@@ -1,14 +1,8 @@
+/* La tarjeta (fondo/borde/radio/sombra) la da `.animated-panel` — acá solo
+   el padding interno propio de este submenú puntual. */
 .user-profile-sidebar {
-  display: flex;
-  flex-direction: column;
   width: 100%;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-light, #e2e8f0);
-  border-radius: var(--radius-xl, 12px);
-  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.08));
-  overflow: hidden;
   padding: 8px;
-  box-sizing: border-box;
 }
 
 .user-profile-sidebar__header {

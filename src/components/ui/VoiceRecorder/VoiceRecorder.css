@@ -29,6 +29,25 @@
   transform: translateY(-1px);
 }
 
+.voice-recorder-icon-btn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #334155;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.voice-recorder-icon-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
 .voice-recorder-active-bar {
   display: flex;
   align-items: center;

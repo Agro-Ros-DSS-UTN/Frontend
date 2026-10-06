@@ -1,0 +1,51 @@
+.sos-number {
+  margin: 0 0 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.sos-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sos-section-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sos-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sos-text-btn:hover {
+  background: #eef2f6;
+  color: #0f172a;
+}
+
+.sos-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sos-photos img {
+  width: 140px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+}

@@ -227,12 +227,10 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             <Plus size={16} />
             <span>Crear Promoción</span>
           </button>
-          {!isSeller && (
-            <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
-              <Download size={15} />
-              <span>Exportar</span>
-            </button>
-          )}
+          <button type="button" className="crm-btn-export" onClick={handleExportCSV}>
+            <Download size={15} />
+            <span>Exportar</span>
+          </button>
         </div>
       </div>
 
