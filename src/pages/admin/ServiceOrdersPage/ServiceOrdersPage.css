@@ -215,56 +215,6 @@
   box-shadow: var(--shadow-xs);
 }
 
-/* ── Barra de Pestañas (Tabs) ── */
-.so-tabs-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px 0;
-  border-bottom: 1px solid var(--border-light, #e2e8f0);
-  background: #ffffff;
-  overflow-x: auto;
-}
-
-.so-tab-btn {
-  padding: 10px 16px;
-  border: none;
-  background: transparent;
-  font-size: var(--text-sm, 13.5px);
-  font-weight: 600;
-  color: var(--text-secondary, #64748b);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.so-tab-btn:hover {
-  color: var(--color-primary, #1a7d6b);
-}
-
-.so-tab-btn--active {
-  color: var(--color-primary, #1a7d6b);
-  border-bottom-color: var(--color-primary, #1a7d6b);
-}
-
-.so-tab-badge {
-  background: var(--gray-100, #f1f5f9);
-  color: var(--text-secondary, #475569);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: var(--radius-full, 999px);
-}
-
-.so-tab-btn--active .so-tab-badge {
-  background: var(--color-primary-50, #ecfdf5);
-  color: var(--color-primary, #1a7d6b);
-}
-
 /* ── Barra de Búsqueda y Filtros (Toolbar) ── */
 .so-toolbar {
   display: flex;
@@ -285,7 +235,8 @@
   border: 1px solid var(--border-light, #e2e8f0);
   border-radius: var(--radius-md, 6px);
   padding: var(--space-2, 8px) var(--space-3, 12px);
-  min-width: 320px;
+  min-width: 280px;
+  flex: 0 1 380px;
   color: var(--text-muted, #64748b);
   transition: all var(--transition-fast, 150ms ease);
 }
@@ -322,12 +273,6 @@
 
 .so-search-clear:hover {
   color: var(--text-primary, #0f172a);
-}
-
-.so-toolbar-filters {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .so-select-filter {
@@ -620,138 +565,17 @@
   color: var(--text-muted, #64748b);
   max-width: 400px;
   margin: 0 0 8px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   MODALES (Diálogos Flotantes Elegantes)
-   ═══════════════════════════════════════════════════════════════════ */
-
-.so-modal-overlay {
-  position: fixed !important;
-  inset: 0 !important;
-  background: rgba(15, 23, 42, 0.5) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-  z-index: 9999 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 20px !important;
-  animation: soFadeIn 0.18s ease-out !important;
-}
+}
 
 @keyframes soFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-.so-modal {
-  background: #ffffff !important;
-  color: #0f172a !important;
-  border-radius: 16px !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
-  width: 100% !important;
-  max-width: 820px !important;
-  max-height: 90vh !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  animation: soScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-.so-modal--wide {
-  max-width: 860px !important;
-}
-
-.so-modal--eval {
-  max-width: 680px !important;
-}
-
-.so-modal--print {
-  max-width: 1060px !important;
-}
+}
 
 @keyframes soScaleIn {
   from { opacity: 0; transform: scale(0.96) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-/* Encabezado del Modal */
-.so-modal__header {
-  padding: 18px 24px !important;
-  border-bottom: 1px solid #e2e8f0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  background: #ffffff !important;
-}
-
-.so-modal__header-left {
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-}
-
-.so-modal-icon-badge {
-  width: 38px !important;
-  height: 38px !important;
-  border-radius: 10px !important;
-  background: #ecfdf5 !important;
-  color: #1a7d6b !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
-}
-
-.so-modal-icon-badge.purple {
-  background: #f3e8ff !important;
-  color: #7c3aed !important;
-}
-
-.so-modal__header h2 {
-  font-size: 17px !important;
-  font-weight: 800 !important;
-  color: #0f172a !important;
-  margin: 0 !important;
-}
-
-.so-modal-sub {
-  font-size: 12px !important;
-  color: #64748b !important;
-  margin-top: 2px !important;
-  display: block !important;
-}
-
-.so-modal__close {
-  width: 32px !important;
-  height: 32px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border: none !important;
-  background: transparent !important;
-  color: #64748b !important;
-  border-radius: 6px !important;
-  cursor: pointer !important;
-  transition: all 0.15s !important;
-}
-
-.so-modal__close:hover {
-  background: #f1f5f9 !important;
-  color: #0f172a !important;
-}
-
-/* Formulario del Modal */
-.so-modal__form {
-  padding: 20px 24px !important;
-  overflow-y: auto !important;
-  flex: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 16px !important;
-  background: #f8fafc !important;
-}
+}
 
 .so-form-card {
   background: #ffffff !important;
@@ -842,522 +666,7 @@
 
 .so-textarea {
   resize: vertical !important;
-}
-
-/* Tabla de Productos Químicos en Modal */
-.so-line-items-table-wrap {
-  overflow-x: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-}
-
-.so-line-items-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12.5px;
-}
-
-.so-line-items-table th {
-  background: #f8fafc;
-  padding: 8px 10px;
-  font-size: 11px;
-  text-transform: uppercase;
-  color: #64748b;
-  font-weight: 700;
-  text-align: left;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.so-line-items-table td {
-  padding: 6px 8px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.so-line-input {
-  padding: 6px 8px;
-  border: 1px solid #cbd5e1;
-  border-radius: 5px;
-  font-size: 12.5px;
-  width: 100%;
-  box-sizing: border-box;
-  background: #ffffff;
-  color: #0f172a;
-}
-
-.so-line-input:focus {
-  border-color: #1a7d6b;
-  outline: none;
-}
-
-.so-add-line-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  background: #ecfdf5;
-  color: #1a7d6b;
-  border: 1px solid #a7f3d0;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.so-add-line-btn:hover {
-  background: #d1fae5;
-  border-color: #6ee7b7;
-}
-
-.so-line-remove-btn {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.so-line-remove-btn:hover {
-  color: #ef4444;
-  background: #fee2e2;
-}
-
-/* Modal Acciones (Pie) */
-.so-modal__actions {
-  display: flex !important;
-  justify-content: flex-end !important;
-  align-items: center !important;
-  gap: 12px !important;
-  padding: 16px 24px !important;
-  background: #ffffff !important;
-  border-top: 1px solid #e2e8f0 !important;
-}
-
-/* ── Drawer de Evaluación de Servicio digital ── */
-.so-eval-os-summary {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 12px;
-  padding: 12px 14px;
-}
-
-.so-eval-os-summary__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: #15803d;
-  margin-bottom: 8px;
-}
-
-.so-eval-os-summary__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 12px;
-  font-size: 12.5px;
-  color: #334155;
-}
-
-.so-eval-os-summary__grid strong {
-  color: #0f172a;
-  font-weight: 700;
-}
-
-.so-eval-resultado-options {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.so-eval-resultado-pill {
-  padding: 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #475569;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: center;
-}
-
-.so-eval-resultado-pill:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
-}
-
-.so-eval-resultado-pill.active {
-  box-shadow: 0 0 0 2px currentColor inset;
-}
-
-/* ── Plantillas impresas: Orden de Servicio / Evaluación de Servicio ──
-   Réplica del formulario físico de Agroquímica Rosario S.A. (papel numerado) */
-.so-print-sheet {
-  background: #ffffff;
-  padding: 28px 32px;
-  overflow-y: auto;
-  font-family: Arial, 'Segoe UI', Helvetica, sans-serif;
-  color: #0f172a;
-  font-size: 12.5px;
-}
-
-/* Encabezado / membrete */
-.so-print-letterhead {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  border-bottom: 2px solid #0f172a;
-  padding-bottom: 14px;
-  margin-bottom: 14px;
-}
-
-.so-print-letterhead__brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.so-print-logo-badge {
-  width: 58px;
-  height: 58px;
-  border-radius: 8px;
-  background: #0f172a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  padding: 8px;
-}
-
-.so-print-logo-badge img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.so-print-brand-name {
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 3px;
-  letter-spacing: -0.2px;
-}
-
-.so-print-brand-tagline {
-  font-size: 11px;
-  color: #475569;
-  line-height: 1.4;
-  margin: 0;
-}
-
-.so-print-doc-stamp {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.so-print-invalid-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid #94a3b8;
-  border-radius: 4px;
-  padding: 3px 8px;
-  font-size: 8.5px;
-  font-weight: 700;
-  color: #475569;
-  text-align: right;
-  line-height: 1.1;
-  max-width: 190px;
-}
-
-.so-print-invalid-badge__x {
-  font-size: 13px;
-  font-weight: 900;
-  color: #0f172a;
-  border: 1.5px solid #0f172a;
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.so-print-doc-title {
-  font-size: 15px;
-  font-weight: 800;
-  color: #1d4ed8;
-  letter-spacing: 0.2px;
-  text-align: right;
-  max-width: 260px;
-}
-
-.so-print-doc-number {
-  font-family: 'Courier New', monospace;
-  font-size: 15px;
-  font-weight: 700;
-  color: #b91c1c;
-  border: 1.5px solid #0f172a;
-  padding: 3px 10px;
-}
-
-/* Campos apilados (Fecha / Cliente / Dirección / Localidad / ...) */
-.so-print-fields {
-  margin-bottom: 4px;
-}
-
-.so-print-field-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  border: 1px solid #0f172a;
-  padding: 6px 10px;
-  font-size: 12.5px;
-}
-
-.so-print-fields .so-print-field-row + .so-print-field-row {
-  border-top: none;
-}
-
-.so-print-field-row strong {
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.so-print-field-row--checkbox {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-}
-
-.so-print-checkbox-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 20px;
-}
-
-.so-print-checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #334155;
-}
-
-.so-print-checkbox__box {
-  width: 12px;
-  height: 12px;
-  border: 1.5px solid #0f172a;
-  display: inline-block;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.so-print-checkbox.checked {
-  font-weight: 800;
-}
-
-.so-print-checkbox.checked .so-print-checkbox__box {
-  background: #0f172a;
-}
-
-.so-print-checkbox.checked .so-print-checkbox__box::after {
-  content: '✓';
-  position: absolute;
-  top: -4px;
-  left: 1px;
-  font-size: 10px;
-  color: #ffffff;
-  line-height: 1;
-}
-
-/* Título de sección tipo formulario ("Detalle del servicio") */
-.so-print-section-title {
-  text-align: center;
-  font-size: 13px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  color: #0f172a;
-  margin: 18px 0 8px;
-}
-
-.so-print-table-wrap {
-  margin-bottom: 6px;
-  overflow-x: auto;
-}
-
-.so-print-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-}
-
-.so-print-table th {
-  background: #f1f5f9;
-  border: 1px solid #0f172a;
-  padding: 5px 8px;
-  color: #0f172a;
-  font-weight: 700;
-  font-size: 9.5px;
-  text-transform: uppercase;
-  text-align: center;
-  line-height: 1.25;
-}
-
-.so-print-table td {
-  border: 1px solid #0f172a;
-  padding: 6px 8px;
-  color: #1e293b;
-  text-align: center;
-  vertical-align: top;
-}
-
-.so-print-table td:last-child,
-.so-print-table td:nth-last-child(2) {
-  text-align: left;
-}
-
-.so-print-table-note {
-  margin-top: 6px;
-  font-size: 10.5px;
-  color: #64748b;
-  line-height: 1.5;
-}
-
-.so-print-eval-note {
-  margin: 6px 0 0;
-  font-size: 10.5px;
-  color: #94a3b8;
-  font-style: italic;
-}
-
-.so-print-disclaimers {
-  margin: 10px 0 18px;
-  padding-left: 18px;
-  font-size: 11px;
-  color: #475569;
-  line-height: 1.6;
-}
-
-/* Observaciones / Recomendaciones — cajas planas tipo formulario */
-.so-print-box-plain {
-  border: 1px solid #0f172a;
-  margin-bottom: 16px;
-}
-
-.so-print-box-plain__title {
-  margin: 0;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 800;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  border-bottom: 1px solid #0f172a;
-  background: #f8fafc;
-}
-
-.so-print-box-plain__text {
-  margin: 0;
-  padding: 10px 12px;
-  font-size: 12px;
-  color: #1e293b;
-  line-height: 1.6;
-  min-height: 20px;
-  white-space: pre-wrap;
-}
-
-.so-print-eval-photos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 12px 10px;
-}
-
-.so-print-eval-photos img {
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-  border: 1px solid #e2e8f0;
-}
-
-/* Referencias (leyenda del dorso del formulario) */
-.so-print-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  align-items: center;
-  border-top: 1px dashed #94a3b8;
-  padding-top: 10px;
-  margin-bottom: 18px;
-  font-size: 10px;
-  color: #64748b;
-}
-
-.so-print-legend strong {
-  color: #334155;
-  font-size: 10.5px;
-}
-
-/* Firmas */
-.so-print-signatures {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 48px;
-  margin-top: 30px;
-  padding-top: 10px;
-}
-
-.so-signature-line {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  font-size: 11.5px;
-  color: #334155;
-  border-top: 1px solid #0f172a;
-  padding-top: 6px;
-}
-
-.so-signature-space {
-  height: 48px;
-}
-
-.so-signature-img {
-  height: 48px;
-  object-fit: contain;
-}
-
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  .so-print-sheet, .so-print-sheet * {
-    visibility: visible;
-  }
-  .so-print-sheet {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    box-shadow: none;
-    padding: 0;
-  }
-}
-
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    SlideDrawer Styles for Service Orders & Evaluations (Matching Image 1)
@@ -1409,86 +718,6 @@ button.btn-rounded-secondary:hover {
 }
 
 /* Sección de productos dentro del Drawer */
-.so-drawer-chem-section {
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 12px 14px;
-  background: #f8fafc;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.so-drawer-chem-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.so-drawer-chem-title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #1a7d6b;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.so-drawer-signatures {
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 14px;
-  background: #f8fafc;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.so-drawer-signatures__title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #1a7d6b;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.so-drawer-chem-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.so-drawer-chem-row {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-
-.so-line-input {
-  border: 1px solid #cbd5e1 !important;
-  border-radius: 6px !important;
-  padding: 7px 10px !important;
-  font-size: 0.82rem !important;
-  background: #ffffff !important;
-  color: #0f172a !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.so-line-input:focus {
-  border-color: #1a7d6b !important;
-  box-shadow: 0 0 0 2px rgba(26, 125, 107, 0.12) !important;
-}
 
 /* ── Ajustes de tabla: sin contornos verdes ── */
 .so-order-link {
@@ -1560,4 +789,245 @@ button.btn-rounded-secondary:hover {
 }
 .so-edit-menu button:hover {
   background: #f1f5f9;
+}
+
+/* ── Formulario de orden: modal ancho ── */
+.so-form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2vh 16px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.so-form-modal {
+  width: min(1240px, 100%);
+  height: 96vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+}
+
+.so-form-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 28px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.so-form-modal__header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.so-form-modal__close {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+.so-form-modal__close:hover { background: #f1f5f9; color: #0f172a; }
+
+.so-form-modal__form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.so-form-modal__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.so-form-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 28px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.so-form-modal__footer .btn-rounded-primary { padding: 12px 24px; }
+.so-form-modal__footer .btn-rounded-secondary { padding: 12px 20px; }
+
+.so-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.so-form-section__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.so-form-grid {
+  display: grid;
+  gap: 16px;
+}
+.so-form-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.so-form-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.so-form-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.so-form-modal input[readonly] {
+  background: #f8fafc;
+  color: #334155;
+  cursor: default;
+}
+
+/* Planilla "Detalle del servicio" */
+.so-sheet-wrap {
+  overflow-x: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.so-sheet {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.so-sheet th {
+  padding: 8px 6px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.so-sheet td {
+  padding: 0;
+  border: 1px solid #e2e8f0;
+}
+
+.so-sheet__input {
+  width: 100%;
+  height: 36px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: #0f172a;
+}
+.so-sheet__input:focus {
+  outline: 2px solid #1a7d6b;
+  outline-offset: -2px;
+  background: #ffffff;
+}
+
+.so-sheet__actions {
+  width: 36px;
+  text-align: center;
+}
+
+.so-sheet__remove {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+.so-sheet__remove:hover { background: #fef2f2; color: #ef4444; }
+
+.so-sheet__add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.so-sheet__add:hover { background: #f8fafc; }
+
+/* Celdas tipo lista (estado del cereal, resultado) */
+select.so-sheet__input {
+  cursor: pointer;
+  padding-right: 4px;
+}
+
+/* Celda obligatoria sin completar en una fila cargada */
+.so-sheet__input--error {
+  background: #fef2f2;
+  box-shadow: inset 0 0 0 1px #fca5a5;
+}
+
+.so-form-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.so-sheet__link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #1a7d6b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.so-sheet__link:hover { text-decoration: underline; }
+
+.so-sheet__legend {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+@media (max-width: 900px) {
+  .so-form-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .so-form-grid--3,
+  .so-form-grid--2 { grid-template-columns: minmax(0, 1fr); }
+  .so-form-modal__body { padding: 18px; }
+}
+
+/* Botón de acción sin destino (por ejemplo, orden sin evaluación para imprimir) */
+.so-action-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

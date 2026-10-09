@@ -5,6 +5,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
+  // Si la base no responde, la operación falla en vez de quedar colgada
+  timeout: 20000,
   headers: {
     'Content-Type': 'application/json'
   }

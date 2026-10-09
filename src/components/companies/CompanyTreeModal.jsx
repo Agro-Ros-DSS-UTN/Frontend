@@ -6,6 +6,7 @@ import { useOverlayClose } from '../../hooks/useOverlayClose';
 import { LoadingState } from '../ui/LoadingState/LoadingState';
 import '../../pages/admin/CompaniesPage/CompaniesPage.css';
 import './CompanyTreeModal.css';
+import { notificar } from '../../hooks/useNotificaciones';
 
 // Encargado de un nodo (madre, región o subsede) — es un Contacto común,
 // solo que vinculado vía `clientCompanyId` a ESTE nivel puntual del árbol.
@@ -82,11 +83,12 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
           codigoPostal: node.localityCodPostal || '2170',
         });
       }
+      notificar.exito('Cambios guardados', node.nombreEmpresa);
       setEditingId(null);
       await loadTree();
     } catch (err) {
       console.error('Error al guardar cambios:', err);
-      alert('No se pudieron guardar los cambios.');
+      notificar.error('No se pudieron guardar los cambios', err);
     } finally {
       setSaving(false);
     }
@@ -107,12 +109,13 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
         nivelEmpresa: 'region',
         newContact: newRegionForm.encargado.trim() ? { nombreApellido: newRegionForm.encargado.trim(), tipoClient: 'Encargado Regional' } : null,
       });
+      notificar.exito('Región agregada', newRegionForm.nombre.trim());
       setAddingRegion(false);
       setNewRegionForm({ nombre: '', encargado: '', sedePrincipal: '' });
       await loadTree();
     } catch (err) {
       console.error('Error al agregar región:', err);
-      alert('No se pudo agregar la región.');
+      notificar.error('No se pudo agregar la región', err);
     } finally {
       setSaving(false);
     }
@@ -133,12 +136,13 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
         nivelEmpresa: 'subsede',
         newContact: newSubsedeForm.encargado.trim() ? { nombreApellido: newSubsedeForm.encargado.trim(), tipoClient: 'Encargado de Planta' } : null,
       });
+      notificar.exito('Subsede agregada', newSubsedeForm.nombre.trim());
       setAddingSubsedeFor(null);
       setNewSubsedeForm({ nombre: '', encargado: '', direccion: '' });
       await loadTree();
     } catch (err) {
       console.error('Error al agregar subsede:', err);
-      alert('No se pudo agregar la subsede.');
+      notificar.error('No se pudo agregar la subsede', err);
     } finally {
       setSaving(false);
     }

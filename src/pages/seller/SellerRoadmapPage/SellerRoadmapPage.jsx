@@ -28,6 +28,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { mockRoadmaps } from '../../../data/mockData';
 import { roadmapsApi } from '../../../api/operations.api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { notificar } from '../../../hooks/useNotificaciones';
+import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { FormInput, FormTextarea } from '../../../components/ui/FormInput/FormInput';
 import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
@@ -100,7 +102,6 @@ export const SellerRoadmapPage = () => {
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [historyDetailRoute, setHistoryDetailRoute] = useState(null);
-  const [toastMsg, setToastMsg] = useState('');
   const [acting, setActing] = useState(false);
 
   const [showAddStop, setShowAddStop] = useState(false);
@@ -139,11 +140,6 @@ export const SellerRoadmapPage = () => {
   });
 
   const addStopOverlayHandlers = useOverlayClose(() => setShowAddStop(false));
-
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 3000);
-  };
 
   const idUser = currentUser?.idUser || currentUser?.id;
 
@@ -298,11 +294,11 @@ export const SellerRoadmapPage = () => {
     setActing(true);
     try {
       await roadmapsApi.start(route.id);
-      showToast('🚀 ¡Hoja de Ruta iniciada!');
+      notificar.exito('Hoja de ruta iniciada');
       await fetchSellerRoutes();
     } catch (err) {
       console.error('Error al iniciar hoja de ruta:', err);
-      showToast('No se pudo iniciar la hoja de ruta.');
+      notificar.error('No se pudo iniciar la hoja de ruta', err);
     } finally {
       setActing(false);
     }
@@ -314,11 +310,11 @@ export const SellerRoadmapPage = () => {
     setActing(true);
     try {
       await roadmapsApi.end(route.id);
-      showToast('🏁 Hoja de Ruta finalizada.');
+      notificar.exito('Hoja de ruta finalizada');
       await fetchSellerRoutes();
     } catch (err) {
       console.error('Error al finalizar hoja de ruta:', err);
-      showToast('No se pudo finalizar la hoja de ruta.');
+      notificar.error('No se pudo finalizar la hoja de ruta', err);
     } finally {
       setActing(false);
     }
@@ -332,11 +328,11 @@ export const SellerRoadmapPage = () => {
       await roadmapsApi.addStop(route.id, { texto: stopForm.texto.trim(), url: stopForm.url.trim() || null });
       setShowAddStop(false);
       setStopForm({ texto: '', url: '' });
-      showToast('📍 Parada agregada al recorrido.');
+      notificar.exito('Parada agregada al recorrido');
       await fetchSellerRoutes();
     } catch (err) {
       console.error('Error al agregar parada:', err);
-      showToast('No se pudo agregar la parada.');
+      notificar.error('No se pudo agregar la parada', err);
     } finally {
       setActing(false);
     }
@@ -351,9 +347,10 @@ export const SellerRoadmapPage = () => {
         paradas: prev.paradas.map((p) => (p.orden === stop.orden ? { ...p, estado: newStatus === 'completada' ? 'Completada' : 'Pendiente' } : p)),
         visitasCompletadas: prev.visitasCompletadas + (newStatus === 'completada' ? 1 : -1),
       }));
-      showToast(newStatus === 'completada' ? `✅ Parada #${stop.orden} completada` : `Parada #${stop.orden} marcada pendiente`);
+      notificar.exito(newStatus === 'completada' ? `Parada #${stop.orden} completada` : `Parada #${stop.orden} marcada pendiente`);
     } catch (err) {
       console.error('Error updating stop status:', err);
+      notificar.error('No se pudo actualizar la parada', err);
     }
   };
 
@@ -397,11 +394,11 @@ export const SellerRoadmapPage = () => {
       await roadmapsApi.create(payload);
       setShowCreateDrawer(false);
       setCreateForm(emptyCreateForm);
-      showToast('✅ Hoja de ruta planificada correctamente.');
+      notificar.exito('Hoja de ruta planificada');
       await fetchSellerRoutes();
     } catch (err) {
       console.error('Error al planificar hoja de ruta:', err);
-      showToast('No se pudo guardar la hoja de ruta.');
+      notificar.error('No se pudo guardar la hoja de ruta', err);
     } finally {
       setCreating(false);
     }
@@ -413,12 +410,11 @@ export const SellerRoadmapPage = () => {
     setActing(true);
     try {
       await roadmapsApi.delete(routeId);
-      showToast('🗑️ Hoja de ruta eliminada.');
+      notificar.exito('Hoja de ruta eliminada');
       await fetchSellerRoutes();
     } catch (err) {
       console.error('Error al eliminar hoja de ruta:', err);
-      const msg = err?.response?.data?.message || 'No se pudo eliminar la hoja de ruta.';
-      showToast(msg);
+      notificar.error('No se pudo eliminar la hoja de ruta', err);
     } finally {
       setActing(false);
     }
@@ -430,12 +426,6 @@ export const SellerRoadmapPage = () => {
 
   return (
     <div className="seller-roadmap-page">
-      {toastMsg && (
-        <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: '#0f172a', color: '#ffffff', padding: '12px 20px', borderRadius: '12px', fontWeight: 700, fontSize: '0.9rem', zIndex: 999999, boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-          {toastMsg}
-        </div>
-      )}
-
       {/* Header */}
       <div className="seller-roadmap-header">
         <div>
@@ -449,13 +439,16 @@ export const SellerRoadmapPage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="seller-roadmap-tabs">
-        <button type="button" className={`seller-roadmap-tab ${activeTab === 'hoy' ? 'active' : ''}`} onClick={() => setActiveTab('hoy')}>
-          <Calendar size={14} /> Hoy
-        </button>
-        <button type="button" className={`seller-roadmap-tab ${activeTab === 'historial' ? 'active' : ''}`} onClick={() => setActiveTab('historial')}>
-          <History size={14} /> Registro Mensual ({pastRoutes.length})
-        </button>
+      <div className="crm-tabs-row">
+        <FilterTabs
+          ariaLabel="Vista de hoja de ruta"
+          value={activeTab}
+          onChange={setActiveTab}
+          items={[
+            { value: 'hoy', label: 'Hoy', icon: Calendar },
+            { value: 'historial', label: 'Registro Mensual', icon: History, count: pastRoutes.length },
+          ]}
+        />
       </div>
 
       {loading ? (

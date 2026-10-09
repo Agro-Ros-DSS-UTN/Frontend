@@ -400,61 +400,6 @@
 }
 
 /* ── Task section within the drawer ── */
-.act-board__task-section {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 14px 16px;
-  background: #f8fafc;
-}
-
-.act-board__task-section.is-open {
-  background: #ffffff;
-  border-color: #bbf7d0;
-}
-
-.act-board__task-toggle {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.act-board__task-toggle input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.act-board__task-toggle-box {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  border: 2px solid #cbd5e1;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  flex-shrink: 0;
-  margin-top: 1px;
-  transition: all 0.15s ease;
-}
-
-.act-board__task-toggle input:checked + .act-board__task-toggle-box {
-  background: #1a7d6b;
-  border-color: #1a7d6b;
-}
-
-.act-board__task-toggle-sub {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: #64748b;
-  margin-top: 2px;
-}
-
 .act-board__task-fields {
   display: flex;
   flex-direction: column;

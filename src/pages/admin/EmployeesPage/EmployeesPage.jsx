@@ -3,41 +3,56 @@ import {
   Users,
   Plus,
   Search,
-  Phone,
-  Mail,
-  FileText,
-  Building2,
-  Pencil,
+  Edit2,
   Trash2,
-  Calendar,
   Download,
+  HardHat,
+  ExternalLink,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { employeesApi } from '../../../api/employees.api';
-import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput/FormInput';
+import { FormInput, FormTextarea } from '../../../components/ui/FormInput/FormInput';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { ImageUpload } from '../../../components/ui/ImageUpload/ImageUpload';
-import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
+import '../UsersPage/UsersPage.css';
 import './EmployeesPage.css';
+import { notificar } from '../../../hooks/useNotificaciones';
 
-const PUESTO_OPTIONS = [
-  { value: 'Técnico Aplicador', label: 'Técnico Aplicador' },
-  { value: 'Operario', label: 'Operario' },
-  { value: 'Ayudante', label: 'Ayudante' },
-  { value: 'Supervisor de Campo', label: 'Supervisor de Campo' },
-  { value: 'Chofer', label: 'Chofer' },
-  { value: 'Encargado de Depósito', label: 'Encargado de Depósito' },
+// Sugerencias para el puesto; se puede escribir cualquier otro.
+const PUESTO_SUGERENCIAS = [
+  'Técnico Aplicador',
+  'Operario',
+  'Ayudante',
+  'Supervisor de Campo',
+  'Chofer',
+  'Encargado de Depósito',
+];
+
+const PAGE_SIZE = 10;
+
+const COLUMNS = [
+  { key: 'nombreApellido', label: 'Empleado', sortable: true },
+  { key: 'matricula', label: 'Matrícula', sortable: true },
+  { key: 'puesto', label: 'Puesto', sortable: true },
+  { key: 'contacto', label: 'Contacto', sortable: false },
+  { key: 'fechaIngreso', label: 'Ingreso', sortable: true },
+  { key: 'activo', label: 'Estado', sortable: true },
 ];
 
 const emptyForm = () => ({
   nombreApellido: '',
   dni: '',
   matricula: '',
-  puesto: 'Operario',
+  puesto: '',
   telefono: '',
   email: '',
-  empresa: 'Agroquímica Rosario S.R.L.',
-  fechaIngreso: new Date().toISOString().slice(0, 10),
+  fechaIngreso: '',
   activo: true,
   observaciones: '',
   profileImage: null,
@@ -52,11 +67,30 @@ const initials = (name) =>
     .join('')
     .toUpperCase();
 
+const formatDate = (value) => {
+  if (!value) return '—';
+  const d = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  return isNaN(d) ? value : d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const validate = (form) => {
+  const errors = {};
+  if (!form.nombreApellido.trim()) errors.nombreApellido = 'El nombre y apellido es obligatorio.';
+  if (!form.dni.trim()) errors.dni = 'El DNI es obligatorio.';
+  if (!form.matricula.trim()) errors.matricula = 'La matrícula es obligatoria.';
+  if (!form.puesto.trim()) errors.puesto = 'El puesto es obligatorio.';
+  return errors;
+};
+
 export const EmployeesPage = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('nombreApellido');
+  const [sortDir, setSortDir] = useState('asc');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showDrawer, setShowDrawer] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [errors, setErrors] = useState({});
@@ -79,21 +113,46 @@ export const EmployeesPage = () => {
     fetchEmployees();
   }, []);
 
-  const filtered = useMemo(() => {
-    if (!searchQuery.trim()) return employees;
-    const q = searchQuery.toLowerCase().trim();
-    return employees.filter(
-      (e) =>
-        e.nombreApellido?.toLowerCase().includes(q) ||
-        e.dni?.toLowerCase().includes(q) ||
-        e.matricula?.toLowerCase().includes(q) ||
-        e.puesto?.toLowerCase().includes(q) ||
-        e.empresa?.toLowerCase().includes(q)
-    );
-  }, [employees, searchQuery]);
-
-  const activos = employees.filter((e) => e.activo).length;
+  const activos = employees.filter((e) => e.activo !== false).length;
   const aplicadores = employees.filter((e) => (e.puesto || '').toLowerCase().includes('aplicador')).length;
+
+  const filtered = useMemo(() => {
+    let result = employees;
+    if (statusFilter === 'activo') result = result.filter((e) => e.activo !== false);
+    if (statusFilter === 'inactivo') result = result.filter((e) => e.activo === false);
+
+    const q = searchQuery.toLowerCase().trim();
+    if (q) {
+      result = result.filter(
+        (e) =>
+          e.nombreApellido?.toLowerCase().includes(q) ||
+          e.dni?.toLowerCase().includes(q) ||
+          e.matricula?.toLowerCase().includes(q) ||
+          e.puesto?.toLowerCase().includes(q) ||
+          e.email?.toLowerCase().includes(q)
+      );
+    }
+
+    return [...result].sort((a, b) => {
+      const valA = String(a[sortBy] ?? '').toLowerCase();
+      const valB = String(b[sortBy] ?? '').toLowerCase();
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [employees, statusFilter, searchQuery, sortBy, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const handleSort = (key) => {
+    if (sortBy === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(key);
+      setSortDir('asc');
+    }
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -109,10 +168,9 @@ export const EmployeesPage = () => {
       nombreApellido: emp.nombreApellido || '',
       dni: emp.dni || '',
       matricula: emp.matricula || '',
-      puesto: emp.puesto || 'Operario',
+      puesto: emp.puesto || '',
       telefono: emp.telefono || '',
       email: emp.email || '',
-      empresa: emp.empresa || '',
       fechaIngreso: emp.fechaIngreso || '',
       activo: emp.activo !== false,
       observaciones: emp.observaciones || '',
@@ -129,29 +187,40 @@ export const EmployeesPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.nombreApellido?.trim()) {
-      setErrors({ nombreApellido: 'El nombre y apellido es obligatorio.' });
+    const found = validate(form);
+    if (Object.keys(found).length) {
+      setErrors(found);
       return;
     }
     setErrors({});
     setSaving(true);
     try {
-      const payload = { ...form, nombreApellido: form.nombreApellido.trim() };
+      const payload = {
+        ...form,
+        nombreApellido: form.nombreApellido.trim(),
+        dni: form.dni.trim(),
+        matricula: form.matricula.trim(),
+        puesto: form.puesto.trim(),
+      };
       if (editingId) await employeesApi.update(editingId, payload);
       else await employeesApi.create(payload);
+      notificar.exito(
+        editingId ? 'Cambios guardados' : 'Empleado registrado',
+        `${payload.nombreApellido} · ${payload.puesto}`
+      );
       setShowDrawer(false);
       setForm(emptyForm());
       await fetchEmployees();
     } catch (err) {
       console.error('Error al guardar el empleado:', err);
-      alert('No se pudo guardar el empleado. Revisá los datos e intentá de nuevo.');
+      notificar.error('No se pudo guardar el empleado', err);
     } finally {
       setSaving(false);
     }
   };
 
   const handleExportCSV = () => {
-    const headers = ['Nombre y Apellido', 'DNI', 'Matrícula', 'Puesto', 'Teléfono', 'Email', 'Empresa', 'Fecha de Ingreso', 'Estado'];
+    const headers = ['Nombre y Apellido', 'DNI', 'Matrícula', 'Puesto', 'Teléfono', 'Email', 'Fecha de Ingreso', 'Estado'];
     const rows = filtered.map((e) => [
       `"${(e.nombreApellido || '').replace(/"/g, '""')}"`,
       `"${e.dni || ''}"`,
@@ -159,7 +228,6 @@ export const EmployeesPage = () => {
       `"${e.puesto || ''}"`,
       `"${e.telefono || ''}"`,
       `"${e.email || ''}"`,
-      `"${(e.empresa || '').replace(/"/g, '""')}"`,
       `"${e.fechaIngreso || ''}"`,
       `"${e.activo === false ? 'Inactivo' : 'Activo'}"`,
     ]);
@@ -176,12 +244,15 @@ export const EmployeesPage = () => {
 
   const handleDelete = async (emp) => {
     if (!window.confirm(`¿Eliminar al empleado "${emp.nombreApellido}"?`)) return;
-    setEmployees((prev) => prev.filter((x) => x.id !== emp.id));
     try {
-      await employeesApi.delete(emp.id);
+      await notificar.operacion(employeesApi.delete(emp.id), {
+        cargando: `Eliminando a ${emp.nombreApellido}…`,
+        exito: 'Empleado eliminado',
+        error: 'No se pudo eliminar el empleado',
+      });
+      setEmployees((prev) => prev.filter((x) => x.id !== emp.id));
     } catch (err) {
       console.error('Error al eliminar el empleado:', err);
-      fetchEmployees();
     }
   };
 
@@ -222,73 +293,175 @@ export const EmployeesPage = () => {
         </div>
       </div>
 
-      <div className="emp-toolbar">
-        <div className="emp-search">
-          <Search size={16} color="#64748b" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre, DNI, matrícula o puesto..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+      <div className="users-page__card">
+        <div className="users-page__toolbar crm-filterbar">
+          <FilterTabs
+            ariaLabel="Filtrar empleados por estado"
+            value={statusFilter}
+            onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
+            items={[
+              { value: 'all', label: 'Todos los empleados', count: employees.length },
+              { value: 'activo', label: 'Activos', count: activos },
+              { value: 'inactivo', label: 'Inactivos', count: employees.length - activos },
+            ]}
           />
+
+          <div className="users-page__search">
+            <Search size={16} color="#64748b" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, DNI, matrícula o puesto..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            />
+          </div>
+        </div>
+
+        <div className="users-page__table-wrapper">
+          <table className="users-table">
+            <thead>
+              <tr>
+                {COLUMNS.map((col) => (
+                  <th
+                    key={col.key}
+                    className={col.sortable ? 'users-table__sortable' : ''}
+                    onClick={() => col.sortable && handleSort(col.key)}
+                  >
+                    <div className="users-table__th-content">
+                      <span>{col.label}</span>
+                      {col.sortable && (
+                        <span>
+                          {sortBy === col.key ? (
+                            sortDir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />
+                          ) : (
+                            <ArrowUpDown size={13} style={{ opacity: 0.4 }} />
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                ))}
+                <th style={{ textAlign: 'center', width: '100px' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={COLUMNS.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                    Cargando empleados desde la base de datos...
+                  </td>
+                </tr>
+              ) : paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={COLUMNS.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                    {employees.length === 0
+                      ? 'No hay empleados registrados. Registrá el primero con “Registrar Empleado”.'
+                      : 'No se encontraron empleados que coincidan con la búsqueda.'}
+                  </td>
+                </tr>
+              ) : (
+                paginated.map((emp) => {
+                  const activo = emp.activo !== false;
+                  return (
+                    <tr key={emp.id} className="users-table__row">
+                      <td>
+                        <div className="users-table__name-cell">
+                          <div className="users-table__avatar users-table__avatar--vendedor emp-avatar">
+                            {emp.profileImage ? <img src={emp.profileImage} alt={emp.nombreApellido} /> : initials(emp.nombreApellido)}
+                          </div>
+                          <div>
+                            <span className="users-table__name">{emp.nombreApellido}</span>
+                            <span className="users-table__id-sub">{emp.dni ? `DNI ${emp.dni}` : 'Sin DNI'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{emp.matricula || <span style={{ color: '#94a3b8' }}>-</span>}</td>
+                      <td>
+                        {emp.puesto ? (
+                          <span className="users-table__role-pill users-table__role-pill--vendedor">
+                            <HardHat size={12} />
+                            {emp.puesto}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8' }}>-</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="emp-contact-cell">
+                          {emp.email ? (
+                            <a href={`mailto:${emp.email}`} className="users-table__email">
+                              {emp.email}
+                              <ExternalLink size={12} />
+                            </a>
+                          ) : null}
+                          {emp.telefono && <span className="users-table__id-sub">{emp.telefono}</span>}
+                          {!emp.email && !emp.telefono && <span style={{ color: '#94a3b8' }}>-</span>}
+                        </div>
+                      </td>
+                      <td>{formatDate(emp.fechaIngreso)}</td>
+                      <td>
+                        <span className={`users-table__status-pill ${activo ? 'users-table__status-pill--active' : 'users-table__status-pill--inactive'}`}>
+                          <span className="status-dot" />
+                          {activo ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div className="users-table__actions">
+                          <button type="button" className="users-table__action-btn" onClick={() => openEdit(emp)} title="Modificar empleado">
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="users-table__action-btn users-table__action-btn--danger"
+                            onClick={() => handleDelete(emp)}
+                            title="Eliminar empleado"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="users-page__pagination">
+          <span className="users-page__pagination-info">
+            Mostrando <strong>{paginated.length}</strong> de <strong>{filtered.length}</strong> empleados
+          </span>
+          <div className="users-page__pagination-controls">
+            <button
+              type="button"
+              className="users-page__page-btn"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                className={`users-page__page-btn ${currentPage === page ? 'users-page__page-btn--active' : ''}`}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="users-page__page-btn"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
-
-      {loading ? (
-        <LoadingState
-          title="Conectando con la base de datos…"
-          message="Aguardá un instante mientras traemos el personal registrado."
-        />
-      ) : filtered.length === 0 ? (
-        <div className="emp-empty">
-          <Users size={40} style={{ color: '#94a3b8', marginBottom: 12 }} />
-          <h3>No hay empleados registrados</h3>
-          <p>Registrá el primero con “Registrar Empleado”.</p>
-        </div>
-      ) : (
-        <div className="emp-grid">
-          {filtered.map((emp) => (
-            <div key={emp.id} className={`emp-card ${emp.activo === false ? 'emp-card--inactive' : ''}`}>
-              <div className="emp-card__top">
-                <div className="emp-card__avatar">
-                  {emp.profileImage ? (
-                    <img src={emp.profileImage} alt={emp.nombreApellido} />
-                  ) : (
-                    <span>{initials(emp.nombreApellido)}</span>
-                  )}
-                </div>
-                <div className="emp-card__id">
-                  <h3>{emp.nombreApellido}</h3>
-                  <span className="emp-card__role">{emp.puesto || 'Operario'}</span>
-                  {emp.activo === false && <span className="emp-card__badge-off">Inactivo</span>}
-                </div>
-              </div>
-
-              <div className="emp-card__data">
-                {emp.dni && (
-                  <span><FileText size={13} /> DNI {emp.dni}{emp.matricula ? ` · Mat. ${emp.matricula}` : ''}</span>
-                )}
-                {!emp.dni && emp.matricula && <span><FileText size={13} /> Mat. {emp.matricula}</span>}
-                {emp.telefono && <span><Phone size={13} /> {emp.telefono}</span>}
-                {emp.email && <span><Mail size={13} /> {emp.email}</span>}
-                {emp.empresa && <span><Building2 size={13} /> {emp.empresa}</span>}
-                {emp.fechaIngreso && <span><Calendar size={13} /> Ingreso: {emp.fechaIngreso}</span>}
-              </div>
-
-              {emp.observaciones && <p className="emp-card__obs">{emp.observaciones}</p>}
-
-              <div className="emp-card__actions">
-                <button type="button" onClick={() => openEdit(emp)} title="Editar">
-                  <Pencil size={14} /> Editar
-                </button>
-                <button type="button" className="danger" onClick={() => handleDelete(emp)} title="Eliminar">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       <SlideDrawer
         isOpen={showDrawer}
@@ -316,24 +489,31 @@ export const EmployeesPage = () => {
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <FormInput label="DNI" name="dni" value={form.dni} onChange={handleChange} placeholder="24.891.432" />
-            <FormInput label="Matrícula" name="matricula" value={form.matricula} onChange={handleChange} placeholder="Mat. 4812" />
+            <FormInput label="DNI" name="dni" value={form.dni} onChange={handleChange} placeholder="24.891.432" required error={errors.dni} />
+            <FormInput label="Matrícula" name="matricula" value={form.matricula} onChange={handleChange} placeholder="Mat. 4812" required error={errors.matricula} />
           </div>
 
-          <FormSelect
+          <FormInput
             label="Puesto"
             name="puesto"
             value={form.puesto}
             onChange={handleChange}
-            options={PUESTO_OPTIONS}
+            placeholder="Elegí uno de la lista o escribí otro puesto"
+            list="emp-puestos"
+            autoComplete="off"
+            required
+            error={errors.puesto}
           />
+          <datalist id="emp-puestos">
+            {PUESTO_SUGERENCIAS.map((p) => (
+              <option key={p} value={p} />
+            ))}
+          </datalist>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <FormInput label="Teléfono" name="telefono" value={form.telefono} onChange={handleChange} placeholder="+54 341 555-0123" />
-            <FormInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="empleado@empresa.com" />
+            <FormInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="empleado@correo.com" />
           </div>
-
-          <FormInput label="Empresa" name="empresa" value={form.empresa} onChange={handleChange} placeholder="Agroquímica Rosario S.R.L." />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'end' }}>
             <FormInput label="Fecha de Ingreso" name="fechaIngreso" type="date" value={form.fechaIngreso} onChange={handleChange} />

@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
-  Filter,
   Plus,
   Download,
   ArrowUpDown,
@@ -34,6 +33,8 @@ import { mockUsers } from '../../../data/mockData';
 import { FormInput, FormSelect } from '../../../components/ui/FormInput/FormInput';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
+import { notificar, mensajeDeError } from '../../../hooks/useNotificaciones';
+import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import './UsersPage.css';
 
 const TABS = [
@@ -60,14 +61,12 @@ export const UsersPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState('nombreApellido');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
 
-  // Feedback toast & copied state
-  const [toastMessage, setToastMessage] = useState('');
+  // Estado de "copiado"
   const [copiedId, setCopiedId] = useState(null);
 
   // Modal (Slide-over drawer) State
@@ -114,16 +113,11 @@ export const UsersPage = () => {
     fetchUsers();
   }, []);
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 3000);
-  };
-
   const handleCopyId = (id, e) => {
     e.stopPropagation();
     navigator.clipboard.writeText(id);
     setCopiedId(id);
-    showToast(`ID @${id} copiado al portapapeles`);
+    notificar.info(`ID @${id} copiado al portapapeles`);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -335,20 +329,22 @@ export const UsersPage = () => {
         const created = await apiCreateUser(payload);
         const newUser = created?.data || created || payload;
         setUsers(prev => [newUser, ...prev]);
-        showToast('Usuario creado exitosamente en MySQL');
+        notificar.exito('Usuario creado', `@${newUser.idUser || payload.idUser} ya puede ingresar al sistema.`);
       } else {
         await apiUpdateUser(form.idUser, payload);
         setUsers(prev =>
           prev.map(u => ((u.idUser || u.id) === form.idUser ? { ...u, ...payload } : u))
         );
-        showToast('Usuario actualizado exitosamente');
+        notificar.exito('Cambios guardados', `Se actualizó el usuario @${form.idUser}.`);
       }
       handleCloseModal();
     } catch (err) {
       console.warn('Error al guardar usuario:', err);
       // No se agrega una fila local sin persistir: eso era lo que provocaba
       // usuarios "fantasma" duplicados en pantalla ante cada reintento fallido.
-      setErrors({ idUser: err.message || 'No se pudo guardar el usuario. Verificá que el ID no esté en uso.' });
+      const msg = mensajeDeError(err, 'Verificá que el ID no esté en uso.');
+      setErrors({ idUser: msg });
+      notificar.error('No se pudo guardar el usuario', msg);
     } finally {
       setSubmitting(false);
     }
@@ -359,12 +355,16 @@ export const UsersPage = () => {
     if (!window.confirm(`¿Estás seguro de eliminar el usuario @${id}?`)) return;
 
     try {
-      await apiDeleteUser(id);
-      showToast(`Usuario @${id} eliminado de MySQL`);
+      await notificar.operacion(apiDeleteUser(id), {
+        cargando: `Eliminando @${id}…`,
+        exito: `Usuario @${id} eliminado`,
+        error: 'No se pudo eliminar el usuario',
+      });
+      // Solo se saca de la tabla si la base confirmó el borrado
+      setUsers(prev => prev.filter(u => (u.idUser || u.id) !== id));
     } catch (err) {
       console.warn('Error al eliminar en backend:', err);
     }
-    setUsers(prev => prev.filter(u => (u.idUser || u.id) !== id));
   };
 
   const handleExportCSV = () => {
@@ -390,14 +390,6 @@ export const UsersPage = () => {
 
   return (
     <div className="users-page">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="users-toast">
-          <Check size={16} />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
       {/* Header */}
       <div className="users-page__header">
         <div>
@@ -418,28 +410,21 @@ export const UsersPage = () => {
 
       {/* Main Unified Card */}
       <div className="users-page__card">
-        {/* Tabs Bar inside card */}
-        <div className="users-page__tabs">
-          {TABS.map(tab => {
-            const count = tab.key === 'all'
-              ? users.length
-              : users.filter(u => getNormalizedRole(u.role || u.rol) === tab.key).length;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                className={`users-page__tab ${activeTab === tab.key ? 'users-page__tab--active' : ''}`}
-                onClick={() => { setActiveTab(tab.key); setCurrentPage(1); }}
-              >
-                <span>{tab.label}</span>
-                <span className="users-page__tab-badge">{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
         {/* Toolbar */}
-        <div className="users-page__toolbar">
+        <div className="users-page__toolbar crm-filterbar">
+          <FilterTabs
+            ariaLabel="Filtrar usuarios por rol"
+            value={activeTab}
+            onChange={(key) => { setActiveTab(key); setCurrentPage(1); }}
+            items={TABS.map((tab) => ({
+              value: tab.key,
+              label: tab.label,
+              count: tab.key === 'all'
+                ? users.length
+                : users.filter((u) => getNormalizedRole(u.role || u.rol) === tab.key).length,
+            }))}
+          />
+
           <div className="users-page__search">
             <Search size={16} color="#64748b" />
             <input
@@ -450,46 +435,19 @@ export const UsersPage = () => {
             />
           </div>
 
-          <div className="users-page__toolbar-actions">
-            <button
-              type="button"
-              className={`users-page__filter-btn ${showFilters || statusFilter !== 'all' ? 'users-page__filter-btn--active' : ''}`}
-              onClick={() => setShowFilters(!showFilters)}
+          <div className="crm-filterbar__end">
+            <select
+              className="crm-filter-select"
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              aria-label="Estado de cuenta"
             >
-              <Filter size={15} />
-              <span>Filtros</span>
-              {statusFilter !== 'all' && <span className="filter-dot" />}
-            </button>
+              <option value="all">Todos los estados</option>
+              <option value="activo">Activo</option>
+              <option value="inactivo">Inactivo</option>
+            </select>
           </div>
         </div>
-
-        {/* Filter Chips Bar */}
-        {showFilters && (
-          <div className="users-page__filter-chips">
-            <span className="users-page__filter-label">Estado de cuenta:</span>
-            <button
-              type="button"
-              className={`users-page__filter-chip ${statusFilter === 'all' ? 'users-page__filter-chip--active' : ''}`}
-              onClick={() => setStatusFilter('all')}
-            >
-              Todos los estados
-            </button>
-            <button
-              type="button"
-              className={`users-page__filter-chip ${statusFilter === 'activo' ? 'users-page__filter-chip--active' : ''}`}
-              onClick={() => setStatusFilter('activo')}
-            >
-              Activo
-            </button>
-            <button
-              type="button"
-              className={`users-page__filter-chip ${statusFilter === 'inactivo' ? 'users-page__filter-chip--active' : ''}`}
-              onClick={() => setStatusFilter('inactivo')}
-            >
-              Inactivo
-            </button>
-          </div>
-        )}
 
         {/* Table */}
         <div className="users-page__table-wrapper">

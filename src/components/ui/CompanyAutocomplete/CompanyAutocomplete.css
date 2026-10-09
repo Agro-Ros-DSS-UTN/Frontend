@@ -219,3 +219,54 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.company-ac__dropdown-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 6px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.company-ac__dropdown-close {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+.company-ac__dropdown-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.company-ac__create-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.company-ac__create-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #1a7d6b;
+  cursor: pointer;
+}

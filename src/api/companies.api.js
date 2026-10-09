@@ -19,6 +19,10 @@ export const companiesApi = {
     const response = await apiClient.post('/clientCompany', data);
     return response.data;
   },
+  update: async (id, data) => {
+    const response = await apiClient.put(`/clientCompany/${id}`, data);
+    return response.data;
+  },
   // Contactos (Clientes individuales)
   getClients: async () => {
     const response = await apiClient.get('/clientes');

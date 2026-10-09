@@ -1,0 +1,201 @@
+/* Toasts — traducción a CSS de las clases Tailwind del componente de referencia */
+
+.crm-toast-viewport {
+  --toast-inset: 16px;
+  position: fixed;
+  z-index: 10000; /* por encima de modales y paneles laterales */
+  margin: 0 auto;
+  display: flex;
+  width: calc(100% - var(--toast-inset) * 2);
+  max-width: 360px;
+}
+
+@media (min-width: 640px) {
+  .crm-toast-viewport {
+    --toast-inset: 32px;
+  }
+}
+
+.crm-toast-viewport[data-position*='top'] { top: var(--toast-inset); }
+.crm-toast-viewport[data-position*='bottom'] { bottom: var(--toast-inset); }
+.crm-toast-viewport[data-position*='left'] { left: var(--toast-inset); }
+.crm-toast-viewport[data-position*='right'] { right: var(--toast-inset); }
+.crm-toast-viewport[data-position*='center'] { left: 50%; transform: translateX(-50%); }
+
+.crm-toast {
+  --toast-calc-height: var(--toast-frontmost-height, var(--toast-height));
+  --toast-gap: 12px;
+  --toast-peek: 12px;
+  --toast-scale: calc(max(0, 1 - (var(--toast-index) * 0.1)));
+  --toast-shrink: calc(1 - var(--toast-scale));
+
+  position: absolute;
+  z-index: calc(9999 - var(--toast-index));
+  height: var(--toast-calc-height);
+  width: 100%;
+  user-select: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: color-mix(in srgb, #ffffff, #000000 calc(1% * max(0, var(--toast-index, 0))));
+  background-clip: padding-box;
+  color: #0f172a;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05), 0 1px 0 rgba(0, 0, 0, 0.04);
+  font-family: inherit;
+  transition:
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.5s,
+    height 0.15s,
+    background-color 0.5s;
+}
+
+/* Relleno del hueco entre toasts para que el hover no se corte */
+.crm-toast::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: calc(var(--toast-gap) + 1px);
+}
+
+/* ── Posición: abajo ── */
+.crm-toast[data-position*='bottom'] {
+  top: auto;
+  bottom: 0;
+  transform-origin: bottom;
+  --toast-calc-offset-y: calc(var(--toast-offset-y) * -1 + var(--toast-index) * var(--toast-gap) * -1 + var(--toast-swipe-movement-y));
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(calc(var(--toast-swipe-movement-y) - (var(--toast-index) * var(--toast-peek)) - (var(--toast-shrink) * var(--toast-calc-height))))
+    scale(var(--toast-scale));
+}
+.crm-toast[data-position*='bottom']::after { bottom: 100%; }
+
+/* ── Posición: arriba ── */
+.crm-toast[data-position*='top'] {
+  top: 0;
+  bottom: auto;
+  transform-origin: top;
+  --toast-calc-offset-y: calc(var(--toast-offset-y) + var(--toast-index) * var(--toast-gap) + var(--toast-swipe-movement-y));
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(calc(var(--toast-swipe-movement-y) + (var(--toast-index) * var(--toast-peek)) + (var(--toast-shrink) * var(--toast-calc-height))))
+    scale(var(--toast-scale));
+}
+.crm-toast[data-position*='top']::after { top: 100%; }
+
+.crm-toast[data-position*='right'] { right: 0; left: auto; }
+.crm-toast[data-position*='left'] { right: auto; left: 0; }
+.crm-toast[data-position*='center'] { right: 0; left: 0; }
+
+/* Toasts que exceden el límite visible */
+.crm-toast[data-limited] { opacity: 0; }
+
+/* Pila expandida (hover / foco) */
+.crm-toast[data-expanded] {
+  height: var(--toast-height);
+  background-color: #ffffff;
+  transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--toast-calc-offset-y));
+}
+
+/* Entrada */
+.crm-toast[data-position*='bottom'][data-starting-style] { transform: translateY(calc(100% + var(--toast-inset))); }
+.crm-toast[data-position*='top'][data-starting-style] { transform: translateY(calc(-100% - var(--toast-inset))); }
+
+/* Salida */
+.crm-toast[data-ending-style] { opacity: 0; }
+.crm-toast[data-ending-style]:not([data-limited]):not([data-swipe-direction]) {
+  transform: translateY(calc(100% + var(--toast-inset)));
+}
+.crm-toast[data-ending-style][data-swipe-direction='left'] {
+  transform: translateX(calc(var(--toast-swipe-movement-x) - 100% - var(--toast-inset))) translateY(var(--toast-calc-offset-y));
+}
+.crm-toast[data-ending-style][data-swipe-direction='right'] {
+  transform: translateX(calc(var(--toast-swipe-movement-x) + 100% + var(--toast-inset))) translateY(var(--toast-calc-offset-y));
+}
+.crm-toast[data-ending-style][data-swipe-direction='up'] {
+  transform: translateY(calc(var(--toast-swipe-movement-y) - 100% - var(--toast-inset)));
+}
+.crm-toast[data-ending-style][data-swipe-direction='down'] {
+  transform: translateY(calc(var(--toast-swipe-movement-y) + 100% + var(--toast-inset)));
+}
+
+/* ── Contenido ── */
+.crm-toast__content {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  overflow: hidden;
+  padding: 12px 14px;
+  font-size: 0.875rem;
+  transition: opacity 0.25s;
+}
+.crm-toast__content[data-behind] { opacity: 0; }
+.crm-toast__content[data-behind]:not([data-expanded]) { pointer-events: none; }
+.crm-toast__content[data-expanded] { opacity: 1; }
+
+.crm-toast__main {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.crm-toast__icon {
+  display: flex;
+  align-items: center;
+  height: 1.25rem; /* alto de línea del título */
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.crm-toast[data-type='success'] .crm-toast__icon { color: #1a7d6b; }
+.crm-toast[data-type='error'] .crm-toast__icon { color: #dc2626; }
+.crm-toast[data-type='warning'] .crm-toast__icon { color: #d97706; }
+.crm-toast[data-type='info'] .crm-toast__icon { color: #2563eb; }
+.crm-toast[data-type='loading'] .crm-toast__icon {
+  color: #64748b;
+  opacity: 0.8;
+  animation: crm-toast-spin 0.9s linear infinite;
+}
+
+@keyframes crm-toast-spin {
+  to { transform: rotate(360deg); }
+}
+
+.crm-toast__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.crm-toast__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: #0f172a;
+}
+
+.crm-toast__description {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.2rem;
+  color: #64748b;
+}
+
+.crm-toast__description:empty { display: none; }
+
+.crm-toast__action {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.crm-toast__action:hover { background: #f8fafc; }

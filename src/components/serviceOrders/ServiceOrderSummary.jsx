@@ -16,6 +16,7 @@ import {
   X,
   Wheat,
   Gauge,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useOverlayClose } from '../../hooks/useOverlayClose';
 import '../companies/CompanySummary.css';
@@ -52,15 +53,17 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
   const overlayHandlers = useOverlayClose(onClose);
   const ev = order.evaluacion;
   const productos = order.productosAplicados || [];
-  const fotos = (() => {
-    if (Array.isArray(ev?.fotos)) return ev.fotos;
+  const parseList = (value) => {
+    if (Array.isArray(value)) return value;
     try {
-      const parsed = JSON.parse(ev?.fotos || '[]');
+      const parsed = JSON.parse(value || '[]');
       return Array.isArray(parsed) ? parsed : [];
     } catch (_) {
       return [];
     }
-  })();
+  };
+  const fotos = parseList(ev?.fotos);
+  const filasEval = parseList(ev?.detalle);
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
@@ -116,11 +119,14 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
               </span>
             </MetaItem>
             <MetaItem icon={Wrench} label="Tipo de trabajo">{order.tipoTrabajo || '—'}</MetaItem>
-            <MetaItem icon={Building2} label="Centro">{order.centroNombre || '—'}</MetaItem>
-            <MetaItem icon={Factory} label="Planta de acopio">
-              {order.plantaNombre || '—'}
-              {order.silo ? ` · Silo ${order.silo}` : ''}
-            </MetaItem>
+            {/* Centro / Planta / Silo ya no se cargan; solo se muestran en órdenes viejas que los tengan */}
+            {order.centroNombre && <MetaItem icon={Building2} label="Centro">{order.centroNombre}</MetaItem>}
+            {(order.plantaNombre || order.silo) && (
+              <MetaItem icon={Factory} label="Planta de acopio">
+                {order.plantaNombre || '—'}
+                {order.silo ? ` · Silo ${order.silo}` : ''}
+              </MetaItem>
+            )}
             <MetaItem icon={UserCircle2} label="Técnico aplicador">{order.tecnicoAplicador || '—'}</MetaItem>
             <MetaItem icon={MapPin} label="Ubicación" wide>{ubicacion || '—'}</MetaItem>
             {order.observacionesOrden && (
@@ -137,7 +143,7 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
 
           <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
-              <FlaskConical size={18} className="cs-meta__icon" /> Productos aplicados
+              <FlaskConical size={18} className="cs-meta__icon" /> Detalle del servicio
               <span className="cs-count">{productos.length}</span>
             </h3>
             {productos.length > 0 ? (
@@ -145,32 +151,47 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
                 <table className="cs-table">
                   <thead>
                     <tr>
+                      <th>Instalación</th>
+                      <th>Nº</th>
+                      <th>Capacidad (tn)</th>
+                      <th>Grano</th>
+                      <th>Cantidad (tn)</th>
+                      <th>Estado (cereal / inst. / infest.)</th>
                       <th>Producto</th>
-                      <th>Principio activo</th>
                       <th>Dosis</th>
-                      <th>Lote</th>
-                      <th>Carencia</th>
-                      <th className="cs-table__right">Cantidad</th>
                     </tr>
                   </thead>
                   <tbody>
                     {productos.map((p, i) => (
                       <tr key={i}>
-                        <td className="cs-table__detail">{p.producto || '—'}</td>
-                        <td>{p.principioActivo || '—'}</td>
+                        <td className="cs-table__detail">{p.tipoInstalacion || '—'}</td>
+                        <td>{p.numero || '—'}</td>
+                        <td>{p.capacidadTn || '—'}</td>
+                        <td>{p.grano || '—'}</td>
+                        <td>{p.cantidadTn || '—'}</td>
+                        <td>{[p.estadoCereal, p.estadoInstalaciones, p.estadoInfestacion].map((v) => v || '—').join(' / ')}</td>
+                        <td>{p.producto || '—'}</td>
                         <td>{p.dosis || '—'}</td>
-                        <td>{p.lote || '—'}</td>
-                        <td>{p.tiempoCarencia || '—'}</td>
-                        <td className="cs-table__right">{p.cantidadTotal || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <p className="cs-empty">La orden no tiene productos cargados.</p>
+              <p className="cs-empty">La orden no tiene detalle del servicio cargado.</p>
             )}
           </motion.section>
+
+          {order.imagenOrdenOriginal && (
+            <motion.section variants={itemVariants} className="cs-section">
+              <h3 className="cs-section__title">
+                <ImageIcon size={18} className="cs-meta__icon" /> Orden de servicio original
+              </h3>
+              <a href={order.imagenOrdenOriginal} target="_blank" rel="noreferrer" className="sos-original" title="Abrir la imagen completa">
+                <img src={order.imagenOrdenOriginal} alt={`Orden de servicio original ${order.numeroOrden}`} />
+              </a>
+            </motion.section>
+          )}
 
           <motion.section variants={itemVariants} className="cs-section">
             <div className="sos-section-head">
@@ -196,8 +217,12 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
                     <strong>{ev.resultado || '—'}</strong>
                   </MetaItem>
                   <MetaItem icon={Calendar} label="Fecha de evaluación">{formatDate(ev.fechaEvaluacion)}</MetaItem>
-                  <MetaItem icon={Wheat} label="Estado del cereal">{ev.estadoCereal || '—'}</MetaItem>
-                  <MetaItem icon={MapPin} label="Lugar de toma de muestra">{ev.lugarToma || '—'}</MetaItem>
+                  {filasEval.length === 0 && (
+                    <>
+                      <MetaItem icon={Wheat} label="Estado del cereal">{ev.estadoCereal || '—'}</MetaItem>
+                      <MetaItem icon={MapPin} label="Lugar de toma de muestra">{ev.lugarToma || '—'}</MetaItem>
+                    </>
+                  )}
                   <MetaItem icon={Gauge} label="PPM PH3">{ev.ppmPH3 !== null && ev.ppmPH3 !== undefined && ev.ppmPH3 !== '' ? ev.ppmPH3 : '—'}</MetaItem>
                   {ev.observaciones && (
                     <MetaItem icon={FileText} label="Observaciones" wide>
@@ -210,6 +235,38 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
                     </MetaItem>
                   )}
                 </div>
+                {filasEval.length > 0 && (
+                  <div className="cs-table-wrap">
+                    <table className="cs-table">
+                      <thead>
+                        <tr>
+                          <th>Instalación</th>
+                          <th>Nº</th>
+                          <th>Capacidad (tn)</th>
+                          <th>Grano</th>
+                          <th>Cantidad (tn)</th>
+                          <th>Estado cereal</th>
+                          <th>Lugar de toma</th>
+                          <th>Resultado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filasEval.map((r, i) => (
+                          <tr key={i}>
+                            <td className="cs-table__detail">{r.tipoInstalacion || '—'}</td>
+                            <td>{r.numero || '—'}</td>
+                            <td>{r.capacidadTn || '—'}</td>
+                            <td>{r.grano || '—'}</td>
+                            <td>{r.cantidadTn || '—'}</td>
+                            <td>{r.estadoCereal || '—'}</td>
+                            <td>{r.lugarToma || '—'}</td>
+                            <td><strong>{r.resultado || '—'}</strong></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 {fotos.length > 0 && (
                   <div className="sos-photos">
                     {fotos.map((src, i) => (

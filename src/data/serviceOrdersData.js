@@ -321,6 +321,7 @@ export const INITIAL_SERVICE_ORDERS = [
 ];
 
 export const WORK_TYPES = [
+  'Fumigación',
   'Fumigación de Celda',
   'Fumigación de Silo',
   'Impermeabilización de Celda',

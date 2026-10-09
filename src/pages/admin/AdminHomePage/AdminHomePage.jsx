@@ -23,6 +23,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { tasksApi, roadmapsApi, objectivesApi, activitiesApi } from '../../../api/operations.api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import './AdminHomePage.css';
+import { notificar } from '../../../hooks/useNotificaciones';
 
 const isCompleted = (estado) => /complet|cumplid|finaliz/i.test(String(estado || ''));
 
@@ -200,8 +201,10 @@ export const AdminHomePage = () => {
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, estado: 'Finalizada' } : t)));
     try {
       await tasksApi.finalize(task.id);
+      notificar.exito('Tarea finalizada', task.titulo);
     } catch (err) {
       console.error('No se pudo completar la tarea:', err);
+      notificar.error('No se pudo finalizar la tarea', err);
       setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, estado: task.estado } : t)));
     }
   };

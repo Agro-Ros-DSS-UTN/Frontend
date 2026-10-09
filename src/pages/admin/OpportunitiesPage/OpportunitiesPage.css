@@ -162,73 +162,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-/* ── HubSpot Tabs Bar ── */
-.deals-tabs-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 var(--space-5);
-  border-bottom: 1px solid var(--border-light);
-  background: #fafbfc;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-
-.deals-tabs-group {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.deals-tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 16px;
-  border: none;
-  background: transparent;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  font-family: var(--font-sans);
-  color: var(--text-secondary);
-  cursor: pointer;
-  position: relative;
-  transition: all var(--transition-fast);
-}
-
-.deals-tab-btn:hover {
-  color: var(--text-primary);
-}
-
-.deals-tab-btn.active {
-  color: var(--color-primary);
-  font-weight: 700;
-}
-
-.deals-tab-btn.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--color-primary);
-}
-
-.tab-badge {
-  background: var(--gray-200);
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: var(--radius-full);
-}
-
-.deals-tab-btn.active .tab-badge {
-  background: var(--color-primary-50);
-  color: var(--color-primary);
-}
+}
 
 .deals-view-switcher {
   display: flex;

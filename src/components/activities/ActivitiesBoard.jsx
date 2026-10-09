@@ -13,7 +13,6 @@ import {
   Mic,
   Trash2,
   Pencil,
-  CheckSquare,
   Download,
   ChevronDown,
 } from 'lucide-react';
@@ -22,6 +21,8 @@ import { authApi } from '../../api/auth.api';
 import { useAuth } from '../../context/AuthContext';
 import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput/FormInput';
 import { FlipCheckbox } from '../ui/FlipCheckbox/FlipCheckbox';
+import { ToggleSection } from '../ui/ToggleSection/ToggleSection';
+import { FilterTabs } from '../ui/FilterTabs/FilterTabs';
 import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
 import { ImageUpload } from '../ui/ImageUpload/ImageUpload';
 import { VoiceRecorderWidget, VoiceNotePlayer } from '../ui/VoiceRecorder/VoiceRecorder';
@@ -30,6 +31,7 @@ import { LoadingState } from '../ui/LoadingState/LoadingState';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../ui/PageHeaderActions/PageHeaderActions';
 import '../tasks/TasksBoard.css';
 import './ActivitiesBoard.css';
+import { notificar } from '../../hooks/useNotificaciones';
 
 const TIPOS_CONTACTO = [
   { label: 'Visita', icon: MapPin },
@@ -114,14 +116,6 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState(emptyForm());
   const [assignableUsers, setAssignableUsers] = useState([]);
-  const [notice, setNotice] = useState(null);
-
-  useEffect(() => {
-    if (!notice) return undefined;
-    const timer = setTimeout(() => setNotice(null), 4000);
-    return () => clearTimeout(timer);
-  }, [notice]);
-
   const fetchActivities = async () => {
     try {
       setLoading(true);
@@ -307,7 +301,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
 
       if (editingActivity) {
         await activitiesApi.update(editingActivity.idFormulario, activityPayload);
-        setNotice({ type: 'success', text: 'Actividad actualizada.' });
+        notificar.exito('Actividad actualizada');
       } else {
         const created = await activitiesApi.create({
           ...activityPayload,
@@ -340,18 +334,12 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
           const failed = results.filter((r) => r.status === 'rejected').length;
           if (failed > 0) {
             console.error('Fallaron tareas de seguimiento:', results.filter((r) => r.status === 'rejected'));
-            setNotice({
-              type: 'error',
-              text: `La actividad se guardó, pero no se pudieron crear ${failed} de ${results.length} tareas de seguimiento.`,
-            });
+            notificar.advertencia("La actividad se guardó con avisos", `No se pudieron crear ${failed} de ${results.length} tareas de seguimiento.`);
           } else {
-            setNotice({
-              type: 'success',
-              text: `Actividad registrada con ${results.length} ${results.length === 1 ? 'tarea' : 'tareas'} de seguimiento.`,
-            });
+            notificar.exito(`Actividad registrada con ${results.length} ${results.length === 1 ? 'tarea' : 'tareas'} de seguimiento`);
           }
         } else {
-          setNotice({ type: 'success', text: 'Actividad registrada.' });
+          notificar.exito('Actividad registrada');
         }
       }
 
@@ -359,7 +347,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
       await fetchActivities();
     } catch (err) {
       console.error('Error al guardar la actividad:', err);
-      setNotice({ type: 'error', text: 'No se pudo guardar la actividad. Revisá los datos e intentá de nuevo.' });
+      notificar.error('No se pudo guardar la actividad', err);
     } finally {
       setSaving(false);
     }
@@ -402,11 +390,6 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
 
   return (
     <div className="tasks-board">
-      {notice && (
-        <div className={`tasks-board__notice tasks-board__notice--${notice.type}`} role="status">
-          {notice.text}
-        </div>
-      )}
 
       <div className="tasks-board__banner">
         <div className="tasks-board__banner-left">
@@ -456,28 +439,16 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
       </div>
 
       <div className="tasks-board__card">
-        <div className="tasks-board__tabs">
-          <button
-            type="button"
-            className={`tasks-board__tab ${typeFilter === '' ? 'tasks-board__tab--active' : ''}`}
-            onClick={() => setTypeFilter('')}
-          >
-            <span>Todas</span>
-            <span className="tasks-board__tab-badge">{activities.length}</span>
-          </button>
-          {TIPOS_CONTACTO.map((t) => (
-            <button
-              key={t.label}
-              type="button"
-              className={`tasks-board__tab ${typeFilter === t.label ? 'tasks-board__tab--active' : ''}`}
-              onClick={() => setTypeFilter(t.label)}
-            >
-              <span>{t.label}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="tasks-board__toolbar">
+        <div className="tasks-board__toolbar crm-filterbar">
+          <FilterTabs
+            ariaLabel="Filtrar actividades por tipo"
+            value={typeFilter}
+            onChange={setTypeFilter}
+            items={[
+              { value: '', label: 'Todas', count: activities.length },
+              ...TIPOS_CONTACTO.map((t) => ({ value: t.label, label: t.label })),
+            ]}
+          />
           <div className="tasks-board__search">
             <Search size={16} color="#64748b" />
             <input
@@ -488,7 +459,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             />
           </div>
           <select
-            className="tasks-board__filter"
+            className="tasks-board__filter crm-filterbar__end"
             value={attachmentFilter}
             onChange={(e) => setAttachmentFilter(e.target.value)}
           >
@@ -698,19 +669,12 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
           />
 
           {!editingActivity && (
-            <div className={`act-board__task-section ${form.crearTarea ? 'is-open' : ''}`}>
-              <label className="act-board__task-toggle">
-                <input type="checkbox" checked={form.crearTarea} onChange={(e) => setCrearTarea(e.target.checked)} />
-                <span className="act-board__task-toggle-box">
-                  {form.crearTarea && <CheckSquare size={13} strokeWidth={3} />}
-                </span>
-                <span>
-                  <strong>Generar también tareas de seguimiento</strong>
-                  <span className="act-board__task-toggle-sub">
-                    Quedan asociadas a esta actividad (hasta {MAX_FOLLOWUP_TASKS})
-                  </span>
-                </span>
-              </label>
+            <ToggleSection
+              checked={form.crearTarea}
+              onChange={setCrearTarea}
+              title="Generar también tareas de seguimiento"
+              subtitle={`Quedan asociadas a esta actividad (hasta ${MAX_FOLLOWUP_TASKS})`}
+            >
 
               {form.crearTarea &&
                 form.tareas.map((t, idx) => {
@@ -832,7 +796,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                   </label>
                 </div>
               )}
-            </div>
+            </ToggleSection>
           )}
 
           <div className="tasks-board__form-actions">

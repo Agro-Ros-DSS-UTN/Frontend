@@ -1,0 +1,52 @@
+.crm-error-boundary {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f8fafc;
+}
+
+.crm-error-boundary__card {
+  max-width: 520px;
+  width: 100%;
+  padding: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+}
+
+.crm-error-boundary__card h1 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.crm-error-boundary__card p {
+  margin: 0 0 16px;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.crm-error-boundary__card pre {
+  margin: 0 0 20px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.crm-error-boundary__card button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 9999px;
+  background: #1a7d6b;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}

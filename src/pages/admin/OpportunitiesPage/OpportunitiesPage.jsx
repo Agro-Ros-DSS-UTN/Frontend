@@ -32,10 +32,12 @@ import { FormInput, FormSelect } from '../../../components/ui/FormInput/FormInpu
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
 import { ContactAutocomplete } from '../../../components/ui/ContactAutocomplete/ContactAutocomplete';
+import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import '../../../components/tasks/TasksBoard.css';
 import '../../../components/companies/CompanySummary.css';
 import './OpportunitiesPage.css';
+import { notificar } from '../../../hooks/useNotificaciones';
 
 const TIPO_NEGOCIO_OPTIONS = [
   'Cliente nuevo',
@@ -196,14 +198,7 @@ export const OpportunitiesPage = () => {
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState(null);
   const [form, setForm] = useState(emptyForm(myUserId));
-
-  useEffect(() => {
-    if (!notice) return undefined;
-    const timer = setTimeout(() => setNotice(null), 4000);
-    return () => clearTimeout(timer);
-  }, [notice]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -304,7 +299,7 @@ export const OpportunitiesPage = () => {
       await updateOpportunity(target.id, { etapaComercial: newStageKey, estado: estadoForStage(newStageKey) });
     } catch (err) {
       console.error('Error al mover el negocio de etapa:', err);
-      setNotice({ type: 'error', text: 'No se pudo cambiar la etapa del negocio.' });
+      notificar.error('No se pudo cambiar la etapa del negocio', err);
       fetchData();
     }
   };
@@ -314,10 +309,10 @@ export const OpportunitiesPage = () => {
     try {
       await deleteOpportunity(deal.id);
       setDeals((prev) => prev.filter((d) => d.id !== deal.id));
-      setNotice({ type: 'success', text: 'Negocio eliminado.' });
+      notificar.exito('Negocio eliminado');
     } catch (err) {
       console.error('Error al eliminar el negocio:', err);
-      setNotice({ type: 'error', text: 'No se pudo eliminar el negocio.' });
+      notificar.error('No se pudo eliminar el negocio', err);
     }
   };
 
@@ -392,16 +387,16 @@ export const OpportunitiesPage = () => {
       setSaving(true);
       if (editingDeal) {
         await updateOpportunity(editingDeal.id, payload);
-        setNotice({ type: 'success', text: 'Negocio actualizado.' });
+        notificar.exito('Negocio actualizado');
       } else {
         await createNegocio(payload);
-        setNotice({ type: 'success', text: 'Negocio creado.' });
+        notificar.exito('Negocio creado');
       }
       closeDrawer();
       await fetchData();
     } catch (err) {
       console.error('Error al guardar el negocio:', err);
-      setNotice({ type: 'error', text: err?.message || 'No se pudo guardar el negocio. Revisá los datos.' });
+      notificar.error('No se pudo guardar el negocio', err);
     } finally {
       setSaving(false);
     }
@@ -409,11 +404,6 @@ export const OpportunitiesPage = () => {
 
   return (
     <div className="deals-page">
-      {notice && (
-        <div className={`tasks-board__notice tasks-board__notice--${notice.type}`} role="status">
-          {notice.text}
-        </div>
-      )}
 
       <div className="deals-page__header">
         <div className="deals-page__title-box">
@@ -470,32 +460,17 @@ export const OpportunitiesPage = () => {
       </div>
 
       <div className="deals-card">
-        <div className="deals-tabs-bar">
-          <div className="deals-tabs-group">
-            <button className={`deals-tab-btn ${activeTab === 'todos' ? 'active' : ''}`} onClick={() => setActiveTab('todos')}>
-              Todos los negocios <span className="tab-badge">{deals.length}</span>
-            </button>
-            <button className={`deals-tab-btn ${activeTab === 'decision' ? 'active' : ''}`} onClick={() => setActiveTab('decision')}>
-              En decisión
-            </button>
-            <button className={`deals-tab-btn ${activeTab === 'ganados' ? 'active' : ''}`} onClick={() => setActiveTab('ganados')}>
-              Ganados
-            </button>
-          </div>
-
-          <div className="deals-view-switcher">
-            <button type="button" className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
-              <TableIcon size={15} />
-              <span>Tabla</span>
-            </button>
-            <button type="button" className={`view-mode-btn ${viewMode === 'kanban' ? 'active' : ''}`} onClick={() => setViewMode('kanban')}>
-              <LayoutGrid size={15} />
-              <span>Tablero</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="deals-toolbar">
+        <div className="deals-toolbar crm-filterbar">
+          <FilterTabs
+            ariaLabel="Filtrar negocios"
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { value: 'todos', label: 'Todos los negocios', count: deals.length },
+              { value: 'decision', label: 'En decisión', count: deals.filter((d) => d.etapaKey === 'decisor_convencido').length },
+              { value: 'ganados', label: 'Ganados', count: deals.filter((d) => d.etapaKey === 'cierre_ganado').length },
+            ]}
+          />
           <div className="deals-search-box">
             <Search size={15} />
             <input
@@ -509,6 +484,17 @@ export const OpportunitiesPage = () => {
                 <X size={13} />
               </button>
             )}
+          </div>
+
+          <div className="deals-view-switcher crm-filterbar__end">
+            <button type="button" className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
+              <TableIcon size={15} />
+              <span>Tabla</span>
+            </button>
+            <button type="button" className={`view-mode-btn ${viewMode === 'kanban' ? 'active' : ''}`} onClick={() => setViewMode('kanban')}>
+              <LayoutGrid size={15} />
+              <span>Tablero</span>
+            </button>
           </div>
         </div>
 

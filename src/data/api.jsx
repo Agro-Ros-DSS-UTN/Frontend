@@ -11,6 +11,8 @@ import { triggerSessionExpired } from '../utils/sessionExpired';
 
    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+const REQUEST_TIMEOUT_MS = 20000;
+
 // Helper for HTTP requests with Authorization header support
 const request = async (endpoint, options = {}) => {
   const storedUser = sessionStorage.getItem('agroros_user') || localStorage.getItem('agroros_user');
@@ -28,9 +30,13 @@ const request = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
+  // Límite de tiempo: si la base no responde, la operación falla en vez de quedar colgada.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const config = {
     ...options,
     headers,
+    signal: controller.signal,
   };
 
   try {
@@ -46,8 +52,13 @@ const request = async (endpoint, options = {}) => {
 
     return data;
   } catch (error) {
+    if (error.name === 'AbortError') {
+      error = new Error('La base de datos tardó demasiado en responder. Revisá tu conexión e intentá de nuevo.');
+    }
     console.warn(`[API Warning] Falló petición a ${endpoint}:`, error.message);
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 };
 
@@ -126,54 +137,27 @@ export const createClientCompany = async (companyData) => {
     descEmpresa: companyData.descEmpresa,
     existingContactNumDoc: companyData.existingContactNumDoc,
     newContact: companyData.newContact,
+    // Jerarquía (regiones y subsedes) y quién la registra
+    parentCompanyId: companyData.parentCompanyId ?? null,
+    nivelEmpresa: companyData.nivelEmpresa,
+    creadoPorId: companyData.creadoPorId,
   };
 
-  try {
-    const res = await request('/clientCompany', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    return res;
-  } catch (err) {
-    console.info('[API Fallback] Simulando creación de Empresa en memoria.');
-    const newComp = { id: Date.now(), ...payload, fechaRegistro: new Date().toISOString() };
-    let linkedContact = null;
-    if (payload.newContact) {
-      linkedContact = {
-        numDoc: payload.newContact.numDoc || ('20-' + Math.floor(10000000 + Math.random() * 90000000) + '-4'),
-        nombreApellido: payload.newContact.nombreApellido,
-        direccionMail: payload.newContact.direccionMail || '',
-        tipoClient: payload.newContact.tipoClient || 'Encargado de Planta',
-        localidad: payload.localidad || 'Casilda',
-        codigoPostal: payload.localityCodPostal || '2170',
-        telefonos: payload.newContact.telefono ? [payload.newContact.telefono] : [],
-        clientCompanyId: newComp.id,
-        empresa: newComp.nombreEmpresa,
-        fechaAgregado: new Date().toISOString(),
-      };
-    }
-    return { ok: true, data: newComp, contact: linkedContact };
-  }
+  // Las altas, modificaciones y bajas propagan el error: la pantalla avisa con un toast
+  // en vez de simular un éxito que después no está en la base.
+  return request('/clientCompany', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 };
 
-export const updateClientCompany = async (id, companyData) => {
-  try {
-    return await request(`/clientCompany/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(companyData),
-    });
-  } catch (err) {
-    return { id, ...companyData };
-  }
-};
+export const updateClientCompany = (id, companyData) =>
+  request(`/clientCompany/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(companyData),
+  });
 
-export const deleteClientCompany = async (id) => {
-  try {
-    return await request(`/clientCompany/${id}`, { method: 'DELETE' });
-  } catch (err) {
-    return { success: true, id };
-  }
-};
+export const deleteClientCompany = (id) => request(`/clientCompany/${id}`, { method: 'DELETE' });
 
 /* ═══════════════════════════════════════════════════════════════
    3. CONTACTOS / CLIENTES: /clients
@@ -199,35 +183,19 @@ export const createClient = async (clientData) => {
     clientCompanyId: clientData.clientCompanyId ? Number(clientData.clientCompanyId) : null,
   };
 
-  try {
-    return await request('/clientes', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    console.info('[API Fallback] Simulando creación de Contacto en memoria.');
-    return { id: Date.now(), ...payload };
-  }
+  return request('/clientes', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 };
 
-export const updateClient = async (id, clientData) => {
-  try {
-    return await request(`/clientes/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(clientData),
-    });
-  } catch (err) {
-    return { id, ...clientData };
-  }
-};
+export const updateClient = (id, clientData) =>
+  request(`/clientes/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(clientData),
+  });
 
-export const deleteClient = async (id) => {
-  try {
-    return await request(`/clientes/${id}`, { method: 'DELETE' });
-  } catch (err) {
-    return { success: true, id };
-  }
-};
+export const deleteClient = (id) => request(`/clientes/${id}`, { method: 'DELETE' });
 
 /* ═══════════════════════════════════════════════════════════════
    4. OPORTUNIDADES / NEGOCIOS: /opportunities

@@ -22,7 +22,9 @@ import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput/FormInput';
 import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
 import { CompanyAutocomplete } from '../ui/CompanyAutocomplete/CompanyAutocomplete';
 import { ContactAutocomplete } from '../ui/ContactAutocomplete/ContactAutocomplete';
+import { FilterTabs } from '../ui/FilterTabs/FilterTabs';
 import './TasksBoard.css';
+import { notificar } from '../../hooks/useNotificaciones';
 
 const TIPO_OPTIONS = [
   { value: 'llamada', label: 'Llamada' },
@@ -114,15 +116,8 @@ export const TasksBoard = ({ variant = 'admin' }) => {
   const [selectedAssignees, setSelectedAssignees] = useState([]);
   const myUserId = currentUser?.idUser || currentUser?.id || null;
   const isAdmin = String(currentUser?.role || currentUser?.rol || '').toLowerCase() === 'admin';
-  const [notice, setNotice] = useState(null);
   const [finalizingId, setFinalizingId] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
-
-  useEffect(() => {
-    if (!notice) return undefined;
-    const timer = setTimeout(() => setNotice(null), 4000);
-    return () => clearTimeout(timer);
-  }, [notice]);
 
   useEffect(() => {
     if (variant !== 'admin') return;
@@ -229,17 +224,16 @@ export const TasksBoard = ({ variant = 'admin' }) => {
 
   const handleFinalizeTask = async (task) => {
     if (!canFinalize(task)) {
-      setNotice({ type: 'error', text: 'No tiene acceso a finalizar dicha tarea.' });
+      notificar.advertencia('No tiene acceso a finalizar dicha tarea');
       return;
     }
     setFinalizingId(task.id);
     try {
       await tasksApi.finalize(task.id);
-      setNotice({ type: 'success', text: `Tarea "${task.titulo}" finalizada.` });
+      notificar.exito(`Tarea "${task.titulo}" finalizada`);
       await fetchTasks();
     } catch (err) {
-      const message = err?.response?.data?.message || 'No se pudo finalizar la tarea.';
-      setNotice({ type: 'error', text: message });
+      notificar.error('No se pudo finalizar la tarea', err);
     } finally {
       setFinalizingId(null);
     }
@@ -247,12 +241,15 @@ export const TasksBoard = ({ variant = 'admin' }) => {
 
   const handleDeleteTask = async (taskId, titulo) => {
     if (!window.confirm(`¿Eliminar la tarea "${titulo}"?`)) return;
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
     try {
-      await tasksApi.delete(taskId);
+      await notificar.operacion(tasksApi.delete(taskId), {
+        cargando: 'Eliminando tarea…',
+        exito: 'Tarea eliminada',
+        error: 'No se pudo eliminar la tarea',
+      });
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
     } catch (err) {
       console.error('Error al eliminar tarea:', err);
-      fetchTasks();
     }
   };
 
@@ -296,7 +293,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         const payload = { ...editableFields };
         if (variant === 'admin') payload.asignadosIds = selectedAssignees;
         await tasksApi.update(editingTask.id, payload);
-        setNotice({ type: 'success', text: 'Tarea actualizada.' });
+        notificar.exito('Tarea actualizada');
       } else {
         await tasksApi.create({
           ...editableFields,
@@ -307,12 +304,13 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           // El vendedor queda asociado a las tareas que él mismo crea, para poder finalizarlas.
           asignadosIds: variant === 'admin' ? selectedAssignees : [myUserId].filter(Boolean),
         });
+        notificar.exito('Tarea creada', editableFields.titulo);
       }
       closeDrawer();
       await fetchTasks();
     } catch (err) {
       console.error('Error al guardar tarea:', err);
-      setNotice({ type: 'error', text: 'No se pudo guardar la tarea. Revisá los datos e intentá de nuevo.' });
+      notificar.error('No se pudo guardar la tarea', err);
     } finally {
       setLoading(false);
     }
@@ -396,11 +394,6 @@ export const TasksBoard = ({ variant = 'admin' }) => {
 
   return (
     <div className="tasks-board">
-      {notice && (
-        <div className={`tasks-board__notice tasks-board__notice--${notice.type}`} role="status">
-          {notice.text}
-        </div>
-      )}
 
       {/* Banner */}
       <div className="tasks-board__banner">
@@ -457,33 +450,17 @@ export const TasksBoard = ({ variant = 'admin' }) => {
 
       {/* Card */}
       <div className="tasks-board__card">
-        <div className="tasks-board__tabs">
-          <button
-            type="button"
-            className={`tasks-board__tab ${activeTab === 'todo' ? 'tasks-board__tab--active' : ''}`}
-            onClick={() => setActiveTab('todo')}
-          >
-            <span>Pendientes</span>
-            <span className="tasks-board__tab-badge">{pendientesCount}</span>
-          </button>
-          <button
-            type="button"
-            className={`tasks-board__tab ${activeTab === 'hoy' ? 'tasks-board__tab--active' : ''}`}
-            onClick={() => setActiveTab('hoy')}
-          >
-            <span>Hoy</span>
-          </button>
-          <button
-            type="button"
-            className={`tasks-board__tab ${showingFinalized ? 'tasks-board__tab--active' : ''}`}
-            onClick={() => setActiveTab('finalizadas')}
-          >
-            <span>Finalizadas</span>
-            <span className="tasks-board__tab-badge">{finalizadasCount}</span>
-          </button>
-        </div>
-
-        <div className="tasks-board__toolbar">
+        <div className="tasks-board__toolbar crm-filterbar">
+          <FilterTabs
+            ariaLabel="Filtrar tareas"
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { value: 'todo', label: 'Pendientes', count: pendientesCount },
+              { value: 'hoy', label: 'Hoy' },
+              { value: 'finalizadas', label: 'Finalizadas', count: finalizadasCount },
+            ]}
+          />
           <div className="tasks-board__search">
             <Search size={16} color="#64748b" />
             <input
@@ -494,7 +471,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             />
           </div>
           <select
-            className="tasks-board__filter"
+            className="tasks-board__filter crm-filterbar__end"
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
           >

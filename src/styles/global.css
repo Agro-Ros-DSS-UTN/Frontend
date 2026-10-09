@@ -439,3 +439,13 @@ button.roadmaps-btn--outline:hover {
   border-color: var(--color-primary, #16a34a) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
 }
+/* Ícono girando para acciones en curso (guardando, eliminando…) */
+.crm-spin {
+  animation: crm-spin 0.8s linear infinite;
+}
+
+@keyframes crm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

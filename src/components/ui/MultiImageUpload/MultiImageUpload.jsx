@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Plus, X } from 'lucide-react';
 import './MultiImageUpload.css';
+import { notificar } from '../../../hooks/useNotificaciones';
 
 /**
  * MultiImageUpload — adjuntar varias fotos (dataURL en memoria hasta guardar).
@@ -20,7 +21,7 @@ export const MultiImageUpload = ({ label = 'Fotos', value = [], onChange, maxFil
 
     const valid = files.filter((file) => {
       if (file.size > maxSizeMB * 1024 * 1024) {
-        alert(`"${file.name}" supera ${maxSizeMB}MB y no se agregó.`);
+        notificar.advertencia('Imagen demasiado grande', `«${file.name}» supera ${maxSizeMB}MB y no se agregó.`);
         return false;
       }
       return true;

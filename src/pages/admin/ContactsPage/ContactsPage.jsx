@@ -4,7 +4,6 @@ import { useLocation } from 'react-router-dom';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import {
   Search,
-  Filter,
   SlidersHorizontal,
   Plus,
   Download,
@@ -27,6 +26,8 @@ import {
 import { CONTACT_TYPES } from '../../../data/mockData';
 import { fetchClients, fetchClientCompanies, createClient, updateClient, deleteClient } from '../../../data/api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { notificar } from '../../../hooks/useNotificaciones';
+import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { ContactSummary } from '../../../components/contacts/ContactSummary';
 import './ContactsPage.css';
 
@@ -65,7 +66,6 @@ export const ContactsPage = () => {
   const [editingClient, setEditingClient] = useState(null);
   const [summaryClient, setSummaryClient] = useState(null);
   const [typeFilter, setTypeFilter] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const contactModalOverlayHandlers = useOverlayClose(() => { setShowModal(false); setEditingClient(null); });
 
@@ -101,9 +101,13 @@ export const ContactsPage = () => {
   const handleDelete = async (client) => {
     const id = client?.numDoc || client?.id;
     if (!id || !window.confirm('¿Eliminar este contacto?')) return;
-    setClients((prev) => prev.filter((c) => (c.numDoc || c.id) !== id));
     try {
-      await deleteClient(id);
+      await notificar.operacion(deleteClient(id), {
+        cargando: 'Eliminando contacto…',
+        exito: 'Contacto eliminado',
+        error: 'No se pudo eliminar el contacto',
+      });
+      setClients((prev) => prev.filter((c) => (c.numDoc || c.id) !== id));
     } catch (err) {
       console.error('Error al eliminar contacto:', err);
     }
@@ -241,17 +245,22 @@ export const ContactsPage = () => {
       try {
         const updated = await updateClient(editingClient.numDoc, payload);
         setClients((prev) => prev.map((c) => (c.numDoc === editingClient.numDoc ? { ...c, ...payload, ...(updated?.data || updated || {}) } : c)));
+        notificar.exito('Cambios guardados', `Se actualizó a ${payload.nombreApellido}.`);
       } catch (err) {
         console.error('Error al editar contacto:', err);
-        setClients((prev) => prev.map((c) => (c.numDoc === editingClient.numDoc ? { ...c, ...payload } : c)));
+        notificar.error('No se pudieron guardar los cambios', err);
+        return; // el formulario queda abierto para corregir y reintentar
       }
     } else {
       const newClientPayload = { ...payload, fechaAgregado: new Date().toISOString() };
       try {
         const created = await createClient(newClientPayload);
-        setClients(prev => [created || { id: Date.now(), ...newClientPayload }, ...prev]);
+        setClients(prev => [{ ...newClientPayload, ...(created?.data || created || {}) }, ...prev]);
+        notificar.exito('Contacto registrado', payload.nombreApellido);
       } catch (err) {
-        setClients(prev => [{ id: Date.now(), ...newClientPayload }, ...prev]);
+        console.error('Error al registrar contacto:', err);
+        notificar.error('No se pudo registrar el contacto', err);
+        return;
       }
     }
 
@@ -321,16 +330,22 @@ export const ContactsPage = () => {
 
       {/* Main Content Card */}
       <div className="contacts-page__card">
-        {/* Contador */}
-        <div className="contacts-page__tabs">
-          <span className="contacts-page__tab contacts-page__tab--active">
-            Todos los contactos
-            <span className="contacts-page__tab-badge">{clients.length}</span>
-          </span>
-        </div>
+        {/* Pestañas por tipo + búsqueda en una sola fila */}
+        <div className="contacts-page__toolbar crm-filterbar">
+          <FilterTabs
+            ariaLabel="Filtrar contactos por tipo"
+            value={typeFilter}
+            onChange={(t) => { setTypeFilter(t); setCurrentPage(1); }}
+            items={[
+              { value: '', label: 'Todos los contactos', count: clients.length },
+              ...CONTACT_TYPES.map((type) => ({
+                value: type,
+                label: type,
+                count: clients.filter((c) => c.tipoClient === type).length,
+              })),
+            ]}
+          />
 
-        {/* Toolbar / Search & Filters */}
-        <div className="contacts-page__toolbar">
           <div className="contacts-page__search">
             <Search size={16} />
             <input
@@ -343,40 +358,7 @@ export const ContactsPage = () => {
               }}
             />
           </div>
-
-          <div className="contacts-page__toolbar-actions">
-            <button
-              className={`contacts-page__filter-btn ${showFilters || typeFilter ? 'contacts-page__filter-btn--active' : ''}`}
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter size={16} />
-              Tipo de contacto
-              {typeFilter && <span className="contacts-page__filter-active-dot" />}
-            </button>
-          </div>
         </div>
-
-        {/* Filter Dropdown Row */}
-        {showFilters && (
-          <div className="contacts-page__filter-panel">
-            <span className="contacts-page__filter-panel-label">Filtrar por tipo:</span>
-            <button
-              className={`contacts-page__filter-chip ${!typeFilter ? 'contacts-page__filter-chip--active' : ''}`}
-              onClick={() => setTypeFilter('')}
-            >
-              Todos
-            </button>
-            {CONTACT_TYPES.map(type => (
-              <button
-                key={type}
-                className={`contacts-page__filter-chip ${typeFilter === type ? 'contacts-page__filter-chip--active' : ''}`}
-                onClick={() => setTypeFilter(typeFilter === type ? '' : type)}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Table */}
         {loadError && !loading && (

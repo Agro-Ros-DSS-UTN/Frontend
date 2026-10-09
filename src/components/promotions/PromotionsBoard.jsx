@@ -17,6 +17,7 @@ import { FormInput, FormTextarea } from '../ui/FormInput/FormInput';
 import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
 import { LoadingState } from '../ui/LoadingState/LoadingState';
 import './PromotionsBoard.css';
+import { notificar } from '../../hooks/useNotificaciones';
 
 const ACCENTS = [
   { value: '#1a7d6b', label: 'Verde AgroRos' },
@@ -154,12 +155,13 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
       };
       if (editingId) await promotionsApi.update(editingId, payload);
       else await promotionsApi.create(payload);
+      notificar.exito(editingId ? 'Promoción actualizada' : 'Promoción creada', payload.nombre);
       setShowDrawer(false);
       setForm(emptyForm());
       await fetchPromos();
     } catch (err) {
       console.error('Error al guardar la promoción:', err);
-      alert('No se pudo guardar la promoción. Revisá los datos e intentá de nuevo.');
+      notificar.error('No se pudo guardar la promoción', err);
     } finally {
       setSaving(false);
     }
@@ -167,12 +169,15 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
 
   const handleDelete = async (p) => {
     if (!window.confirm(`¿Eliminar la promoción "${p.nombre}"?`)) return;
-    setPromos((prev) => prev.filter((x) => x.id !== p.id));
     try {
-      await promotionsApi.delete(p.id);
+      await notificar.operacion(promotionsApi.delete(p.id), {
+        cargando: 'Eliminando promoción…',
+        exito: 'Promoción eliminada',
+        error: 'No se pudo eliminar la promoción',
+      });
+      setPromos((prev) => prev.filter((x) => x.id !== p.id));
     } catch (err) {
       console.error('Error al eliminar la promoción:', err);
-      fetchPromos();
     }
   };
 

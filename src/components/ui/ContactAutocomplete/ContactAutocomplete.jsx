@@ -127,6 +127,12 @@ export const ContactAutocomplete = ({
 
       {open && (
         <div className="company-ac__dropdown">
+          <div className="company-ac__dropdown-head">
+            <span>Contactos cargados</span>
+            <button type="button" className="company-ac__dropdown-close" onClick={() => setOpen(false)} aria-label="Cerrar lista">
+              <X size={14} />
+            </button>
+          </div>
           {loading ? (
             <div className="company-ac__empty">Cargando contactos…</div>
           ) : matches.length > 0 ? (

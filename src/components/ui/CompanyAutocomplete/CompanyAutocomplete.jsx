@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Building2, X, Plus, ArrowLeft } from 'lucide-react';
 import { companiesApi } from '../../../api/companies.api';
+import { notificar } from '../../../hooks/useNotificaciones';
 import './CompanyAutocomplete.css';
 
 const TIPO_EMPRESA_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
@@ -11,6 +12,8 @@ const emptyNewCompanyForm = (nombreInicial = '') => ({
   direccionEmpresa: '',
   tipoEmpresa: 'Productor',
   localidad: '',
+  esRegional: false,
+  empresaMadre: '',
 });
 
 /**
@@ -64,7 +67,6 @@ export const CompanyAutocomplete = ({
   const [newCompanyForm, setNewCompanyForm] = useState(emptyNewCompanyForm());
   const [creatingCompany, setCreatingCompany] = useState(false);
   const [createError, setCreateError] = useState('');
-
   useEffect(() => {
     let alive = true;
     loadCompanies().then((list) => {
@@ -97,6 +99,8 @@ export const CompanyAutocomplete = ({
           tipo: c.tipoEmpresa || '',
           loc: c.localidad || c.Locality?.nomLocalidad || '',
           direccion: c.direccionEmpresa || c.direccion || '',
+          provincia: c.Locality?.Province?.nomProvincia || c.provincia || '',
+          nivel: c.nivelEmpresa || 'independiente',
         }))
         .filter((c) => c.nombre),
     [companies]
@@ -128,44 +132,84 @@ export const CompanyAutocomplete = ({
     setShowCreateForm(true);
   };
 
-  const handleCreateCompany = async (e) => {
-    e.preventDefault();
-    if (!newCompanyForm.nombreEmpresa.trim() || !newCompanyForm.cuit.trim()) {
+  const handleCreateCompany = async () => {
+    const nombre = newCompanyForm.nombreEmpresa.trim();
+    if (!nombre || !newCompanyForm.cuit.trim()) {
       setCreateError('El nombre y el CUIT de la empresa son obligatorios.');
       return;
     }
+
+    let madre = null;
+    if (newCompanyForm.esRegional) {
+      const madreNombre = newCompanyForm.empresaMadre.trim().toLowerCase();
+      if (!madreNombre) {
+        setCreateError('Ingresá el nombre de la empresa principal.');
+        return;
+      }
+      madre = normalized.find((c) => c.nombre.toLowerCase().trim() === madreNombre);
+      if (!madre) {
+        setCreateError('No hay ninguna empresa cargada con ese nombre. Elegí la empresa principal de la lista.');
+        return;
+      }
+    }
+
     setCreatingCompany(true);
     setCreateError('');
     try {
       const res = await companiesApi.create({
-        nombreEmpresa: newCompanyForm.nombreEmpresa.trim(),
+        nombreEmpresa: nombre,
         cuit: newCompanyForm.cuit.trim(),
         direccionEmpresa: newCompanyForm.direccionEmpresa || undefined,
         tipoEmpresa: newCompanyForm.tipoEmpresa,
         localidad: newCompanyForm.localidad || undefined,
+        parentCompanyId: madre ? madre.id : undefined,
+        nivelEmpresa: madre ? 'region' : undefined,
       });
       const created = res?.data || res;
+      if (!created?.id) throw new Error('El servidor no confirmó el alta de la empresa.');
+
+      // La empresa principal pasa a figurar como "empresa madre" con regionales.
+      if (madre && madre.nivel !== 'madre') {
+        try {
+          await companiesApi.update(madre.id, { nivelEmpresa: 'madre' });
+        } catch (updErr) {
+          console.warn('La regional se creó, pero no se pudo marcar la empresa principal como madre:', updErr);
+        }
+      }
+
       const newEntry = {
-        id: created?.id ?? Date.now(),
-        nombre: created?.nombreEmpresa || newCompanyForm.nombreEmpresa.trim(),
-        tipo: created?.tipoEmpresa || newCompanyForm.tipoEmpresa,
-        loc: created?.localidad || newCompanyForm.localidad || '',
-        direccion: created?.direccionEmpresa || newCompanyForm.direccionEmpresa || '',
+        id: created.id,
+        nombre: created.nombreEmpresa || nombre,
+        tipo: created.tipoEmpresa || newCompanyForm.tipoEmpresa,
+        loc: created.localidad || newCompanyForm.localidad || '',
+        direccion: created.direccionEmpresa || newCompanyForm.direccionEmpresa || '',
       };
 
       // Refresca el cache compartido para que las demás instancias del
       // autocompletado (otros formularios abiertos) también vean la empresa nueva.
-      _cache = [...(_cache || []), created || newCompanyForm];
+      _cache = [
+        ...(_cache || []).map((c) => (madre && c.id === madre.id ? { ...c, nivelEmpresa: 'madre' } : c)),
+        created,
+      ];
       setCompanies(_cache);
 
       onChange(newEntry.nombre, newEntry);
       setShowCreateForm(false);
       setOpen(false);
+      notificar.exito('Empresa registrada', `«${newEntry.nombre}» se dio de alta.`);
     } catch (err) {
       console.error('Error al dar de alta la empresa:', err);
       setCreateError(err?.response?.data?.message || 'No se pudo registrar la empresa. Probá de nuevo.');
     } finally {
       setCreatingCompany(false);
+    }
+  };
+
+  // Enter dentro del subformulario da de alta la empresa (y no envía el formulario de afuera).
+  const handleCreateKeyDown = (e) => {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      if (!creatingCompany) handleCreateCompany();
     }
   };
 
@@ -220,7 +264,7 @@ export const CompanyAutocomplete = ({
             <ArrowLeft size={14} /> Volver a la búsqueda
           </button>
 
-          <form onSubmit={handleCreateCompany} className="company-ac__create-form">
+          <div className="company-ac__create-form" onKeyDown={handleCreateKeyDown}>
             <div className="company-ac__create-field">
               <label>Nombre de la empresa *</label>
               <input
@@ -274,17 +318,57 @@ export const CompanyAutocomplete = ({
               </div>
             </div>
 
+            <label className="company-ac__create-check">
+              <input
+                type="checkbox"
+                checked={newCompanyForm.esRegional}
+                onChange={(e) => setNewCompanyForm((p) => ({ ...p, esRegional: e.target.checked }))}
+              />
+              <span>¿Es una regional de una empresa?</span>
+            </label>
+
+            {newCompanyForm.esRegional && (
+              <div className="company-ac__create-field">
+                <label>Ingrese el nombre de la empresa principal *</label>
+                <input
+                  type="text"
+                  list={`${name}-empresas-principales`}
+                  value={newCompanyForm.empresaMadre}
+                  onChange={(e) => setNewCompanyForm((p) => ({ ...p, empresaMadre: e.target.value }))}
+                  placeholder="Ej: AFA SCL"
+                />
+                <datalist id={`${name}-empresas-principales`}>
+                  {normalized
+                    .filter((c) => c.nivel !== 'region' && c.nivel !== 'subsede')
+                    .map((c) => (
+                      <option key={c.id} value={c.nombre} />
+                    ))}
+                </datalist>
+              </div>
+            )}
+
             {createError && <div className="company-ac__create-error">{createError}</div>}
 
-            <button type="submit" className="company-ac__create-submit" disabled={creatingCompany}>
+            <button
+              type="button"
+              className="company-ac__create-submit"
+              disabled={creatingCompany}
+              onClick={handleCreateCompany}
+            >
               {creatingCompany ? 'Guardando…' : 'Dar de alta esta empresa'}
             </button>
-          </form>
+          </div>
         </div>
       )}
 
       {open && !showCreateForm && (
         <div className="company-ac__dropdown">
+          <div className="company-ac__dropdown-head">
+            <span>Empresas cargadas</span>
+            <button type="button" className="company-ac__dropdown-close" onClick={() => setOpen(false)} aria-label="Cerrar lista">
+              <X size={14} />
+            </button>
+          </div>
           {loading ? (
             <div className="company-ac__empty">Cargando empresas…</div>
           ) : matches.length > 0 ? (
@@ -294,7 +378,7 @@ export const CompanyAutocomplete = ({
                 key={c.id}
                 className="company-ac__item"
                 onClick={() => {
-                  onChange(c.nombre, { id: c.id, nombre: c.nombre, tipo: c.tipo, loc: c.loc, direccion: c.direccion });
+                  onChange(c.nombre, { id: c.id, nombre: c.nombre, tipo: c.tipo, loc: c.loc, direccion: c.direccion, provincia: c.provincia });
                   setOpen(false);
                 }}
               >
@@ -320,6 +404,7 @@ export const CompanyAutocomplete = ({
       )}
 
       {error && <span className="form-input-error">{error}</span>}
+
     </div>
   );
 };

@@ -20,6 +20,7 @@ import {
   updateProduct as apiUpdateProduct,
   deleteProduct as apiDeleteProduct,
 } from '../../../data/api';
+import { notificar } from '../../../hooks/useNotificaciones';
 import { DataTable } from '../../../components/ui/DataTable/DataTable';
 import {
   INITIAL_PRODUCT_FORM,
@@ -29,6 +30,7 @@ import {
 import { ProductFormDrawer } from './ProductFormDrawer';
 import { ProductDetailDrawer } from './ProductDetailDrawer';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
+import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import './ProductsPage.css';
 
 export const ProductsPage = () => {
@@ -180,23 +182,35 @@ export const ProductsPage = () => {
     if (!target) return;
     const newStatus = !target.activo;
 
+    // Cambio optimista: se revierte si la base no lo confirma
     setProducts((prev) =>
       prev.map((p) => (p.id === prodId ? { ...p, activo: newStatus } : p))
     );
 
     try {
       await apiUpdateProduct(prodId, { activo: newStatus });
+      notificar.exito(newStatus ? 'Producto activado' : 'Producto desactivado', target.nombre);
     } catch (err) {
       console.warn('[DB Error] No se pudo actualizar estado en MySQL:', err);
+      setProducts((prev) =>
+        prev.map((p) => (p.id === prodId ? { ...p, activo: target.activo } : p))
+      );
+      notificar.error('No se pudo cambiar el estado del producto', err);
     }
   };
 
   const deleteProduct = async (prodId, e) => {
     if (e) e.stopPropagation();
+    const target = products.find((p) => p.id === prodId);
     try {
-      await apiDeleteProduct(prodId);
+      await notificar.operacion(apiDeleteProduct(prodId), {
+        cargando: 'Eliminando producto…',
+        exito: target?.nombre ? `Producto «${target.nombre}» eliminado` : 'Producto eliminado',
+        error: 'No se pudo eliminar el producto',
+      });
     } catch (err) {
       console.warn('[DB Error] No se pudo eliminar de MySQL:', err);
+      return;
     }
 
     setProducts((prev) => prev.filter((p) => p.id !== prodId));
@@ -228,41 +242,33 @@ export const ProductsPage = () => {
       stockDisponible: 100,
     };
 
-    if (modalMode === 'create') {
-      try {
+    try {
+      if (modalMode === 'create') {
         const result = await apiCreateProduct(payload);
         const createdProd = result?.data || result;
-        const refreshedList = await getProducts();
-        if (Array.isArray(refreshedList) && refreshedList.length > 0) {
-          setProducts(refreshedList);
-        } else {
-          setProducts((prev) => [createdProd, ...prev]);
-        }
-      } catch (err) {
-        console.error('[DB Error] Fallback local para nuevo producto:', err);
-        setProducts((prev) => [{ id: Date.now(), ...payload }, ...prev]);
-      }
-
-      if (andAddAnother) {
-        resetForm();
+        setProducts((prev) => [createdProd, ...prev]);
+        notificar.exito('Producto creado', payload.nombre);
       } else {
-        handleCloseModal();
-      }
-    } else {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === form.id ? { ...p, ...payload } : p))
-      );
-
-      try {
         await apiUpdateProduct(form.id, payload);
-        const refreshedList = await getProducts();
-        if (Array.isArray(refreshedList) && refreshedList.length > 0) {
-          setProducts(refreshedList);
-        }
-      } catch (err) {
-        console.error('[DB Error] Fallback local para edición:', err);
+        setProducts((prev) =>
+          prev.map((p) => (p.id === form.id ? { ...p, ...payload } : p))
+        );
+        notificar.exito('Cambios guardados', payload.nombre);
       }
+    } catch (err) {
+      console.error('[DB Error] No se pudo guardar el producto:', err);
+      notificar.error('No se pudo guardar el producto', err);
+      return; // el formulario queda abierto para reintentar
+    }
 
+    // Refresca desde la base para traer los datos tal como quedaron guardados
+    getProducts()
+      .then((list) => { if (Array.isArray(list) && list.length > 0) setProducts(list); })
+      .catch(() => {});
+
+    if (modalMode === 'create' && andAddAnother) {
+      resetForm();
+    } else {
       handleCloseModal();
     }
   };
@@ -413,36 +419,27 @@ export const ProductsPage = () => {
 
       {/* Main Unified Card */}
       <div className="products-page__card">
-        {/* Tabs Bar */}
-        <div className="products-page__tabs">
-          {PRODUCT_TABS.map((tab) => {
-            const count = tab.key === 'todos'
-              ? products.length
-              : products.filter(p => {
-                  const t = (p.tipoProducto || '').toLowerCase();
-                  if (tab.key === 'herbicidas') return t.includes('herbi');
-                  if (tab.key === 'fungicidas') return t.includes('fungi') || t.includes('insect');
-                  if (tab.key === 'fertilizantes') return t.includes('fert') || t.includes('cura');
-                  if (tab.key === 'servicios') return t.includes('serv');
-                  return false;
-                }).length;
+        <div className="products-page__toolbar crm-filterbar">
+          <FilterTabs
+            ariaLabel="Filtrar productos por tipo"
+            value={activeTab}
+            onChange={setActiveTab}
+            items={PRODUCT_TABS.map((tab) => ({
+              value: tab.key,
+              label: tab.label,
+              count: tab.key === 'todos'
+                ? products.length
+                : products.filter((p) => {
+                    const t = (p.tipoProducto || '').toLowerCase();
+                    if (tab.key === 'herbicidas') return t.includes('herbi');
+                    if (tab.key === 'fungicidas') return t.includes('fungi') || t.includes('insect');
+                    if (tab.key === 'fertilizantes') return t.includes('fert') || t.includes('cura');
+                    if (tab.key === 'servicios') return t.includes('serv');
+                    return false;
+                  }).length,
+            }))}
+          />
 
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                className={`products-page__tab ${activeTab === tab.key ? 'products-page__tab--active' : ''}`}
-                onClick={() => setActiveTab(tab.key)}
-              >
-                <span>{tab.label}</span>
-                <span className="products-page__tab-badge">{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Toolbar */}
-        <div className="products-page__toolbar">
           <div className="products-page__search">
             <Search size={16} color="#64748b" />
             <input
@@ -453,7 +450,7 @@ export const ProductsPage = () => {
             />
           </div>
 
-          <div className="products-filters-group">
+          <div className="products-filters-group crm-filterbar__end">
             <select
               className="products-filter-select"
               value={categoryFilter}

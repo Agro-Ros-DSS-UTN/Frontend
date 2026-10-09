@@ -33,11 +33,13 @@ import 'leaflet/dist/leaflet.css';
 import { roadmapsApi } from '../../../api/operations.api';
 import { authApi } from '../../../api/auth.api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { RoadmapDetailModal } from '../../../components/roadmaps/RoadmapDetailModal';
 import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
 import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
 import { MAX_ROADMAP_STOPS } from '../../../utils/timeOptions';
 import './RoadmapsPage.css';
+import { notificar } from '../../../hooks/useNotificaciones';
 
 // Base de datos de ejemplo amplia de empresas y localidades agrícolas
 
@@ -336,16 +338,11 @@ export const RoadmapsPage = () => {
         const remaining = apiRoadmaps.filter(r => r.id !== routeId);
         setSelectedRouteId(remaining.length > 0 ? remaining[0].id : null);
       }
-      alert(`La hoja de ruta "${routeZona}" fue eliminada correctamente.`);
+      notificar.exito('Hoja de ruta eliminada', `Se eliminó «${routeZona}».`);
     } catch (err) {
       console.error('Error deleting roadmap:', err);
-      // Remove locally fallback
-      setApiRoadmaps(prev => prev.filter(r => r.id !== routeId));
-      if (selectedRouteId === routeId) {
-        const remaining = apiRoadmaps.filter(r => r.id !== routeId);
-        setSelectedRouteId(remaining.length > 0 ? remaining[0].id : null);
-      }
-      alert(`Hoja de ruta "${routeZona}" eliminada.`);
+      // No se saca de la pantalla: la base no confirmó el borrado
+      notificar.error('No se pudo eliminar la hoja de ruta', err);
     } finally {
       setLoading(false);
     }
@@ -462,10 +459,10 @@ export const RoadmapsPage = () => {
       });
 
       await fetchInitialData();
-      alert('¡Hoja de Ruta guardada correctamente en la Base de Datos!');
+      notificar.exito('Hoja de ruta guardada');
     } catch (err) {
       console.error('Error creating roadmap:', err);
-      alert('Ocurrió un error al guardar la hoja de ruta. Revisa los campos ingresados.');
+      notificar.error('No se pudo guardar la hoja de ruta', err);
     } finally {
       setLoading(false);
     }
@@ -505,21 +502,16 @@ export const RoadmapsPage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="roadmaps-page__tabs">
-        <button
-          className={`roadmaps-page__tab ${activeTab === 'hoy' ? 'roadmaps-page__tab--active' : ''}`}
-          onClick={() => setActiveTab('hoy')}
-        >
-          <MapIcon size={16} />
-          Rutas del Día (Hoy)
-        </button>
-        <button
-          className={`roadmaps-page__tab ${activeTab === 'historial' ? 'roadmaps-page__tab--active' : ''}`}
-          onClick={() => setActiveTab('historial')}
-        >
-          <BarChart3 size={16} />
-          Registro Mensual
-        </button>
+      <div className="crm-tabs-row">
+        <FilterTabs
+          ariaLabel="Vista de hojas de ruta"
+          value={activeTab}
+          onChange={setActiveTab}
+          items={[
+            { value: 'hoy', label: 'Rutas del Día (Hoy)', icon: MapIcon },
+            { value: 'historial', label: 'Registro Mensual', icon: BarChart3 },
+          ]}
+        />
       </div>
 
       {loading ? (

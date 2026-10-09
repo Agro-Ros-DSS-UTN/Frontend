@@ -3,6 +3,7 @@ import { LogOut, X, AlertTriangle } from 'lucide-react';
 import { authApi } from '../api/auth.api';
 import { useOverlayClose } from '../hooks/useOverlayClose';
 import { setSessionExpiredHandler } from '../utils/sessionExpired';
+import { clearAllDrafts } from '../utils/formDrafts';
 import { AnimatedLogOutIcon } from '../components/ui/AnimatedLogOutIcon/AnimatedLogOutIcon';
 import { useHover } from '../hooks/useHover';
 import '../styles/global.css';
@@ -164,6 +165,7 @@ export const AuthProvider = ({ children }) => {
     setProfileImageState(null);
     sessionStorage.removeItem('agroros_user');
     localStorage.removeItem('agroros_profile_img');
+    clearAllDrafts();
     setShowLogoutModal(false);
   };
 

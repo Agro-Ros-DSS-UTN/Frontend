@@ -22,6 +22,7 @@ import { authApi } from '../../../api/auth.api';
 import { companiesApi } from '../../../api/companies.api';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
 import './ObjectivesPage.css';
+import { notificar } from '../../../hooks/useNotificaciones';
 
 export const ObjectivesPage = () => {
   const [objectives, setObjectives] = useState([]);
@@ -110,10 +111,10 @@ export const ObjectivesPage = () => {
       });
 
       await fetchData();
-      alert('¡Objetivo asignado y guardado correctamente en la Base de Datos!');
+      notificar.exito('Objetivo asignado');
     } catch (err) {
       console.error('Error creating objective:', err);
-      alert('Ocurrió un error al asignar el objetivo. Revisa los datos.');
+      notificar.error('No se pudo asignar el objetivo', err);
     } finally {
       setLoading(false);
     }
@@ -152,10 +153,10 @@ export const ObjectivesPage = () => {
       setLoading(true);
       await objectivesApi.delete(id);
       setObjectives(prev => prev.filter(o => o.id !== id));
-      alert('Objetivo eliminado correctamente.');
+      notificar.exito('Objetivo eliminado');
     } catch (err) {
       console.error('Error deleting objective:', err);
-      setObjectives(prev => prev.filter(o => o.id !== id));
+      notificar.error('No se pudo eliminar el objetivo', err);
     } finally {
       setLoading(false);
     }

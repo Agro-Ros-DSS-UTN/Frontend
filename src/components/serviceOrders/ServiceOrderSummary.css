@@ -49,3 +49,19 @@
   object-fit: cover;
   border-radius: 8px;
 }
+
+/* Imagen de la orden de servicio en papel */
+.sos-original {
+  display: inline-block;
+  max-width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sos-original img {
+  display: block;
+  max-width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+}

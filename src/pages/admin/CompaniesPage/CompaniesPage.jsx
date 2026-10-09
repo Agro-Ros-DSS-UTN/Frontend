@@ -4,7 +4,6 @@ import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import { useAuth } from '../../../context/AuthContext';
 import {
   Search,
-  Filter,
   Plus,
   Download,
   ArrowUpDown,
@@ -33,7 +32,9 @@ import {
   User,
   ChevronUp,
   Network,
+  Loader2,
 } from 'lucide-react';
+import { notificar, mensajeDeError } from '../../../hooks/useNotificaciones';
 import {
   fetchClientCompanies,
   createClientCompany,
@@ -46,6 +47,7 @@ import {
 import { authApi } from '../../../api/auth.api';
 import { Button } from '../../../components/ui/Button/Button';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
 import { CompanyTreeModal } from '../../../components/companies/CompanyTreeModal';
 import { CompanySummary } from '../../../components/companies/CompanySummary';
@@ -86,11 +88,11 @@ export const CompaniesPage = () => {
   const [sortBy, setSortBy] = useState('nombreEmpresa');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [deletingId, setDeletingId] = useState(null);
   const [selectedRows, setSelectedRows] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
   const [typeFilter, setTypeFilter] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedCompanyForDetail, setSelectedCompanyForDetail] = useState(null);
   const [inspectingCompanyId, setInspectingCompanyId] = useState(null);
   const companyModalOverlayHandlers = useOverlayClose(() => { setShowModal(false); setEditingCompany(null); });
@@ -241,10 +243,16 @@ export const CompaniesPage = () => {
     );
   }, [clients, contactSearchQuery]);
 
+  // El listado principal solo muestra el nivel superior (independientes y
+  // empresas madre) — las regiones y subsedes se ven desde "Inspeccionar".
+  // Una regional cuya empresa principal ya no existe se muestra igual, para que no quede invisible.
+  const topLevelCompanies = useMemo(() => {
+    const ids = new Set(companies.map((c) => c.id));
+    return companies.filter((c) => !c.parentCompanyId || !ids.has(c.parentCompanyId));
+  }, [companies]);
+
   const filteredCompanies = useMemo(() => {
-    // El listado principal solo muestra el nivel superior (independientes y
-    // empresas madre) — las regiones y subsedes se ven desde "Inspeccionar".
-    let result = companies.filter((c) => !c.parentCompanyId);
+    let result = [...topLevelCompanies];
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -270,7 +278,7 @@ export const CompaniesPage = () => {
     });
 
     return result;
-  }, [companies, searchQuery, typeFilter, sortBy, sortDir]);
+  }, [topLevelCompanies, searchQuery, typeFilter, sortBy, sortDir]);
 
   // Primer contacto vinculado a cada empresa, para la columna "Contacto Asociado"
   const companyContactMap = useMemo(() => {
@@ -284,6 +292,11 @@ export const CompaniesPage = () => {
   }, [clients]);
 
   const totalPages = Math.ceil(filteredCompanies.length / PAGE_SIZE);
+
+  // Si se borra la última empresa de la última página, volver a una página que exista
+  useEffect(() => {
+    if (currentPage > 1 && currentPage > totalPages) setCurrentPage(Math.max(1, totalPages));
+  }, [currentPage, totalPages]);
   const paginatedCompanies = filteredCompanies.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
@@ -351,7 +364,7 @@ export const CompaniesPage = () => {
   // el encargado de cada nivel como un Contacto vinculado vía `newContact`.
   const handleCreateJerarquia = async () => {
     if (!form.nombreEmpresa.trim()) {
-      alert('Ingresá el nombre de la empresa madre.');
+      notificar.advertencia('Falta el nombre', 'Ingresá el nombre de la empresa madre.');
       return false;
     }
     setCreandoJerarquia(true);
@@ -418,10 +431,14 @@ export const CompaniesPage = () => {
       }
 
       setCompanies((prev) => [{ ...madre, creadoPorNombre: madreCreador?.nombreApellido || null }, ...prev]);
+      notificar.exito('Empresa registrada', `«${madre.nombreEmpresa}» se dio de alta con sus regiones y subsedes.`);
       return true;
     } catch (err) {
       console.error('Error al crear la jerarquía de empresa:', err);
-      alert('Se produjo un error creando la estructura. Revisá los datos y probá de nuevo (puede que algunos niveles ya se hayan guardado).');
+      notificar.error(
+        'No se pudo crear la estructura',
+        `${mensajeDeError(err, 'Revisá los datos y probá de nuevo.')} Puede que algunos niveles ya se hayan guardado.`
+      );
       return false;
     } finally {
       setCreandoJerarquia(false);
@@ -438,7 +455,7 @@ export const CompaniesPage = () => {
     }
 
     if (includeContact && contactMode === 'new' && !newContact.nombreApellido.trim()) {
-      alert('Por favor ingrese el nombre y apellido del nuevo contacto.');
+      notificar.advertencia('Falta el contacto', 'Ingresá el nombre y apellido del nuevo contacto.');
       return;
     }
 
@@ -466,9 +483,10 @@ export const CompaniesPage = () => {
           ...updatedCompany,
           creadoPorNombre: creador?.nombreApellido || c.creadoPorNombre || null,
         } : c)));
+        notificar.exito('Cambios guardados', `Se actualizó «${form.nombreEmpresa}».`);
       } catch (err) {
         console.error('Error al editar empresa:', err);
-        alert('No se pudo guardar los cambios de la empresa.');
+        notificar.error('No se pudieron guardar los cambios', err);
         return;
       }
       resetCompanyModalState();
@@ -534,9 +552,10 @@ export const CompaniesPage = () => {
         };
         setClients(prevClients => [createdContact, ...prevClients]);
       }
+      notificar.exito('Empresa registrada', `«${createdCompany.nombreEmpresa}» se dio de alta.`);
     } catch (err) {
       console.error('Error al registrar empresa:', err);
-      alert('No se pudo registrar la empresa.');
+      notificar.error('No se pudo registrar la empresa', err);
       return;
     }
 
@@ -544,13 +563,31 @@ export const CompaniesPage = () => {
   };
 
   const handleDeleteCompany = async (company) => {
-    if (!window.confirm(`¿Eliminar la empresa "${company.nombreEmpresa}"? Esta acción no se puede deshacer.`)) return;
+    if (deletingId) return;
+    // En la base, borrar una empresa borra en cascada sus contactos y negocios: avisarlo antes.
+    const contactos = clients.filter((cl) => cl.clientCompanyId === company.id).length;
+    const regionales = companies.filter((c) => c.parentCompanyId === company.id).length;
+    const consecuencias = [
+      contactos && `${contactos} contacto${contactos === 1 ? '' : 's'} vinculado${contactos === 1 ? '' : 's'} (se borran también)`,
+      regionales && `${regionales} regional${regionales === 1 ? '' : 'es'}/subsede${regionales === 1 ? '' : 's'} que quedarán sin empresa principal`,
+    ].filter(Boolean);
+    const aviso = consecuencias.length ? `\n\nAtención, tiene:\n• ${consecuencias.join('\n• ')}` : '';
+    if (!window.confirm(`¿Eliminar la empresa "${company.nombreEmpresa}"? Esta acción no se puede deshacer.${aviso}`)) return;
+
+    setDeletingId(company.id);
     try {
-      await deleteClientCompany(company.id);
+      await notificar.operacion(deleteClientCompany(company.id), {
+        cargando: `Eliminando «${company.nombreEmpresa}»…`,
+        exito: 'Empresa eliminada',
+        error: 'No se pudo eliminar la empresa',
+      });
       setCompanies((prev) => prev.filter((c) => c.id !== company.id));
+      if (contactos) setClients((prev) => prev.filter((cl) => cl.clientCompanyId !== company.id));
+      setSelectedRows((prev) => prev.filter((id) => id !== company.id));
     } catch (err) {
       console.error('Error al eliminar empresa:', err);
-      alert('No se pudo eliminar la empresa.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -637,16 +674,22 @@ export const CompaniesPage = () => {
 
       {/* Card */}
       <div className="companies-page__card">
-        {/* Contador */}
-        <div className="contacts-page__tabs">
-          <span className="contacts-page__tab contacts-page__tab--active">
-            Todas las empresas
-            <span className="contacts-page__tab-badge">{companies.length}</span>
-          </span>
-        </div>
+        {/* Pestañas por tipo + búsqueda en una sola fila */}
+        <div className="companies-page__toolbar crm-filterbar">
+          <FilterTabs
+            ariaLabel="Filtrar empresas por tipo"
+            value={typeFilter}
+            onChange={(t) => { setTypeFilter(t); setCurrentPage(1); }}
+            items={[
+              { value: '', label: 'Todas las empresas', count: topLevelCompanies.length },
+              ...TIPO_EMPRESA_OPTIONS.map((type) => ({
+                value: type,
+                label: type,
+                count: topLevelCompanies.filter((c) => c.tipoEmpresa === type).length,
+              })),
+            ]}
+          />
 
-        {/* Toolbar */}
-        <div className="companies-page__toolbar">
           <div className="companies-page__search">
             <Search size={16} />
             <input
@@ -659,38 +702,7 @@ export const CompaniesPage = () => {
               }}
             />
           </div>
-          <div className="contacts-page__toolbar-actions">
-            <button
-              className={`contacts-page__filter-btn ${showFilters || typeFilter ? 'contacts-page__filter-btn--active' : ''}`}
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter size={16} />
-              Tipo de empresa
-              {typeFilter && <span className="contacts-page__filter-active-dot" />}
-            </button>
-          </div>
         </div>
-
-        {showFilters && (
-          <div className="contacts-page__filter-panel">
-            <span className="contacts-page__filter-panel-label">Filtrar por tipo:</span>
-            <button
-              className={`contacts-page__filter-chip ${!typeFilter ? 'contacts-page__filter-chip--active' : ''}`}
-              onClick={() => { setTypeFilter(''); setCurrentPage(1); }}
-            >
-              Todos
-            </button>
-            {TIPO_EMPRESA_OPTIONS.map((type) => (
-              <button
-                key={type}
-                className={`contacts-page__filter-chip ${typeFilter === type ? 'contacts-page__filter-chip--active' : ''}`}
-                onClick={() => { setTypeFilter(typeFilter === type ? '' : type); setCurrentPage(1); }}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Table */}
         {loadError && !loading && (
@@ -829,10 +841,11 @@ export const CompaniesPage = () => {
                         </button>
                         <button
                           className="companies-table__action-btn companies-table__action-btn--danger"
-                          title="Eliminar"
+                          title={deletingId === company.id ? 'Eliminando…' : 'Eliminar'}
                           onClick={() => handleDeleteCompany(company)}
+                          disabled={deletingId !== null}
                         >
-                          <Trash2 size={15} />
+                          {deletingId === company.id ? <Loader2 size={15} className="crm-spin" /> : <Trash2 size={15} />}
                         </button>
                       </div>
                     </td>
