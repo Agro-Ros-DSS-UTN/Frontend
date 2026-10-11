@@ -34,7 +34,7 @@ import './ActivitiesBoard.css';
 import { notificar } from '../../hooks/useNotificaciones';
 import { fetchOpportunities } from '../../data/api';
 import { ESTADOS_OPORTUNIDAD, TIPOS_CONTACTO_ACTIVIDAD, tipoContactoLabel } from '../../data/catalogos';
-import { encolar, enviarPendientes, esErrorDeRed, nuevoUuid, onColaChange, pendientes } from '../../utils/colaOffline';
+import { encolar, enviarPendientes, esErrorDeRed, nuevoUuid, onColaChange, pendientes, rechazadas, descartarRechazada } from '../../utils/colaOffline';
 
 const ICONOS_CONTACTO = { visita: MapPin, llamada: Phone, whatsapp: MessageSquare, email: Mail, reunion: Building2 };
 const TIPOS_CONTACTO = TIPOS_CONTACTO_ACTIVIDAD.map((t) => ({ value: t.value, label: t.label, icon: ICONOS_CONTACTO[t.value] }));
@@ -126,7 +126,8 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   const [adjuntosCache, setAdjuntosCache] = useState({});
   const [enCola, setEnCola] = useState(() => pendientes());
 
-  useEffect(() => onColaChange(setEnCola), []);
+  const [noGuardadas, setNoGuardadas] = useState(() => rechazadas());
+  useEffect(() => onColaChange((n) => { setEnCola(n); setNoGuardadas(rechazadas()); }), []);
 
   // Oportunidades abiertas de la empresa elegida (incluye las de otros vendedores
   // para no duplicar: la actividad se suma a la que ya existe).
@@ -205,7 +206,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     if (pendientes() > 0) {
       enviarPendientes().then(({ enviadas, fallidas }) => {
         if (enviadas) { notificar.exito(`${enviadas} ${enviadas === 1 ? 'actividad pendiente enviada' : 'actividades pendientes enviadas'}`); fetchActivities(); }
-        if (fallidas) notificar.advertencia('Actividades pendientes rechazadas', `${fallidas} no se pudieron guardar (datos inválidos).`);
+        if (fallidas) notificar.advertencia('Actividades pendientes rechazadas', `${fallidas} no se pudieron guardar. Arriba de la tabla está lo que escribiste y el motivo, para cargarla de nuevo.`);
       });
     }
   }, []);
@@ -477,6 +478,23 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
           </ExportActionButton>
         </PageHeaderActions>
       </div>
+
+      {noGuardadas.length > 0 && (
+        <div className="act-board__queue act-board__queue--error" role="alert">
+          <strong>{noGuardadas.length === 1 ? 'Una actividad cargada sin conexión no se pudo guardar' : `${noGuardadas.length} actividades cargadas sin conexión no se pudieron guardar`}:</strong>
+          <ul>
+            {noGuardadas.map((x) => (
+              <li key={x.clientUuid}>
+                <span>
+                  {x.fechaHora ? new Date(x.fechaHora).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                  {x.descripcion ? ` · «${String(x.descripcion).slice(0, 120)}»` : ''} — {x.motivo}
+                </span>
+                <button type="button" onClick={() => descartarRechazada(x.clientUuid)}>Ya la cargué de nuevo</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {enCola > 0 && (
         <div className="act-board__queue" role="status">

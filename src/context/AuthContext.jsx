@@ -35,7 +35,7 @@ const normalizeUser = (user) => {
 
 export const AuthProvider = ({ children }) => {
   // La sesión vive en sessionStorage (se cierra con la pestaña) salvo que el
-  // usuario elija "Mantener la sesión iniciada" (localStorage, token de 7 días).
+  // usuario elija "Mantener la sesión iniciada" (localStorage, token de 3 días).
   // Nunca se guarda la contraseña.
   const [persist, setPersist] = useState(() => {
     try { return Boolean(localStorage.getItem('agroros_user')); } catch { return false; }

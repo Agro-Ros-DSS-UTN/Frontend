@@ -153,7 +153,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
               </button>
             </div>
 
-            {/* Mantener la sesión (token de 7 días). Nunca se guarda la contraseña. */}
+            {/* Mantener la sesión (token de 3 días). Nunca se guarda la contraseña. */}
             <div className="login-remember-row">
               <label className="login-checkbox-label">
                 <input

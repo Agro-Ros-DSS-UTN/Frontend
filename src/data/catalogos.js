@@ -28,6 +28,7 @@ export const CONTACT_TYPES = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopi
 
 export const ROLES_EMPLEADO = [
   { value: 'tecnico', label: 'Técnico (ejecuta órdenes)' },
+  { value: 'supervisor', label: 'Supervisor (ejecuta órdenes)' },
   { value: 'ayudante', label: 'Ayudante' },
   { value: 'chofer', label: 'Chofer' },
   { value: 'administrativo', label: 'Administrativo' },

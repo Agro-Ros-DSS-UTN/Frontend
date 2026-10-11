@@ -119,7 +119,7 @@ export const EmployeesPage = () => {
   }, []);
 
   const activos = employees.filter((e) => e.activo !== false).length;
-  const aplicadores = employees.filter((e) => e.rol === 'tecnico' && e.activo !== false).length;
+  const aplicadores = employees.filter((e) => ['tecnico', 'supervisor'].includes(e.rol) && e.activo !== false).length;
 
   const filtered = useMemo(() => {
     let result = employees;
@@ -383,7 +383,7 @@ export const EmployeesPage = () => {
                       </td>
                       <td>{emp.matricula || <span style={{ color: '#94a3b8' }}>-</span>}</td>
                       <td>
-                        <span className={`users-table__role-pill ${emp.rol === 'tecnico' ? 'users-table__role-pill--admin' : 'users-table__role-pill--vendedor'}`}>
+                        <span className={`users-table__role-pill ${['tecnico', 'supervisor'].includes(emp.rol) ? 'users-table__role-pill--admin' : 'users-table__role-pill--vendedor'}`}>
                           {rolLabel(emp.rol)}
                         </span>
                       </td>

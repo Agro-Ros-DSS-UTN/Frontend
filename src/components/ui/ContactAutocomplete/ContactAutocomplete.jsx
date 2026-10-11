@@ -32,6 +32,8 @@ export const ContactAutocomplete = ({
   value,
   onChange,
   placeholder = 'Escribí para buscar entre los contactos cargados...',
+  empresaId = null, // si se indica, solo se sugieren contactos de esa empresa
+  textoLibre = 'como texto libre',
 }) => {
   const [contacts, setContacts] = useState(_cache || []);
   const [open, setOpen] = useState(false);
@@ -68,8 +70,8 @@ export const ContactAutocomplete = ({
           empresaId: c.empresaId || null,
           email: c.direccionMail && c.direccionMail !== '-' ? c.direccionMail : '',
         }))
-        .filter((c) => c.nombre),
-    [contacts]
+        .filter((c) => c.nombre && (!empresaId || c.empresaId === empresaId)),
+    [contacts, empresaId]
   );
 
   const query = (value || '').toLowerCase().trim();
@@ -157,7 +159,7 @@ export const ContactAutocomplete = ({
               </button>
             ))
           ) : (
-            <div className="company-ac__empty">Sin coincidencias. Se guardará «{value}» como texto libre.</div>
+            <div className="company-ac__empty">{value ? <>Sin coincidencias. Se guardará «{value}» {textoLibre}.</> : 'Esta empresa no tiene contactos cargados.'}</div>
           )}
         </div>
       )}

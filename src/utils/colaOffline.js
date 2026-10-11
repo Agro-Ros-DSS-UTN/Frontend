@@ -5,6 +5,9 @@
 import { activitiesApi } from '../api/operations.api';
 
 const CLAVE = 'agroros_cola_actividades';
+// Las que el servidor rechazó (datos inválidos) no se borran: quedan acá para que
+// el vendedor vea qué escribió y la vuelva a cargar.
+const CLAVE_RECHAZADAS = 'agroros_cola_rechazadas';
 const listeners = new Set();
 
 const leer = () => {
@@ -12,6 +15,13 @@ const leer = () => {
 };
 const escribir = (cola) => {
   localStorage.setItem(CLAVE, JSON.stringify(cola)); // puede lanzar si no hay espacio
+  listeners.forEach((fn) => fn(pendientes()));
+};
+const leerRechazadas = () => {
+  try { return JSON.parse(localStorage.getItem(CLAVE_RECHAZADAS) || '[]'); } catch { return []; }
+};
+const escribirRechazadas = (lista) => {
+  try { localStorage.setItem(CLAVE_RECHAZADAS, JSON.stringify(lista)); } catch { /* sin espacio: se pierde solo la copia */ }
   listeners.forEach((fn) => fn(pendientes()));
 };
 
@@ -40,6 +50,19 @@ export const onColaChange = (fn) => {
 // Error de red (sin respuesta del servidor), no un rechazo de validación.
 export const esErrorDeRed = (err) => !err?.response;
 
+// Conviene reintentar más tarde (no es culpa de los datos): sin red, sesión
+// vencida (se reintenta al volver a entrar), demasiados pedidos o falla del servidor.
+const reintentable = (err) => {
+  const st = err?.response?.status;
+  return !st || st === 401 || st === 408 || st === 429 || st >= 500;
+};
+
+export const rechazadas = () => {
+  const yo = usuarioActual();
+  return leerRechazadas().filter((x) => x.usuarioCola === yo);
+};
+export const descartarRechazada = (clientUuid) => escribirRechazadas(leerRechazadas().filter((x) => x.clientUuid !== clientUuid));
+
 export const encolar = (payload) => {
   const cola = leer();
   if (!cola.some((x) => x.clientUuid === payload.clientUuid)) cola.push({ ...payload, usuarioCola: usuarioActual(), encoladaEn: new Date().toISOString() });
@@ -62,11 +85,15 @@ export const enviarPendientes = async () => {
         enviadas++;
         escribir(leer().filter((x) => x.clientUuid !== item.clientUuid));
       } catch (err) {
-        if (esErrorDeRed(err)) break; // sigue sin conexión: se reintenta más tarde
-        // Rechazo del servidor (datos inválidos): se descarta para no bloquear la cola.
+        // Sin conexión o sesión vencida: queda en la cola y se reintenta después.
+        // (Antes un 401 la descartaba y se perdía la actividad.)
+        if (reintentable(err)) break;
+        // Rechazo por los datos: sale de la cola para no trabarla, pero se guarda
+        // aparte con el motivo para que el vendedor la vuelva a cargar.
         fallidas++;
+        const motivo = err?.response?.data?.message || err.message || 'Rechazada por el servidor';
+        escribirRechazadas([...leerRechazadas().filter((x) => x.clientUuid !== item.clientUuid), { ...item, motivo, rechazadaEn: new Date().toISOString() }]);
         escribir(leer().filter((x) => x.clientUuid !== item.clientUuid));
-        console.error('Actividad pendiente rechazada por el servidor:', err?.response?.data?.message || err.message);
       }
     }
   } finally {

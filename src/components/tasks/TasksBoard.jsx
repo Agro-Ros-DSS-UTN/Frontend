@@ -75,9 +75,13 @@ const normalizeTask = (t) => ({
     : null,
   empresa: t.empresa || '',
   empresaId: t.empresaId || null,
-  contacto: '',
+  contacto: t.contacto || '',
+  contactoId: t.contactoId || null,
+  contactoEmpresaId: t.contactoId ? t.empresaId || null : null,
+  contactoTelefono: t.contactoDetalle?.telefonos?.[0] || '',
   notas: t.notas || '',
   creadoPorRol: t.creadoPorRol || 'administrador',
+  creadoPorId: t.creadoPorId || null,
 });
 
 const formatDateTime = (iso) => {
@@ -95,6 +99,8 @@ const emptyForm = () => ({
   empresa: '',
   empresaId: null,
   contacto: '',
+  contactoId: null,
+  contactoEmpresaId: null,
   actividadId: '',
   notas: '',
 });
@@ -286,7 +292,8 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       horaVencimiento: form.horaVencimiento || null,
       // Empresa elegida de la lista (id); si se escribió otra, el nombre queda en las notas.
       ...(form.empresaId ? { empresaId: form.empresaId } : { empresa: form.empresa?.trim() || null }),
-      contacto: form.contacto?.trim() || null,
+      // Contacto elegido de la lista (vínculo); si se escribió otro nombre, queda en las notas.
+      ...(form.contactoId ? { contactoId: form.contactoId } : { contactoId: null, contacto: form.contacto?.trim() || null }),
       actividadId: form.actividadId ? Number(form.actividadId) : null,
       notas: form.notas?.trim() || null,
     };
@@ -335,7 +342,9 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       prioridad: task.prioridad,
       empresa: task.empresa,
       empresaId: task.empresaId,
-      contacto: '',
+      contacto: task.contacto || '',
+      contactoId: task.contactoId || null,
+      contactoEmpresaId: task.contactoEmpresaId || null,
       actividadId: task.actividadId,
       notas: task.notas,
     });
@@ -523,7 +532,17 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                       </td>
                       <td>
                         <div className="tasks-board__empresa-name">{t.empresa || '—'}</div>
-                        {t.contacto && <div className="tasks-board__empresa-contact">{t.contacto}</div>}
+                        {t.contacto && (
+                          <div className="tasks-board__empresa-contact">
+                            {t.contacto}
+                            {t.contactoTelefono && (
+                              <>
+                                {' · '}
+                                <a href={`tel:${t.contactoTelefono.replace(/[^\d+]/g, '')}`} onClick={(e) => e.stopPropagation()}>{t.contactoTelefono}</a>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td>
                         {t.actividad ? (
@@ -562,14 +581,16 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                         <div className="tasks-board__row-actions">
                           {!isFinalized && (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => openEditDrawer(t)}
-                                title="Editar tarea"
-                                className="tasks-board__icon-btn"
-                              >
-                                <Pencil size={15} />
-                              </button>
+                              {(variant === 'admin' || t.creadoPorId === myUserId) && (
+                                <button
+                                  type="button"
+                                  onClick={() => openEditDrawer(t)}
+                                  title="Editar tarea"
+                                  className="tasks-board__icon-btn"
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => handleFinalizeTask(t)}
@@ -581,14 +602,17 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                               </button>
                             </>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTask(t.id, t.titulo)}
-                            title="Eliminar tarea"
-                            className="tasks-board__delete-btn"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          {/* El vendedor solo elimina las tareas que creó él (P-3). */}
+                          {(variant === 'admin' || t.creadoPorId === myUserId) && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTask(t.id, t.titulo)}
+                              title="Eliminar tarea"
+                              className="tasks-board__delete-btn"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -663,17 +687,34 @@ export const TasksBoard = ({ variant = 'admin' }) => {
               label="Empresa"
               name="empresa"
               value={form.empresa}
-              onChange={(nombre, hit) => setForm((prev) => ({ ...prev, empresa: nombre, empresaId: hit?.id || null }))}
+              onChange={(nombre, hit) =>
+                setForm((prev) => {
+                  const empresaId = hit?.id || null;
+                  // Si el contacto elegido es de otra empresa, se desvincula.
+                  const contactoValido = prev.contactoId && (!empresaId || prev.contactoEmpresaId === empresaId);
+                  return {
+                    ...prev,
+                    empresa: nombre,
+                    empresaId,
+                    ...(contactoValido || !prev.contactoId ? {} : { contacto: '', contactoId: null, contactoEmpresaId: null }),
+                  };
+                })
+              }
             />
             <ContactAutocomplete
               label="Contacto"
               name="contacto"
               value={form.contacto}
+              empresaId={form.empresaId}
+              textoLibre="en las notas de la tarea"
               onChange={(nombre, contacto) =>
                 setForm((prev) => ({
                   ...prev,
                   contacto: nombre,
-                  empresa: !prev.empresa && contacto?.empresa ? contacto.empresa : prev.empresa,
+                  contactoId: contacto?.id || null,
+                  contactoEmpresaId: contacto?.empresaId || null,
+                  empresa: !prev.empresaId && contacto?.empresa ? contacto.empresa : prev.empresa,
+                  empresaId: !prev.empresaId && contacto?.empresaId ? contacto.empresaId : prev.empresaId,
                 }))
               }
             />

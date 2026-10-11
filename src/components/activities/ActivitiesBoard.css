@@ -598,3 +598,14 @@
   font-weight: 600;
   cursor: pointer;
 }
+/* Actividades de la cola sin conexión que el servidor rechazó */
+.act-board__queue--error {
+  display: block;
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+.act-board__queue--error ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.act-board__queue--error li { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.act-board__queue--error li span { min-width: 0; overflow-wrap: anywhere; }
+.act-board__queue--error button { border-color: #f87171; color: #991b1b; }
