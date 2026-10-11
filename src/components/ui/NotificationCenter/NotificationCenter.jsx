@@ -13,7 +13,7 @@ import {
   CheckCheck,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import { roadmapsApi, objectivesApi, promotionsApi, activitiesApi, tasksApi } from '../../../api/operations.api';
+import { roadmapsApi, objectivesApi, promotionsApi, activitiesApi, tasksApi, notificationsApi } from '../../../api/operations.api';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { getUsers } from '../../../data/api';
 import { diffNew } from '../../../utils/notificationDiff';
@@ -47,6 +47,31 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
   useEffect(() => {
     const build = async () => {
       const out = [];
+
+      // Notificaciones guardadas en el servidor para este usuario (tareas asignadas,
+      // objetivos, hojas de ruta). Son las mismas en cualquier equipo.
+      try {
+        const res = await notificationsApi.getAll();
+        const base = variant === 'admin' ? '/admin' : '/seller';
+        const rutas = {
+          tarea: `${base}/tareas`,
+          objetivo: variant === 'admin' ? '/admin/objetivos' : '/seller/dashboard',
+          hoja_ruta: variant === 'admin' ? '/admin/rutas' : '/seller/hoja-de-ruta',
+        };
+        (res?.data || []).filter((n) => !n.leida).forEach((n) => {
+          out.push({
+            id: `srv-${n.id}`,
+            serverId: n.id,
+            icon: n.entidad === 'objetivo' ? Target : n.entidad === 'hoja_ruta' ? MapPin : ClipboardList,
+            accent: 'blue',
+            title: n.tipo === 'tarea_finalizada' ? 'Tarea finalizada' : n.entidad === 'objetivo' ? 'Nuevo objetivo' : n.entidad === 'hoja_ruta' ? 'Nueva hoja de ruta' : 'Nueva tarea asignada',
+            message: n.mensaje,
+            path: rutas[n.entidad] || base,
+          });
+        });
+      } catch {
+        /* sin conexión: quedan las novedades calculadas abajo */
+      }
 
       if (variant === 'admin') {
         const [rdmRes, objRes, ordersRes, promoRes, actRes, usersRes, tasksRes] = await Promise.allSettled([
@@ -141,7 +166,7 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             icon: Activity,
             accent: 'green',
             title: 'Actividad registrada en campo',
-            message: `${a.autorNombre || 'Un vendedor'} — ${a.tipoContacto || 'Visita'}`,
+            message: `${a.autorNombre || 'Un vendedor'} — ${a.empresa || a.tipoContacto || 'Visita'}`,
             path: '/admin/actividades',
           });
         });
@@ -159,7 +184,7 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
         });
 
         const tasks = pick(tasksRes);
-        const overdue = tasks.filter((t) => !/complet/i.test(t.estado || '') && t.fechaVencimiento && t.fechaVencimiento < new Date().toISOString().slice(0, 10));
+        const overdue = tasks.filter((t) => t.estado === 'Pendiente' && t.fechaVencimiento && t.fechaVencimiento < new Date().toISOString().slice(0, 10));
         if (overdue.length > 0) {
           out.push({
             id: 'tareas-vencidas-equipo',
@@ -222,7 +247,7 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
         });
 
         const tasks = pick(tasksRes);
-        const pending = tasks.filter((t) => !/complet/i.test(t.estado || ''));
+        const pending = tasks.filter((t) => t.estado === 'Pendiente');
         if (pending.length > 0) {
           out.push({
             id: 'mis-tareas-pendientes',
@@ -244,11 +269,16 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
 
   const handleItemClick = (item) => {
     setOpen(false);
+    if (item.serverId) {
+      notificationsApi.markRead(item.serverId).catch(() => {});
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+    }
     navigate(item.path);
   };
 
   const clearAll = (e) => {
     e.stopPropagation();
+    if (items.some((i) => i.serverId)) notificationsApi.markAllRead().catch(() => {});
     setItems([]);
   };
 

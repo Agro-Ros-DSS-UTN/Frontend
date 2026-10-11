@@ -1,5 +1,5 @@
 ﻿import { DollarSign, Plus, Check } from 'lucide-react';
-import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/mockData';
+import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/catalogos';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { FormInput, FormTextarea, FormSelect } from '../../../components/ui/FormInput/FormInput';
 import { ImageUpload } from '../../../components/ui/ImageUpload/ImageUpload';

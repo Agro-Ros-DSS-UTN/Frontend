@@ -1,57 +1,34 @@
 ﻿import { useState, useEffect } from 'react';
-import { Eye, EyeOff, User, Lock, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, User, Lock } from 'lucide-react';
 import { ArLogoHeader, ArLogoRight } from '../../components/common/ArLogo';
 import bgFieldUrl from '../../assets/field_sunset.jpg';
 import { authApi } from '../../api/auth.api';
 import './LoginPage.css';
 
-const SAVED_CREDENTIALS_KEY = 'agroros_saved_credentials';
+// Versiones anteriores guardaban usuario y contraseña en texto plano en el
+// navegador. Se borra ese dato apenas se abre esta pantalla.
+const LEGACY_SAVED_CREDENTIALS_KEY = 'agroros_saved_credentials';
 
 export const LoginPage = ({ onLoginSuccess }) => {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [keepSession, setKeepSession] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showSavePasswordModal, setShowSavePasswordModal] = useState(false);
-  const [pendingAuthUser, setPendingAuthUser] = useState(null);
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(SAVED_CREDENTIALS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.userId) setUserId(parsed.userId);
-        if (parsed.password) setPassword(parsed.password);
-        setRememberMe(true);
+      const legacy = localStorage.getItem(LEGACY_SAVED_CREDENTIALS_KEY);
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        if (parsed?.userId) setUserId(parsed.userId); // el usuario sí se recuerda; la contraseña no
+        localStorage.removeItem(LEGACY_SAVED_CREDENTIALS_KEY);
       }
-    } catch (e) {
-      console.warn('Error leyendo credenciales guardadas:', e);
+    } catch {
+      try { localStorage.removeItem(LEGACY_SAVED_CREDENTIALS_KEY); } catch { /* sin storage */ }
     }
   }, []);
-
-  const handleSaveAndProceed = () => {
-    try {
-      localStorage.setItem(
-        SAVED_CREDENTIALS_KEY,
-        JSON.stringify({ userId, password })
-      );
-    } catch (e) {
-      console.warn('Error guardando credenciales:', e);
-    }
-    setShowSavePasswordModal(false);
-    if (onLoginSuccess && pendingAuthUser) {
-      onLoginSuccess(pendingAuthUser);
-    }
-  };
-
-  const handleDismissAndProceed = () => {
-    setShowSavePasswordModal(false);
-    if (onLoginSuccess && pendingAuthUser) {
-      onLoginSuccess(pendingAuthUser);
-    }
-  };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -69,51 +46,31 @@ export const LoginPage = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const data = await authApi.login(userId, password);
+      const data = await authApi.login(userId.trim(), password, { mantenerSesion: keepSession });
+      const authenticatedUser = { ...(data.user || {}), token: data.token };
+      const userRole = String(authenticatedUser.role || authenticatedUser.rol || '').toLowerCase();
 
-      const user = data.user || data;
-      const token = data.token || data.jwt || null;
-
-      const authenticatedUser = {
-        ...user,
-        token: token || user.token,
-      };
-
-      const rawRole = authenticatedUser?.role || authenticatedUser?.rol || '';
-      const userRole = String(rawRole).toLowerCase();
-
-      if (authenticatedUser && (userRole.includes('admin') || userRole.includes('vendedor'))) {
-        // Disparar Credential Management API nativa de Google Chrome
-        if (window.PasswordCredential && navigator.credentials) {
-          try {
-            const cred = new window.PasswordCredential({
-              id: userId,
-              password: password,
-              name: authenticatedUser?.nombreApellido || userId,
-            });
-            navigator.credentials.store(cred).catch(() => {});
-          } catch (_) {}
-        }
-
-        if (rememberMe) {
-          try {
-            localStorage.setItem(
-              SAVED_CREDENTIALS_KEY,
-              JSON.stringify({ userId, password })
-            );
-          } catch (e) {}
-          if (onLoginSuccess) {
-            onLoginSuccess(authenticatedUser);
-          }
-        } else {
-          setPendingAuthUser(authenticatedUser);
-          setShowSavePasswordModal(true);
-        }
-      } else {
-        setError('El servidor no devolvió un rol de usuario válido (administrador / vendedor).');
+      if (!data.token || !(userRole.includes('admin') || userRole.includes('vendedor'))) {
+        setError('El servidor no devolvió una sesión válida.');
+        return;
       }
+
+      // El gestor de contraseñas del navegador (no la app) ofrece guardarla, cifrada.
+      if (window.PasswordCredential && navigator.credentials) {
+        try {
+          const cred = new window.PasswordCredential({ id: userId.trim(), password, name: authenticatedUser.nombreApellido || userId });
+          navigator.credentials.store(cred).catch(() => {});
+        } catch { /* navegador sin soporte */ }
+      }
+      setPassword('');
+      if (onLoginSuccess) onLoginSuccess(authenticatedUser, { persist: keepSession });
     } catch (err) {
-      setError(err.message || 'Error de conexión con el servidor. Verificá tus credenciales.');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message;
+      if (status === 429) setError(serverMsg || 'Demasiados intentos. Esperá unos minutos y volvé a probar.');
+      else if (serverMsg) setError(serverMsg);
+      else if (!err?.response) setError('No se pudo conectar con el servidor. Revisá tu conexión.');
+      else setError('Usuario o contraseña incorrectos');
     } finally {
       setLoading(false);
     }
@@ -196,26 +153,21 @@ export const LoginPage = ({ onLoginSuccess }) => {
               </button>
             </div>
 
-            {/* Checkbox Recordar Contraseña */}
+            {/* Mantener la sesión (token de 7 días). Nunca se guarda la contraseña. */}
             <div className="login-remember-row">
               <label className="login-checkbox-label">
                 <input
                   type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => {
-                    setRememberMe(e.target.checked);
-                    if (!e.target.checked) {
-                      localStorage.removeItem(SAVED_CREDENTIALS_KEY);
-                    }
-                  }}
+                  checked={keepSession}
+                  onChange={(e) => setKeepSession(e.target.checked)}
                 />
-                <span>Guardar contraseña en este equipo</span>
+                <span>Mantener la sesión iniciada en este equipo</span>
               </label>
             </div>
 
             {/* Botón Log in */}
             <button type="submit" className="login-btn" disabled={loading}>
-              {loading ? 'Iniciando sesión...' : 'Log in'}
+              {loading ? 'Iniciando sesión...' : 'Ingresar'}
             </button>
           </form>
         </div>
@@ -235,45 +187,6 @@ export const LoginPage = ({ onLoginSuccess }) => {
         </div>
       </div>
 
-      {/* MODAL: PREGUNTAR SI DESEA GUARDAR LA CONTRASEÑA */}
-      {showSavePasswordModal && (
-        <div className="save-pass-modal-overlay">
-          <div className="save-pass-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="save-pass-icon-badge">
-              <ShieldCheck size={28} />
-            </div>
-
-            <h3 className="save-pass-title">¿Deseás guardar tu contraseña?</h3>
-            <p className="save-pass-desc">
-              Tu ID <strong>{userId}</strong> y contraseña quedarán recordados de forma segura en este navegador para que puedas iniciar sesión automáticamente en tus próximas visitas.
-            </p>
-
-            <div className="save-pass-user-preview">
-              <div className="user-dot"></div>
-              <span>Sesión iniciada como: <strong>{pendingAuthUser?.nombreApellido || userId}</strong> ({pendingAuthUser?.role})</span>
-            </div>
-
-            <div className="save-pass-actions">
-              <button
-                type="button"
-                className="save-pass-btn-confirm"
-                onClick={handleSaveAndProceed}
-              >
-                <CheckCircle2 size={16} />
-                <span>Guardar Contraseña</span>
-              </button>
-
-              <button
-                type="button"
-                className="save-pass-btn-dismiss"
-                onClick={handleDismissAndProceed}
-              >
-                Ahora no
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

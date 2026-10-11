@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
+import { LocalidadSelect } from '../../../components/ui/LocalidadSelect/LocalidadSelect';
 import { useAuth } from '../../../context/AuthContext';
 import {
   Search,
@@ -185,8 +186,9 @@ export const CompaniesPage = () => {
     cuit: '',
     tipoEmpresa: 'Productor',
     direccionEmpresa: '',
-    localidad: 'Casilda',
-    localityCodPostal: '2170',
+    localidad: '',
+    localidadId: null,
+    localidadSel: null,
     superficieHa: '',
     proveedorActual: '',
     descEmpresa: '',
@@ -209,12 +211,13 @@ export const CompaniesPage = () => {
   const openEditModal = (company) => {
     setEditingCompany(company);
     setForm({
-      nombreEmpresa: company.nombreEmpresa || '',
+      nombreEmpresa: company.razonSocial || company.nombreEmpresa || '',
       cuit: company.cuit || '',
       tipoEmpresa: company.tipoEmpresa || 'Productor',
       direccionEmpresa: company.direccionEmpresa || '',
-      localidad: company.Locality?.nomLocalidad || company.localidad || '',
-      localityCodPostal: company.localityCodPostal || '2170',
+      localidad: company.localidad || '',
+      localidadId: company.localidadId || null,
+      localidadSel: company.localidadDetalle ? { id: company.localidadDetalle.id, nombre: company.localidadDetalle.nombre, provincia: company.localidadDetalle.provincia } : null,
       superficieHa: company.superficieHa || '',
       proveedorActual: company.proveedorActual || '',
       descEmpresa: company.descEmpresa || '',
@@ -367,15 +370,19 @@ export const CompaniesPage = () => {
       notificar.advertencia('Falta el nombre', 'Ingresá el nombre de la empresa madre.');
       return false;
     }
+    if (!form.cuit.trim()) {
+      notificar.advertencia('Falta el CUIT', 'Ingresá el CUIT de la empresa madre (las regiones y subsedes usan el mismo).');
+      return false;
+    }
     setCreandoJerarquia(true);
     try {
       const madreRes = await createClientCompany({
         nombreEmpresa: form.nombreEmpresa,
-        cuit: form.cuit || ('30-' + Math.floor(10000000 + Math.random() * 90000000) + '-9'),
+        cuit: form.cuit.trim(),
         tipoEmpresa: form.tipoEmpresa,
-        direccionEmpresa: form.direccionEmpresa || 'Casa Central',
-        localidad: form.localidad,
-        localityCodPostal: form.localityCodPostal || '2170',
+        direccionEmpresa: form.direccionEmpresa || undefined,
+        localidad: form.localidadId ? undefined : form.localidad,
+        localidadId: form.localidadId || undefined,
         descEmpresa: form.descEmpresa,
         creadoPorId: form.creadoPorId || currentUser?.idUser || null,
         parentCompanyId: null,
@@ -386,7 +393,8 @@ export const CompaniesPage = () => {
           nota: `Encargado general de ${form.nombreEmpresa}`,
         } : null,
       });
-      const madre = madreRes?.data || madreRes;
+      const madre = madreRes?.data;
+      if (!madre?.id) throw new Error('El servidor no confirmó el alta de la empresa madre.');
       const madreCreador = users.find((u) => u.idUser === form.creadoPorId);
 
       for (const region of regiones) {
@@ -395,9 +403,9 @@ export const CompaniesPage = () => {
           nombreEmpresa: region.nombre.trim(),
           cuit: madre.cuit,
           tipoEmpresa: form.tipoEmpresa,
-          direccionEmpresa: region.sedePrincipal || 'Sede Regional',
-          localidad: form.localidad,
-          localityCodPostal: form.localityCodPostal || '2170',
+          direccionEmpresa: region.sedePrincipal || undefined,
+          localidad: form.localidadId ? undefined : form.localidad,
+          localidadId: form.localidadId || undefined,
           creadoPorId: form.creadoPorId || currentUser?.idUser || null,
           parentCompanyId: madre.id,
           nivelEmpresa: 'region',
@@ -407,7 +415,8 @@ export const CompaniesPage = () => {
             nota: `Encargado de la región ${region.nombre}`,
           } : null,
         });
-        const regionCompany = regionRes?.data || regionRes;
+        const regionCompany = regionRes?.data;
+        if (!regionCompany?.id) throw new Error(`No se pudo crear la región ${region.nombre}.`);
 
         for (const sub of region.subsedes) {
           if (!sub.nombre.trim()) continue;
@@ -415,9 +424,9 @@ export const CompaniesPage = () => {
             nombreEmpresa: sub.nombre.trim(),
             cuit: madre.cuit,
             tipoEmpresa: form.tipoEmpresa,
-            direccionEmpresa: sub.direccion || region.sedePrincipal || 'Subsede',
-            localidad: form.localidad,
-            localityCodPostal: form.localityCodPostal || '2170',
+            direccionEmpresa: sub.direccion || region.sedePrincipal || undefined,
+            localidad: form.localidadId ? undefined : form.localidad,
+            localidadId: form.localidadId || undefined,
             creadoPorId: form.creadoPorId || currentUser?.idUser || null,
             parentCompanyId: regionCompany.id,
             nivelEmpresa: 'subsede',
@@ -431,7 +440,7 @@ export const CompaniesPage = () => {
       }
 
       setCompanies((prev) => [{ ...madre, creadoPorNombre: madreCreador?.nombreApellido || null }, ...prev]);
-      notificar.exito('Empresa registrada', `«${madre.nombreEmpresa}» se dio de alta con sus regiones y subsedes.`);
+      notificar.exito('Empresa registrada', `«${madre.razonSocial}» se dio de alta con sus regiones y subsedes.`);
       return true;
     } catch (err) {
       console.error('Error al crear la jerarquía de empresa:', err);
@@ -458,6 +467,10 @@ export const CompaniesPage = () => {
       notificar.advertencia('Falta el contacto', 'Ingresá el nombre y apellido del nuevo contacto.');
       return;
     }
+    if (!form.nombreEmpresa.trim() || !form.cuit.trim()) {
+      notificar.advertencia('Faltan datos', 'La razón social y el CUIT son obligatorios.');
+      return;
+    }
 
     // ── Modo edición: actualiza la empresa existente ──
     if (editingCompany) {
@@ -466,8 +479,8 @@ export const CompaniesPage = () => {
         cuit: form.cuit,
         tipoEmpresa: form.tipoEmpresa,
         direccionEmpresa: form.direccionEmpresa,
-        localidad: form.localidad,
-        localityCodPostal: form.localityCodPostal || '2170',
+        localidad: form.localidadId ? undefined : form.localidad,
+        localidadId: form.localidadId || undefined,
         superficieHa: form.superficieHa === '' ? null : Number(form.superficieHa),
         proveedorActual: form.proveedorActual,
         descEmpresa: form.descEmpresa,
@@ -496,31 +509,30 @@ export const CompaniesPage = () => {
     // ── Modo alta: crea una empresa nueva ──
     const newCompPayload = {
       nombreEmpresa: form.nombreEmpresa,
-      cuit: form.cuit || ('30-' + Math.floor(10000000 + Math.random() * 90000000) + '-9'),
+      cuit: form.cuit.trim(),
       tipoEmpresa: form.tipoEmpresa,
-      direccionEmpresa: form.direccionEmpresa || 'Ruta Provincial',
-      localidad: form.localidad,
-      localityCodPostal: form.localityCodPostal || '2170',
+      direccionEmpresa: form.direccionEmpresa || undefined,
+      localidad: form.localidadId ? undefined : form.localidad,
+      localidadId: form.localidadId || undefined,
       superficieHa: form.superficieHa === '' ? null : Number(form.superficieHa),
       proveedorActual: form.proveedorActual,
       descEmpresa: form.descEmpresa,
       creadoPorId: form.creadoPorId || currentUser?.idUser || null,
-      fechaRegistro: new Date().toISOString(),
-      existingContactNumDoc: (includeContact && contactMode === 'existing' && selectedExistingContact) ? (selectedExistingContact.numDoc || selectedExistingContact.id) : null,
+      contactoExistenteId: (includeContact && contactMode === 'existing' && selectedExistingContact) ? selectedExistingContact.id : null,
       newContact: (includeContact && contactMode === 'new' && newContact.nombreApellido.trim()) ? {
         nombreApellido: newContact.nombreApellido.trim(),
         tipoClient: newContact.tipoClient || 'Encargado de Planta',
         telefono: newContact.telefono ? newContact.telefono.trim() : '',
         direccionMail: newContact.direccionMail ? newContact.direccionMail.trim() : '',
         numDoc: newContact.numDoc ? newContact.numDoc.trim() : undefined,
-        codigoPostal: form.localityCodPostal || '2170',
         nota: newContact.nota || ('Contacto referente de ' + form.nombreEmpresa),
       } : null,
     };
 
     try {
       const response = await createClientCompany(newCompPayload);
-      const createdCompany = response?.data || response || { id: Date.now(), ...newCompPayload };
+      const createdCompany = response?.data;
+      if (!createdCompany?.id) throw new Error('El servidor no confirmó el alta de la empresa.');
       const companyId = createdCompany.id;
       const creador = users.find((u) => u.idUser === newCompPayload.creadoPorId);
 
@@ -532,27 +544,16 @@ export const CompaniesPage = () => {
             return {
               ...cl,
               clientCompanyId: companyId,
-              empresa: createdCompany.nombreEmpresa,
+              empresa: createdCompany.razonSocial,
             };
           }
           return cl;
         }));
       } else if (includeContact && contactMode === 'new' && newContact.nombreApellido.trim()) {
-        const createdContact = response?.contact || {
-          numDoc: newContact.numDoc || ('20-' + Math.floor(10000000 + Math.random() * 90000000) + '-4'),
-          nombreApellido: newContact.nombreApellido.trim(),
-          direccionMail: newContact.direccionMail,
-          tipoClient: newContact.tipoClient || 'Encargado de Planta',
-          localidad: form.localidad || 'Casilda',
-          codigoPostal: form.localityCodPostal || '2170',
-          telefonos: newContact.telefono ? [newContact.telefono] : [],
-          clientCompanyId: companyId,
-          empresa: createdCompany.nombreEmpresa,
-          fechaAgregado: new Date().toISOString(),
-        };
-        setClients(prevClients => [createdContact, ...prevClients]);
+        const createdContact = response?.contact;
+        if (createdContact) setClients(prevClients => [createdContact, ...prevClients]);
       }
-      notificar.exito('Empresa registrada', `«${createdCompany.nombreEmpresa}» se dio de alta.`);
+      notificar.exito('Empresa registrada', `«${createdCompany.razonSocial}» se dio de alta.`);
     } catch (err) {
       console.error('Error al registrar empresa:', err);
       notificar.error('No se pudo registrar la empresa', err);
@@ -564,22 +565,22 @@ export const CompaniesPage = () => {
 
   const handleDeleteCompany = async (company) => {
     if (deletingId) return;
-    // En la base, borrar una empresa borra en cascada sus contactos y negocios: avisarlo antes.
-    const contactos = clients.filter((cl) => cl.clientCompanyId === company.id).length;
+    // Baja lógica: la empresa deja de verse pero su historial (contactos, oportunidades, órdenes) se conserva.
+    const contactos = 0;
     const regionales = companies.filter((c) => c.parentCompanyId === company.id).length;
     const consecuencias = [
       contactos && `${contactos} contacto${contactos === 1 ? '' : 's'} vinculado${contactos === 1 ? '' : 's'} (se borran también)`,
       regionales && `${regionales} regional${regionales === 1 ? '' : 'es'}/subsede${regionales === 1 ? '' : 's'} que quedarán sin empresa principal`,
     ].filter(Boolean);
     const aviso = consecuencias.length ? `\n\nAtención, tiene:\n• ${consecuencias.join('\n• ')}` : '';
-    if (!window.confirm(`¿Eliminar la empresa "${company.nombreEmpresa}"? Esta acción no se puede deshacer.${aviso}`)) return;
+    if (!window.confirm(`¿Dar de baja la empresa "${company.nombreEmpresa}"? Deja de aparecer en las listas, pero su historial se conserva y la administración puede restaurarla.${aviso}`)) return;
 
     setDeletingId(company.id);
     try {
       await notificar.operacion(deleteClientCompany(company.id), {
-        cargando: `Eliminando «${company.nombreEmpresa}»…`,
-        exito: 'Empresa eliminada',
-        error: 'No se pudo eliminar la empresa',
+        cargando: `Dando de baja «${company.nombreEmpresa}»…`,
+        exito: 'Empresa dada de baja',
+        error: 'No se pudo dar de baja la empresa',
       });
       setCompanies((prev) => prev.filter((c) => c.id !== company.id));
       if (contactos) setClients((prev) => prev.filter((cl) => cl.clientCompanyId !== company.id));
@@ -645,6 +646,7 @@ export const CompaniesPage = () => {
   const relatedActivities = useMemo(() => {
     if (!selectedCompanyForDetail) return [];
     return activities.filter(a =>
+      a.empresaId === selectedCompanyForDetail.id ||
       a.empresa?.toLowerCase() === selectedCompanyForDetail.nombreEmpresa?.toLowerCase()
     );
   }, [activities, selectedCompanyForDetail]);
@@ -975,13 +977,9 @@ export const CompaniesPage = () => {
                   />
                 </div>
                 <div className="comp-field" style={{ flex: 1 }}>
-                  <label>Localidad</label>
-                  <input
-                    type="text"
-                    className="comp-input"
-                    placeholder="Casilda"
-                    value={form.localidad}
-                    onChange={(e) => setForm(prev => ({ ...prev, localidad: e.target.value }))}
+                  <LocalidadSelect
+                    value={form.localidadSel}
+                    onChange={(l) => setForm(prev => ({ ...prev, localidadSel: l, localidadId: l?.id || null, localidad: l?.nombre || '' }))}
                   />
                 </div>
               </div>

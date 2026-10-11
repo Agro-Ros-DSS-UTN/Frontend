@@ -26,8 +26,7 @@ import {
 import {
   WORK_TYPES,
   ORDER_STATUSES,
-  getStoredServiceOrders,
-  saveStoredServiceOrders,
+  limpiarCacheLocalOrdenes,
 } from '../../../data/serviceOrdersData';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
@@ -119,6 +118,8 @@ const emptyEvalForm = (orderRows) => ({
   fechaEvaluacion: '',
   detalle: evalRowsFromOrder(orderRows),
   ppmPH3: '',
+  satisfaccionCliente: '',
+  comentarioCliente: '',
   observaciones: '',
   recomendaciones: RECOMENDACION_POR_DEFECTO,
   fotos: [],
@@ -208,7 +209,7 @@ const validateEvalForm = (form) => {
 export const ServiceOrdersPage = () => {
   const { currentUser } = useAuth();
   const orderDraftKey = draftKey('orden-servicio', currentUser?.idUser || currentUser?.id);
-  const [orders, setOrders] = useState(() => getStoredServiceOrders());
+  const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
@@ -271,31 +272,20 @@ export const ServiceOrdersPage = () => {
     setIsLoading(true);
     try {
       const backendOrders = await serviceOrdersApi.getAll();
-      if (Array.isArray(backendOrders) && backendOrders.length > 0) {
-        setOrders(backendOrders);
-        saveStoredServiceOrders(backendOrders);
-      } else {
-        const local = getStoredServiceOrders();
-        setOrders(local);
-      }
+      setOrders(Array.isArray(backendOrders) ? backendOrders : []);
     } catch (err) {
-      console.warn('Backend no disponible o error al obtener órdenes, usando caché local:', err);
-      setOrders(getStoredServiceOrders());
+      console.warn('No se pudieron obtener las órdenes de servicio:', err);
+      setOrders([]);
+      notificar.error('No se pudieron cargar las órdenes de servicio', err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    limpiarCacheLocalOrdenes();
     loadOrders();
   }, []);
-
-  // Sync with localStorage on changes
-  useEffect(() => {
-    if (orders && orders.length > 0) {
-      saveStoredServiceOrders(orders);
-    }
-  }, [orders]);
 
   // Order Form State (matching Documento 3.1 & HubSpot design)
   const [orderForm, setOrderForm] = useState(() => buildEmptyOrderForm());
@@ -385,6 +375,7 @@ export const ServiceOrdersPage = () => {
       numeroOrden: order.numeroOrden,
       fecha: order.fecha,
       clienteId: order.clienteId,
+      empresaId: order.empresaId || null,
       clienteNombre: order.clienteNombre,
       centroId: order.centroId,
       centroNombre: order.centroNombre,
@@ -543,6 +534,8 @@ export const ServiceOrdersPage = () => {
           ? detalleGuardado.map((r) => ({ ...emptyEvalRow(), ...r }))
           : evalRowsFromOrder(order.productosAplicados),
         ppmPH3: ev.ppmPH3 ?? '',
+        satisfaccionCliente: ev.satisfaccionCliente ? String(ev.satisfaccionCliente) : '',
+        comentarioCliente: ev.comentarioCliente || '',
         observaciones: ev.observaciones || '',
         recomendaciones: ev.recomendaciones || '',
         fotos: parseJsonArray(ev.fotos),
@@ -822,7 +815,28 @@ export const ServiceOrdersPage = () => {
               onChange={(e) => setEvalForm({ ...evalForm, ppmPH3: e.target.value })}
               placeholder="Ej: 300"
             />
+            <FormSelect
+              label="Satisfacción del cliente"
+              name="satisfaccionCliente"
+              value={evalForm.satisfaccionCliente}
+              onChange={(e) => setEvalForm({ ...evalForm, satisfaccionCliente: e.target.value })}
+              options={[
+                { value: '', label: 'Sin calificar' },
+                { value: '5', label: '5 — Muy satisfecho' },
+                { value: '4', label: '4 — Satisfecho' },
+                { value: '3', label: '3 — Neutral' },
+                { value: '2', label: '2 — Insatisfecho' },
+                { value: '1', label: '1 — Muy insatisfecho' },
+              ]}
+            />
           </div>
+          <FormInput
+            label="Comentario del cliente"
+            name="comentarioCliente"
+            value={evalForm.comentarioCliente}
+            onChange={(e) => setEvalForm({ ...evalForm, comentarioCliente: e.target.value })}
+            placeholder="Lo que dijo el cliente sobre el servicio (opcional)"
+          />
           <div className="so-form-grid so-form-grid--2">
             <FormTextarea
               label="Observaciones"
@@ -1280,6 +1294,8 @@ export const ServiceOrdersPage = () => {
                           ...prev,
                           clienteNombre: nombre,
                           clienteId: item?.id ? String(item.id) : '',
+                          // Vínculo real con la empresa (para el tablero de servicios del cliente)
+                          empresaId: item?.id || null,
                           // Dirección, localidad y provincia salen de la empresa elegida
                           direccion: item && isRealAddress(item.direccion) ? item.direccion : '',
                           localidad: item?.loc || '',

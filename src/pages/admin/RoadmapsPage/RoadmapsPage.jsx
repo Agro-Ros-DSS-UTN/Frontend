@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { escapeHtml, safeColor, safeUrl } from '../../../utils/seguridad';
 import { useNavigate } from 'react-router-dom';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import {
@@ -111,19 +112,21 @@ export const RoadmapsPage = () => {
             fecha: r.fechaRuta,
             totalKm: r.distanciaEstimadaKm || 0,
             totalVisitas: r.paradas?.length || 0,
-            visitasCompletadas: r.paradas?.filter(p => p.estadoParada === 'completada').length || 0,
+            visitasCompletadas: r.paradas?.filter(p => (p.estado || p.estadoParada) === 'completada').length || 0,
             observaciones: r.observaciones || r.descripcion || '',
             paradas: (r.paradas || []).map((p, idx) => ({
               id: p.id,
               orden: p.orden || (idx + 1),
               cliente: p.nombreLugar,
-              direccion: p.direccion || 'Sin dirección',
-              localidad: r.nombreZona || 'Santa Fe',
-              coords: [p.latitud || (-32.85 - (idx * 0.05)), p.longitud || (-61.45 - (idx * 0.05))],
-              servicio: p.notas || 'Visita comercial asignada',
-              contacto: 'Contacto Comercial',
-              horaEstimada: p.horaEstimada || '10:00',
-              estado: p.estadoParada === 'completada' ? 'Completada' : (p.estadoParada === 'en_camino' ? 'En camino' : 'Pendiente')
+              direccion: p.direccion || '',
+              localidad: p.localidad || '',
+              // Sin coordenadas reales la parada no se dibuja (no se inventa una ubicación).
+              coords: p.latitud !== null && p.latitud !== undefined && p.longitud !== null && p.longitud !== undefined ? [Number(p.latitud), Number(p.longitud)] : null,
+              servicio: p.notas || 'Visita comercial',
+              contacto: '',
+              horaEstimada: p.horaEstimada || '',
+              url: p.url || null,
+              estado: (p.estado || p.estadoParada) === 'completada' ? 'Completada' : ((p.estado || p.estadoParada) === 'en_camino' ? 'En camino' : ((p.estado || p.estadoParada) === 'omitida' ? 'Omitida' : 'Pendiente'))
             }))
           }));
           setApiRoadmaps(formatted);
@@ -141,7 +144,7 @@ export const RoadmapsPage = () => {
           // Cualquier usuario activo puede recibir una hoja de ruta: un vendedor
           // (el caso más común) o un administrador organizando su propio viaje.
           const assignableUsers = rawUsers.filter(
-            (u) => String(u.accountStatement || u.estado || 'Activo').toLowerCase().includes('activ')
+            (u) => String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo'
           );
           setSellersList(assignableUsers);
           if (assignableUsers.length > 0) {
@@ -184,7 +187,7 @@ export const RoadmapsPage = () => {
     if (!currentRoute || !currentRoute.paradas || currentRoute.paradas.length === 0) {
       return 'https://www.google.com/maps';
     }
-    const coordsStr = currentRoute.paradas.map(p => `${p.coords[0]},${p.coords[1]}`);
+    const coordsStr = currentRoute.paradas.map(p => (p.coords ? `${p.coords[0]},${p.coords[1]}` : encodeURIComponent([p.direccion, p.localidad, p.cliente].filter(Boolean).join(', '))));
     const origin = coordsStr[0];
     const destination = coordsStr[coordsStr.length - 1];
     const waypoints = coordsStr.slice(1, -1).join('|');
@@ -215,7 +218,7 @@ export const RoadmapsPage = () => {
 
       const polylineCoords = [];
 
-      route.paradas.forEach((stop) => {
+      route.paradas.filter((stop) => stop.coords).forEach((stop) => {
         polylineCoords.push(stop.coords);
 
         const isCompleted = stop.estado === 'Completada';
@@ -225,8 +228,8 @@ export const RoadmapsPage = () => {
         const customIcon = L.divIcon({
           className: 'leaflet-custom-marker-wrapper',
           html: `
-            <div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''}" style="background-color: ${markerBg};">
-              <span>${stop.orden}</span>
+            <div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''}" style="background-color: ${safeColor(markerBg)};">
+              <span>${escapeHtml(stop.orden)}</span>
             </div>
           `,
           iconSize: [30, 30],
@@ -238,22 +241,23 @@ export const RoadmapsPage = () => {
         allMarkers.push(marker);
 
         // CLEAN POPUP CARTELITO (WITHOUT ANY EMOJIS)
+        // Todo dato cargado por usuarios se escapa antes de armar el HTML del popup.
         marker.bindPopup(`
           <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width: 220px; padding: 4px;">
-            <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: ${route.color || '#1a7d6b'}; margin-bottom: 2px;">
-              ${route.vendedor} · PARADA #${stop.orden}
+            <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: ${safeColor(route.color)}; margin-bottom: 2px;">
+              ${escapeHtml(route.vendedor)} · PARADA #${escapeHtml(stop.orden)}
             </div>
             <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">
-              ${stop.cliente}
+              ${escapeHtml(stop.cliente)}
             </div>
             <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
-              ${stop.direccion}, ${stop.localidad}
+              ${escapeHtml([stop.direccion, stop.localidad].filter(Boolean).join(', '))}
             </div>
             <div style="font-size: 11px; color: #334155; margin-bottom: 4px;">
-              <strong>Detalle:</strong> ${stop.servicio}
+              <strong>Detalle:</strong> ${escapeHtml(stop.servicio)}
             </div>
             <div style="font-size: 12px; color: #1a7d6b; font-weight: 700; border-top: 1px dashed #e2e8f0; padding-top: 4px;">
-              Horario: ${stop.horaEstimada} hs
+              Horario: ${escapeHtml(stop.horaEstimada || '—')} hs
             </div>
           </div>
         `);
@@ -410,24 +414,25 @@ export const RoadmapsPage = () => {
       const selectedSeller = sellersList.find(s => String(s.idUser || s.id) === String(formData.sellerId)) || sellersList[0];
 
       const payload = {
-        nombreZona: formData.nombreZona || 'Zona Personalizada',
-        descripcion: formData.observaciones || `Hoja de ruta para zona ${formData.nombreZona}`,
+        nombreZona: formData.nombreZona || 'Recorrido',
+        descripcion: null,
         fechaRuta: formData.fechaRuta,
         horaRuta: formData.horaRuta || null,
         fechaFinPropuesta: formData.fechaFinPropuesta || null,
         horaFinPropuesta: formData.horaFinPropuesta || null,
         idUserAsignado: selectedSeller ? (selectedSeller.idUser || selectedSeller.id) : null,
-        distanciaEstimadaKm: Number(formData.distanciaEstimadaKm) || 100,
+        distanciaEstimadaKm: Number(formData.distanciaEstimadaKm) || 0,
         observaciones: formData.observaciones,
         paradas: formData.paradas.map((p, idx) => ({
           orden: idx + 1,
-          clientCompanyId: (p.clientCompanyId && !isNaN(Number(p.clientCompanyId))) ? Number(p.clientCompanyId) : null,
+          empresaId: (p.clientCompanyId && !isNaN(Number(p.clientCompanyId))) ? Number(p.clientCompanyId) : null,
           nombreLugar: p.nombreLugar || `Parada #${idx + 1}`,
-          direccion: p.direccion || 'Sin dirección',
-          latitud: Number(p.latitud) || (-32.85 - (idx * 0.05)),
-          longitud: Number(p.longitud) || (-61.45 - (idx * 0.05)),
-          horaEstimada: p.horaEstimada || '09:00',
-          notas: p.notas || 'Visita comercial asignada'
+          direccion: p.direccion || null,
+          // Coordenadas solo si se cargaron; si no, el backend usa las de la empresa o su localidad.
+          latitud: p.latitud !== '' && p.latitud !== undefined && !isNaN(Number(p.latitud)) ? Number(p.latitud) : null,
+          longitud: p.longitud !== '' && p.longitud !== undefined && !isNaN(Number(p.longitud)) ? Number(p.longitud) : null,
+          horaEstimada: p.horaEstimada || null,
+          notas: p.notas || null
         }))
       };
 

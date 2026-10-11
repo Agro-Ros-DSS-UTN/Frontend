@@ -39,12 +39,20 @@ apiClient.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
     const url = error?.config?.url || '';
-    const isLoginAttempt = url.includes('/users/login');
-    // Un 403 por falta de permiso sobre una acción puntual no es una sesión vencida.
-    const isForbiddenAction = error?.response?.data?.code === 'FORBIDDEN_ACTION';
-    if ((status === 401 || status === 403) && !isLoginAttempt && !isForbiddenAction) {
-      triggerSessionExpired();
-    }
+    const isLoginAttempt = url.includes('/auth/login') || url.includes('/users/login');
+    // Solo un 401 es sesión vencida; un 403 es falta de permiso para esa acción.
+    if (status === 401 && !isLoginAttempt) triggerSessionExpired();
+    // Mensaje del servidor disponible como error.message para los toasts.
+    const serverMsg = error?.response?.data?.message;
+    if (serverMsg) error.message = serverMsg;
+    else if (!error?.response) error.message = 'No se pudo conectar con el servidor. Revisá tu conexión e intentá de nuevo.';
     return Promise.reject(error);
   }
 );
+
+// Extrae la carga útil de las respuestas { data, message } del backend v2.
+export const unwrap = (res) => {
+  const body = res?.data;
+  if (body && typeof body === 'object' && !Array.isArray(body) && 'data' in body) return body.data;
+  return body;
+};

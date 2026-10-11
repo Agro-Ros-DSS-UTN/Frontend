@@ -74,13 +74,12 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
       const existingContact = node.Clients?.[0];
       const nombre = editForm.encargado.trim();
       if (existingContact && nombre && nombre !== existingContact.nombreApellido) {
-        await updateClient(existingContact.numDoc, { nombreApellido: nombre });
+        await updateClient(existingContact.id, { nombreApellido: nombre });
       } else if (!existingContact && nombre) {
         await createClient({
           nombreApellido: nombre,
           clientCompanyId: node.id,
-          tipoClient: node.nivelEmpresa === 'subsede' ? 'Encargado de Planta' : 'Encargado Regional',
-          codigoPostal: node.localityCodPostal || '2170',
+          tipoClient: (node.nivel || node.nivelEmpresa) === 'subsede' ? 'Encargado de Planta' : 'Encargado Regional',
         });
       }
       notificar.exito('Cambios guardados', node.nombreEmpresa);
@@ -102,9 +101,8 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
         nombreEmpresa: newRegionForm.nombre.trim(),
         cuit: tree.cuit,
         tipoEmpresa: tree.tipoEmpresa,
-        direccionEmpresa: newRegionForm.sedePrincipal || 'Sede Regional',
-        localidad: tree.Locality?.nomLocalidad || '',
-        localityCodPostal: tree.localityCodPostal || '2170',
+        direccionEmpresa: newRegionForm.sedePrincipal || undefined,
+        localidadId: tree.localidadId || undefined,
         parentCompanyId: tree.id,
         nivelEmpresa: 'region',
         newContact: newRegionForm.encargado.trim() ? { nombreApellido: newRegionForm.encargado.trim(), tipoClient: 'Encargado Regional' } : null,
@@ -129,9 +127,8 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
         nombreEmpresa: newSubsedeForm.nombre.trim(),
         cuit: tree.cuit,
         tipoEmpresa: tree.tipoEmpresa,
-        direccionEmpresa: newSubsedeForm.direccion || region.direccionEmpresa || 'Subsede',
-        localidad: tree.Locality?.nomLocalidad || '',
-        localityCodPostal: region.localityCodPostal || tree.localityCodPostal || '2170',
+        direccionEmpresa: newSubsedeForm.direccion || region.direccionEmpresa || undefined,
+        localidadId: region.localidadId || tree.localidadId || undefined,
         parentCompanyId: region.id,
         nivelEmpresa: 'subsede',
         newContact: newSubsedeForm.encargado.trim() ? { nombreApellido: newSubsedeForm.encargado.trim(), tipoClient: 'Encargado de Planta' } : null,

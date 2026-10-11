@@ -16,6 +16,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { tasksApi, activitiesApi } from '../../api/operations.api';
+import { tipoContactoLabel } from '../../data/catalogos';
 import { authApi } from '../../api/auth.api';
 import { useAuth } from '../../context/AuthContext';
 import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput/FormInput';
@@ -60,7 +61,7 @@ const normalizeTask = (t) => ({
   fechaVencimiento: t.fechaVencimiento || '',
   horaVencimiento: t.horaVencimiento || '',
   prioridad: t.prioridad || 'Media',
-  estado: isFinalizedEstado(t.estado) ? 'Finalizada' : 'Pendiente',
+  estado: t.estado === 'Cancelada' ? 'Cancelada' : isFinalizedEstado(t.estado) ? 'Finalizada' : 'Pendiente',
   asignadoA: t.asignadoA || '—',
   asignadosIds: (t.asignaciones || []).map((a) => a.idUser),
   finalizadoPor: t.finalizadoPor?.nombreApellido || '',
@@ -68,12 +69,13 @@ const normalizeTask = (t) => ({
   actividadId: t.formularioActividadId ? String(t.formularioActividadId) : '',
   actividad: t.FormularioActividad
     ? {
-        nombre: [t.FormularioActividad.tipoContacto, t.FormularioActividad.empresa].filter(Boolean).join(' · '),
+        nombre: [tipoContactoLabel(t.FormularioActividad.tipoContacto), t.FormularioActividad.empresa].filter(Boolean).join(' · '),
         fecha: t.FormularioActividad.fechaHora,
       }
     : null,
   empresa: t.empresa || '',
-  contacto: t.contacto || '',
+  empresaId: t.empresaId || null,
+  contacto: '',
   notas: t.notas || '',
   creadoPorRol: t.creadoPorRol || 'administrador',
 });
@@ -91,6 +93,7 @@ const emptyForm = () => ({
   horaVencimiento: '',
   prioridad: 'Alta',
   empresa: '',
+  empresaId: null,
   contacto: '',
   actividadId: '',
   notas: '',
@@ -126,7 +129,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         const res = await authApi.getAllUsers();
         const raw = Array.isArray(res) ? res : res?.data || [];
         setAssignableUsers(
-          raw.filter((u) => String(u.accountStatement || u.estado || 'Activo').toLowerCase().includes('activ'))
+          raw.filter((u) => String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo')
         );
       } catch (err) {
         console.error('Error al obtener usuarios para enganchar a la tarea:', err);
@@ -146,7 +149,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             const fecha = a.fechaHora ? new Date(a.fechaHora).toLocaleDateString('es-AR') : '';
             return {
               value: String(a.idFormulario),
-              label: [a.tipoContacto, a.empresa, fecha].filter(Boolean).join(' · '),
+              label: [tipoContactoLabel(a.tipoContacto), a.empresa, fecha].filter(Boolean).join(' · '),
             };
           })
         );
@@ -281,9 +284,10 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       prioridad: form.prioridad,
       fechaVencimiento: form.fechaVencimiento,
       horaVencimiento: form.horaVencimiento || null,
-      empresa: form.empresa?.trim() || null,
+      // Empresa elegida de la lista (id); si se escribió otra, el nombre queda en las notas.
+      ...(form.empresaId ? { empresaId: form.empresaId } : { empresa: form.empresa?.trim() || null }),
       contacto: form.contacto?.trim() || null,
-      formularioActividadId: form.actividadId ? Number(form.actividadId) : null,
+      actividadId: form.actividadId ? Number(form.actividadId) : null,
       notas: form.notas?.trim() || null,
     };
 
@@ -297,10 +301,6 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       } else {
         await tasksApi.create({
           ...editableFields,
-          estado: 'Pendiente',
-          creadoPorRol: cfg.creadoPorRol,
-          destinatarioRol: cfg.destinatarioRol,
-          asignadoA: currentUser?.nombreApellido || cfg.defaultAsignado,
           // El vendedor queda asociado a las tareas que él mismo crea, para poder finalizarlas.
           asignadosIds: variant === 'admin' ? selectedAssignees : [myUserId].filter(Boolean),
         });
@@ -334,7 +334,8 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       horaVencimiento: task.horaVencimiento,
       prioridad: task.prioridad,
       empresa: task.empresa,
-      contacto: task.contacto,
+      empresaId: task.empresaId,
+      contacto: '',
       actividadId: task.actividadId,
       notas: task.notas,
     });
@@ -662,7 +663,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
               label="Empresa"
               name="empresa"
               value={form.empresa}
-              onChange={(nombre) => setForm((prev) => ({ ...prev, empresa: nombre }))}
+              onChange={(nombre, hit) => setForm((prev) => ({ ...prev, empresa: nombre, empresaId: hit?.id || null }))}
             />
             <ContactAutocomplete
               label="Contacto"

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { escapeHtml, safeColor, safeUrl } from '../../../utils/seguridad';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -25,7 +26,6 @@ import {
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAuth } from '../../../context/AuthContext';
-import { mockRoadmaps } from '../../../data/mockData';
 import { roadmapsApi } from '../../../api/operations.api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import { notificar } from '../../../hooks/useNotificaciones';
@@ -50,9 +50,9 @@ const formatRoadmap = (r, idx = 0) => ({
   horaRuta: r.horaRuta || null,
   fechaFinPropuesta: r.fechaFinPropuesta || null,
   horaFinPropuesta: r.horaFinPropuesta || null,
-  totalKm: r.distanciaEstimadaKm || 120,
+  totalKm: r.distanciaEstimadaKm || 0,
   totalVisitas: r.paradas?.length || 0,
-  visitasCompletadas: r.paradas?.filter((p) => p.estadoParada === 'completada').length || 0,
+  visitasCompletadas: r.paradas?.filter((p) => (p.estado || p.estadoParada) === 'completada').length || 0,
   estado: r.estado || 'planificada',
   observaciones: r.observaciones || r.descripcion || '',
   fechaHoraInicioReal: r.fechaHoraInicioReal || null,
@@ -61,15 +61,18 @@ const formatRoadmap = (r, idx = 0) => ({
     id: p.id,
     orden: p.orden || i + 1,
     cliente: p.nombreLugar,
-    direccion: p.direccion || 'Sin dirección',
-    localidad: r.nombreZona || 'Santa Fe',
-    coords: [p.latitud || -32.85 - i * 0.04, p.longitud || -61.45 - i * 0.04],
-    servicio: p.notas || 'Visita comercial asignada',
-    contacto: 'Contacto Comercial',
-    horaEstimada: p.horaEstimada || '10:00',
+    direccion: p.direccion || '',
+    localidad: p.localidad || '',
+    // Sin coordenadas reales la parada no se dibuja en el mapa (nunca se inventa una ubicación).
+    coords: p.latitud !== null && p.latitud !== undefined && p.longitud !== null && p.longitud !== undefined ? [Number(p.latitud), Number(p.longitud)] : null,
+    coordsAproximadas: Boolean(p.coordenadasAproximadas),
+    empresaId: p.empresaId || null,
+    servicio: p.notas || 'Visita comercial',
+    contacto: '',
+    horaEstimada: p.horaEstimada || '',
     url: p.url || null,
     origen: p.origen || 'planificada',
-    estado: p.estadoParada === 'completada' ? 'Completada' : p.estadoParada === 'en_camino' ? 'En camino' : 'Pendiente',
+    estado: (p.estado || p.estadoParada) === 'completada' ? 'Completada' : (p.estado || p.estadoParada) === 'en_camino' ? 'En camino' : (p.estado || p.estadoParada) === 'omitida' ? 'Omitida' : 'Pendiente',
   })),
 });
 
@@ -148,7 +151,7 @@ export const SellerRoadmapPage = () => {
       setLoading(true);
       if (!idUser) {
         setAllRoutes([]);
-        setRoute(mockRoadmaps[0] ? { ...mockRoadmaps[0], estado: 'planificada', paradas: mockRoadmaps[0].paradas || [] } : null);
+        setRoute(null);
         return;
       }
 
@@ -194,8 +197,10 @@ export const SellerRoadmapPage = () => {
   // URL para Google Maps GPS — conecta todas las paradas en un solo recorrido
   const googleMapsUrl = useMemo(() => {
     if (!route || !route.paradas || route.paradas.length === 0) return '#';
-    const destination = route.paradas[route.paradas.length - 1].coords.join(',');
-    const waypoints = route.paradas.slice(0, -1).map((p) => p.coords.join(',')).join('|');
+    // Cada parada va por coordenadas o, si no tiene, por su dirección escrita.
+    const punto = (p) => (p.coords ? p.coords.join(',') : encodeURIComponent([p.direccion, p.localidad, p.cliente].filter(Boolean).join(', ')));
+    const destination = punto(route.paradas[route.paradas.length - 1]);
+    const waypoints = route.paradas.slice(0, -1).map(punto).join('|');
     return `https://www.google.com/maps/dir/?api=1&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
   }, [route]);
 
@@ -214,7 +219,7 @@ export const SellerRoadmapPage = () => {
     const markers = [];
     const polylineCoords = [];
 
-    route.paradas.forEach((stop) => {
+    route.paradas.filter((stop) => stop.coords).forEach((stop) => {
       polylineCoords.push(stop.coords);
       const isCompleted = stop.estado === 'Completada';
       const isCurrent = stop.estado === 'En camino';
@@ -222,7 +227,7 @@ export const SellerRoadmapPage = () => {
 
       const customIcon = L.divIcon({
         className: 'leaflet-custom-marker-wrapper',
-        html: `<div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''}" style="background-color: ${markerBg};"><span>${stop.orden}</span></div>`,
+        html: `<div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''}" style="background-color: ${safeColor(markerBg)};"><span>${escapeHtml(stop.orden)}</span></div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
         popupAnchor: [0, -16],
@@ -233,10 +238,10 @@ export const SellerRoadmapPage = () => {
 
       marker.bindPopup(`
         <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width: 190px; padding: 2px;">
-          <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #16a34a; margin-bottom: 2px;">Parada #${stop.orden}</div>
-          <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">${stop.cliente}</div>
-          <div style="font-size: 11px; color: #64748b; margin-bottom: 4px;">📍 ${stop.direccion}, ${stop.localidad}</div>
-          <div style="font-size: 11px; color: #334155;"><strong>Servicio:</strong> ${stop.servicio}</div>
+          <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #16a34a; margin-bottom: 2px;">Parada #${escapeHtml(stop.orden)}</div>
+          <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">${escapeHtml(stop.cliente)}</div>
+          <div style="font-size: 11px; color: #64748b; margin-bottom: 4px;">${escapeHtml([stop.direccion, stop.localidad].filter(Boolean).join(', '))}</div>
+          <div style="font-size: 11px; color: #334155;"><strong>Servicio:</strong> ${escapeHtml(stop.servicio)}</div>
         </div>
       `);
 
@@ -601,8 +606,8 @@ export const SellerRoadmapPage = () => {
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                           <span className={`stop-card-badge ${statusKey}`}>{stop.estado}</span>
                           {stop.origen === 'agregada_en_ruta' && <span className="seller-roadmap-adhoc-badge">Agregada en el camino</span>}
-                          {stop.url && (
-                            <a href={stop.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="seller-roadmap-stop-link">
+                          {safeUrl(stop.url) && (
+                            <a href={safeUrl(stop.url)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="seller-roadmap-stop-link">
                               <LinkIcon size={11} /> Link
                             </a>
                           )}
@@ -613,7 +618,7 @@ export const SellerRoadmapPage = () => {
                     <div className="stop-card-footer">
                       <div className="stop-contact-name">Contacto: {stop.contacto}</div>
                       <div className="stop-actions-group">
-                        <a href={`https://maps.google.com/?q=${stop.coords[0]},${stop.coords[1]}`} target="_blank" rel="noopener noreferrer" className="stop-action-btn waze" title="Cómo llegar en Google Maps">
+                        <a href={stop.coords ? `https://maps.google.com/?q=${stop.coords[0]},${stop.coords[1]}` : `https://maps.google.com/?q=${encodeURIComponent([stop.direccion, stop.localidad, stop.cliente].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" className="stop-action-btn waze" title="Cómo llegar en Google Maps">
                           <Navigation size={13} />
                         </a>
                         <a href={`https://wa.me/5493414567890?text=Hola%20${encodeURIComponent(stop.contacto)},%20te%20escribo%20de%20Agroqu%C3%ADmica%20Rosario%20en%20referencia%20a%20la%20visita%20de%20hoy.`} target="_blank" rel="noopener noreferrer" className="stop-action-btn whatsapp" title="Enviar WhatsApp">

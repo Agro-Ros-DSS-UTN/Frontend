@@ -60,14 +60,15 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
       if (!alive) return;
       if (tRes.status === 'fulfilled') {
         const list = Array.isArray(tRes.value) ? tRes.value : tRes.value?.data || [];
-        setTasks(list.filter((t) => (t.contacto || '').toLowerCase().trim() === name));
+        // En la v2 el contacto de una tarea queda en sus notas ("Contacto: …").
+        setTasks(list.filter((t) => name && (t.notas || '').toLowerCase().includes(`contacto: ${name}`)));
       }
       if (oRes.status === 'fulfilled') {
         const list = Array.isArray(oRes.value) ? oRes.value : [];
         setDeals(
           list.filter(
             (o) =>
-              (o.contactoNumDoc && o.contactoNumDoc === contact.numDoc) ||
+              (o.contactoId && o.contactoId === contact.id) ||
               (o.contactoNombre || '').toLowerCase().trim() === name
           )
         );
@@ -94,15 +95,15 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
     }));
     const dealRows = deals.map((o) => ({
       key: `o-${o.id}`,
-      detalle: o.nombreNegocio || 'Negocio',
-      categoria: 'Negocio',
-      estado: o.estado || 'Abierto',
-      fecha: o.fechaCierre || o.fechaInicio,
+      detalle: o.titulo || o.nombreNegocio || 'Oportunidad',
+      categoria: 'Oportunidad',
+      estado: o.estado || 'Prospecto',
+      fecha: o.fechaUltimaActualizacion || o.fechaInicio,
     }));
     return [...taskRows, ...dealRows].sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
   }, [tasks, deals]);
 
-  const telefono = Array.isArray(contact.telefonos) ? contact.telefonos[0] : contact.telefonos;
+  const telefono = contact.telefono || (Array.isArray(contact.telefonos) ? contact.telefonos[0] : null);
   const empresa = companyName || contact.empresa || contact.ClientCompany?.nombreEmpresa;
   const localidad = contact.localidad || contact.Locality?.nomLocalidad;
 
@@ -169,7 +170,7 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
 
           <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
-              <ListChecks size={18} className="cs-meta__icon" /> Tareas y negocios
+              <ListChecks size={18} className="cs-meta__icon" /> Tareas y oportunidades
               <span className="cs-count">{rows.length}</span>
             </h3>
             {rows.length > 0 ? (
@@ -200,7 +201,7 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
                 </table>
               </div>
             ) : (
-              <p className="cs-empty">Todavía no hay tareas ni negocios asociados a este contacto.</p>
+              <p className="cs-empty">Todavía no hay tareas ni oportunidades asociadas a este contacto.</p>
             )}
           </motion.section>
         </div>

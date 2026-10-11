@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { HardHat, X } from 'lucide-react';
 import { employeesApi } from '../../../api/employees.api';
-import { authApi } from '../../../api/auth.api';
 import '../CompanyAutocomplete/CompanyAutocomplete.css';
 
 const toList = (res) => {
@@ -9,55 +8,32 @@ const toList = (res) => {
   return Array.isArray(list) ? list : [];
 };
 
-// Personal que puede figurar como técnico: empleados operativos + usuarios del sistema.
+// Solo los empleados activos con rol "Técnico" pueden figurar en una orden
+// (decisión del modelo v2). Se cargan en Empleados.
 async function loadPeople() {
-  const [emps, users] = await Promise.allSettled([employeesApi.getAll(), authApi.getAllUsers()]);
-  const people = [];
-  if (emps.status === 'fulfilled') {
-    toList(emps.value)
-      .filter((e) => e.activo !== false && e.nombreApellido)
-      .forEach((e) =>
-        people.push({
-          key: `emp-${e.id}`,
-          value: e.matricula ? `${e.nombreApellido} (Mat. ${e.matricula})` : e.nombreApellido,
-          nombre: e.nombreApellido,
-          detalle: [e.puesto || 'Empleado', e.matricula && `Mat. ${e.matricula}`].filter(Boolean).join(' · '),
-        })
-      );
-  } else {
-    console.warn('No se pudo cargar el listado de empleados:', emps.reason?.message);
+  try {
+    const tecnicos = await employeesApi.getTechnicians();
+    return tecnicos
+      .filter((e) => e.nombreApellido)
+      .map((e) => ({
+        key: `emp-${e.id}`,
+        value: e.nombreApellido,
+        nombre: e.nombreApellido,
+        detalle: ['Técnico', e.matricula && `Mat. ${e.matricula}`].filter(Boolean).join(' · '),
+      }));
+  } catch (err) {
+    console.warn('No se pudo cargar el listado de técnicos:', err?.message);
+    return [];
   }
-  if (users.status === 'fulfilled') {
-    toList(users.value)
-      .filter((u) => u.nombreApellido)
-      .forEach((u) =>
-        people.push({
-          key: `usr-${u.idUser}`,
-          value: u.nombreApellido,
-          nombre: u.nombreApellido,
-          detalle: `Usuario · ${u.role || u.idUser}`,
-        })
-      );
-  } else {
-    console.warn('No se pudo cargar el listado de usuarios:', users.reason?.message);
-  }
-  // Sin duplicados por nombre (un usuario que además está cargado como empleado)
-  const seen = new Set();
-  return people.filter((p) => {
-    const k = p.nombre.toLowerCase().trim();
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
 }
 
 // onChange(texto) — permite elegir de la lista o escribir un nombre libre.
 export const TechnicianAutocomplete = ({
-  label = 'Técnico / Operario Aplicador',
+  label = 'Técnico aplicador',
   name = 'tecnicoAplicador',
   value,
   onChange,
-  placeholder = 'Buscá entre empleados y usuarios cargados...',
+  placeholder = 'Buscá entre los técnicos cargados en Empleados…',
 }) => {
   const [people, setPeople] = useState([]);
   const [open, setOpen] = useState(false);

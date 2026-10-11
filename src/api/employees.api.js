@@ -1,22 +1,17 @@
-import { apiClient } from './apiClient';
+import { apiClient, unwrap } from './apiClient';
+
+const lista = (res) => {
+  const d = unwrap(res);
+  return Array.isArray(d) ? d : [];
+};
 
 export const employeesApi = {
-  getAll: async () => {
-    const res = await apiClient.get('/empleados');
-    return res.data?.data || res.data || [];
-  },
-  create: async (data) => {
-    const res = await apiClient.post('/empleados', data);
-    return res.data?.data || res.data;
-  },
-  update: async (id, data) => {
-    const res = await apiClient.put(`/empleados/${id}`, data);
-    return res.data?.data || res.data;
-  },
-  delete: async (id) => {
-    const res = await apiClient.delete(`/empleados/${id}`);
-    return res.data;
-  },
+  getAll: async (params) => lista(await apiClient.get('/empleados', { params })),
+  // Solo los empleados activos con rol "tecnico" pueden ejecutar una orden.
+  getTechnicians: async () => lista(await apiClient.get('/empleados', { params: { rol: 'tecnico', activos: 1 } })),
+  create: async (data) => unwrap(await apiClient.post('/empleados', data)),
+  update: async (id, data) => unwrap(await apiClient.put(`/empleados/${id}`, data)),
+  delete: async (id) => (await apiClient.delete(`/empleados/${id}`)).data,
 };
 
 export default employeesApi;

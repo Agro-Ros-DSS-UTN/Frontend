@@ -1,387 +1,102 @@
-/* eslint-disable */
-// src/data/api.jsx - Homologación Backend ⟷ Frontend CRM AgroRos
-import {
-  mockCompanies,
-  mockClients,
-  mockOpportunities,
-  mockActivities,
-  mockUsers,
-} from './mockData';
-import { triggerSessionExpired } from '../utils/sessionExpired';
+// Capa de acceso a la API v2 para las pantallas que todavía usan estas funciones.
+// Sin datos de ejemplo: si el backend falla, el error llega a la pantalla, que
+// avisa al usuario en vez de mostrar información inventada o simular un guardado.
+import { apiClient, unwrap } from '../api/apiClient';
+import { ESTADOS_OPORTUNIDAD } from './catalogos';
 
-   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-
-const REQUEST_TIMEOUT_MS = 20000;
-
-// Helper for HTTP requests with Authorization header support
-const request = async (endpoint, options = {}) => {
-  const storedUser = sessionStorage.getItem('agroros_user') || localStorage.getItem('agroros_user');
-  let token = null;
-  if (storedUser) {
-    try {
-      const parsed = JSON.parse(storedUser);
-      token = parsed.token || parsed.jwt;
-    } catch {}
-  }
-
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
-
-  // Límite de tiempo: si la base no responde, la operación falla en vez de quedar colgada.
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  const config = {
-    ...options,
-    headers,
-    signal: controller.signal,
-  };
-
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      if ((response.status === 401 || response.status === 403) && !endpoint.includes('/users/login')) {
-        triggerSessionExpired();
-      }
-      throw new Error(data?.message || `Error en la solicitud: ${response.status} ${response.statusText}`);
-    }
-
-    return data;
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      error = new Error('La base de datos tardó demasiado en responder. Revisá tu conexión e intentá de nuevo.');
-    }
-    console.warn(`[API Warning] Falló petición a ${endpoint}:`, error.message);
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
+const lista = (res) => {
+  const d = unwrap(res);
+  return Array.isArray(d) ? d : [];
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   1. AUTENTICACIÓN: POST /users/login
-   Payload: { idUser, id_user, id, password }
-   Devuelve: { user: { idUser, nombreApellido, role: 'administrador'|'vendedor', ... }, token }
-   ═══════════════════════════════════════════════════════════════ */
-export const loginUser = async (credentials) => {
-  const idValue = credentials.idUser || credentials.id || credentials.userId || credentials.id_user;
-  const payload = {
-    idUser: idValue,
-    id_user: idValue,
-    id: idValue,
-    password: credentials.password,
-  };
+// ── Empresas ──
+export const fetchClientCompanies = async (params) => lista(await apiClient.get('/empresas', { params }));
+export const getClientCompanies = fetchClientCompanies;
+export const fetchCompanyTree = async (id) => unwrap(await apiClient.get(`/empresas/${id}/arbol`));
+export const fetchCompanyDashboard = async (id, meses = 12) => unwrap(await apiClient.get(`/empresas/${id}/tablero`, { params: { meses } }));
 
-  try {
-    const response = await fetch(`${API_BASE_URL}/users/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(data?.message || 'Usuario o contraseña incorrectos');
-    }
-
-    return data;
-  } catch (err) {
-    if (err.name === 'TypeError' || (err.message && err.message.toLowerCase().includes('fetch'))) {
-      throw new Error('No se pudo conectar con el backend en http://localhost:3000. Por favor, iniciá el servidor Backend (npm start o npm run dev en la carpeta BackEnd AgroRos).');
-    }
-    throw err;
-  }
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   2. EMPRESAS CLIENTES: /clientCompany
-   Payload: { nombreEmpresa, cuit, direccionEmpresa, tipoEmpresa, superficieHa, localityCodPostal }
-   ═══════════════════════════════════════════════════════════════ */
-export const getClientCompanies = async () => {
-  try {
-    const res = await request('/clientCompany');
-    return Array.isArray(res) ? res : res.data || res.companies || [];
-  } catch (err) {
-    console.info('[API Fallback] Usando mockCompanies como respaldo.');
-    return mockCompanies;
-  }
-};
-
-// Versión "estricta": consulta la base y propaga el error (sin datos mock).
-// Se usa en pantallas que muestran un cartel de "Conectando con la base de datos…".
-export const fetchClientCompanies = async () => {
-  const res = await request('/clientCompany');
-  return Array.isArray(res) ? res : res.data || res.companies || [];
-};
-
-export const fetchClients = async () => {
-  const res = await request('/clientes');
-  return Array.isArray(res) ? res : res.data || res.clients || [];
-};
-
-export const createClientCompany = async (companyData) => {
-  const payload = {
-    nombreEmpresa: companyData.nombreEmpresa,
-    cuit: companyData.cuit,
-    direccionEmpresa: companyData.direccionEmpresa || companyData.direccion,
-    tipoEmpresa: companyData.tipoEmpresa || 'Productor',
-    superficieHa: Number(companyData.superficieHa) || 0,
-    localityCodPostal: companyData.localityCodPostal || companyData.codigoPostal || companyData.cp || '2170',
-    localidad: companyData.localidad || 'Casilda',
-    proveedorActual: companyData.proveedorActual,
-    descEmpresa: companyData.descEmpresa,
-    existingContactNumDoc: companyData.existingContactNumDoc,
-    newContact: companyData.newContact,
-    // Jerarquía (regiones y subsedes) y quién la registra
-    parentCompanyId: companyData.parentCompanyId ?? null,
-    nivelEmpresa: companyData.nivelEmpresa,
-    creadoPorId: companyData.creadoPorId,
-  };
-
-  // Las altas, modificaciones y bajas propagan el error: la pantalla avisa con un toast
-  // en vez de simular un éxito que después no está en la base.
-  return request('/clientCompany', {
-    method: 'POST',
-    body: JSON.stringify(payload),
+export const createClientCompany = async (c) => {
+  const res = await apiClient.post('/empresas', {
+    razonSocial: c.razonSocial ?? c.nombreEmpresa,
+    nombreFantasia: c.nombreFantasia,
+    cuit: c.cuit,
+    direccion: c.direccion ?? c.direccionEmpresa,
+    tipoEmpresa: c.tipoEmpresa || 'Productor',
+    superficieHa: c.superficieHa === '' || c.superficieHa === undefined ? null : Number(c.superficieHa),
+    proveedorActual: c.proveedorActual,
+    descripcion: c.descripcion ?? c.descEmpresa,
+    // Localidad: id del selector, o nombre + código postal (formulario anterior)
+    localidadId: c.localidadId || undefined,
+    localidad: c.localidadId ? undefined : c.localidad,
+    codigoPostal: c.localidadId ? undefined : (c.codigoPostal ?? c.localityCodPostal),
+    empresaPadreId: c.empresaPadreId ?? c.parentCompanyId ?? null,
+    nivel: c.nivel ?? c.nivelEmpresa,
+    contactoExistenteId: c.contactoExistenteId,
+    contacto: c.contacto ?? c.newContact,
   });
+  return res.data;
 };
 
-export const updateClientCompany = (id, companyData) =>
-  request(`/clientCompany/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(companyData),
+export const updateClientCompany = async (id, c) => (await apiClient.put(`/empresas/${id}`, c)).data;
+export const deleteClientCompany = async (id) => (await apiClient.delete(`/empresas/${id}`)).data;
+
+// ── Contactos ──
+export const fetchClients = async (params) => lista(await apiClient.get('/contactos', { params }));
+export const getClients = fetchClients;
+
+export const createClient = async (c) => {
+  const res = await apiClient.post('/contactos', {
+    nombreApellido: c.nombreApellido || `${c.nombre || ''} ${c.apellido || ''}`.trim(),
+    dni: c.dni ?? c.numDoc ?? null,
+    email: c.email ?? c.direccionMail ?? null,
+    cargo: c.cargo ?? c.tipoClient ?? null,
+    observaciones: c.observaciones ?? c.nota,
+    empresaId: c.empresaId ?? (c.clientCompanyId ? Number(c.clientCompanyId) : null),
+    telefono: c.telefono,
   });
-
-export const deleteClientCompany = (id) => request(`/clientCompany/${id}`, { method: 'DELETE' });
-
-/* ═══════════════════════════════════════════════════════════════
-   3. CONTACTOS / CLIENTES: /clients
-   Payload: { numDoc, nombreApellido, direccionMail, tipoClient, codigoPostal, clientCompanyId }
-   ═══════════════════════════════════════════════════════════════ */
-export const getClients = async () => {
-  try {
-    const res = await request('/clientes');
-    return Array.isArray(res) ? res : res.data || res.clients || [];
-  } catch (err) {
-    console.info('[API Fallback] Usando mockClients como respaldo.');
-    return mockClients;
-  }
+  return res.data;
 };
+export const updateClient = async (id, c) => (await apiClient.put(`/contactos/${id}`, c)).data;
+export const deleteClient = async (id) => (await apiClient.delete(`/contactos/${id}`)).data;
 
-export const createClient = async (clientData) => {
-  const payload = {
-    numDoc: clientData.numDoc || clientData.dni || String(Date.now()).slice(-8),
-    nombreApellido: clientData.nombreApellido || `${clientData.nombre || ''} ${clientData.apellido || ''}`.trim(),
-    direccionMail: clientData.direccionMail || clientData.email || '',
-    tipoClient: clientData.tipoClient || clientData.tipo || 'Productor',
-    codigoPostal: clientData.codigoPostal || clientData.localityCodPostal || '2170',
-    clientCompanyId: clientData.clientCompanyId ? Number(clientData.clientCompanyId) : null,
-  };
+// ── Oportunidades ──
+export const fetchOpportunities = async (params) => lista(await apiClient.get('/oportunidades', { params }));
+export const getOpportunities = fetchOpportunities;
+export const createOpportunity = async (o) => unwrap(await apiClient.post('/oportunidades', o));
+export const createNegocio = createOpportunity;
+export const updateOpportunity = async (id, o) => (await apiClient.put(`/oportunidades/${id}`, o)).data;
+export const deleteOpportunity = async (id) => (await apiClient.delete(`/oportunidades/${id}`)).data;
 
-  return request('/clientes', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-};
+// ── Actividades ──
+export const getActivities = async (params) => lista(await apiClient.get('/actividades', { params }));
 
-export const updateClient = (id, clientData) =>
-  request(`/clientes/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(clientData),
-  });
+// ── Catálogo ──
+export const getProducts = async () => lista(await apiClient.get('/productos'));
+export const createProduct = async (p) => unwrap(await apiClient.post('/productos', p));
+export const updateProduct = async (id, p) => unwrap(await apiClient.put(`/productos/${id}`, p));
+export const deleteProduct = async (id) => (await apiClient.delete(`/productos/${id}`)).data;
 
-export const deleteClient = (id) => request(`/clientes/${id}`, { method: 'DELETE' });
+// ── Usuarios ──
+export const getUsers = async () => lista(await apiClient.get('/usuarios'));
+export const createUser = async (u) => unwrap(await apiClient.post('/usuarios', {
+  idUser: String(u.idUser || u.id || '').trim(),
+  nombreApellido: String(u.nombreApellido || u.nombre || '').trim(),
+  email: u.email ?? u.direccionMail ?? null,
+  telefono: u.telefono,
+  password: u.password,
+  estadoCuenta: u.estadoCuenta ?? u.accountStatement ?? 'Activo',
+  rol: u.rol ?? u.role ?? 'vendedor',
+  fechaIngreso: u.fechaIngreso,
+}));
+export const updateUser = async (idUser, u) => unwrap(await apiClient.put(`/usuarios/${encodeURIComponent(idUser)}`, u));
+export const deleteUser = async (idUser) => (await apiClient.delete(`/usuarios/${encodeURIComponent(idUser)}`)).data;
 
-/* ═══════════════════════════════════════════════════════════════
-   4. OPORTUNIDADES / NEGOCIOS: /opportunities
-   Payload: { estado, potencialidadCliente, volumenPotencial, volumenFacturado, clientCompanyId, sellerId }
-   Estados oficiales: 'Prospecto' | 'Negociación' | 'Activo' | 'Inactivo' | 'Perdido' | 'Lead'
-   ═══════════════════════════════════════════════════════════════ */
-export const getOpportunities = async () => {
-  try {
-    const res = await request('/oportunidades');
-    return Array.isArray(res) ? res : res.data || res.opportunities || [];
-  } catch (err) {
-    console.info('[API Fallback] Usando mockOpportunities como respaldo.');
-    return mockOpportunities;
-  }
-};
+// ── Territorio ──
+export const fetchProvincias = async () => lista(await apiClient.get('/provincias'));
+export const searchLocalidades = async (q, provinciaId) => lista(await apiClient.get('/localidades', { params: { q, provinciaId, limit: 30 } }));
 
+// ── Tablero general (solo administración) ──
+export const getDashboardData = async () => (await apiClient.get('/dashboard')).data;
 
-// Propaga el error: si la base no guardó el cambio, la pantalla tiene que enterarse.
-export const updateOpportunity = async (id, oppData) =>
-  request(`/oportunidades/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(oppData),
-  });
-
-// Versión "estricta": consulta la base y propaga el error (sin datos mock).
-export const fetchOpportunities = async () => {
-  const res = await request('/oportunidades');
-  return Array.isArray(res) ? res : res.data || res.opportunities || [];
-};
-
-// Alta de Negocio con todos los campos descriptivos (nombre, etapa, prioridad, etc.)
-export const createNegocio = async (oppData) => {
-  const payload = {
-    nombreNegocio: oppData.nombreNegocio,
-    pipeline: oppData.pipeline || 'Pipeline de ventas',
-    etapaComercial: oppData.etapaComercial || 'cita_programada',
-    estado: oppData.estado || 'Lead',
-    prioridad: oppData.prioridad || 'Media',
-    tipoNegocio: oppData.tipoNegocio || 'Cliente nuevo',
-    propietario: oppData.propietario || null,
-    contactoNombre: oppData.contactoNombre || null,
-    contactoNumDoc: oppData.contactoNumDoc || null,
-    propietarioId: oppData.propietarioId || null,
-    potencialidadCliente: oppData.potencialidadCliente || 'Media',
-    volumenPotencial: Number(oppData.volumenPotencial || oppData.valor) || 0,
-    volumenFacturado: Number(oppData.volumenFacturado) || 0,
-    fechaCierre: oppData.fechaCierre || null,
-    clientCompanyId: oppData.clientCompanyId ? Number(oppData.clientCompanyId) : null,
-  };
-  const res = await request('/oportunidades', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  return res?.data || res;
-};
-
-export const deleteOpportunity = async (id) => request(`/oportunidades/${id}`, { method: 'DELETE' });
-
-/* ═══════════════════════════════════════════════════════════════
-   5. ACTIVIDADES EN CAMPO: /formulario-actividad
-   Payload: { tipoContacto, descripcion, montoVenta, fechaHora, sellerId, opportunityId }
-   ═══════════════════════════════════════════════════════════════ */
-export const getActivities = async () => {
-  try {
-    const res = await request('/formularios-actividad');
-    return Array.isArray(res) ? res : res.data || res.activities || [];
-  } catch (err) {
-    console.info('[API Fallback] Usando mockActivities como respaldo.');
-    return mockActivities;
-  }
-};
-
-
-
-/* ═══════════════════════════════════════════════════════════════
-   6. PRODUCTOS: /productos
-   Payload: { nombre, ref, descripcion, tipoProducto, frecuenciaFacturacion,
-              precioUnitario, costeUnidad, activo, imagenUrl, stockDisponible }
-   ═══════════════════════════════════════════════════════════════ */
-export const getProducts = async () => {
-  const res = await request('/productos');
-  return Array.isArray(res) ? res : res.data || res.products || [];
-};
-
-export const createProduct = async (productData) => {
-  const payload = {
-    nombre: productData.nombre,
-    ref: productData.ref || undefined,
-    descripcion: productData.descripcion || '',
-    tipoProducto: productData.tipoProducto,
-    frecuenciaFacturacion: productData.frecuenciaFacturacion,
-    precioUnitario: Number(productData.precioUnitario) || 0,
-    costeUnidad: Number(productData.costeUnidad) || 0,
-    activo: productData.activo !== false,
-    imagenUrl: productData.imagenUrl || null,
-    stockDisponible: productData.stockDisponible !== undefined ? Number(productData.stockDisponible) : 0,
-  };
-
-  const res = await request('/productos', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  return res?.data || res;
-};
-
-export const updateProduct = async (id, productData) => {
-  const payload = {
-    nombre: productData.nombre,
-    ref: productData.ref,
-    descripcion: productData.descripcion,
-    tipoProducto: productData.tipoProducto,
-    frecuenciaFacturacion: productData.frecuenciaFacturacion,
-    precioUnitario: productData.precioUnitario !== undefined ? Number(productData.precioUnitario) : undefined,
-    costeUnidad: productData.costeUnidad !== undefined ? Number(productData.costeUnidad) : undefined,
-    activo: productData.activo,
-    imagenUrl: productData.imagenUrl,
-    stockDisponible: productData.stockDisponible !== undefined ? Number(productData.stockDisponible) : undefined,
-  };
-
-  const res = await request(`/productos/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
-  return res?.data || res;
-};
-
-export const deleteProduct = async (id) => {
-  return await request(`/productos/${id}`, { method: 'DELETE' });
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   7. USUARIOS (ADMINISTRADORES Y VENDEDORES): /users
-   Payload: { idUser, nombreApellido, direccionMail, password, accountStatement, role }
-   ═══════════════════════════════════════════════════════════════ */
-export const getUsers = async () => {
-  try {
-    const res = await request('/users');
-    return Array.isArray(res) ? res : res.data || res.users || [];
-  } catch (err) {
-    console.info('[API Fallback] Usando mockUsers como respaldo.');
-    return mockUsers;
-  }
-};
-
-export const createUser = async (userData) => {
-  const payload = {
-    idUser: String(userData.idUser || userData.id || userData.numDoc || '').trim(),
-    nombreApellido: String(userData.nombreApellido || userData.nombre || '').trim(),
-    direccionMail: userData.direccionMail ? String(userData.direccionMail).trim() : null,
-    password: userData.password,
-    accountStatement: userData.accountStatement || 'Activo',
-    role: userData.role || 'vendedor',
-  };
-
-  const res = await request('/users', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  return res?.data || res;
-};
-
-export const updateUser = async (idUser, userData) => {
-  const res = await request(`/users/${idUser}`, {
-    method: 'PUT',
-    body: JSON.stringify(userData),
-  });
-  return res?.data || res;
-};
-
-export const deleteUser = async (idUser) => {
-  return await request(`/users/${idUser}`, { method: 'DELETE' });
-};
-
-export const OPPORTUNITY_STATES = [
-  { key: 'prospecto', label: 'Prospecto', color: '#64748b' },
-  { key: 'contacto', label: 'En Contacto', color: '#0ea5e9' },
-  { key: 'cotizacion', label: 'Cotización', color: '#8b5cf6' },
-  { key: 'negociacion', label: 'Negociación', color: '#f59e0b' },
-  { key: 'ganada', label: 'Ganada', color: '#16a34a' },
-  { key: 'perdida', label: 'Perdida', color: '#dc2626' }
-];
-
-export async function getDashboardData() {
-  const response = await fetch(`${API_BASE_URL}/dashboard`);
-  if (!response.ok) {
-    throw new Error('Error al obtener los datos del dashboard');
-  }
-  return await response.json();
-}
+// Estados para gráficos del tablero (compatibilidad con la pantalla actual).
+export const OPPORTUNITY_STATES = ESTADOS_OPORTUNIDAD.map((e) => ({ key: e.key, label: e.label, color: e.color }));

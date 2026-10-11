@@ -28,8 +28,8 @@ import {
   deleteUser as apiDeleteUser,
 } from '../../../data/api';
 import { authApi } from '../../../api/auth.api';
+import { LocalidadSelect } from '../../../components/ui/LocalidadSelect/LocalidadSelect';
 import { useAuth } from '../../../context/AuthContext';
-import { mockUsers } from '../../../data/mockData';
 import { FormInput, FormSelect } from '../../../components/ui/FormInput/FormInput';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
@@ -90,20 +90,34 @@ export const UsersPage = () => {
     accountStatement: 'Activo',
   });
   const [errors, setErrors] = useState({});
+  const [zona, setZona] = useState([]);
+  const [zonaSel, setZonaSel] = useState(null);
+  const [guardandoZona, setGuardandoZona] = useState(false);
+
+  const guardarZona = async (nueva) => {
+    setGuardandoZona(true);
+    try {
+      const res = await authApi.updateZona(form.idUser, nueva.map((l) => l.id));
+      const actual = Array.isArray(res?.data) ? res.data : nueva;
+      setZona(actual);
+      setUsers((prev) => prev.map((u) => (u.idUser === form.idUser ? { ...u, zona: actual } : u)));
+      notificar.exito('Zona actualizada');
+    } catch (err) {
+      notificar.error('No se pudo actualizar la zona', err);
+    } finally {
+      setGuardandoZona(false);
+    }
+  };
 
   // Cargar usuarios de MySQL backend
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const data = await getUsers();
-      if (Array.isArray(data) && data.length > 0) {
-        setUsers(data);
-      } else {
-        setUsers(mockUsers);
-      }
+      setUsers(await getUsers());
     } catch (err) {
-      console.warn('Error al cargar usuarios de MySQL:', err);
-      setUsers(mockUsers);
+      console.warn('Error al cargar usuarios:', err);
+      setUsers([]);
+      notificar.error('No se pudieron cargar los usuarios', err);
     } finally {
       setLoading(false);
     }
@@ -139,7 +153,7 @@ export const UsersPage = () => {
       const normRole = getNormalizedRole(u.role || u.rol);
       if (activeTab !== 'all' && normRole !== activeTab) return false;
 
-      const isActivo = String(u.accountStatement || u.estado || 'Activo').toLowerCase().includes('activ');
+      const isActivo = String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo';
       if (statusFilter === 'activo' && !isActivo) return false;
       if (statusFilter === 'inactivo' && isActivo) return false;
 
@@ -229,6 +243,8 @@ export const UsersPage = () => {
       role: getNormalizedRole(u.role),
       accountStatement: u.accountStatement || 'Activo',
     });
+    // Zona del vendedor: localidades donde trabaja (se guarda aparte, al instante).
+    setZona(Array.isArray(u.zona) ? u.zona : []);
     setErrors({});
     setModalMode('edit');
     setShowPassword(false);
@@ -296,22 +312,11 @@ export const UsersPage = () => {
     setErrors({});
     setReauthError('');
 
-    // Modificar la contraseña de un usuario existente exige confirmar la
-    // propia contraseña del admin logueado antes de aplicar el cambio.
-    if (isChangingExistingPassword) {
-      if (!adminReauthPassword) {
-        setReauthError('Ingresá tu contraseña de administrador para confirmar este cambio.');
-        return;
-      }
-      setSubmitting(true);
-      try {
-        await authApi.login(currentUser?.idUser, adminReauthPassword);
-      } catch (err) {
-        setReauthError(err?.response?.data?.message || 'Tu contraseña de administrador es incorrecta.');
-        setSubmitting(false);
-        return;
-      }
-      setSubmitting(false);
+    // Cambiar la contraseña de un usuario existente exige confirmar la propia
+    // contraseña del admin; el servidor la verifica junto con el cambio.
+    if (isChangingExistingPassword && !adminReauthPassword) {
+      setReauthError('Ingresá tu contraseña de administrador para confirmar este cambio.');
+      return;
     }
 
     const payload = {
@@ -319,6 +324,7 @@ export const UsersPage = () => {
       nombreApellido: form.nombreApellido.trim(),
       direccionMail: form.direccionMail ? form.direccionMail.trim() : null,
       password: form.password ? form.password : undefined,
+      ...(isChangingExistingPassword ? { passwordAdmin: adminReauthPassword, passwordActual: adminReauthPassword } : {}),
       role: form.role,
       accountStatement: form.accountStatement,
     };
@@ -327,13 +333,14 @@ export const UsersPage = () => {
     try {
       if (modalMode === 'create') {
         const created = await apiCreateUser(payload);
-        const newUser = created?.data || created || payload;
+        const newUser = created;
+        if (!newUser?.idUser) throw new Error('El servidor no confirmó el alta del usuario.');
         setUsers(prev => [newUser, ...prev]);
         notificar.exito('Usuario creado', `@${newUser.idUser || payload.idUser} ya puede ingresar al sistema.`);
       } else {
-        await apiUpdateUser(form.idUser, payload);
+        const updated = await apiUpdateUser(form.idUser, payload);
         setUsers(prev =>
-          prev.map(u => ((u.idUser || u.id) === form.idUser ? { ...u, ...payload } : u))
+          prev.map(u => ((u.idUser || u.id) === form.idUser ? { ...u, ...(updated || {}) } : u))
         );
         notificar.exito('Cambios guardados', `Se actualizó el usuario @${form.idUser}.`);
       }
@@ -343,7 +350,10 @@ export const UsersPage = () => {
       // No se agrega una fila local sin persistir: eso era lo que provocaba
       // usuarios "fantasma" duplicados en pantalla ante cada reintento fallido.
       const msg = mensajeDeError(err, 'Verificá que el ID no esté en uso.');
-      setErrors({ idUser: msg });
+      const campos = err?.response?.data?.fields || {};
+      if (campos.passwordAdmin || campos.passwordActual) setReauthError(msg);
+      else if (campos.password) setErrors({ password: msg });
+      else setErrors({ idUser: msg });
       notificar.error('No se pudo guardar el usuario', msg);
     } finally {
       setSubmitting(false);
@@ -501,7 +511,7 @@ export const UsersPage = () => {
                 paginatedUsers.map((u) => {
                   const userId = u.idUser || u.id;
                   const normRole = getNormalizedRole(u.role || u.rol);
-                  const isUserActive = String(u.accountStatement || u.estado || 'Activo').toLowerCase().includes('activ');
+                  const isUserActive = String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo';
 
                   return (
                     <tr key={userId} className="users-table__row">
@@ -736,6 +746,32 @@ export const UsersPage = () => {
               { value: 'admin', label: 'Administrador (Control Total)' },
             ]}
           />
+
+          {modalMode === 'edit' && form.role === 'vendedor' && (
+            <div className="users-zona">
+              <span className="form-input-label">Zona de trabajo (localidades)</span>
+              <div className="users-zona__chips">
+                {zona.length === 0 && <span className="users-zona__empty">Sin localidades asignadas.</span>}
+                {zona.map((l) => (
+                  <span key={l.id} className="users-zona__chip">
+                    {l.nombre}{l.provincia ? ` · ${l.provincia}` : ''}
+                    <button type="button" aria-label={`Quitar ${l.nombre}`} disabled={guardandoZona} onClick={() => guardarZona(zona.filter((x) => x.id !== l.id))}>×</button>
+                  </span>
+                ))}
+              </div>
+              <LocalidadSelect
+                label="Agregar localidad"
+                value={zonaSel}
+                onChange={(l) => {
+                  setZonaSel(l);
+                  if (l?.id && !zona.some((x) => x.id === l.id)) {
+                    guardarZona([...zona, l]);
+                    setZonaSel(null);
+                  }
+                }}
+              />
+            </div>
+          )}
 
           <FormSelect
             label="Estado de la Cuenta"

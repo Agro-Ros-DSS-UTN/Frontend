@@ -18,6 +18,8 @@ import {
   Phone,
 } from 'lucide-react';
 import { tasksApi } from '../../api/operations.api';
+import { tipoContactoLabel } from '../../data/catalogos';
+import { CompanyServiceDashboard } from './CompanyServiceDashboard';
 import { useOverlayClose } from '../../hooks/useOverlayClose';
 import './CompanySummary.css';
 
@@ -67,8 +69,8 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
       .then((res) => {
         if (!alive) return;
         const list = Array.isArray(res) ? res : res?.data || [];
-        const name = (company.nombreEmpresa || '').toLowerCase().trim();
-        setTasks(list.filter((t) => (t.empresa || '').toLowerCase().trim() === name));
+        const name = (company.razonSocial || company.nombreEmpresa || '').toLowerCase().trim();
+        setTasks(list.filter((t) => t.empresaId === company.id || (t.empresa || '').toLowerCase().trim() === name));
       })
       .catch((err) => console.error('No se pudieron cargar las tareas de la empresa:', err));
     return () => {
@@ -92,17 +94,17 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
     }));
     const activityRows = activities.map((a) => ({
       key: `a-${a.idFormulario || a.id}`,
-      detalle: a.descripcion || a.tipoContacto || 'Actividad',
-      categoria: a.tipoContacto || 'Actividad',
+      detalle: a.descripcion || tipoContactoLabel(a.tipoContacto) || 'Actividad',
+      categoria: tipoContactoLabel(a.tipoContacto) || 'Actividad',
       estado: 'Registrada',
       fecha: a.fechaHora,
     }));
     const dealRows = opportunities.map((o) => ({
       key: `o-${o.id}`,
-      detalle: o.nombreNegocio || o.pipeline || 'Negocio',
-      categoria: 'Negocio',
-      estado: o.etapaComercial || o.estado || 'Abierto',
-      fecha: o.fechaCierre || o.fechaInicio,
+      detalle: o.titulo || o.nombreNegocio || 'Oportunidad',
+      categoria: 'Oportunidad',
+      estado: o.estado || 'Prospecto',
+      fecha: o.fechaUltimaActualizacion || o.fechaInicio,
     }));
     return [...taskRows, ...activityRows, ...dealRows].sort(
       (a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0)
@@ -110,7 +112,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
   }, [tasks, activities, opportunities]);
 
   const localidad = company.Locality?.nomLocalidad || company.localidad;
-  const tags = [company.tipoEmpresa, NIVEL_LABEL[company.nivelEmpresa]].filter(Boolean);
+  const tags = [company.tipoEmpresa, NIVEL_LABEL[company.nivel || company.nivelEmpresa]].filter(Boolean);
 
   return (
     <div className="cs-overlay" {...overlayHandlers}>
@@ -183,6 +185,10 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
           </motion.div>
 
           <motion.section variants={itemVariants} className="cs-section">
+            <CompanyServiceDashboard empresaId={company.id} empresaNombre={company.razonSocial || company.nombreEmpresa} />
+          </motion.section>
+
+          <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
               <Users size={18} className="cs-meta__icon" /> Contactos
               <span className="cs-count">{contacts.length}</span>
@@ -192,9 +198,9 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
                 {contacts.map((c) => {
                   const nombre = c.nombreApellido || `${c.nombre || ''} ${c.apellido || ''}`.trim() || 'Contacto';
                   const email = c.direccionMail || c.email;
-                  const tel = Array.isArray(c.telefonos) ? c.telefonos[0] : c.telefonos;
+                  const tel = c.telefono || (Array.isArray(c.telefonos) ? c.telefonos[0] : c.telefonos);
                   return (
-                    <div key={c.numDoc || c.id} className="cs-contact">
+                    <div key={c.id} className="cs-contact">
                       <span className="cs-avatar">{nombre.charAt(0).toUpperCase()}</span>
                       <div className="cs-min0">
                         <p className="cs-contact__name">{nombre}</p>
@@ -215,7 +221,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
 
           <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
-              <ListChecks size={18} className="cs-meta__icon" /> Tareas, actividades y negocios
+              <ListChecks size={18} className="cs-meta__icon" /> Tareas, actividades y oportunidades
               <span className="cs-count">{rows.length}</span>
             </h3>
             {rows.length > 0 ? (
@@ -246,7 +252,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
                 </table>
               </div>
             ) : (
-              <p className="cs-empty">Todavía no hay tareas, actividades ni negocios registrados con esta empresa.</p>
+              <p className="cs-empty">Todavía no hay tareas, actividades ni oportunidades registradas con esta empresa.</p>
             )}
           </motion.section>
         </div>

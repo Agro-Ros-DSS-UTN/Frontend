@@ -34,9 +34,15 @@ const normalizeUser = (user) => {
 };
 
 export const AuthProvider = ({ children }) => {
+  // La sesión vive en sessionStorage (se cierra con la pestaña) salvo que el
+  // usuario elija "Mantener la sesión iniciada" (localStorage, token de 7 días).
+  // Nunca se guarda la contraseña.
+  const [persist, setPersist] = useState(() => {
+    try { return Boolean(localStorage.getItem('agroros_user')); } catch { return false; }
+  });
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const stored = sessionStorage.getItem('agroros_user');
+      const stored = sessionStorage.getItem('agroros_user') || localStorage.getItem('agroros_user');
       return stored ? normalizeUser(JSON.parse(stored)) : null;
     } catch {
       return null;
@@ -92,12 +98,22 @@ export const AuthProvider = ({ children }) => {
   }, [currentUser?.idUser || currentUser?.id]);
 
   useEffect(() => {
-    if (currentUser) {
-      sessionStorage.setItem('agroros_user', JSON.stringify(currentUser));
-    } else {
-      sessionStorage.removeItem('agroros_user');
-    }
-  }, [currentUser]);
+    try {
+      if (currentUser) {
+        const data = JSON.stringify(currentUser);
+        if (persist) {
+          localStorage.setItem('agroros_user', data);
+          sessionStorage.removeItem('agroros_user');
+        } else {
+          sessionStorage.setItem('agroros_user', data);
+          localStorage.removeItem('agroros_user');
+        }
+      } else {
+        sessionStorage.removeItem('agroros_user');
+        localStorage.removeItem('agroros_user');
+      }
+    } catch { /* almacenamiento no disponible: la sesión dura lo que la pestaña */ }
+  }, [currentUser, persist]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -131,14 +147,13 @@ export const AuthProvider = ({ children }) => {
   const updateCurrentUser = (partialData) => {
     setCurrentUser((prev) => {
       if (!prev) return prev;
-      const updated = { ...prev, ...partialData };
-      sessionStorage.setItem('agroros_user', JSON.stringify(updated));
-      return updated;
+      return { ...prev, ...partialData };
     });
   };
 
-  const login = (userData) => {
+  const login = (userData, { persist: keep = false } = {}) => {
     const normalized = normalizeUser(userData);
+    setPersist(Boolean(keep));
     setCurrentUser(normalized);
 
     if (userData.profileImage) {
@@ -163,7 +178,9 @@ export const AuthProvider = ({ children }) => {
   const confirmLogout = () => {
     setCurrentUser(null);
     setProfileImageState(null);
+    setPersist(false);
     sessionStorage.removeItem('agroros_user');
+    localStorage.removeItem('agroros_user');
     localStorage.removeItem('agroros_profile_img');
     clearAllDrafts();
     setShowLogoutModal(false);

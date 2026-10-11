@@ -45,7 +45,7 @@ const AppRoutes = () => {
           isAuthenticated ? (
             <Navigate to={userRole === 'admin' ? '/admin/inicio' : '/seller/dashboard'} replace />
           ) : (
-            <LoginPage onLoginSuccess={(userData) => login(userData)} />
+            <LoginPage onLoginSuccess={(userData, opts) => login(userData, opts)} />
           )
         }
       />

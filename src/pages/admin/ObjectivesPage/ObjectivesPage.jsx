@@ -1,403 +1,314 @@
-import { useState, useEffect } from 'react';
-import { useOverlayClose } from '../../../hooks/useOverlayClose';
-import {
-  Target,
-  Plus,
-  Calendar,
-  Users,
-  Building2,
-  DollarSign,
-  Layers,
-  Sparkles,
-  AlertTriangle,
-  X,
-  CheckCircle2,
-  TrendingUp,
-  Trash2,
-  Award,
-  Download
-} from 'lucide-react';
-import { objectivesApi } from '../../../api/operations.api';
+import { useEffect, useMemo, useState } from 'react';
+import { Target, Plus, CheckCircle2, Award, Download, Trash2, Calendar, Building2, Package, Sparkles, Search } from 'lucide-react';
+import { objectivesApi, promotionsApi, catalogApi } from '../../../api/operations.api';
 import { authApi } from '../../../api/auth.api';
-import { companiesApi } from '../../../api/companies.api';
+import { fetchClientCompanies } from '../../../data/api';
+import { TIPOS_OBJETIVO } from '../../../data/catalogos';
+import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
+import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput/FormInput';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
-import './ObjectivesPage.css';
 import { notificar } from '../../../hooks/useNotificaciones';
+import './ObjectivesPage.css';
+
+// CUU02 — Asignar un objetivo a un vendedor para un período (semana o mes).
+const pad = (n) => String(n).padStart(2, '0');
+const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const lunesDe = (d) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+};
+const finDePeriodo = (inicio, tipo) => {
+  if (!inicio) return '';
+  const d = new Date(`${inicio}T12:00:00`);
+  if (tipo === 'mensual') return ymd(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+  d.setDate(d.getDate() + 6);
+  return ymd(d);
+};
+const fechaCorta = (s) => (s ? new Date(`${s}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : '—');
+const tipoInfo = (t) => TIPOS_OBJETIVO.find((x) => x.value === t) || { label: t, unidad: '' };
+const formatoMeta = (tipo, n) => (tipo === 'ventas' ? `$${Number(n || 0).toLocaleString('es-AR')}` : Number(n || 0).toLocaleString('es-AR'));
+
+const emptyForm = (vendedorId = '') => {
+  const lunesProx = lunesDe(new Date());
+  return {
+    usuarioId: vendedorId,
+    tipoObjetivo: 'visitas',
+    tipoPeriodo: 'semanal',
+    fechaInicio: ymd(lunesProx),
+    fechaFin: finDePeriodo(ymd(lunesProx), 'semanal'),
+    cantidadMeta: '',
+    descripcion: '',
+    empresaIds: [],
+    itemIds: [],
+    promocionIds: [],
+  };
+};
+
+const Checklist = ({ icon: Icon, label, items, selected, onToggle, buscar = false, empty }) => {
+  const [q, setQ] = useState('');
+  const visibles = useMemo(() => {
+    const t = q.toLowerCase().trim();
+    const lista = t ? items.filter((i) => i.label.toLowerCase().includes(t)) : items;
+    return lista.slice(0, 60);
+  }, [items, q]);
+  return (
+    <div className="obj-check">
+      <p className="obj-check__label"><Icon size={14} aria-hidden="true" /> {label} <span>{selected.length ? `${selected.length} elegidos` : 'opcional'}</span></p>
+      {buscar && items.length > 8 && (
+        <div className="obj-check__search"><Search size={14} aria-hidden="true" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" /></div>
+      )}
+      <div className="obj-check__list">
+        {items.length === 0 && <p className="obj-check__empty">{empty}</p>}
+        {visibles.map((i) => (
+          <label key={i.value} className="obj-check__item">
+            <input type="checkbox" checked={selected.includes(i.value)} onChange={() => onToggle(i.value)} />
+            <span>{i.label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export const ObjectivesPage = () => {
-  const [objectives, setObjectives] = useState([]);
-  const [sellersList, setSellersList] = useState([]);
-  const [companiesList, setCompaniesList] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const objectivesModalOverlayHandlers = useOverlayClose(() => setShowModal(false));
+  const [objetivos, setObjetivos] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
+  const [items, setItems] = useState([]);
+  const [promos, setPromos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showDrawer, setShowDrawer] = useState(false);
+  const [form, setForm] = useState(emptyForm());
+  const [errors, setErrors] = useState({});
+  const [filtro, setFiltro] = useState('vigentes');
 
-  const [form, setForm] = useState({
-    sellerId: '',
-    periodoSemana: '34',
-    tipoObjetivo: 'Ventas',
-    descripcion: '',
-    cantidadMeta: 100,
-    clientCompanyId: '',
-  });
-
-  // Fetch Objectives, Sellers and Companies from Backend API
   const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [objsRes, usersRes, compRes] = await Promise.allSettled([
-        objectivesApi.getAll(),
-        authApi.getAllUsers(),
-        companiesApi.getAll()
-      ]);
-
-      if (objsRes.status === 'fulfilled') {
-        const rawObjs = objsRes.value?.data || objsRes.value || [];
-        setObjectives(Array.isArray(rawObjs) ? rawObjs : []);
-      }
-
-      if (usersRes.status === 'fulfilled') {
-        const rawUsers = usersRes.value?.data || usersRes.value || [];
-        const sellers = rawUsers.filter(u => (u.role || u.rol || '').toLowerCase().trim() === 'vendedor');
-        setSellersList(sellers);
-        if (sellers.length > 0) {
-          setForm(prev => ({ ...prev, sellerId: sellers[0].idUser || sellers[0].id }));
-        }
-      }
-
-      if (compRes.status === 'fulfilled') {
-        const rawComp = compRes.value?.data || compRes.value || [];
-        setCompaniesList(Array.isArray(rawComp) ? rawComp : []);
-      }
-    } catch (err) {
-      console.error('Error fetching objectives data:', err);
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const [o, u, e, i, p] = await Promise.allSettled([
+      objectivesApi.getAll(),
+      authApi.getAllUsers(),
+      fetchClientCompanies(),
+      catalogApi.getItems({ activos: 1 }),
+      promotionsApi.getAll({ vigentes: 1 }),
+    ]);
+    if (o.status === 'fulfilled') setObjetivos(o.value);
+    else notificar.error('No se pudieron cargar los objetivos', o.reason);
+    if (u.status === 'fulfilled') {
+      const lista = (u.value?.data || []).filter((x) => x.rol === 'vendedor' && x.estadoCuenta === 'Activo');
+      setVendedores(lista);
     }
+    if (e.status === 'fulfilled') setEmpresas(e.value);
+    if (i.status === 'fulfilled') setItems(i.value);
+    if (p.status === 'fulfilled') setPromos(p.value);
+    setLoading(false);
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
-  const handleCreateObjective = async (e) => {
-    e.preventDefault();
+  const hoy = ymd(new Date());
+  const visibles = useMemo(() => {
+    if (filtro === 'vigentes') return objetivos.filter((o) => o.fechaInicio <= hoy && o.fechaFin >= hoy);
+    if (filtro === 'proximos') return objetivos.filter((o) => o.fechaInicio > hoy);
+    if (filtro === 'cerrados') return objetivos.filter((o) => o.fechaFin < hoy);
+    return objetivos;
+  }, [objetivos, filtro, hoy]);
+
+  const vigentes = objetivos.filter((o) => o.fechaInicio <= hoy && o.fechaFin >= hoy);
+  const cumplimiento = vigentes.length
+    ? Math.round(vigentes.reduce((acc, o) => acc + Math.min(100, o.porcentaje || 0), 0) / vigentes.length)
+    : 0;
+
+  const abrir = () => {
+    setErrors({});
+    setForm(emptyForm(vendedores[0]?.idUser || ''));
+    setShowDrawer(true);
+  };
+
+  const set = (campo, valor) => setForm((prev) => {
+    const next = { ...prev, [campo]: valor };
+    if (campo === 'fechaInicio' || campo === 'tipoPeriodo') next.fechaFin = finDePeriodo(next.fechaInicio, next.tipoPeriodo);
+    return next;
+  });
+  const toggle = (campo, id) => setForm((prev) => ({ ...prev, [campo]: prev[campo].includes(id) ? prev[campo].filter((x) => x !== id) : [...prev[campo], id] }));
+
+  const guardar = async (e, forzar = false) => {
+    e?.preventDefault?.();
+    const errs = {};
+    if (!form.usuarioId) errs.usuarioId = 'Elegí el vendedor.';
+    if (!form.fechaInicio) errs.fechaInicio = 'Elegí el inicio del período.';
+    if (form.fechaFin && form.fechaFin < form.fechaInicio) errs.fechaFin = 'El fin no puede ser anterior al inicio.';
+    if (!(Number(form.cantidadMeta) > 0)) errs.cantidadMeta = 'La meta debe ser mayor a cero.';
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setErrors({});
+    const info = tipoInfo(form.tipoObjetivo);
+    const payload = {
+      ...form,
+      cantidadMeta: Number(form.cantidadMeta),
+      descripcion: form.descripcion.trim() || `${info.label}: ${formatoMeta(form.tipoObjetivo, form.cantidadMeta)} ${form.tipoObjetivo === 'ventas' ? '' : info.unidad}`.trim(),
+      ...(forzar ? { forzar: true } : {}),
+    };
     try {
-      setLoading(true);
-      const selectedSeller = sellersList.find(s => String(s.idUser || s.id) === String(form.sellerId)) || sellersList[0];
-      
-      const payload = {
-        idUser: selectedSeller ? (selectedSeller.idUser || selectedSeller.id) : null,
-        descripcion: form.descripcion || `Objetivo de ${form.tipoObjetivo} - Semana ${form.periodoSemana}`,
-        tipoObjetivo: form.tipoObjetivo,
-        periodoSemana: Number(form.periodoSemana) || 34,
-        cantidadMeta: Number(form.cantidadMeta) || 100,
-        progresoActual: 0,
-        estado: 'en_proceso',
-        clientCompanyId: form.clientCompanyId ? Number(form.clientCompanyId) : null
-      };
-
+      setSaving(true);
       await objectivesApi.create(payload);
-      setShowModal(false);
-      
-      // Reset form
-      setForm({
-        sellerId: sellersList[0]?.idUser || sellersList[0]?.id || '',
-        periodoSemana: '34',
-        tipoObjetivo: 'Ventas',
-        descripcion: '',
-        cantidadMeta: 100,
-        clientCompanyId: ''
-      });
-
+      notificar.exito('Objetivo asignado', 'El vendedor recibe una notificación.');
+      setShowDrawer(false);
       await fetchData();
-      notificar.exito('Objetivo asignado');
     } catch (err) {
-      console.error('Error creating objective:', err);
+      if (err?.response?.status === 409 && !forzar) {
+        // Ya hay un objetivo del mismo tipo en ese período: se pide confirmación.
+        if (window.confirm(`${err.response.data.message}\n\nAceptar: crearlo igual.  Cancelar: revisar.`)) return guardar(null, true);
+        return;
+      }
       notificar.error('No se pudo asignar el objetivo', err);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleExportCSV = () => {
-    const headers = ['Vendedor', 'Semana', 'Tipo de Objetivo', 'Descripción', 'Meta', 'Progreso Actual', 'Estado', 'Empresa Asociada'];
-    const rows = objectives.map((obj) => {
-      const sellerName = obj.vendedor?.nombreApellido || 'Sin asignar';
-      const empresa = companiesList.find((c) => String(c.id) === String(obj.clientCompanyId));
-      return [
-        `"${sellerName.replace(/"/g, '""')}"`,
-        `"${obj.periodoSemana || ''}"`,
-        `"${obj.tipoObjetivo || ''}"`,
-        `"${(obj.descripcion || '').replace(/"/g, '""')}"`,
-        `"${obj.cantidadMeta || ''}"`,
-        `"${obj.progresoActual || 0}"`,
-        `"${obj.estado || ''}"`,
-        `"${(empresa?.nombreEmpresa || '').replace(/"/g, '""')}"`,
-      ];
-    });
-    const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Objetivos_AgroRos_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDeleteObjective = async (id, desc) => {
-    if (!window.confirm(`¿Deseas eliminar el objetivo "${desc}"?`)) return;
+  const eliminar = async (obj) => {
+    if (!window.confirm(`¿Eliminar el objetivo "${obj.descripcion}"?`)) return;
     try {
-      setLoading(true);
-      await objectivesApi.delete(id);
-      setObjectives(prev => prev.filter(o => o.id !== id));
+      await objectivesApi.delete(obj.id);
+      setObjetivos((prev) => prev.filter((o) => o.id !== obj.id));
       notificar.exito('Objetivo eliminado');
     } catch (err) {
-      console.error('Error deleting objective:', err);
       notificar.error('No se pudo eliminar el objetivo', err);
-    } finally {
-      setLoading(false);
     }
+  };
+
+  const exportar = () => {
+    const headers = ['Vendedor', 'Tipo', 'Período', 'Desde', 'Hasta', 'Descripción', 'Meta', 'Avance', '%', 'Empresas'];
+    const rows = visibles.map((o) => [
+      o.vendedor?.nombreApellido || '', tipoInfo(o.tipoObjetivo).label, o.tipoPeriodo, o.fechaInicio, o.fechaFin,
+      o.descripcion, o.cantidadMeta, o.avance, o.porcentaje, (o.empresas || []).map((x) => x.razonSocial).join(', '),
+    ].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`));
+    const csv = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Objetivos_AgroRos_${hoy}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="objectives-page">
-      {/* Header */}
       <div className="objectives-page__header">
         <div>
-          <h1 className="objectives-page__title">Gestión de Objetivos Comerciales</h1>
-          <p className="objectives-page__subtitle">
-            Asignación semanal de metas, incentivos y monitoreo en tiempo real por Vendedor
-          </p>
+          <h1 className="objectives-page__title">Objetivos comerciales</h1>
+          <p className="objectives-page__subtitle">Metas por vendedor y período. El avance se calcula solo, con lo que cada vendedor registra.</p>
         </div>
         <PageHeaderActions>
-          <PrimaryActionButton icon={Plus} onClick={() => setShowModal(true)}>
-            Asignar Nuevo Objetivo
-          </PrimaryActionButton>
-          <ExportActionButton icon={Download} onClick={handleExportCSV}>
-            Exportar
-          </ExportActionButton>
+          <PrimaryActionButton icon={Plus} onClick={abrir}>Asignar objetivo</PrimaryActionButton>
+          <ExportActionButton icon={Download} onClick={exportar}>Exportar</ExportActionButton>
         </PageHeaderActions>
       </div>
 
-      {/* KPI Cards Bar */}
       <div className="objectives-kpis">
         <div className="objective-kpi-card">
-          <div className="objective-kpi-icon teal">
-            <Target size={22} />
-          </div>
-          <div>
-            <div className="objective-kpi-label">OBJETIVOS ACTIVOS</div>
-            <div className="objective-kpi-value">{objectives.length} Asignados</div>
-          </div>
+          <div className="objective-kpi-icon teal"><Target size={22} /></div>
+          <div><div className="objective-kpi-label">VIGENTES</div><div className="objective-kpi-value">{vigentes.length}</div></div>
         </div>
-
         <div className="objective-kpi-card">
-          <div className="objective-kpi-icon green">
-            <CheckCircle2 size={22} />
-          </div>
-          <div>
-            <div className="objective-kpi-label">CUMPLIMIENTO PROMEDIO</div>
-            <div className="objective-kpi-value">
-              {objectives.length > 0
-                ? Math.round(
-                    objectives.reduce((acc, o) => acc + Math.min(100, ((o.progresoActual || 0) / (o.cantidadMeta || 1)) * 100), 0) / objectives.length
-                  )
-                : 0}%
-            </div>
-          </div>
+          <div className="objective-kpi-icon green"><CheckCircle2 size={22} /></div>
+          <div><div className="objective-kpi-label">CUMPLIMIENTO PROMEDIO</div><div className="objective-kpi-value">{cumplimiento}%</div></div>
         </div>
-
         <div className="objective-kpi-card">
-          <div className="objective-kpi-icon blue">
-            <Award size={22} />
-          </div>
-          <div>
-            <div className="objective-kpi-label">VENDEDORES ASIGNADOS</div>
-            <div className="objective-kpi-value">{sellersList.length} Vendedores</div>
-          </div>
+          <div className="objective-kpi-icon blue"><Award size={22} /></div>
+          <div><div className="objective-kpi-label">VENDEDORES ACTIVOS</div><div className="objective-kpi-value">{vendedores.length}</div></div>
         </div>
       </div>
 
-      {/* Objectives Grid */}
+      <div className="obj-filtros" role="tablist" aria-label="Filtrar objetivos">
+        {[['vigentes', 'Vigentes'], ['proximos', 'Próximos'], ['cerrados', 'Cerrados'], ['todos', 'Todos']].map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={filtro === k} className={filtro === k ? 'activo' : ''} onClick={() => setFiltro(k)}>{l}</button>
+        ))}
+      </div>
+
       <div className="objectives-grid">
-        {objectives.length > 0 ? (
-          objectives.map(obj => {
-            const sellerName = obj.vendedor?.nombreApellido || 'Sin asignar';
-            const meta = Number(obj.cantidadMeta) || 100;
-            const actual = Number(obj.progresoActual) || 0;
-            const pct = Math.min(100, Math.round((actual / meta) * 100));
-
-            return (
-              <div key={obj.id} className="objective-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#1a7d6b', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 8px', borderRadius: '12px' }}>
-                    Semana {obj.periodoSemana || 34} · {obj.tipoObjetivo || 'Comercial'}
-                  </span>
-                  <button
-                    onClick={() => handleDeleteObjective(obj.id, obj.descripcion)}
-                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
-                    title="Eliminar objetivo"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
-                  {obj.descripcion}
-                </h3>
-
-                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                  Asignado a: <strong style={{ color: '#0f172a' }}>{sellerName}</strong>
-                </div>
-
-                {/* Progress Bar */}
-                <div style={{ marginTop: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                    <span>Progreso: {actual} / {meta}</span>
-                    <span>{pct}%</span>
-                  </div>
-                  <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: pct >= 100 ? '#16a34a' : '#1a7d6b', transition: 'width 300ms ease' }} />
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div style={{ gridColumn: '1 / -1', background: '#ffffff', border: '2px dashed #cbd5e1', borderRadius: '16px', padding: '3.5rem 2rem', textAlign: 'center', color: '#64748b', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#f1f5f9', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
-              <Target size={32} color="#1a7d6b" />
-            </div>
-            <h3 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '1.2rem', fontWeight: 800 }}>No hay objetivos asignados actualmente</h3>
-            <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.9rem', color: '#64748b' }}>Haz clic en "Asignar Nuevo Objetivo" para definir metas semanales a tus vendedores.</p>
-            <button
-              className="objectives-btn objectives-btn--primary"
-              onClick={() => setShowModal(true)}
-            >
-              <Plus size={16} />
-              <span>Asignar Nuevo Objetivo</span>
-            </button>
+        {loading && <p className="obj-vacio">Cargando objetivos…</p>}
+        {!loading && visibles.length === 0 && (
+          <div className="obj-vacio">
+            <Target size={28} aria-hidden="true" />
+            <p>No hay objetivos {filtro === 'todos' ? '' : filtro} para mostrar.</p>
           </div>
         )}
+        {!loading && visibles.map((o) => {
+          const pct = Math.min(100, o.porcentaje || 0);
+          const info = tipoInfo(o.tipoObjetivo);
+          return (
+            <div key={o.id} className="objective-card">
+              <div className="obj-card__top">
+                <span className="obj-card__tag">{info.label} · {o.tipoPeriodo}</span>
+                <button type="button" className="obj-card__del" onClick={() => eliminar(o)} title="Eliminar objetivo"><Trash2 size={16} /></button>
+              </div>
+              <h3 className="obj-card__title">{o.descripcion}</h3>
+              <p className="obj-card__meta"><Calendar size={13} aria-hidden="true" /> {fechaCorta(o.fechaInicio)} – {fechaCorta(o.fechaFin)} · <strong>{o.vendedor?.nombreApellido || 'Sin asignar'}</strong></p>
+              {(o.empresas?.length > 0 || o.items?.length > 0 || o.promociones?.length > 0) && (
+                <div className="obj-card__chips">
+                  {o.empresas?.map((x) => <span key={`e${x.id}`}><Building2 size={11} /> {x.razonSocial}</span>)}
+                  {o.items?.map((x) => <span key={`i${x.id}`}><Package size={11} /> {x.nombre}</span>)}
+                  {o.promociones?.map((x) => <span key={`p${x.id}`}><Sparkles size={11} /> {x.nombre}</span>)}
+                </div>
+              )}
+              <div className="obj-card__progress">
+                <div className="obj-card__progress-row">
+                  <span>{formatoMeta(o.tipoObjetivo, o.avance)} de {formatoMeta(o.tipoObjetivo, o.cantidadMeta)}</span>
+                  <span>{o.porcentaje ?? 0}%</span>
+                </div>
+                <div className="obj-card__bar"><div style={{ width: `${pct}%` }} className={pct >= 100 ? 'ok' : ''} /></div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Modal: Asignar Nuevo Objetivo */}
-      {showModal && (
-        <div className="objectives-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center' }} {...objectivesModalOverlayHandlers}>
-          <div style={{ background: '#ffffff', width: '520px', maxWidth: '92vw', borderRadius: '16px', padding: '24px', boxShadow: '0 16px 36px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#0f172a' }}>Asignar Objetivo Semanal (Admin)</h2>
-              <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }} onClick={() => setShowModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateObjective} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                  Vendedor Asignado *
-                </label>
-                <select
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}
-                  value={form.sellerId}
-                  onChange={e => setForm({ ...form, sellerId: e.target.value })}
-                  required
-                >
-                  {sellersList.length === 0 ? (
-                    <option value="" disabled>No hay vendedores registrados</option>
-                  ) : (
-                    sellersList.map((u, idx) => (
-                      <option key={u.idUser || u.id || idx} value={u.idUser || u.id}>
-                        {u.nombreApellido || u.idUser}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                    Tipo de Objetivo *
-                  </label>
-                  <select
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}
-                    value={form.tipoObjetivo}
-                    onChange={e => setForm({ ...form, tipoObjetivo: e.target.value })}
-                  >
-                    <option value="Ventas">Ventas en Volúmen</option>
-                    <option value="Visitas">Visitas a Campo</option>
-                    <option value="Cotizaciones">Nuevas Cotizaciones</option>
-                    <option value="Cobranzas">Gestión de Cobranza</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                    Semana *
-                  </label>
-                  <input
-                    type="number"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    value={form.periodoSemana}
-                    onChange={e => setForm({ ...form, periodoSemana: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                  Descripción de la Meta *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: Vender 500L de Fertilizantes o Visitar 15 Campos"
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                  value={form.descripcion}
-                  onChange={e => setForm({ ...form, descripcion: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '4px', display: 'block' }}>
-                  Cantidad Meta u Objetivo Numérico *
-                </label>
-                <input
-                  type="number"
-                  placeholder="Ej: 500"
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                  value={form.cantidadMeta}
-                  onChange={e => setForm({ ...form, cantidadMeta: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button
-                  type="submit"
-                  className="objectives-btn objectives-btn--primary"
-                  style={{ flex: 1, padding: '12px', background: '#1a7d6b', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
-                  disabled={loading}
-                >
-                  {loading ? 'Guardando en BD...' : 'Guardar y Asignar a Vendedor'}
-                </button>
-                <button
-                  type="button"
-                  style={{ padding: '12px 18px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
+      <SlideDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} title="Asignar objetivo" width="560px">
+        <form onSubmit={guardar} noValidate className="tasks-board__form">
+          <FormSelect
+            label="Vendedor"
+            name="usuarioId"
+            value={form.usuarioId}
+            onChange={(e) => set('usuarioId', e.target.value)}
+            options={vendedores.length ? vendedores.map((v) => ({ value: v.idUser, label: v.nombreApellido })) : [{ value: '', label: 'No hay vendedores activos' }]}
+            required
+            error={errors.usuarioId}
+          />
+          <div className="tasks-board__form-row">
+            <FormSelect label="Tipo de objetivo" name="tipoObjetivo" value={form.tipoObjetivo} onChange={(e) => set('tipoObjetivo', e.target.value)} options={TIPOS_OBJETIVO.map((t) => ({ value: t.value, label: t.label }))} />
+            <FormInput
+              label={form.tipoObjetivo === 'ventas' ? 'Meta ($)' : `Meta (${tipoInfo(form.tipoObjetivo).unidad})`}
+              name="cantidadMeta" type="number" min="1" value={form.cantidadMeta}
+              onChange={(e) => set('cantidadMeta', e.target.value)} required error={errors.cantidadMeta}
+            />
           </div>
-        </div>
-      )}
+          <div className="tasks-board__form-row">
+            <FormSelect label="Período" name="tipoPeriodo" value={form.tipoPeriodo} onChange={(e) => set('tipoPeriodo', e.target.value)} options={[{ value: 'semanal', label: 'Semanal' }, { value: 'mensual', label: 'Mensual' }]} />
+            <FormInput label="Desde" name="fechaInicio" type="date" value={form.fechaInicio} onChange={(e) => set('fechaInicio', e.target.value)} required error={errors.fechaInicio} />
+            <FormInput label="Hasta" name="fechaFin" type="date" value={form.fechaFin} onChange={(e) => setForm((p) => ({ ...p, fechaFin: e.target.value }))} error={errors.fechaFin} />
+          </div>
+          <FormTextarea label="Descripción" name="descripcion" value={form.descripcion} onChange={(e) => set('descripcion', e.target.value)} rows={2} placeholder="Opcional. Ej.: priorizar acopios de la zona sur" />
+
+          <Checklist icon={Building2} label="Empresas a trabajar" buscar empty="No hay empresas cargadas."
+            items={empresas.map((x) => ({ value: x.id, label: [x.razonSocial, x.localidad].filter(Boolean).join(' · ') }))}
+            selected={form.empresaIds} onToggle={(id) => toggle('empresaIds', id)} />
+          <Checklist icon={Package} label="Productos o servicios a ofrecer" buscar empty="El catálogo está vacío."
+            items={items.map((x) => ({ value: x.id, label: `${x.nombre}${x.tipo === 'servicio' ? ' (servicio)' : ''}` }))}
+            selected={form.itemIds} onToggle={(id) => toggle('itemIds', id)} />
+          <Checklist icon={Sparkles} label="Promociones vigentes" empty="No hay promociones vigentes."
+            items={promos.map((x) => ({ value: x.id, label: x.nombre }))}
+            selected={form.promocionIds} onToggle={(id) => toggle('promocionIds', id)} />
+
+          <div className="tasks-board__form-actions">
+            <button type="submit" className="btn-rounded-primary tasks-board__submit-btn" disabled={saving}>{saving ? 'Guardando…' : 'Asignar objetivo'}</button>
+            <button type="button" className="roadmaps-btn roadmaps-btn--outline tasks-board__cancel-btn" onClick={() => setShowDrawer(false)}>Cancelar</button>
+          </div>
+        </form>
+      </SlideDrawer>
     </div>
   );
 };
+
+export default ObjectivesPage;

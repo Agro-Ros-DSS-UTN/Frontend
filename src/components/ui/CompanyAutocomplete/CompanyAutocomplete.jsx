@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Building2, X, Plus, ArrowLeft } from 'lucide-react';
 import { companiesApi } from '../../../api/companies.api';
 import { notificar } from '../../../hooks/useNotificaciones';
+import { LocalidadSelect } from '../LocalidadSelect/LocalidadSelect';
 import './CompanyAutocomplete.css';
 
 const TIPO_EMPRESA_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
@@ -12,6 +13,8 @@ const emptyNewCompanyForm = (nombreInicial = '') => ({
   direccionEmpresa: '',
   tipoEmpresa: 'Productor',
   localidad: '',
+  localidadId: null,
+  localidadSel: null,
   esRegional: false,
   empresaMadre: '',
 });
@@ -94,13 +97,13 @@ export const CompanyAutocomplete = ({
     () =>
       companies
         .map((c) => ({
-          id: c.id ?? c.nombreEmpresa,
-          nombre: c.nombreEmpresa || c.nombre || '',
+          id: c.id,
+          nombre: c.razonSocial || c.nombreEmpresa || '',
           tipo: c.tipoEmpresa || '',
           loc: c.localidad || c.Locality?.nomLocalidad || '',
-          direccion: c.direccionEmpresa || c.direccion || '',
-          provincia: c.Locality?.Province?.nomProvincia || c.provincia || '',
-          nivel: c.nivelEmpresa || 'independiente',
+          direccion: c.direccion || c.direccionEmpresa || '',
+          provincia: c.provincia || c.Locality?.Province?.nomProvincia || '',
+          nivel: c.nivel || c.nivelEmpresa || 'independiente',
         }))
         .filter((c) => c.nombre),
     [companies]
@@ -157,13 +160,14 @@ export const CompanyAutocomplete = ({
     setCreateError('');
     try {
       const res = await companiesApi.create({
-        nombreEmpresa: nombre,
+        razonSocial: nombre,
         cuit: newCompanyForm.cuit.trim(),
-        direccionEmpresa: newCompanyForm.direccionEmpresa || undefined,
+        direccion: newCompanyForm.direccionEmpresa || undefined,
         tipoEmpresa: newCompanyForm.tipoEmpresa,
-        localidad: newCompanyForm.localidad || undefined,
-        parentCompanyId: madre ? madre.id : undefined,
-        nivelEmpresa: madre ? 'region' : undefined,
+        localidadId: newCompanyForm.localidadId || undefined,
+        localidad: newCompanyForm.localidadId ? undefined : (newCompanyForm.localidad || undefined),
+        empresaPadreId: madre ? madre.id : undefined,
+        nivel: madre ? 'region' : undefined,
       });
       const created = res?.data || res;
       if (!created?.id) throw new Error('El servidor no confirmó el alta de la empresa.');
@@ -171,7 +175,7 @@ export const CompanyAutocomplete = ({
       // La empresa principal pasa a figurar como "empresa madre" con regionales.
       if (madre && madre.nivel !== 'madre') {
         try {
-          await companiesApi.update(madre.id, { nivelEmpresa: 'madre' });
+          await companiesApi.update(madre.id, { nivel: 'madre' });
         } catch (updErr) {
           console.warn('La regional se creó, pero no se pudo marcar la empresa principal como madre:', updErr);
         }
@@ -179,16 +183,16 @@ export const CompanyAutocomplete = ({
 
       const newEntry = {
         id: created.id,
-        nombre: created.nombreEmpresa || nombre,
+        nombre: created.razonSocial || nombre,
         tipo: created.tipoEmpresa || newCompanyForm.tipoEmpresa,
         loc: created.localidad || newCompanyForm.localidad || '',
-        direccion: created.direccionEmpresa || newCompanyForm.direccionEmpresa || '',
+        direccion: created.direccion || newCompanyForm.direccionEmpresa || '',
       };
 
       // Refresca el cache compartido para que las demás instancias del
       // autocompletado (otros formularios abiertos) también vean la empresa nueva.
       _cache = [
-        ...(_cache || []).map((c) => (madre && c.id === madre.id ? { ...c, nivelEmpresa: 'madre' } : c)),
+        ...(_cache || []).map((c) => (madre && c.id === madre.id ? { ...c, nivel: 'madre', nivelEmpresa: 'madre' } : c)),
         created,
       ];
       setCompanies(_cache);
@@ -308,12 +312,9 @@ export const CompanyAutocomplete = ({
                 </select>
               </div>
               <div className="company-ac__create-field">
-                <label>Localidad</label>
-                <input
-                  type="text"
-                  value={newCompanyForm.localidad}
-                  onChange={(e) => setNewCompanyForm((p) => ({ ...p, localidad: e.target.value }))}
-                  placeholder="Ej: Casilda"
+                <LocalidadSelect
+                  value={newCompanyForm.localidadSel}
+                  onChange={(l) => setNewCompanyForm((p) => ({ ...p, localidadSel: l, localidadId: l?.id || null, localidad: l?.nombre || '' }))}
                 />
               </div>
             </div>

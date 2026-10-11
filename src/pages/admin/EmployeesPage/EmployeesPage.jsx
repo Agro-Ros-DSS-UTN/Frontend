@@ -15,7 +15,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { employeesApi } from '../../../api/employees.api';
-import { FormInput, FormTextarea } from '../../../components/ui/FormInput/FormInput';
+import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput/FormInput';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { ImageUpload } from '../../../components/ui/ImageUpload/ImageUpload';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
@@ -23,6 +23,9 @@ import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../.
 import '../UsersPage/UsersPage.css';
 import './EmployeesPage.css';
 import { notificar } from '../../../hooks/useNotificaciones';
+import { ROLES_EMPLEADO } from '../../../data/catalogos';
+
+const rolLabel = (rol) => (ROLES_EMPLEADO.find((r) => r.value === rol)?.label || rol || '—').replace(' (ejecuta órdenes)', '');
 
 // Sugerencias para el puesto; se puede escribir cualquier otro.
 const PUESTO_SUGERENCIAS = [
@@ -39,6 +42,7 @@ const PAGE_SIZE = 10;
 const COLUMNS = [
   { key: 'nombreApellido', label: 'Empleado', sortable: true },
   { key: 'matricula', label: 'Matrícula', sortable: true },
+  { key: 'rol', label: 'Rol', sortable: true },
   { key: 'puesto', label: 'Puesto', sortable: true },
   { key: 'contacto', label: 'Contacto', sortable: false },
   { key: 'fechaIngreso', label: 'Ingreso', sortable: true },
@@ -49,6 +53,7 @@ const emptyForm = () => ({
   nombreApellido: '',
   dni: '',
   matricula: '',
+  rol: 'tecnico',
   puesto: '',
   telefono: '',
   email: '',
@@ -77,7 +82,7 @@ const validate = (form) => {
   const errors = {};
   if (!form.nombreApellido.trim()) errors.nombreApellido = 'El nombre y apellido es obligatorio.';
   if (!form.dni.trim()) errors.dni = 'El DNI es obligatorio.';
-  if (!form.matricula.trim()) errors.matricula = 'La matrícula es obligatoria.';
+  if (form.rol === 'tecnico' && !form.matricula.trim()) errors.matricula = 'La matrícula es obligatoria para los técnicos aplicadores.';
   if (!form.puesto.trim()) errors.puesto = 'El puesto es obligatorio.';
   return errors;
 };
@@ -114,7 +119,7 @@ export const EmployeesPage = () => {
   }, []);
 
   const activos = employees.filter((e) => e.activo !== false).length;
-  const aplicadores = employees.filter((e) => (e.puesto || '').toLowerCase().includes('aplicador')).length;
+  const aplicadores = employees.filter((e) => e.rol === 'tecnico' && e.activo !== false).length;
 
   const filtered = useMemo(() => {
     let result = employees;
@@ -168,6 +173,7 @@ export const EmployeesPage = () => {
       nombreApellido: emp.nombreApellido || '',
       dni: emp.dni || '',
       matricula: emp.matricula || '',
+      rol: emp.rol || 'ayudante',
       puesto: emp.puesto || '',
       telefono: emp.telefono || '',
       email: emp.email || '',
@@ -288,7 +294,7 @@ export const EmployeesPage = () => {
           <span className="emp-stat__value">{activos}</span>
         </div>
         <div className="emp-stat">
-          <span className="emp-stat__label">Aplicadores</span>
+          <span className="emp-stat__label">Técnicos activos</span>
           <span className="emp-stat__value">{aplicadores}</span>
         </div>
       </div>
@@ -376,6 +382,11 @@ export const EmployeesPage = () => {
                         </div>
                       </td>
                       <td>{emp.matricula || <span style={{ color: '#94a3b8' }}>-</span>}</td>
+                      <td>
+                        <span className={`users-table__role-pill ${emp.rol === 'tecnico' ? 'users-table__role-pill--admin' : 'users-table__role-pill--vendedor'}`}>
+                          {rolLabel(emp.rol)}
+                        </span>
+                      </td>
                       <td>
                         {emp.puesto ? (
                           <span className="users-table__role-pill users-table__role-pill--vendedor">
@@ -490,8 +501,17 @@ export const EmployeesPage = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <FormInput label="DNI" name="dni" value={form.dni} onChange={handleChange} placeholder="24.891.432" required error={errors.dni} />
-            <FormInput label="Matrícula" name="matricula" value={form.matricula} onChange={handleChange} placeholder="Mat. 4812" required error={errors.matricula} />
+            <FormInput label="Matrícula" name="matricula" value={form.matricula} onChange={handleChange} placeholder="Mat. 4812" required={form.rol === 'tecnico'} error={errors.matricula} />
           </div>
+
+          <FormSelect
+            label="Rol"
+            name="rol"
+            value={form.rol}
+            onChange={handleChange}
+            options={ROLES_EMPLEADO}
+          />
+          <p className="emp-rol-help">Solo los empleados con rol <strong>Técnico</strong> pueden asignarse a una orden de servicio.</p>
 
           <FormInput
             label="Puesto"

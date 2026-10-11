@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { authApi } from '../../../api/auth.api';
 import {
@@ -18,7 +18,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { mockSellers } from '../../../data/mockData';
+import { notificar } from '../../../hooks/useNotificaciones';
 import './ProfilePage.css';
 
 const TABS = [
@@ -38,28 +38,33 @@ export const ProfilePage = () => {
 
   const isSeller = (currentUser?.role || currentUser?.rol)?.toLowerCase() === 'vendedor';
 
-  // Get seller data if applicable
-  const seller = isSeller
-    ? mockSellers.find(s => s.userNumDoc === currentUser?.numDoc)
-    : null;
+  const seller = null;
+  // Zona asignada por la administración (localidades) y datos frescos del servidor.
+  const [zona, setZona] = useState([]);
+  useEffect(() => {
+    authApi.me()
+      .then((res) => {
+        const u = res?.data || {};
+        setZona(Array.isArray(u.zona) ? u.zona : []);
+        if (u.telefono) setPhones([u.telefono]);
+        if (u.email !== undefined) setForm((prev) => ({ ...prev, email: u.email || '' }));
+      })
+      .catch(() => {});
+  }, []);
 
   // Form state (initialize from currentUser + seller)
   const nameParts = (currentUser?.nombreApellido || '').split(' ');
   const [form, setForm] = useState({
     nombre: nameParts[0] || '',
     apellido: nameParts.slice(1).join(' ') || '',
-    email: currentUser?.direccionMail || '',
+    email: currentUser?.email || currentUser?.direccionMail || '',
     numDoc: currentUser?.numDoc || currentUser?.idUser || '',
     direccion: currentUser?.direccion || '',
     idioma: 'Español',
     formatoFecha: 'Argentina',
-    // Seller specific
-    productoOfrecido: seller?.productoOfrecido || '',
-    zonaAsignada: seller?.zonaAsignada || '',
-    seguimientoCliente: seller?.seguimientoCliente || '',
   });
 
-  const [phones, setPhones] = useState(['+54 341 456-7890']);
+  const [phones, setPhones] = useState([currentUser?.telefono || '']);
 
   // ── Cambio de contraseña ──
   const [currentPassword, setCurrentPassword] = useState('');
@@ -112,9 +117,10 @@ export const ProfilePage = () => {
     setPasswordSaving(true);
     try {
       const userId = currentUser?.idUser || currentUser?.id;
-      // Verifica la contraseña actual reutilizando el propio endpoint de login
-      await authApi.login(userId, currentPassword);
-      await authApi.updateUser(userId, { password: newPassword });
+      // El servidor verifica la contraseña actual, guarda la nueva y cierra las
+      // sesiones abiertas en otros equipos; este equipo recibe un token nuevo.
+      const res = await authApi.cambiarPassword(currentPassword, newPassword);
+      if (res?.token && updateCurrentUser) updateCurrentUser({ token: res.token });
 
       setCurrentPassword('');
       setNewPassword('');
@@ -205,12 +211,14 @@ export const ProfilePage = () => {
       if (userId) {
         await authApi.updateUser(userId, {
           nombreApellido: fullName,
-          direccionMail: form.email,
+          email: form.email.trim() || null,
+          telefono: (phones.find((p) => p && p.trim()) || '').trim() || null,
         });
 
         if (updateCurrentUser) {
           updateCurrentUser({
             nombreApellido: fullName,
+            email: form.email,
             direccionMail: form.email,
           });
         }
@@ -220,8 +228,7 @@ export const ProfilePage = () => {
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.error('Error al guardar datos de perfil:', err);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      notificar.error('No se pudieron guardar los cambios', err);
     } finally {
       setSaving(false);
     }
@@ -472,41 +479,20 @@ export const ProfilePage = () => {
             </div>
           </section>
 
-          {/* Seller Section (if applicable) */}
-          {(isSeller || seller) && (
+          {/* Zona del vendedor (la define la administración) */}
+          {isSeller && (
             <section className="profile-section">
-              <h2 className="profile-section__title">Datos del Vendedor</h2>
-              <p className="profile-section__desc">Información específica de tu rol como vendedor.</p>
-
-              <div className="profile-field">
-                <label className="profile-field__label">Producto ofrecido</label>
-                <input
-                  type="text"
-                  className="profile-field__input"
-                  value={form.productoOfrecido}
-                  onChange={(e) => updateField('productoOfrecido', e.target.value)}
-                />
-              </div>
-
-              <div className="profile-field">
-                <label className="profile-field__label">Zona asignada</label>
-                <input
-                  type="text"
-                  className="profile-field__input"
-                  value={form.zonaAsignada}
-                  onChange={(e) => updateField('zonaAsignada', e.target.value)}
-                />
-              </div>
-
-              <div className="profile-field">
-                <label className="profile-field__label">Seguimiento de cliente</label>
-                <textarea
-                  className="profile-field__textarea"
-                  value={form.seguimientoCliente}
-                  onChange={(e) => updateField('seguimientoCliente', e.target.value)}
-                  rows={3}
-                />
-              </div>
+              <h2 className="profile-section__title">Zona asignada</h2>
+              <p className="profile-section__desc">Localidades en las que trabajás. Las asigna la administración.</p>
+              {zona.length === 0 ? (
+                <p className="profile-section__desc">Todavía no tenés localidades asignadas.</p>
+              ) : (
+                <div className="profile-zona">
+                  {zona.map((l) => (
+                    <span key={l.id} className="profile-zona__chip">{l.nombre}{l.provincia ? ` · ${l.provincia}` : ''}</span>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 

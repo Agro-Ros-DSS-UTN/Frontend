@@ -23,7 +23,7 @@ import {
   MapPin,
   FileText,
 } from 'lucide-react';
-import { CONTACT_TYPES } from '../../../data/mockData';
+import { CONTACT_TYPES } from '../../../data/catalogos';
 import { fetchClients, fetchClientCompanies, createClient, updateClient, deleteClient } from '../../../data/api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import { notificar } from '../../../hooks/useNotificaciones';
@@ -99,15 +99,15 @@ export const ContactsPage = () => {
   }, []);
 
   const handleDelete = async (client) => {
-    const id = client?.numDoc || client?.id;
-    if (!id || !window.confirm('¿Eliminar este contacto?')) return;
+    const id = client?.id;
+    if (!id || !window.confirm('¿Dar de baja este contacto? Deja de aparecer en las listas; su historial se conserva.')) return;
     try {
       await notificar.operacion(deleteClient(id), {
-        cargando: 'Eliminando contacto…',
-        exito: 'Contacto eliminado',
-        error: 'No se pudo eliminar el contacto',
+        cargando: 'Dando de baja el contacto…',
+        exito: 'Contacto dado de baja',
+        error: 'No se pudo dar de baja el contacto',
       });
-      setClients((prev) => prev.filter((c) => (c.numDoc || c.id) !== id));
+      setClients((prev) => prev.filter((c) => c.id !== id));
     } catch (err) {
       console.error('Error al eliminar contacto:', err);
     }
@@ -119,8 +119,6 @@ export const ContactsPage = () => {
     nombreApellido: '',
     direccionMail: '',
     tipoClient: 'Productor',
-    localidad: 'Casilda',
-    codigoPostal: '2170',
     telefono: '',
     clientCompanyId: '',
     nota: '',
@@ -140,9 +138,7 @@ export const ContactsPage = () => {
       nombreApellido: client.nombreApellido || '',
       direccionMail: client.direccionMail || '',
       tipoClient: client.tipoClient || 'Productor',
-      localidad: client.localidad || 'Casilda',
-      codigoPostal: client.codigoPostal || '2170',
-      telefono: Array.isArray(client.telefonos) ? (client.telefonos[0] || '') : (client.telefonos || ''),
+      telefono: client.telefono || (Array.isArray(client.telefonos) ? (client.telefonos[0] || '') : ''),
       clientCompanyId: client.clientCompanyId || '',
       nota: client.nota || '',
     });
@@ -160,7 +156,7 @@ export const ContactsPage = () => {
         c.nombreApellido?.toLowerCase().includes(q) ||
         c.direccionMail?.toLowerCase().includes(q) ||
         c.numDoc?.includes(q) ||
-        c.localidad?.toLowerCase().includes(q)
+        c.empresa?.toLowerCase().includes(q)
       );
     }
 
@@ -201,7 +197,7 @@ export const ContactsPage = () => {
     if (selectedRows.length === paginatedClients.length) {
       setSelectedRows([]);
     } else {
-      setSelectedRows(paginatedClients.map(c => c.id || c.numDoc));
+      setSelectedRows(paginatedClients.map(c => c.id));
     }
   };
 
@@ -230,21 +226,19 @@ export const ContactsPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = {
-      numDoc: form.numDoc || `20-${Math.floor(10000000 + Math.random() * 90000000)}-4`,
+      dni: form.numDoc.trim() || null,
       nombreApellido: form.nombreApellido,
-      direccionMail: form.direccionMail,
-      tipoClient: form.tipoClient,
-      localidad: form.localidad,
-      codigoPostal: form.codigoPostal || '2170',
-      clientCompanyId: form.clientCompanyId ? Number(form.clientCompanyId) : null,
-      telefonos: form.telefono ? [form.telefono] : [],
-      nota: form.nota,
+      email: form.direccionMail.trim() || null,
+      cargo: form.tipoClient,
+      empresaId: form.clientCompanyId ? Number(form.clientCompanyId) : null,
+      telefono: form.telefono.trim(),
+      observaciones: form.nota,
     };
 
     if (editingClient) {
       try {
-        const updated = await updateClient(editingClient.numDoc, payload);
-        setClients((prev) => prev.map((c) => (c.numDoc === editingClient.numDoc ? { ...c, ...payload, ...(updated?.data || updated || {}) } : c)));
+        const updated = await updateClient(editingClient.id, payload);
+        setClients((prev) => prev.map((c) => (c.id === editingClient.id ? { ...c, ...(updated?.data || {}) } : c)));
         notificar.exito('Cambios guardados', `Se actualizó a ${payload.nombreApellido}.`);
       } catch (err) {
         console.error('Error al editar contacto:', err);
@@ -252,10 +246,10 @@ export const ContactsPage = () => {
         return; // el formulario queda abierto para corregir y reintentar
       }
     } else {
-      const newClientPayload = { ...payload, fechaAgregado: new Date().toISOString() };
       try {
-        const created = await createClient(newClientPayload);
-        setClients(prev => [{ ...newClientPayload, ...(created?.data || created || {}) }, ...prev]);
+        const created = await createClient(payload);
+        if (!created?.data?.id) throw new Error('El servidor no confirmó el alta del contacto.');
+        setClients(prev => [created.data, ...prev]);
         notificar.exito('Contacto registrado', payload.nombreApellido);
       } catch (err) {
         console.error('Error al registrar contacto:', err);
@@ -278,7 +272,6 @@ export const ContactsPage = () => {
       { key: 'direccionMail', label: 'Correo Electrónico' },
       { key: 'telefonos', label: 'Teléfono' },
       { key: 'localidad', label: 'Localidad' },
-      { key: 'codigoPostal', label: 'Código Postal' },
       { key: 'empresa', label: 'Empresa Vinculada' },
       { key: 'fechaAgregado', label: 'Fecha de Registro' },
     ];
@@ -417,21 +410,21 @@ export const ContactsPage = () => {
                 </tr>
               ) : (
                 paginatedClients.map(client => {
-                  const isSelected = selectedRows.includes(client.numDoc);
+                  const isSelected = selectedRows.includes(client.id);
                   const initials = client.nombreApellido
                     ? client.nombreApellido.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
                     : 'C';
 
                   return (
                     <tr
-                      key={client.numDoc || client.id}
+                      key={client.id}
                       className={isSelected ? 'contacts-table__row--selected' : ''}
                     >
                       <td className="contacts-table__checkbox-col">
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => toggleSelect(client.numDoc)}
+                          onChange={() => toggleSelect(client.id)}
                         />
                       </td>
                       <td>
@@ -451,7 +444,7 @@ export const ContactsPage = () => {
                               {(client.empresa || client.clientCompanyId) && (
                                 <span className="crm-outline-pill">
                                   <Building2 size={10} />
-                                  {client.empresa || companies.find(c => c.id === client.clientCompanyId)?.nombreEmpresa || 'Empresa'}
+                                  {client.empresa || 'Empresa'}
                                 </span>
                               )}
                             </div>
@@ -469,7 +462,7 @@ export const ContactsPage = () => {
                         )}
                       </td>
                       <td className="contacts-table__phone">
-                        {Array.isArray(client.telefonos) ? client.telefonos[0] : (client.telefonos || '—')}
+                        {client.telefono || '—'}
                       </td>
                       <td>
                         <span className="crm-outline-pill">{client.tipoClient || '—'}</span>
@@ -598,29 +591,6 @@ export const ContactsPage = () => {
                 </select>
               </div>
 
-              {/* Localidad & Código Postal */}
-              <div className="contact-field-row">
-                <div className="contact-field" style={{ flex: 2 }}>
-                  <label><MapPin size={14} /> Localidad *</label>
-                  <input
-                    type="text"
-                    className="contact-input"
-                    value={form.localidad}
-                    onChange={(e) => setForm(prev => ({ ...prev, localidad: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="contact-field" style={{ flex: 1 }}>
-                  <label>Cód. Postal</label>
-                  <input
-                    type="text"
-                    className="contact-input"
-                    value={form.codigoPostal}
-                    onChange={(e) => setForm(prev => ({ ...prev, codigoPostal: e.target.value }))}
-                  />
-                </div>
-              </div>
-
               {/* Teléfono */}
               <div className="contact-field">
                 <label><Phone size={14} /> Teléfono Principal</label>
@@ -644,7 +614,7 @@ export const ContactsPage = () => {
                     setForm(prev => ({
                       ...prev,
                       clientCompanyId: e.target.value ? Number(e.target.value) : null,
-                      empresa: selComp ? selComp.nombreEmpresa : '',
+                      empresa: selComp ? (selComp.razonSocial || selComp.nombreEmpresa) : '',
                     }));
                   }}
                 >

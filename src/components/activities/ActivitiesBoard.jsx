@@ -32,14 +32,13 @@ import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../u
 import '../tasks/TasksBoard.css';
 import './ActivitiesBoard.css';
 import { notificar } from '../../hooks/useNotificaciones';
+import { fetchOpportunities } from '../../data/api';
+import { ESTADOS_OPORTUNIDAD, TIPOS_CONTACTO_ACTIVIDAD, tipoContactoLabel } from '../../data/catalogos';
+import { encolar, enviarPendientes, esErrorDeRed, nuevoUuid, onColaChange, pendientes } from '../../utils/colaOffline';
 
-const TIPOS_CONTACTO = [
-  { label: 'Visita', icon: MapPin },
-  { label: 'Llamada', icon: Phone },
-  { label: 'WhatsApp', icon: MessageSquare },
-  { label: 'Email', icon: Mail },
-  { label: 'Reunión', icon: Building2 },
-];
+const ICONOS_CONTACTO = { visita: MapPin, llamada: Phone, whatsapp: MessageSquare, email: Mail, reunion: Building2 };
+const TIPOS_CONTACTO = TIPOS_CONTACTO_ACTIVIDAD.map((t) => ({ value: t.value, label: t.label, icon: ICONOS_CONTACTO[t.value] }));
+const NUEVA = 'nueva';
 
 const TIPO_TAREA_OPTIONS = [
   { value: 'llamada', label: 'Llamada' },
@@ -57,43 +56,49 @@ const VARIANTS = {
 const pad = (n) => String(n).padStart(2, '0');
 const localDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-// Fecha y hora las elige el usuario: el formulario arranca vacío.
-const emptyForm = () => ({
-  tipoContacto: 'Visita',
+const ahoraLocal = () => {
+  const d = new Date();
+  return { fecha: localDateStr(d), hora: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
+};
+const enDias = (n) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return localDateStr(d);
+};
+
+// CUU01: la fecha y hora arrancan en "ahora" y el seguimiento viene activado
+// (si no hace falta, se destilda y queda registrado como "sin seguimiento").
+const emptyForm = (myUserId) => ({
+  tipoContacto: 'visita',
   empresa: '',
-  fecha: '',
-  hora: '',
+  empresaId: null,
+  oportunidadId: '',
+  nuevaOportunidadTitulo: '',
+  estadoOportunidad: '',
+  ...ahoraLocal(),
   descripcion: '',
   fotoUrl: null,
   audioData: null,
-  crearTarea: false,
-  tareas: [],
+  crearTarea: true,
+  tareas: [emptyFollowupTask(myUserId)],
 });
 
 const MAX_FOLLOWUP_TASKS = 8;
 
-const emptyFollowupTask = () => ({
-  titulo: '',
-  tipo: 'llamada',
-  prioridad: 'Media',
-  fecha: '',
-  hora: '',
-  notas: '',
-  asignados: [],
-});
-
-const parseAttachments = (raw) => {
-  if (!raw) return null;
-  try {
-    return typeof raw === 'string' ? JSON.parse(raw) : raw;
-  } catch (_) {
-    return { fotoUrl: raw };
-  }
-};
+function emptyFollowupTask(myUserId) {
+  return {
+    titulo: '',
+    tipo: 'llamada',
+    prioridad: 'Media',
+    fecha: enDias(2),
+    hora: '',
+    notas: '',
+    asignados: myUserId ? [myUserId] : [],
+  };
+}
 
 const getContactIcon = (tipo, size = 13) => {
-  const match = TIPOS_CONTACTO.find((t) => t.label.toLowerCase() === String(tipo || '').toLowerCase());
-  const Icon = match?.icon || ClipboardList;
+  const Icon = ICONOS_CONTACTO[String(tipo || '').toLowerCase()] || ClipboardList;
   return <Icon size={size} />;
 };
 
@@ -114,27 +119,70 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  const [form, setForm] = useState(emptyForm());
+  const [form, setForm] = useState(() => emptyForm(myUserId));
   const [assignableUsers, setAssignableUsers] = useState([]);
+  const [oportunidades, setOportunidades] = useState([]);
+  const [cargandoOpps, setCargandoOpps] = useState(false);
+  const [adjuntosCache, setAdjuntosCache] = useState({});
+  const [enCola, setEnCola] = useState(() => pendientes());
+
+  useEffect(() => onColaChange(setEnCola), []);
+
+  // Oportunidades abiertas de la empresa elegida (incluye las de otros vendedores
+  // para no duplicar: la actividad se suma a la que ya existe).
+  useEffect(() => {
+    if (!showDrawer || editingActivity || !form.empresaId) {
+      setOportunidades([]);
+      return undefined;
+    }
+    let vivo = true;
+    setCargandoOpps(true);
+    fetchOpportunities({ empresaId: form.empresaId, abiertas: 1, paraActividad: 1 })
+      .then((lista) => {
+        if (!vivo) return;
+        setOportunidades(lista);
+        setForm((prev) => ({
+          ...prev,
+          oportunidadId: lista.length ? String(lista[0].id) : NUEVA,
+          nuevaOportunidadTitulo: lista.length ? prev.nuevaOportunidadTitulo : (prev.nuevaOportunidadTitulo || `Seguimiento comercial — ${prev.empresa}`),
+        }));
+      })
+      .catch(() => vivo && setOportunidades([]))
+      .finally(() => vivo && setCargandoOpps(false));
+    return () => { vivo = false; };
+  }, [form.empresaId, showDrawer, editingActivity]);
+
+  const cargarAdjuntos = async (act) => {
+    const faltan = (act.adjuntos || []).filter((x) => !adjuntosCache[x.id]);
+    if (!faltan.length) return;
+    const res = await Promise.allSettled(faltan.map((x) => activitiesApi.getAttachment(x.id)));
+    setAdjuntosCache((prev) => {
+      const next = { ...prev };
+      res.forEach((r, i) => { if (r.status === 'fulfilled' && r.value?.contenido) next[faltan[i].id] = r.value.contenido; });
+      return next;
+    });
+  };
+
   const fetchActivities = async () => {
     try {
       setLoading(true);
-      const data = await activitiesApi.getAll();
-      const rawList = Array.isArray(data) ? data : data?.data || [];
+      const rawList = await activitiesApi.getAll();
       setActivities(
-        rawList.map((a) => {
-          const attachments = parseAttachments(a.archivoAdjunto);
-          return {
-            idFormulario: a.idFormulario || a.id,
-            tipoContacto: a.tipoContacto || 'Visita',
-            descripcion: a.descripcion || '',
-            fechaHora: a.fechaHora || null,
-            autorNombre: a.autorNombre || 'Equipo AgroRos',
-            empresa: a.empresa || '',
-            fotoUrl: attachments?.fotoUrl || null,
-            audioData: attachments?.audioData || null,
-          };
-        })
+        rawList.map((a) => ({
+          idFormulario: a.id,
+          tipoContacto: a.tipoContacto || 'visita',
+          descripcion: a.descripcion || '',
+          fechaHora: a.fechaHora || null,
+          autorNombre: a.autor?.nombreApellido || a.autorNombre || '—',
+          empresa: a.empresa || '',
+          empresaId: a.empresaId || null,
+          oportunidad: a.oportunidad || null,
+          ordenServicio: a.ordenServicio || null,
+          sinSeguimiento: Boolean(a.sinSeguimiento),
+          adjuntos: a.adjuntos || [],
+          tieneAudio: (a.adjuntos || []).some((x) => x.tipo === 'audio'),
+          tieneFoto: (a.adjuntos || []).some((x) => x.tipo === 'foto'),
+        }))
       );
     } catch (err) {
       console.error('Error al obtener actividades desde la base de datos:', err);
@@ -150,9 +198,16 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
       .getAllUsers()
       .then((res) => {
         const raw = Array.isArray(res) ? res : res?.data || [];
-        setAssignableUsers(raw.filter((u) => String(u.accountStatement || 'Activo').toLowerCase().includes('activ')));
+        setAssignableUsers(raw.filter((u) => String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo'));
       })
       .catch((err) => console.error('No se pudieron cargar los usuarios:', err));
+    // Si quedaron actividades guardadas sin conexión, se envían ahora.
+    if (pendientes() > 0) {
+      enviarPendientes().then(({ enviadas, fallidas }) => {
+        if (enviadas) { notificar.exito(`${enviadas} ${enviadas === 1 ? 'actividad pendiente enviada' : 'actividades pendientes enviadas'}`); fetchActivities(); }
+        if (fallidas) notificar.advertencia('Actividades pendientes rechazadas', `${fallidas} no se pudieron guardar (datos inválidos).`);
+      });
+    }
   }, []);
 
   const filteredActivities = useMemo(() => {
@@ -164,19 +219,20 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
           a.empresa?.toLowerCase().includes(q) ||
           a.descripcion?.toLowerCase().includes(q) ||
           a.autorNombre?.toLowerCase().includes(q) ||
-          a.tipoContacto?.toLowerCase().includes(q)
+          a.oportunidad?.titulo?.toLowerCase().includes(q) ||
+          tipoContactoLabel(a.tipoContacto).toLowerCase().includes(q)
       );
     }
     if (typeFilter) {
       result = result.filter((a) => (a.tipoContacto || '').toLowerCase() === typeFilter.toLowerCase());
     }
-    if (attachmentFilter === 'audios') result = result.filter((a) => !!a.audioData?.url);
-    else if (attachmentFilter === 'fotos') result = result.filter((a) => !!a.fotoUrl);
+    if (attachmentFilter === 'audios') result = result.filter((a) => a.tieneAudio);
+    else if (attachmentFilter === 'fotos') result = result.filter((a) => a.tieneFoto);
     return result;
   }, [activities, searchQuery, typeFilter, attachmentFilter]);
 
-  const totalAudios = activities.filter((a) => !!a.audioData?.url).length;
-  const totalFotos = activities.filter((a) => !!a.fotoUrl).length;
+  const totalAudios = activities.filter((a) => a.tieneAudio).length;
+  const totalFotos = activities.filter((a) => a.tieneFoto).length;
   const totalHoy = activities.filter((a) => a.fechaHora && localDateStr(new Date(a.fechaHora)) === localDateStr(new Date())).length;
 
   const formatDate = (dateStr) => {
@@ -197,13 +253,13 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   };
 
   const setCrearTarea = (checked) => {
-    setForm((prev) => ({ ...prev, crearTarea: checked, tareas: checked ? [emptyFollowupTask()] : [] }));
+    setForm((prev) => ({ ...prev, crearTarea: checked, tareas: checked ? [emptyFollowupTask(myUserId)] : [] }));
     setErrors((prev) => ({ ...prev, tareas: undefined }));
   };
 
   const addFollowupTask = () =>
     setForm((prev) =>
-      prev.tareas.length >= MAX_FOLLOWUP_TASKS ? prev : { ...prev, tareas: [...prev.tareas, emptyFollowupTask()] }
+      prev.tareas.length >= MAX_FOLLOWUP_TASKS ? prev : { ...prev, tareas: [...prev.tareas, emptyFollowupTask(myUserId)] }
     );
 
   const removeFollowupTask = (idx) => {
@@ -237,7 +293,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   const openCreateDrawer = () => {
     setEditingActivity(null);
     setErrors({});
-    setForm(emptyForm());
+    setForm(emptyForm(myUserId));
     setShowDrawer(true);
   };
 
@@ -246,14 +302,17 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     setEditingActivity(act);
     setErrors({});
     setForm({
-      ...emptyForm(),
+      ...emptyForm(myUserId),
+      crearTarea: false,
+      tareas: [],
       tipoContacto: act.tipoContacto,
       empresa: act.empresa,
+      empresaId: act.empresaId,
       fecha: d && !isNaN(d) ? localDateStr(d) : '',
       hora: d && !isNaN(d) ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '',
       descripcion: act.descripcion,
-      fotoUrl: act.fotoUrl,
-      audioData: act.audioData,
+      fotoUrl: null,
+      audioData: null,
     });
     setShowDrawer(true);
   };
@@ -261,7 +320,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   const closeDrawer = () => {
     setShowDrawer(false);
     setEditingActivity(null);
-    setForm(emptyForm());
+    setForm(emptyForm(myUserId));
   };
 
   const handleSubmit = async (e) => {
@@ -270,7 +329,15 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     const newErrors = {};
     if (!form.fecha) newErrors.fecha = 'Seleccioná la fecha.';
     if (!form.hora) newErrors.hora = 'Seleccioná la hora.';
+    if (form.fecha && form.hora && new Date(`${form.fecha}T${form.hora}`) > new Date(Date.now() + 15 * 60000)) {
+      newErrors.fecha = 'La actividad registra algo que ya pasó. Para algo pendiente, creá una tarea.';
+    }
     if (!form.descripcion?.trim()) newErrors.descripcion = 'La descripción de la actividad es obligatoria.';
+    if (!editingActivity) {
+      if (!form.empresaId) newErrors.empresa = 'Elegí la empresa de la lista (o registrala con "Nueva empresa").';
+      else if (form.oportunidadId === NUEVA && !form.nuevaOportunidadTitulo.trim()) newErrors.oportunidad = 'Poné un título para la nueva oportunidad.';
+      else if (!form.oportunidadId) newErrors.oportunidad = 'Elegí la oportunidad.';
+    }
     if (!editingActivity && form.crearTarea) {
       const taskErrors = {};
       form.tareas.forEach((t, idx) => {
@@ -288,58 +355,63 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     }
     setErrors({});
 
-    const activityPayload = {
+    // Hora local sin zona: el servidor la interpreta como hora de Argentina.
+    const adjuntos = [
+      form.fotoUrl && { tipo: 'foto', contenido: form.fotoUrl },
+      form.audioData?.url && { tipo: 'audio', contenido: form.audioData.url, nombreArchivo: form.audioData.name || null },
+    ].filter(Boolean);
+    const base = {
       tipoContacto: form.tipoContacto,
       descripcion: form.descripcion.trim(),
-      empresa: form.empresa?.trim() || null,
-      fechaHora: `${form.fecha}T${form.hora}:00`,
-      archivoAdjunto: { fotoUrl: form.fotoUrl, audioData: form.audioData },
+      fechaHora: `${form.fecha}T${form.hora}`,
+      adjuntos,
     };
 
     try {
       setSaving(true);
 
       if (editingActivity) {
-        await activitiesApi.update(editingActivity.idFormulario, activityPayload);
+        await activitiesApi.update(editingActivity.idFormulario, base);
         notificar.exito('Actividad actualizada');
-      } else {
-        const created = await activitiesApi.create({
-          ...activityPayload,
-          idUser: myUserId,
-          opportunityId: null,
-          autorNombre,
-        });
-        const activityId = created?.idFormulario || created?.data?.idFormulario || null;
+        closeDrawer();
+        await fetchActivities();
+        return;
+      }
 
-        if (form.crearTarea && form.tareas.length > 0) {
-          const results = await Promise.allSettled(
-            form.tareas.map((t) =>
-              tasksApi.create({
-                titulo: t.titulo.trim(),
-                descripcion: t.titulo.trim(),
-                tipo: t.tipo,
-                prioridad: t.prioridad,
-                fechaVencimiento: t.fecha,
-                horaVencimiento: t.hora || null,
-                empresa: form.empresa?.trim() || null,
-                notas: t.notas?.trim() || null,
-                estado: 'Pendiente',
-                creadoPorRol: cfg.creadoPorRol,
-                destinatarioRol: 'vendedor',
-                formularioActividadId: activityId,
-                asignadosIds: t.asignados,
-              })
-            )
-          );
-          const failed = results.filter((r) => r.status === 'rejected').length;
-          if (failed > 0) {
-            console.error('Fallaron tareas de seguimiento:', results.filter((r) => r.status === 'rejected'));
-            notificar.advertencia("La actividad se guardó con avisos", `No se pudieron crear ${failed} de ${results.length} tareas de seguimiento.`);
-          } else {
-            notificar.exito(`Actividad registrada con ${results.length} ${results.length === 1 ? 'tarea' : 'tareas'} de seguimiento`);
-          }
-        } else {
-          notificar.exito('Actividad registrada');
+      const payload = {
+        ...base,
+        clientUuid: nuevoUuid(),
+        ...(form.oportunidadId === NUEVA
+          ? { nuevaOportunidad: { empresaId: form.empresaId, titulo: form.nuevaOportunidadTitulo.trim() } }
+          : { oportunidadId: Number(form.oportunidadId) }),
+        ...(form.estadoOportunidad ? { estadoOportunidad: form.estadoOportunidad } : {}),
+        sinSeguimiento: !form.crearTarea,
+        tareas: form.crearTarea
+          ? form.tareas.map((t) => ({
+              titulo: t.titulo.trim(),
+              tipo: t.tipo,
+              prioridad: t.prioridad,
+              fechaVencimiento: t.fecha,
+              horaVencimiento: t.hora || null,
+              notas: t.notas?.trim() || null,
+              asignadosIds: t.asignados,
+            }))
+          : [],
+      };
+
+      try {
+        const res = await activitiesApi.create(payload);
+        const n = res?.tareaIds?.length || 0;
+        const extra = res?.oportunidadCreada ? ` Se creó la oportunidad «${res.oportunidadCreada.titulo}».` : '';
+        notificar.exito(n ? `Actividad registrada con ${n} ${n === 1 ? 'tarea' : 'tareas'} de seguimiento` : 'Actividad registrada', extra.trim() || undefined);
+      } catch (err) {
+        if (!esErrorDeRed(err)) throw err;
+        // Sin conexión: queda en el equipo y se envía sola al volver la señal.
+        try {
+          encolar(payload);
+          notificar.advertencia('Sin conexión', 'La actividad quedó guardada en este equipo y se enviará automáticamente cuando vuelva la conexión.');
+        } catch {
+          throw new Error('Sin conexión y sin espacio para guardarla en el equipo. Probá quitar la foto o el audio.');
         }
       }
 
@@ -355,7 +427,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
 
   const handleDeleteActivity = async (act) => {
     const ok = window.confirm(
-      '¿Eliminar esta actividad?\n\nTambién se eliminan las tareas de seguimiento que se hayan generado desde ella.'
+      '¿Eliminar esta actividad?\n\nSus tareas de seguimiento se conservan (quedan sin actividad de origen).'
     );
     if (!ok) return;
     setActivities((prev) => prev.filter((a) => a.idFormulario !== act.idFormulario));
@@ -368,12 +440,13 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   };
 
   const handleExportCSV = () => {
-    const headers = ['Fecha', 'Hora', 'Tipo de Contacto', 'Empresa', 'Descripción', 'Responsable'];
+    const headers = ['Fecha', 'Hora', 'Tipo de Contacto', 'Empresa', 'Oportunidad', 'Descripción', 'Responsable'];
     const rows = filteredActivities.map((a) => [
       `"${formatDate(a.fechaHora)}"`,
       `"${a.fechaHora ? formatTime(a.fechaHora) : ''}"`,
-      `"${a.tipoContacto || ''}"`,
+      `"${tipoContactoLabel(a.tipoContacto)}"`,
       `"${(a.empresa || '').replace(/"/g, '""')}"`,
+      `"${(a.oportunidad?.titulo || '').replace(/"/g, '""')}"`,
       `"${(a.descripcion || '').replace(/"/g, '""')}"`,
       `"${(a.autorNombre || '').replace(/"/g, '""')}"`,
     ]);
@@ -404,6 +477,13 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
           </ExportActionButton>
         </PageHeaderActions>
       </div>
+
+      {enCola > 0 && (
+        <div className="act-board__queue" role="status">
+          <span>{enCola} {enCola === 1 ? 'actividad guardada' : 'actividades guardadas'} sin conexión, pendiente{enCola === 1 ? '' : 's'} de envío.</span>
+          <button type="button" onClick={() => enviarPendientes().then(({ enviadas }) => { if (enviadas) fetchActivities(); })}>Enviar ahora</button>
+        </div>
+      )}
 
       <div className="tasks-board__stats">
         <div className="tasks-board__stat">
@@ -446,7 +526,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             onChange={setTypeFilter}
             items={[
               { value: '', label: 'Todas', count: activities.length },
-              ...TIPOS_CONTACTO.map((t) => ({ value: t.label, label: t.label })),
+              ...TIPOS_CONTACTO.map((t) => ({ value: t.value, label: t.label })),
             ]}
           />
           <div className="tasks-board__search">
@@ -494,7 +574,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                   </tr>
                 ) : (
                   filteredActivities.map((act) => {
-                    const hasAttachments = !!act.audioData?.url || !!act.fotoUrl;
+                    const hasAttachments = act.adjuntos.length > 0;
                     const expanded = expandedId === act.idFormulario;
                     return [
                       <tr key={act.idFormulario}>
@@ -504,11 +584,17 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                         </td>
                         <td>
                           <span className="act-table__type">
-                            {getContactIcon(act.tipoContacto)} {act.tipoContacto}
+                            {getContactIcon(act.tipoContacto)} {tipoContactoLabel(act.tipoContacto)}
                           </span>
                         </td>
                         <td>
                           <div className="tasks-board__empresa-name">{act.empresa || '—'}</div>
+                          {act.oportunidad && (
+                            <div className="tasks-board__empresa-contact" title="Oportunidad">
+                              {act.oportunidad.titulo} · {act.oportunidad.estado}
+                            </div>
+                          )}
+                          {act.ordenServicio && <div className="tasks-board__empresa-contact">Visita técnica · Orden {act.ordenServicio.numeroOrden}</div>}
                         </td>
                         <td className="act-table__desc">{act.descripcion || '—'}</td>
                         <td>
@@ -519,11 +605,14 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                             <button
                               type="button"
                               className="act-table__attach-btn"
-                              onClick={() => setExpandedId(expanded ? null : act.idFormulario)}
+                              onClick={() => {
+                                if (!expanded) cargarAdjuntos(act);
+                                setExpandedId(expanded ? null : act.idFormulario);
+                              }}
                               title={expanded ? 'Ocultar adjuntos' : 'Ver adjuntos'}
                             >
-                              {act.audioData?.url && <Mic size={14} />}
-                              {act.fotoUrl && <Camera size={14} />}
+                              {act.tieneAudio && <Mic size={14} />}
+                              {act.tieneFoto && <Camera size={14} />}
                               <ChevronDown size={13} className={expanded ? 'act-table__chevron--open' : ''} />
                             </button>
                           ) : (
@@ -555,21 +644,25 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                         <tr key={`${act.idFormulario}-adjuntos`} className="act-table__detail-row">
                           <td colSpan={7}>
                             <div className="act-table__attachments">
-                              {act.audioData?.url && (
-                                <div className="act-table__audio">
-                                  <VoiceNotePlayer audioUrl={act.audioData.url} audioName={act.audioData.name || 'Nota de voz'} />
-                                </div>
-                              )}
-                              {act.fotoUrl && (
-                                <button
-                                  type="button"
-                                  className="act-table__thumb"
-                                  onClick={() => setLightboxImage(act.fotoUrl)}
-                                  title="Ver imagen completa"
-                                >
-                                  <img src={act.fotoUrl} alt="Imagen adjunta" />
-                                </button>
-                              )}
+                              {act.adjuntos.map((adj) => {
+                                const contenido = adjuntosCache[adj.id];
+                                if (!contenido) return <span key={adj.id} className="tasks-board__empresa-contact">Cargando adjunto…</span>;
+                                if (adj.tipo === 'audio') {
+                                  return (
+                                    <div key={adj.id} className="act-table__audio">
+                                      <VoiceNotePlayer audioUrl={contenido} audioName={adj.nombreArchivo || 'Nota de voz'} />
+                                    </div>
+                                  );
+                                }
+                                if (adj.tipo === 'foto') {
+                                  return (
+                                    <button key={adj.id} type="button" className="act-table__thumb" onClick={() => setLightboxImage(contenido)} title="Ver imagen completa">
+                                      <img src={contenido} alt="Imagen adjunta" />
+                                    </button>
+                                  );
+                                }
+                                return <a key={adj.id} href={contenido} download={adj.nombreArchivo || 'adjunto.pdf'}>{adj.nombreArchivo || 'Documento adjunto'}</a>;
+                              })}
                             </div>
                           </td>
                         </tr>
@@ -596,20 +689,73 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             value={form.tipoContacto}
             onChange={handleFormChange}
             options={[
-              { value: 'Visita', label: 'Visita a Campo / Establecimiento' },
-              { value: 'Llamada', label: 'Llamada Telefónica' },
-              { value: 'WhatsApp', label: 'Mensaje de WhatsApp' },
-              { value: 'Email', label: 'Correo Electrónico' },
-              { value: 'Reunión', label: 'Reunión Comercial' },
+              { value: 'visita', label: 'Visita a campo / establecimiento' },
+              { value: 'llamada', label: 'Llamada telefónica' },
+              { value: 'whatsapp', label: 'Mensaje de WhatsApp' },
+              { value: 'email', label: 'Correo electrónico' },
+              { value: 'reunion', label: 'Reunión comercial' },
             ]}
           />
 
-          <CompanyAutocomplete
-            label="Empresa / Cliente"
-            name="empresa"
-            value={form.empresa}
-            onChange={(nombre) => setForm((prev) => ({ ...prev, empresa: nombre }))}
-          />
+          {editingActivity ? (
+            <div className="act-board__readonly">
+              <span className="form-input-label">Empresa y oportunidad</span>
+              <p>{form.empresa || '—'}{editingActivity.oportunidad ? ` · ${editingActivity.oportunidad.titulo}` : ''}</p>
+            </div>
+          ) : (
+            <>
+              <CompanyAutocomplete
+                label="Empresa / Cliente"
+                name="empresa"
+                value={form.empresa}
+                required
+                error={errors.empresa}
+                onChange={(nombre, hit) => {
+                  setForm((prev) => ({ ...prev, empresa: nombre, empresaId: hit?.id || null, oportunidadId: '', nuevaOportunidadTitulo: '' }));
+                  if (errors.empresa) setErrors((prev) => ({ ...prev, empresa: '' }));
+                }}
+              />
+
+              {form.empresaId && (
+                <div className="act-board__opp">
+                  <FormSelect
+                    label={cargandoOpps ? 'Oportunidad (cargando…)' : 'Oportunidad'}
+                    name="oportunidadId"
+                    value={form.oportunidadId}
+                    onChange={handleFormChange}
+                    error={errors.oportunidad}
+                    options={[
+                      ...oportunidades.map((o) => ({
+                        value: String(o.id),
+                        label: `${o.titulo} · ${o.estado}${o.responsable && o.responsable.idUser !== myUserId ? ` (de ${o.responsable.nombreApellido})` : ''}`,
+                      })),
+                      { value: NUEVA, label: '+ Nueva oportunidad' },
+                    ]}
+                  />
+                  {form.oportunidadId === NUEVA && (
+                    <FormInput
+                      label="Título de la nueva oportunidad"
+                      name="nuevaOportunidadTitulo"
+                      value={form.nuevaOportunidadTitulo}
+                      onChange={handleFormChange}
+                      placeholder="Ej: Fumigación de silos campaña 2026"
+                      required
+                    />
+                  )}
+                  <FormSelect
+                    label="¿Cambió el estado de la oportunidad?"
+                    name="estadoOportunidad"
+                    value={form.estadoOportunidad}
+                    onChange={handleFormChange}
+                    options={[
+                      { value: '', label: 'Sin cambios (si era Prospecto pasa a Contactado)' },
+                      ...ESTADOS_OPORTUNIDAD.map((e) => ({ value: e.key, label: e.label })),
+                    ]}
+                  />
+                </div>
+              )}
+            </>
+          )}
 
           <div className="tasks-board__form-row">
             <FormInput
@@ -672,8 +818,8 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             <ToggleSection
               checked={form.crearTarea}
               onChange={setCrearTarea}
-              title="Generar también tareas de seguimiento"
-              subtitle={`Quedan asociadas a esta actividad (hasta ${MAX_FOLLOWUP_TASKS})`}
+              title="Requiere seguimiento"
+              subtitle={form.crearTarea ? `Se crean tareas asociadas a esta actividad (hasta ${MAX_FOLLOWUP_TASKS})` : 'Quedará registrado que no requiere seguimiento'}
             >
 
               {form.crearTarea &&

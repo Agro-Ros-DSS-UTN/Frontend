@@ -62,9 +62,10 @@ export const ContactAutocomplete = ({
     () =>
       contacts
         .map((c) => ({
-          id: c.numDoc || c.id,
+          id: c.id,
           nombre: c.nombreApellido || '',
-          empresa: c.ClientCompany?.nombreEmpresa || '',
+          empresa: c.empresa || '',
+          empresaId: c.empresaId || null,
           email: c.direccionMail && c.direccionMail !== '-' ? c.direccionMail : '',
         }))
         .filter((c) => c.nombre),

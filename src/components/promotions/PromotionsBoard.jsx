@@ -12,7 +12,7 @@ import {
   Tag,
   Download,
 } from 'lucide-react';
-import { promotionsApi } from '../../api/operations.api';
+import { promotionsApi, catalogApi } from '../../api/operations.api';
 import { FormInput, FormTextarea } from '../ui/FormInput/FormInput';
 import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
 import { LoadingState } from '../ui/LoadingState/LoadingState';
@@ -45,6 +45,7 @@ const normalize = (p, i) => ({
   condiciones: p.condiciones || '',
   fechaInicio: p.fechaInicio ? String(p.fechaInicio).slice(0, 10) : '',
   fechaFin: p.fechaFin ? String(p.fechaFin).slice(0, 10) : '',
+  items: Array.isArray(p.items) ? p.items : [],
 });
 
 const emptyForm = () => ({
@@ -55,6 +56,7 @@ const emptyForm = () => ({
   fechaInicio: new Date().toISOString().slice(0, 10),
   fechaFin: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
   condiciones: '',
+  itemIds: [],
 });
 
 export const PromotionsBoard = ({ variant = 'admin' }) => {
@@ -69,6 +71,14 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
   const [editingId, setEditingId] = useState(null);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState(emptyForm());
+
+  // Productos del catálogo incluidos en la promoción (reemplaza el vínculo por línea de la v1).
+  const [catalogo, setCatalogo] = useState([]);
+  const [buscarItem, setBuscarItem] = useState('');
+  useEffect(() => {
+    if (isSeller) return;
+    catalogApi.getItems({ activos: 1 }).then(setCatalogo).catch(() => setCatalogo([]));
+  }, [isSeller]);
 
   const fetchPromos = async () => {
     setLoading(true);
@@ -122,6 +132,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
       fechaInicio: p.fechaInicio || new Date().toISOString().slice(0, 10),
       fechaFin: p.fechaFin || new Date().toISOString().slice(0, 10),
       condiciones: p.condiciones,
+      itemIds: p.items.map((i) => i.id),
     });
     setShowDrawer(true);
   };
@@ -152,6 +163,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
         fechaInicio: form.fechaInicio,
         fechaFin: form.fechaFin,
         condiciones: form.condiciones.trim(),
+        itemIds: form.itemIds,
       };
       if (editingId) await promotionsApi.update(editingId, payload);
       else await promotionsApi.create(payload);
@@ -303,6 +315,11 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
                       <strong>Condiciones:</strong> {p.condiciones}
                     </p>
                   )}
+                  {p.items.length > 0 && (
+                    <p className="promo-card__cond">
+                      <strong>Productos:</strong> {p.items.map((i) => i.nombre).join(', ')}
+                    </p>
+                  )}
 
                   <div className="promo-card__dates">
                     <span>
@@ -417,6 +434,27 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             onChange={handleChange}
             placeholder="Ej: Pago a 30/60 días con eCheq"
           />
+
+          <div className="promo-items">
+            <p className="promo-items__label">Productos incluidos <span>{form.itemIds.length ? `${form.itemIds.length} elegidos` : 'opcional'}</span></p>
+            <input className="promo-items__search" value={buscarItem} onChange={(e) => setBuscarItem(e.target.value)} placeholder="Buscar en el catálogo…" />
+            <div className="promo-items__list">
+              {catalogo.length === 0 && <p className="promo-items__empty">El catálogo está vacío.</p>}
+              {catalogo
+                .filter((i) => !buscarItem.trim() || i.nombre.toLowerCase().includes(buscarItem.toLowerCase().trim()))
+                .slice(0, 60)
+                .map((i) => (
+                  <label key={i.id} className="promo-items__item">
+                    <input
+                      type="checkbox"
+                      checked={form.itemIds.includes(i.id)}
+                      onChange={() => setForm((prev) => ({ ...prev, itemIds: prev.itemIds.includes(i.id) ? prev.itemIds.filter((x) => x !== i.id) : [...prev.itemIds, i.id] }))}
+                    />
+                    <span>{i.nombre}{i.linea?.nombre ? ` · ${i.linea.nombre}` : ''}</span>
+                  </label>
+                ))}
+            </div>
+          </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
             <button type="submit" className="btn-rounded-primary" style={{ flex: 1, padding: '12px', justifyContent: 'center' }} disabled={saving}>

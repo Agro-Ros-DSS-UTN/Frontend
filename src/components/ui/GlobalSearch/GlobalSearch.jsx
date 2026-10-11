@@ -13,7 +13,7 @@ import {
   X,
   Network,
 } from 'lucide-react';
-import { fetchClients, fetchClientCompanies } from '../../../data/api';
+import { fetchClients, fetchClientCompanies, fetchOpportunities } from '../../../data/api';
 import { tasksApi } from '../../../api/operations.api';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { CompanyTreeModal } from '../../companies/CompanyTreeModal';
@@ -34,7 +34,7 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
       { key: 'tareas', label: 'Tareas', icon: CheckSquare, path: `${base}/tareas` },
     ];
     if (!isSeller) {
-      cats.splice(2, 0, { key: 'negocios', label: 'Negocios', icon: Handshake, path: '/admin/negocios' });
+      cats.splice(2, 0, { key: 'negocios', label: 'Oportunidades', icon: Handshake, path: '/admin/negocios' });
       cats.push({ key: 'ordenes', label: 'Órdenes de Servicio', icon: FileCheck2, path: '/admin/ordenes-servicio' });
     }
     return cats;
@@ -54,11 +54,12 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
     if (!isOpen || loaded) return;
     const fetchAll = async () => {
       setLoading(true);
-      const [clientsRes, companiesRes, tasksRes, ordersRes] = await Promise.allSettled([
+      const [clientsRes, companiesRes, tasksRes, ordersRes, oppsRes] = await Promise.allSettled([
         fetchClients(),
         fetchClientCompanies(),
         tasksApi.getAll(),
         isSeller ? Promise.resolve([]) : serviceOrdersApi.getAll(),
+        isSeller ? Promise.resolve([]) : fetchOpportunities(),
       ]);
       const pick = (r) => {
         if (r.status !== 'fulfilled') return [];
@@ -69,7 +70,7 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
       setData({
         contactos: pick(clientsRes),
         empresas: pick(companiesRes),
-        negocios: [],
+        negocios: pick(oppsRes),
         tareas: pick(tasksRes),
         ordenes: pick(ordersRes),
       });
@@ -105,16 +106,20 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
       if (cat.key === 'contactos') {
         matches = items.filter(
           (c) => norm(c.nombreApellido).includes(q) || norm(c.direccionMail).includes(q) || norm(c.numDoc).includes(q)
-        ).map((c) => ({ id: c.numDoc || c.id, title: c.nombreApellido || 'Contacto', subtitle: c.direccionMail || c.numDoc || '' }));
+        ).map((c) => ({ id: c.id, title: c.nombreApellido || 'Contacto', subtitle: c.direccionMail || c.numDoc || '' }));
       } else if (cat.key === 'empresas') {
         matches = items.filter(
-          (c) => norm(c.nombreEmpresa).includes(q) || norm(c.cuit).includes(q) || norm(c.localidad).includes(q)
+          (c) => norm(c.razonSocial || c.nombreEmpresa).includes(q) || norm(c.cuit).includes(q) || norm(c.localidad).includes(q)
         ).map((c) => ({
           id: c.id,
-          title: c.nombreEmpresa || 'Empresa',
+          title: c.razonSocial || c.nombreEmpresa || 'Empresa',
           subtitle: [c.localidad, c.cuit].filter(Boolean).join(' · '),
           nivelEmpresa: c.nivelEmpresa,
         }));
+      } else if (cat.key === 'negocios') {
+        matches = items.filter(
+          (o) => norm(o.titulo).includes(q) || norm(o.empresa).includes(q)
+        ).map((o) => ({ id: o.id, title: o.titulo || 'Oportunidad', subtitle: [o.empresa, o.estado].filter(Boolean).join(' · ') }));
       } else if (cat.key === 'tareas') {
         matches = items.filter(
           (t) => norm(t.titulo).includes(q) || norm(t.descripcion).includes(q) || norm(t.empresa).includes(q) || norm(t.asignadoA).includes(q)

@@ -1,31 +1,13 @@
-import { apiClient } from './apiClient';
+import { apiClient, unwrap } from './apiClient';
 
 export const companiesApi = {
-  getAll: async () => {
-    const response = await apiClient.get('/clientCompany');
-    return response.data;
-  },
-  getById: async (id) => {
-    const response = await apiClient.get(`/clientCompany/${id}`);
-    return response.data;
-  },
-  // Jerarquía completa (madre + regiones + subsedes) a partir de cualquier
-  // id de ese árbol — usado por la vista "Inspeccionar".
-  getTree: async (id) => {
-    const response = await apiClient.get(`/clientCompany/${id}/tree`);
-    return response.data;
-  },
-  create: async (data) => {
-    const response = await apiClient.post('/clientCompany', data);
-    return response.data;
-  },
-  update: async (id, data) => {
-    const response = await apiClient.put(`/clientCompany/${id}`, data);
-    return response.data;
-  },
-  // Contactos (Clientes individuales)
-  getClients: async () => {
-    const response = await apiClient.get('/clientes');
-    return response.data;
-  }
+  getAll: async () => ({ data: unwrap(await apiClient.get('/empresas')) }),
+  getById: async (id) => ({ data: unwrap(await apiClient.get(`/empresas/${id}`)) }),
+  // Jerarquía completa (madre + regiones + subsedes) a partir de cualquier nodo.
+  getTree: async (id) => ({ data: unwrap(await apiClient.get(`/empresas/${id}/arbol`)) }),
+  // CUU06: indicadores de servicio de la empresa (para mostrarle al cliente).
+  getDashboard: async (id, meses = 12) => unwrap(await apiClient.get(`/empresas/${id}/tablero`, { params: { meses } })),
+  create: async (data) => (await apiClient.post('/empresas', data)).data,
+  update: async (id, data) => (await apiClient.put(`/empresas/${id}`, data)).data,
+  getClients: async () => ({ data: unwrap(await apiClient.get('/contactos')) }),
 };

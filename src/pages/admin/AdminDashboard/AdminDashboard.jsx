@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getDashboardData, OPPORTUNITY_STATES, fetchClientCompanies } from '../../../data/api';
+import { tipoContactoLabel } from '../../../data/catalogos';
 import { activitiesApi, tasksApi } from '../../../api/operations.api';
 import { VoiceNotePlayer } from '../../../components/ui/VoiceRecorder/VoiceRecorder';
 import './AdminDashboard.css';
@@ -339,11 +340,14 @@ export const AdminDashboardPage = () => {
 
             return {
               idFormulario: a.idFormulario || a.id,
-              tipoContacto: a.tipoContacto || 'Visita',
+              tipoContacto: tipoContactoLabel(a.tipoContacto),
+              empresaId: a.empresaId || null,
+              empresa: a.empresa || '',
               descripcion: a.descripcion || 'Sin descripción',
               montoVenta: a.montoVenta ? Number(a.montoVenta) : null,
               fechaHora: a.fechaHora || new Date().toISOString(),
-              autorNombre: a.autorNombre || 'Administración',
+              autorNombre: a.autorNombre || '—',
+              idUser: a.usuarioId || null,
               fotoUrl: parsedAttachments?.fotoUrl || null,
               audioData: parsedAttachments?.audioData || null,
             };
@@ -372,7 +376,7 @@ export const AdminDashboardPage = () => {
   const filteredOpps = useMemo(() => {
     let opps = opportunities;
     if (filterOwner) {
-      opps = opps.filter((o) => o.vendedor === filterOwner);
+      opps = opps.filter((o) => o.propietario === filterOwner);
     }
     return opps;
   }, [opportunities, filterOwner]);
@@ -380,7 +384,7 @@ export const AdminDashboardPage = () => {
   const filteredActivities = useMemo(() => {
     let acts = activities;
     if (filterOwner) {
-      acts = acts.filter((a) => a.autorNombre?.includes(filterOwner));
+      acts = acts.filter((a) => a.autorNombre === filterOwner);
     }
     return acts;
   }, [activities, filterOwner]);
@@ -411,21 +415,13 @@ export const AdminDashboardPage = () => {
 
   const pipelineChartData = useMemo(() => {
     const counts = {};
-    OPPORTUNITY_STATES.forEach((st) => (counts[st] = 0));
+    OPPORTUNITY_STATES.forEach((st) => (counts[st.key] = 0));
     filteredOpps.forEach((o) => {
       const estado = o.estado || 'Prospecto';
       counts[estado] = (counts[estado] || 0) + 1;
     });
 
-    const colors = {
-      Prospecto: '#94a3b8',
-      'Contacto Inicial': '#0284c7',
-      Reunión: '#3b82f6',
-      Propuesta: '#8b5cf6',
-      Negociación: '#f59e0b',
-      Ganada: '#16a34a',
-      Perdida: '#ef4444',
-    };
+    const colors = Object.fromEntries(OPPORTUNITY_STATES.map((st) => [st.key, st.color]));
 
     return Object.entries(counts).map(([label, value]) => ({
       label,
@@ -438,13 +434,13 @@ export const AdminDashboardPage = () => {
     const medals = ['🥇', '🥈', '🥉'];
     return clients
       .map((c) => {
-        const clientOpps = filteredOpps.filter((o) => o.clienteId === c.id || o.empresa === c.empresa);
+        const clientOpps = filteredOpps.filter((o) => o.empresaId === c.id);
         const ventasTotal = clientOpps.reduce((sum, o) => sum + (Number(o.volumenFacturado) || 0), 0);
-        const interacciones = filteredActivities.filter((a) => a.clienteId === c.id || a.empresa === c.empresa).length;
+        const interacciones = filteredActivities.filter((a) => a.empresaId === c.id).length;
 
         return {
-          empresa: c.empresa || c.nombre,
-          tipo: c.tipo || c.tipoCliente || 'Cliente',
+          empresa: c.razonSocial || c.nombreEmpresa,
+          tipo: c.tipoEmpresa || 'Cliente',
           ventas: ventasTotal,
           interacciones,
           estado: c.estado || 'Activo',

@@ -30,7 +30,7 @@ const adminNavItems = [
   { path: '/admin/usuarios',      icon: UserCog,         label: 'Usuarios' },
   { path: '/admin/contactos',     icon: Users,           label: 'Contactos' },
   { path: '/admin/empresas',      icon: Building2,       label: 'Empresas' },
-  { path: '/admin/negocios',      icon: Handshake,       label: 'Negocios' },
+  { path: '/admin/negocios',      icon: Handshake,       label: 'Oportunidades' },
   { path: '/admin/tareas',           icon: CheckSquare,     label: 'Tareas' },
   { path: '/admin/ordenes-servicio', icon: FileCheck2,       label: 'Orden/Evaluación de Servicio' },
   { path: '/admin/empleados',     icon: HardHat,         label: 'Empleados' },

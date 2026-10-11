@@ -1,20 +1,8 @@
-import { apiClient } from './apiClient';
+import { apiClient, unwrap } from './apiClient';
 
 export const dealsApi = {
-  getAll: async () => {
-    const response = await apiClient.get('/opportunities');
-    return response.data;
-  },
-  getById: async (id) => {
-    const response = await apiClient.get(`/opportunities/${id}`);
-    return response.data;
-  },
-  create: async (data) => {
-    const response = await apiClient.post('/opportunities', data);
-    return response.data;
-  },
-  update: async (id, data) => {
-    const response = await apiClient.put(`/opportunities/${id}`, data);
-    return response.data;
-  }
+  getAll: async (params) => ({ data: unwrap(await apiClient.get('/oportunidades', { params })) }),
+  getById: async (id) => ({ data: unwrap(await apiClient.get(`/oportunidades/${id}`)) }),
+  create: async (data) => (await apiClient.post('/oportunidades', data)).data,
+  update: async (id, data) => (await apiClient.put(`/oportunidades/${id}`, data)).data,
 };

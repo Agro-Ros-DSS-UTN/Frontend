@@ -446,3 +446,6 @@
   font-weight: 600;
   margin: -8px 0 0;
 }
+
+.profile-zona { display: flex; flex-wrap: wrap; gap: 8px; }
+.profile-zona__chip { padding: 4px 10px; border-radius: 999px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 0.8rem; }

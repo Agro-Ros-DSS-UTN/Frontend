@@ -15,7 +15,8 @@ import { objectivesApi, roadmapsApi, tasksApi } from '../../../api/operations.ap
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import './SellerDashboardPage.css';
 
-const isCompleted = (estado) => /complet/i.test(String(estado || ''));
+const isCompleted = (estado) => /complet|finaliz|cancel/i.test(String(estado || ''));
+const hoyStr = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
 export const SellerDashboardPage = () => {
   const { currentUser } = useAuth();
@@ -58,7 +59,11 @@ export const SellerDashboardPage = () => {
     fetchSellerData();
   }, [sellerUserId]);
 
-  const activeObjective = objectives[0] || null;
+  // Objetivo vigente hoy; si no hay, el próximo.
+  const activeObjective =
+    objectives.find((o) => o.fechaInicio <= hoyStr() && o.fechaFin >= hoyStr()) ||
+    [...objectives].filter((o) => o.fechaInicio > hoyStr()).sort((a, b) => (a.fechaInicio < b.fechaInicio ? -1 : 1))[0] ||
+    null;
   const activeRoute = roadmaps[0] || null;
   const paradasList = activeRoute?.paradas || activeRoute?.RoadmapStops || [];
   const pendingStops = paradasList.filter(
@@ -137,7 +142,7 @@ export const SellerDashboardPage = () => {
       <div className="seller-banner">
         <div className="seller-banner__content">
           <div className="seller-banner__badge">
-            {activeObjective?.periodoSemana ? `Semana ${activeObjective.periodoSemana} · ` : ''}
+            {activeObjective?.fechaInicio ? `${activeObjective.fechaInicio.split('-').reverse().slice(0, 2).join('/')} al ${activeObjective.fechaFin.split('-').reverse().slice(0, 2).join('/')} · ` : ''}
             Operaciones Pendientes
           </div>
           <h1 className="seller-banner__title">
@@ -168,14 +173,14 @@ export const SellerDashboardPage = () => {
                   <h2 className="seller-card__title">Objetivo Semanal Asignado</h2>
                   <p className="seller-card__subtitle">
                     {activeObjective
-                      ? `Definido por la Administración · Semana ${activeObjective.periodoSemana || '—'}`
+                      ? `Definido por la Administración · ${activeObjective.tipoPeriodo === 'mensual' ? 'Mensual' : 'Semanal'}`
                       : 'Sin objetivo asignado todavía'}
                   </p>
                 </div>
               </div>
               {activeObjective && (
                 <span className="seller-status-pill in-progress">
-                  {activeObjective.estado || 'En proceso'}
+                  {({ completado: 'Cumplido', vencido: 'Vencido', en_proceso: 'En proceso' })[activeObjective.estado] || 'En proceso'}
                 </span>
               )}
             </div>

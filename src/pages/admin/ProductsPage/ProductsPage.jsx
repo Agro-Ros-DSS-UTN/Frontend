@@ -13,7 +13,7 @@ import {
   DollarSign,
   Layers,
 } from 'lucide-react';
-import { mockProducts, PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/mockData';
+import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/catalogos';
 import {
   getProducts,
   createProduct as apiCreateProduct,
@@ -55,13 +55,11 @@ export const ProductsPage = () => {
     const fetchDBProducts = async () => {
       setLoading(true);
       try {
-        const dbProducts = await getProducts();
-        if (Array.isArray(dbProducts)) {
-          setProducts(dbProducts);
-        }
+        setProducts(await getProducts());
       } catch (err) {
-        console.warn('[DB Products] Error al cargar de MySQL, usando fallback:', err);
-        setProducts(mockProducts);
+        console.warn('[Productos] Error al cargar el catálogo:', err);
+        setProducts([]);
+        notificar.error('No se pudo cargar el catálogo', err);
       } finally {
         setLoading(false);
       }
@@ -231,7 +229,7 @@ export const ProductsPage = () => {
 
     const payload = {
       nombre: form.nombre,
-      ref: form.ref || `SKU-${Date.now().toString().slice(-4)}`,
+      ref: form.ref.trim(),
       descripcion: form.descripcion,
       tipoProducto: form.tipoProducto,
       frecuenciaFacturacion: form.frecuenciaFacturacion,
@@ -239,13 +237,12 @@ export const ProductsPage = () => {
       costeUnidad: Number(form.costeUnidad) || 0,
       activo: form.activo,
       imagenUrl: form.imagenUrl || null,
-      stockDisponible: 100,
     };
 
     try {
       if (modalMode === 'create') {
-        const result = await apiCreateProduct(payload);
-        const createdProd = result?.data || result;
+        const createdProd = await apiCreateProduct(payload);
+        if (!createdProd?.id) throw new Error('El servidor no confirmó el alta del producto.');
         setProducts((prev) => [createdProd, ...prev]);
         notificar.exito('Producto creado', payload.nombre);
       } else {
@@ -263,7 +260,7 @@ export const ProductsPage = () => {
 
     // Refresca desde la base para traer los datos tal como quedaron guardados
     getProducts()
-      .then((list) => { if (Array.isArray(list) && list.length > 0) setProducts(list); })
+      .then((list) => { if (Array.isArray(list)) setProducts(list); })
       .catch(() => {});
 
     if (modalMode === 'create' && andAddAnother) {

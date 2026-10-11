@@ -1,141 +1,70 @@
-import { apiClient } from './apiClient';
+import { apiClient, unwrap } from './apiClient';
+
+const lista = (res) => {
+  const d = unwrap(res);
+  return Array.isArray(d) ? d : [];
+};
 
 export const tasksApi = {
-  getAll: async (params = {}) => {
-    const response = await apiClient.get('/tasks', { params });
-    return response.data;
-  },
-  create: async (data) => {
-    const response = await apiClient.post('/tasks', data);
-    return response.data;
-  },
-  update: async (id, data) => {
-    const response = await apiClient.put(`/tasks/${id}`, data);
-    return response.data;
-  },
-  updateStatus: async (id, estado) => {
-    const response = await apiClient.patch(`/tasks/${id}/status`, { estado });
-    return response.data;
-  },
-  finalize: async (id) => {
-    const response = await apiClient.patch(`/tasks/${id}/finalizar`);
-    return response.data;
-  },
-  delete: async (id) => {
-    const response = await apiClient.delete(`/tasks/${id}`);
-    return response.data;
-  }
+  getAll: async (params = {}) => ({ data: lista(await apiClient.get('/tareas', { params })) }),
+  create: async (data) => (await apiClient.post('/tareas', data)).data,
+  update: async (id, data) => (await apiClient.put(`/tareas/${id}`, data)).data,
+  updateStatus: async (id, estado) => (await apiClient.patch(`/tareas/${id}/estado`, { estado })).data,
+  finalize: async (id) => (await apiClient.patch(`/tareas/${id}/finalizar`)).data,
+  delete: async (id) => (await apiClient.delete(`/tareas/${id}`)).data,
 };
 
 export const activitiesApi = {
-  getAll: async () => {
-    const response = await apiClient.get('/formulario-actividad');
-    return response.data;
-  },
-  create: async (data) => {
-    const response = await apiClient.post('/formulario-actividad', data);
-    return response.data;
-  },
-  update: async (id, data) => {
-    const response = await apiClient.put(`/formulario-actividad/${id}`, data);
-    return response.data;
-  },
-  delete: async (id) => {
-    const response = await apiClient.delete(`/formulario-actividad/${id}`);
-    return response.data;
-  }
+  getAll: async (params) => lista(await apiClient.get('/actividades', { params })),
+  create: async (data) => (await apiClient.post('/actividades', data)).data,
+  update: async (id, data) => (await apiClient.put(`/actividades/${id}`, data)).data,
+  delete: async (id) => (await apiClient.delete(`/actividades/${id}`)).data,
+  // Contenido de un adjunto (data URL); se pide al abrirlo para no cargar todo de golpe.
+  getAttachment: async (id) => unwrap(await apiClient.get(`/adjuntos/${id}`)),
 };
 
 export const roadmapsApi = {
-  getAll: async () => {
-    const response = await apiClient.get('/roadmaps');
-    return response.data;
-  },
-  getBySeller: async (sellerId) => {
-    const response = await apiClient.get(`/roadmaps/seller/${sellerId}`);
-    return response.data;
-  },
-  // Hojas de ruta asignadas a un usuario puntual (admin o vendedor) — no
-  // depende de que exista una fila en `vendedores`.
-  getByUser: async (idUser) => {
-    const response = await apiClient.get(`/roadmaps/user/${idUser}`);
-    return response.data;
-  },
-  create: async (data) => {
-    const response = await apiClient.post('/roadmaps', data);
-    return response.data;
-  },
-  updateStopStatus: async (stopId, estadoParada) => {
-    const response = await apiClient.patch(`/roadmaps/stops/${stopId}/status`, { estadoParada });
-    return response.data;
-  },
-  start: async (id) => {
-    const response = await apiClient.put(`/roadmaps/${id}/start`);
-    return response.data;
-  },
-  end: async (id) => {
-    const response = await apiClient.put(`/roadmaps/${id}/end`);
-    return response.data;
-  },
-  addStop: async (id, { texto, url }) => {
-    const response = await apiClient.post(`/roadmaps/${id}/stops`, { texto, url });
-    return response.data;
-  },
-  delete: async (id) => {
-    const response = await apiClient.delete(`/roadmaps/${id}`);
-    return response.data;
-  }
+  getAll: async () => ({ data: lista(await apiClient.get('/hojas-ruta')) }),
+  getBySeller: async (idUser) => ({ data: lista(await apiClient.get('/hojas-ruta', { params: { usuarioId: idUser } })) }),
+  getByUser: async (idUser) => ({ data: lista(await apiClient.get('/hojas-ruta', { params: { usuarioId: idUser } })) }),
+  create: async (data) => (await apiClient.post('/hojas-ruta', data)).data,
+  update: async (id, data) => (await apiClient.put(`/hojas-ruta/${id}`, data)).data,
+  updateStopStatus: async (stopId, estado) => (await apiClient.patch(`/paradas/${stopId}`, { estado })).data,
+  start: async (id) => (await apiClient.put(`/hojas-ruta/${id}/iniciar`)).data,
+  end: async (id) => (await apiClient.put(`/hojas-ruta/${id}/finalizar`)).data,
+  addStop: async (id, { texto, url, empresaId }) => (await apiClient.post(`/hojas-ruta/${id}/paradas`, { texto, url, empresaId })).data,
+  delete: async (id) => (await apiClient.delete(`/hojas-ruta/${id}`)).data,
 };
 
 export const objectivesApi = {
-  getAll: async () => {
-    const response = await apiClient.get('/objectives');
-    return response.data;
-  },
-  getBySeller: async (sellerId) => {
-    const response = await apiClient.get(`/objectives/seller/${sellerId}`);
-    return response.data;
-  },
-  create: async (data) => {
-    const response = await apiClient.post('/objectives', data);
-    return response.data;
-  },
-  update: async (id, data) => {
-    const response = await apiClient.patch(`/objectives/${id}`, data);
-    return response.data;
-  },
-  delete: async (id) => {
-    const response = await apiClient.delete(`/objectives/${id}`);
-    return response.data;
-  }
+  getAll: async (params) => lista(await apiClient.get('/objetivos', { params })),
+  getBySeller: async (idUser) => lista(await apiClient.get('/objetivos', { params: { usuarioId: idUser } })),
+  create: async (data) => (await apiClient.post('/objetivos', data)).data,
+  update: async (id, data) => (await apiClient.put(`/objetivos/${id}`, data)).data,
+  delete: async (id) => (await apiClient.delete(`/objetivos/${id}`)).data,
 };
 
 export const promotionsApi = {
-  getAll: async () => {
-    const response = await apiClient.get('/promotions');
-    return response.data;
-  },
-  create: async (data) => {
-    const response = await apiClient.post('/promotions', data);
-    return response.data;
-  },
-  update: async (id, data) => {
-    const response = await apiClient.put(`/promotions/${id}`, data);
-    return response.data;
-  },
-  delete: async (id) => {
-    const response = await apiClient.delete(`/promotions/${id}`);
-    return response.data;
-  }
+  getAll: async (params) => lista(await apiClient.get('/promociones', { params })),
+  create: async (data) => unwrap(await apiClient.post('/promociones', data)),
+  update: async (id, data) => unwrap(await apiClient.put(`/promociones/${id}`, data)),
+  delete: async (id) => (await apiClient.delete(`/promociones/${id}`)).data,
 };
 
 export const notesApi = {
-  getAll: async () => {
-    const response = await apiClient.get('/internal-notes');
-    return response.data;
-  },
-  create: async (data) => {
-    const response = await apiClient.post('/internal-notes', data);
-    return response.data;
-  }
+  getAll: async () => ({ data: lista(await apiClient.get('/notas-internas')) }),
+  create: async (data) => (await apiClient.post('/notas-internas', data)).data,
+  update: async (id, data) => (await apiClient.put(`/notas-internas/${id}`, data)).data,
+};
+
+export const notificationsApi = {
+  getAll: async () => (await apiClient.get('/notificaciones')).data,
+  markRead: async (id) => (await apiClient.patch(`/notificaciones/${id}/leida`)).data,
+  markAllRead: async () => (await apiClient.patch('/notificaciones/leidas')).data,
+};
+
+export const catalogApi = {
+  getItems: async (params) => lista(await apiClient.get('/catalogo', { params: { sinImagen: 1, ...params } })),
+  getServices: async () => lista(await apiClient.get('/servicios', { params: { sinImagen: 1 } })),
+  getLines: async () => lista(await apiClient.get('/lineas-producto')),
 };

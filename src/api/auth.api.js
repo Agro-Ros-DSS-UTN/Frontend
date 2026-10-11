@@ -1,33 +1,20 @@
-﻿import { apiClient } from './apiClient';
+import { apiClient } from './apiClient';
+
+const data = (res) => res.data;
 
 export const authApi = {
-  login: async (idUser, password) => {
-    const response = await apiClient.post('/users/login', { idUser, password });
-    return response.data;
-  },
-  getAllUsers: async () => {
-    const response = await apiClient.get('/users');
-    return response.data;
-  },
-  createUser: async (userData) => {
-    const response = await apiClient.post('/users', userData);
-    return response.data;
-  },
-  updateUser: async (idUser, userData) => {
-    const response = await apiClient.put('/users/' + idUser, userData);
-    return response.data;
-  },
-  deleteUser: async (idUser) => {
-    const response = await apiClient.delete('/users/' + idUser);
-    return response.data;
-  },
-  // Imagen de perfil persistente en base de datos
-  getProfileImage: async (idUser) => {
-    const response = await apiClient.get('/users/' + idUser + '/profile-image');
-    return response.data;
-  },
-  updateProfileImage: async (idUser, profileImage) => {
-    const response = await apiClient.put('/users/' + idUser + '/profile-image', { profileImage });
-    return response.data;
-  }
+  login: async (idUser, password, { mantenerSesion = false } = {}) =>
+    data(await apiClient.post('/auth/login', { idUser, password, mantenerSesion })),
+  me: async () => data(await apiClient.get('/auth/me')),
+  // Devuelve un token nuevo: las sesiones abiertas en otros equipos se cierran.
+  cambiarPassword: async (passwordActual, passwordNuevo) =>
+    data(await apiClient.post('/auth/cambiar-password', { passwordActual, passwordNuevo })),
+  getAllUsers: async () => data(await apiClient.get('/usuarios')),
+  createUser: async (userData) => data(await apiClient.post('/usuarios', userData)),
+  updateUser: async (idUser, userData) => data(await apiClient.put(`/usuarios/${encodeURIComponent(idUser)}`, userData)),
+  deleteUser: async (idUser) => data(await apiClient.delete(`/usuarios/${encodeURIComponent(idUser)}`)),
+  getProfileImage: async (idUser) => data(await apiClient.get(`/usuarios/${encodeURIComponent(idUser)}/imagen`)),
+  updateProfileImage: async (idUser, profileImage) => data(await apiClient.put(`/usuarios/${encodeURIComponent(idUser)}/imagen`, { profileImage })),
+  getZona: async (idUser) => data(await apiClient.get(`/usuarios/${encodeURIComponent(idUser)}/zona`)),
+  updateZona: async (idUser, localidadIds) => data(await apiClient.put(`/usuarios/${encodeURIComponent(idUser)}/zona`, { localidadIds })),
 };

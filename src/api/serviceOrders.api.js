@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+// Las órdenes de servicio son solo de la administración (el backend lo exige).
 
 export const serviceOrdersApi = {
   /**

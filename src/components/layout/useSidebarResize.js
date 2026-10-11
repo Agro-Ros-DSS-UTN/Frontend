@@ -21,6 +21,8 @@ const clampWidth = (w) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w));
 
 const readCollapsed = () => {
   try {
+    // En el celular arranca colapsado para que el contenido tenga lugar.
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return true;
     const saved = localStorage.getItem(COLLAPSED_KEY);
     return saved !== null ? JSON.parse(saved) : false;
   } catch {

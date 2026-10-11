@@ -1,4 +1,4 @@
-﻿import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/mockData';
+﻿import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/catalogos';
 
 /**
  * Estado inicial del formulario de producto.
