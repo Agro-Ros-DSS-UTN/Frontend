@@ -1053,8 +1053,16 @@ select.so-sheet__input {
   .so-form-modal__body { padding: 18px; }
 }
 
-/* Botón de acción sin destino (por ejemplo, orden sin evaluación para imprimir) */
-.so-action-icon-btn:disabled {
-  opacity: 0.4;
+/* Botón de acción sin destino (por ejemplo, orden sin evaluación para imprimir):
+   se ve apagado y no se resalta al pasar el mouse; el click avisa por qué. */
+.so-action-icon-btn:disabled,
+.so-action-icon-btn.is-disabled {
+  opacity: 0.35;
   cursor: not-allowed;
+}
+.so-action-icon-btn.is-disabled:hover,
+.so-action-icon-btn:disabled:hover {
+  color: var(--text-muted, #64748b);
+  border-color: var(--border-light, #e2e8f0);
+  background: #ffffff;
 }

@@ -239,7 +239,7 @@ export const ServiceOrdersPage = () => {
   const [pdfPreview, setPdfPreview] = useState(null);
   const openPdfPreview = (tipo, order) => {
     if (tipo === 'evaluacion' && !order?.evaluacion) {
-      notificar.info('Esta orden todavía no tiene evaluación', 'Cargala desde el lápiz para poder imprimirla.');
+      notificar.advertencia('No se puede imprimir la evaluación', 'Esta orden todavía no tiene evaluación. Cargala con «Cargar evaluación» y después imprimila.');
       return;
     }
     setPdfPreview({ tipo, order });
@@ -1152,10 +1152,11 @@ export const ServiceOrdersPage = () => {
                           </button>
                           <button
                             type="button"
-                            className="so-action-icon-btn so-action-icon-btn--print"
-                            title={order.evaluacion ? 'Imprimir evaluación de servicio' : 'Sin evaluación cargada'}
+                            className={`so-action-icon-btn so-action-icon-btn--print ${order.evaluacion ? '' : 'is-disabled'}`}
+                            title={order.evaluacion ? 'Imprimir evaluación de servicio' : 'Sin evaluación: primero hay que cargarla'}
                             aria-label={`Imprimir evaluación de servicio ${order.numeroOrden}`}
-                            disabled={!order.evaluacion}
+                            /* Sin "disabled": así el click avisa por qué no se puede, en vez de no hacer nada */
+                            aria-disabled={!order.evaluacion}
                             onClick={() => openPdfPreview('evaluacion', order)}
                           >
                             <ClipboardCheck size={15} />
