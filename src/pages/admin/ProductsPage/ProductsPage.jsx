@@ -417,6 +417,16 @@ export const ProductsPage = () => {
       {/* Main Unified Card */}
       <div className="products-page__card">
         <div className="products-page__toolbar crm-filterbar">
+          <div className="products-page__search">
+            <Search size={16} color="#64748b" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, SKU o descripción..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
           <FilterTabs
             ariaLabel="Filtrar productos por tipo"
             value={activeTab}
@@ -436,16 +446,6 @@ export const ProductsPage = () => {
                   }).length,
             }))}
           />
-
-          <div className="products-page__search">
-            <Search size={16} color="#64748b" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, SKU o descripción..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
 
           <div className="products-filters-group crm-filterbar__end">
             <select

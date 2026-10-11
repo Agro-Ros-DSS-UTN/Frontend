@@ -69,7 +69,7 @@
   color: #1a7d6b;
 }
 
-/* Fila única: pestañas + buscador a la izquierda, filtros restantes a la derecha */
+/* Fila única: buscador y pestañas a la izquierda (en ese orden), filtros restantes a la derecha */
 .crm-filterbar.crm-filterbar {
   display: flex;
   align-items: center;

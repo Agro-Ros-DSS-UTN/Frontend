@@ -325,6 +325,19 @@ export const ContactsPage = () => {
       <div className="contacts-page__card">
         {/* Pestañas por tipo + búsqueda en una sola fila */}
         <div className="contacts-page__toolbar crm-filterbar">
+          <div className="contacts-page__search">
+            <Search size={16} />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, correo, documento o localidad..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+
           <FilterTabs
             ariaLabel="Filtrar contactos por tipo"
             value={typeFilter}
@@ -338,19 +351,6 @@ export const ContactsPage = () => {
               })),
             ]}
           />
-
-          <div className="contacts-page__search">
-            <Search size={16} />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, correo, documento o localidad..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
         </div>
 
         {/* Table */}

@@ -235,8 +235,9 @@
   border: 1px solid var(--border-light, #e2e8f0);
   border-radius: var(--radius-md, 6px);
   padding: var(--space-2, 8px) var(--space-3, 12px);
-  min-width: 280px;
-  flex: 0 1 380px;
+  min-width: 220px;
+  flex: 0 1 300px;
+
   color: var(--text-muted, #64748b);
   transition: all var(--transition-fast, 150ms ease);
 }
@@ -461,24 +462,32 @@
 }
 
 .so-btn-eval-pending {
+  /* Mismo estilo de pastilla que el rol en Usuarios: contorno oscuro, sin relleno */
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #fffbeb;
-  color: #d97706;
-  border: 1px dashed #f59e0b;
-  padding: 4px 10px;
-  border-radius: var(--radius-md, 6px);
-  font-size: 11.5px;
-  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid #334155;
+  background: transparent;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s;
   white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .so-btn-eval-pending:hover {
-  background: #fef3c7;
-  border-style: solid;
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.so-btn-eval-pending:focus-visible {
+  outline: 2px solid #1a7d6b;
+  outline-offset: 2px;
 }
 
 /* Botones de Acción en Fila */
@@ -565,17 +574,31 @@
   color: var(--text-muted, #64748b);
   max-width: 400px;
   margin: 0 0 8px;
-}
+}
+
 
 @keyframes soFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
-}
+}
+
+
+
+
 
 @keyframes soScaleIn {
   from { opacity: 0; transform: scale(0.96) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
-}
+}
+
+
+
+
+
+
+
+
+
 
 .so-form-card {
   background: #ffffff !important;
@@ -666,7 +689,11 @@
 
 .so-textarea {
   resize: vertical !important;
-}
+}
+
+
+
+
 
 /* ═══════════════════════════════════════════════════════════════════
    SlideDrawer Styles for Service Orders & Evaluations (Matching Image 1)

@@ -7,7 +7,8 @@ import {
   Trash2,
   Download,
   HardHat,
-  ExternalLink,
+  Mail,
+  Phone,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
@@ -24,6 +25,8 @@ import '../UsersPage/UsersPage.css';
 import './EmployeesPage.css';
 import { notificar } from '../../../hooks/useNotificaciones';
 import { ROLES_EMPLEADO } from '../../../data/catalogos';
+
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const rolLabel = (rol) => (ROLES_EMPLEADO.find((r) => r.value === rol)?.label || rol || '—').replace(' (ejecuta órdenes)', '');
 
@@ -44,7 +47,7 @@ const COLUMNS = [
   { key: 'matricula', label: 'Matrícula', sortable: true },
   { key: 'rol', label: 'Rol', sortable: true },
   { key: 'puesto', label: 'Puesto', sortable: true },
-  { key: 'contacto', label: 'Contacto', sortable: false },
+  { key: 'contacto', label: 'Teléfono / Email', sortable: false },
   { key: 'fechaIngreso', label: 'Ingreso', sortable: true },
   { key: 'activo', label: 'Estado', sortable: true },
 ];
@@ -301,6 +304,16 @@ export const EmployeesPage = () => {
 
       <div className="users-page__card">
         <div className="users-page__toolbar crm-filterbar">
+          <div className="users-page__search">
+            <Search size={16} color="#64748b" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, DNI, matrícula o puesto..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            />
+          </div>
+
           <FilterTabs
             ariaLabel="Filtrar empleados por estado"
             value={statusFilter}
@@ -311,16 +324,6 @@ export const EmployeesPage = () => {
               { value: 'inactivo', label: 'Inactivos', count: employees.length - activos },
             ]}
           />
-
-          <div className="users-page__search">
-            <Search size={16} color="#64748b" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, DNI, matrícula o puesto..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            />
-          </div>
         </div>
 
         <div className="users-page__table-wrapper">
@@ -399,13 +402,25 @@ export const EmployeesPage = () => {
                       </td>
                       <td>
                         <div className="emp-contact-cell">
-                          {emp.email ? (
-                            <a href={`mailto:${emp.email}`} className="users-table__email">
+                          {/* Teléfono y email del empleado. El email solo es enlace si es una dirección válida
+                              (hay datos viejos con valores de relleno, como "2"). */}
+                          {emp.telefono && (
+                            <span className="emp-contact-line">
+                              <Phone size={12} aria-hidden="true" />
+                              {emp.telefono}
+                            </span>
+                          )}
+                          {emp.email && (EMAIL_OK.test(emp.email) ? (
+                            <a href={`mailto:${emp.email}`} className="emp-contact-line emp-contact-line--link">
+                              <Mail size={12} aria-hidden="true" />
                               {emp.email}
-                              <ExternalLink size={12} />
                             </a>
-                          ) : null}
-                          {emp.telefono && <span className="users-table__id-sub">{emp.telefono}</span>}
+                          ) : (
+                            <span className="emp-contact-line emp-contact-line--invalid" title="No es un email válido: corregilo editando el empleado">
+                              <Mail size={12} aria-hidden="true" />
+                              {emp.email}
+                            </span>
+                          ))}
                           {!emp.email && !emp.telefono && <span style={{ color: '#94a3b8' }}>-</span>}
                         </div>
                       </td>

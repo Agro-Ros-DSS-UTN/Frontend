@@ -977,18 +977,6 @@ export const ServiceOrdersPage = () => {
       <div className="so-card">
         {/* Barra única: pestañas de estado + búsqueda a la izquierda, tipo de trabajo a la derecha */}
         <div className="so-toolbar crm-filterbar">
-          <FilterTabs
-            ariaLabel="Filtrar órdenes por estado"
-            value={activeTab}
-            onChange={setActiveTab}
-            items={[
-              { value: 'all', label: 'Todas', count: orders.length },
-              { value: 'ejecucion', label: 'En Ejecución', count: orders.filter(o => o.estado === 'En Ejecución').length },
-              { value: 'completadas', label: 'Completadas', count: orders.filter(o => o.estado === 'Completada').length },
-              { value: 'sin-evaluar', label: 'Por Evaluar', count: orders.filter(o => !o.evaluacion).length },
-            ]}
-          />
-
           <div className="so-search">
             <Search size={16} />
             <input
@@ -1007,6 +995,18 @@ export const ServiceOrdersPage = () => {
               </button>
             )}
           </div>
+
+          <FilterTabs
+            ariaLabel="Filtrar órdenes por estado"
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { value: 'all', label: 'Todas', count: orders.length },
+              { value: 'ejecucion', label: 'En Ejecución', count: orders.filter(o => o.estado === 'En Ejecución').length },
+              { value: 'completadas', label: 'Completadas', count: orders.filter(o => o.estado === 'Completada').length },
+              { value: 'sin-evaluar', label: 'Por Evaluar', count: orders.filter(o => !o.evaluacion).length },
+            ]}
+          />
 
           <div className="crm-filterbar__end">
             <select
@@ -1132,8 +1132,8 @@ export const ServiceOrdersPage = () => {
                             onClick={() => handleOpenEvalDrawer(order)}
                             title="Cargar evaluación de servicio digital"
                           >
-                            <ShieldCheck size={13} />
-                            <span>+ Cargar Evaluación</span>
+                            <ShieldCheck size={12} />
+                            <span>Cargar evaluación</span>
                           </button>
                         )}
                       </td>

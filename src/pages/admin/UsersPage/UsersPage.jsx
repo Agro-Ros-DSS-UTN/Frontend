@@ -422,6 +422,16 @@ export const UsersPage = () => {
       <div className="users-page__card">
         {/* Toolbar */}
         <div className="users-page__toolbar crm-filterbar">
+          <div className="users-page__search">
+            <Search size={16} color="#64748b" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, ID o email..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            />
+          </div>
+
           <FilterTabs
             ariaLabel="Filtrar usuarios por rol"
             value={activeTab}
@@ -434,16 +444,6 @@ export const UsersPage = () => {
                 : users.filter((u) => getNormalizedRole(u.role || u.rol) === tab.key).length,
             }))}
           />
-
-          <div className="users-page__search">
-            <Search size={16} color="#64748b" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, ID o email..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            />
-          </div>
 
           <div className="crm-filterbar__end">
             <select

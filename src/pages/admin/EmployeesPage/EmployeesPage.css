@@ -124,6 +124,18 @@
 .emp-contact-cell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
+.emp-contact-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+.emp-contact-line svg { color: #94a3b8; flex-shrink: 0; }
+.emp-contact-line--link { color: #1a7d6b; text-decoration: none; }
+.emp-contact-line--link:hover { text-decoration: underline; }
+.emp-contact-line--invalid { color: #94a3b8; font-style: italic; }
 .emp-rol-help { margin: -6px 0 0; font-size: 0.78rem; color: #64748b; }

@@ -538,15 +538,6 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
 
       <div className="tasks-board__card">
         <div className="tasks-board__toolbar crm-filterbar">
-          <FilterTabs
-            ariaLabel="Filtrar actividades por tipo"
-            value={typeFilter}
-            onChange={setTypeFilter}
-            items={[
-              { value: '', label: 'Todas', count: activities.length },
-              ...TIPOS_CONTACTO.map((t) => ({ value: t.value, label: t.label })),
-            ]}
-          />
           <div className="tasks-board__search">
             <Search size={16} color="#64748b" />
             <input
@@ -556,6 +547,15 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          <FilterTabs
+            ariaLabel="Filtrar actividades por tipo"
+            value={typeFilter}
+            onChange={setTypeFilter}
+            items={[
+              { value: '', label: 'Todas', count: activities.length },
+              ...TIPOS_CONTACTO.map((t) => ({ value: t.value, label: t.label })),
+            ]}
+          />
           <select
             className="tasks-board__filter crm-filterbar__end"
             value={attachmentFilter}

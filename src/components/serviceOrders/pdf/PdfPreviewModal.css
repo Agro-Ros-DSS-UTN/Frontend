@@ -114,3 +114,10 @@
   .pdf-preview-overlay { padding: 0; }
   .pdf-preview { height: 100vh; border-radius: 0; }
 }
+
+/* Imprimir y descargar están en la barra del visor de PDF: el botón propio solo
+   aparece en el celular, donde ese visor no siempre se muestra. */
+.pdf-preview__btn--movil { display: none; }
+@media (max-width: 768px) {
+  .pdf-preview__btn--movil { display: inline-flex; }
+}

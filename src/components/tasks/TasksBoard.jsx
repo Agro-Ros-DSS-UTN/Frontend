@@ -461,6 +461,15 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       {/* Card */}
       <div className="tasks-board__card">
         <div className="tasks-board__toolbar crm-filterbar">
+          <div className="tasks-board__search">
+            <Search size={16} color="#64748b" />
+            <input
+              type="text"
+              placeholder="Buscar por título, empresa o responsable..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
           <FilterTabs
             ariaLabel="Filtrar tareas"
             value={activeTab}
@@ -471,15 +480,6 @@ export const TasksBoard = ({ variant = 'admin' }) => {
               { value: 'finalizadas', label: 'Finalizadas', count: finalizadasCount },
             ]}
           />
-          <div className="tasks-board__search">
-            <Search size={16} color="#64748b" />
-            <input
-              type="text"
-              placeholder="Buscar por título, empresa o responsable..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
           <select
             className="tasks-board__filter crm-filterbar__end"
             value={priorityFilter}

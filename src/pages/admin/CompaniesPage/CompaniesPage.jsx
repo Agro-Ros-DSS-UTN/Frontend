@@ -678,6 +678,19 @@ export const CompaniesPage = () => {
       <div className="companies-page__card">
         {/* Pestañas por tipo + búsqueda en una sola fila */}
         <div className="companies-page__toolbar crm-filterbar">
+          <div className="companies-page__search">
+            <Search size={16} />
+            <input
+              type="text"
+              placeholder="Buscar por empresa, CUIT, localidad o tipo..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+
           <FilterTabs
             ariaLabel="Filtrar empresas por tipo"
             value={typeFilter}
@@ -691,19 +704,6 @@ export const CompaniesPage = () => {
               })),
             ]}
           />
-
-          <div className="companies-page__search">
-            <Search size={16} />
-            <input
-              type="text"
-              placeholder="Buscar por empresa, CUIT, localidad o tipo..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
         </div>
 
         {/* Table */}

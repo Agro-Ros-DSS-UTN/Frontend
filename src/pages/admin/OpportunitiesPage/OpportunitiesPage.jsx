@@ -451,17 +451,6 @@ export const OpportunitiesPage = () => {
 
       <div className="deals-card">
         <div className="deals-toolbar crm-filterbar">
-          <FilterTabs
-            ariaLabel="Filtrar oportunidades"
-            value={activeTab}
-            onChange={setActiveTab}
-            items={[
-              { value: 'todos', label: 'Todas', count: deals.length },
-              { value: 'abiertas', label: 'Abiertas', count: openDeals.length },
-              { value: 'estancadas', label: 'Sin movimiento (15+ días)', count: deals.filter((d) => ESTADOS_ABIERTOS.includes(d.etapaKey) && d.diasSinContacto >= 15).length },
-              { value: 'ganadas', label: 'Ganadas', count: wonDeals.length },
-            ]}
-          />
           <div className="deals-search-box">
             <Search size={15} />
             <input
@@ -476,6 +465,17 @@ export const OpportunitiesPage = () => {
               </button>
             )}
           </div>
+          <FilterTabs
+            ariaLabel="Filtrar oportunidades"
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { value: 'todos', label: 'Todas', count: deals.length },
+              { value: 'abiertas', label: 'Abiertas', count: openDeals.length },
+              { value: 'estancadas', label: 'Sin movimiento (15+ días)', count: deals.filter((d) => ESTADOS_ABIERTOS.includes(d.etapaKey) && d.diasSinContacto >= 15).length },
+              { value: 'ganadas', label: 'Ganadas', count: wonDeals.length },
+            ]}
+          />
 
           <div className="deals-view-switcher crm-filterbar__end">
             <button type="button" className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
