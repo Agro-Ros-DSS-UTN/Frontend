@@ -440,7 +440,7 @@ export const ContactsPage = () => {
                               {client.nombreApellido}
                             </button>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                              <span className="contacts-table__doc">{client.numDoc}</span>
+                              {client.numDoc && <span className="contacts-table__doc">{client.numDoc}</span>}
                               {(client.empresa || client.clientCompanyId) && (
                                 <span className="crm-outline-pill">
                                   <Building2 size={10} />

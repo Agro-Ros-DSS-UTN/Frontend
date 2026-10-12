@@ -540,7 +540,7 @@ export const CompaniesPage = () => {
 
       if (includeContact && contactMode === 'existing' && selectedExistingContact) {
         setClients(prevClients => prevClients.map(cl => {
-          if (cl.numDoc === selectedExistingContact.numDoc || cl.id === selectedExistingContact.id) {
+          if (cl.id === selectedExistingContact.id) { // por id: el DNI es opcional y puede estar vacío
             return {
               ...cl,
               clientCompanyId: companyId,
@@ -1216,7 +1216,7 @@ export const CompaniesPage = () => {
                                   {filteredContactsForSearch.length > 0 ? (
                                     filteredContactsForSearch.slice(0, 8).map((c) => (
                                       <div
-                                        key={c.numDoc || c.id}
+                                        key={c.id}
                                         className="comp-contact-dropdown-item"
                                         onClick={() => {
                                           setSelectedExistingContact(c);
