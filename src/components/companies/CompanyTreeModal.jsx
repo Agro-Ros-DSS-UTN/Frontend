@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Building2, X, User, MapPin, ChevronRight, ChevronDown, Pencil, Plus } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Building2, X, User, MapPin, ChevronRight, ChevronDown, Pencil, Plus, Search, Network, Store, Users } from 'lucide-react';
 import { companiesApi } from '../../api/companies.api';
 import { createClientCompany, updateClientCompany, createClient, updateClient } from '../../data/api';
 import { useOverlayClose } from '../../hooks/useOverlayClose';
@@ -8,24 +8,73 @@ import '../../pages/admin/CompaniesPage/CompaniesPage.css';
 import './CompanyTreeModal.css';
 import { notify } from '../../hooks/useNotifications';
 
-// Encargado de un nodo (madre, región o subsede) — es un Contacto común,
-// solo que vinculado vía `clientCompanyId` a ESTE nivel puntual del árbol.
-const ManagerLabel = ({ node }) => {
-  const manager = node.Clients?.[0];
-  if (!manager) return <span className="company-tree__no-encargado">Sin encargado asignado</span>;
+// A partir de esta cantidad de sedes aparece el buscador dentro de la estructura.
+const SEARCH_FROM = 6;
+
+const normalize = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const hasAddress = (a) => Boolean(a && !/^sin direcci[oó]n$/i.test(a.trim()));
+
+// "AFA Región Centro" → "Región Centro" dentro del árbol de "AFA SCL": el nombre de
+// la empresa madre ya está en el encabezado, repetirlo en cada fila solo agrega ruido.
+const shortName = (name, prefix) => {
+  if (!prefix || !name) return name;
+  const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+`, 'i');
+  const rest = name.replace(re, '');
+  return rest && rest !== name ? rest : name;
+};
+
+// "Mitre 1110 · Totoras, Santa Fe": dirección y localidad sin repetir la localidad
+// cuando la dirección ya la incluye.
+const placeOf = (node) => {
+  const address = hasAddress(node.companyAddress) ? node.companyAddress.trim() : '';
+  const locality = node.locality || '';
+  const province = node.province || '';
+  const place = [locality, province && !address.includes(province) ? province : ''].filter(Boolean).join(', ');
+  if (!address) return place;
+  if (locality && normalize(address).includes(normalize(locality))) return address;
+  return [address, place].filter(Boolean).join(' · ');
+};
+
+const contactsOf = (node) => node.Clients || node.contacts || [];
+
+// Encargado de un nodo (madre, región o sede): es un contacto común vinculado a ese
+// nivel puntual del árbol. Sin encargado se muestra apagado, no como error.
+const ManagerChip = ({ node }) => {
+  const manager = contactsOf(node)[0];
+  if (!manager) return <span className="ctree-manager ctree-manager--none">Sin encargado</span>;
   return (
-    <span className="company-tree__encargado">
+    <span className="ctree-manager" title={manager.jobTitle ? `${manager.fullName} · ${manager.jobTitle}` : manager.fullName}>
       <User size={12} /> {manager.fullName}
     </span>
   );
 };
 
-// Modal "Inspeccionar" — muestra la jerarquía completa de una empresa madre
-// (empresa -> regiones -> subsedes), navegable de arriba hacia abajo, con el
-// encargado de cada nivel. Se abre con cualquier id de ese árbol (si es una
-// región o subsede, el backend resuelve y devuelve igual el árbol completo).
-// Permite además editar la nota/encargado de cada nivel, y agregar nuevas
-// regiones o subsedes sin salir de esta vista.
+const Note = ({ text, lines = 2 }) => {
+  const [open, setOpen] = useState(false);
+  if (!text || !text.trim()) return null;
+  const long = text.length > lines * 70;
+  return (
+    <p className={`ctree-note ${open ? 'is-open' : ''}`} style={{ '--lines': lines }}>
+      {text}
+      {long && (
+        <button type="button" className="ctree-note__more" onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>
+          {open ? 'ver menos' : 'ver más'}
+        </button>
+      )}
+    </p>
+  );
+};
+
+const EditButton = ({ onClick, label }) => (
+  <button type="button" className="ctree-icon-btn" title={label} aria-label={label} onClick={(e) => { e.stopPropagation(); onClick(); }}>
+    <Pencil size={13} />
+  </button>
+);
+
+// Modal "Inspeccionar": la estructura completa de una empresa con sedes
+// (empresa madre → regiones → sedes), con el encargado y la nota de cada nivel.
+// Se abre con cualquier id del árbol: el backend devuelve siempre el árbol entero.
+// Permite editar el encargado y la nota de cada nivel y agregar regiones o sedes.
 export const CompanyTreeModal = ({ companyId, onClose }) => {
   const [tree, setTree] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +88,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
   const [addingBranchFor, setAddingBranchFor] = useState(null);
   const [newBranchForm, setNewBranchForm] = useState({ name: '', manager: '', address: '' });
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState('');
 
   const loadTree = useCallback(() => {
     setLoading(true);
@@ -52,17 +102,42 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
       .finally(() => setLoading(false));
   }, [companyId]);
 
-  useEffect(() => {
-    let alive = true;
-    loadTree().then(() => {
-      if (!alive) { /* noop, evita warnings si se desmontó */ }
-    });
-    return () => { alive = false; };
-  }, [loadTree]);
+  useEffect(() => { loadTree(); }, [loadTree]);
+
+  // Los hijos directos de la madre que no son regiones (una sede suelta) se
+  // muestran aparte, como "sedes sin región", en vez de parecer regiones vacías.
+  const { regions, looseBranches, prefix, stats } = useMemo(() => {
+    if (!tree) return { regions: [], looseBranches: [], prefix: '', stats: null };
+    const children = tree.regions || [];
+    const isRegion = (r) => (r.level || r.companyLevel) === 'region' || (r.branches || []).length > 0;
+    const regionList = children.filter(isRegion);
+    const loose = children.filter((r) => !isRegion(r));
+    const branches = [...regionList.flatMap((r) => r.branches || []), ...loose];
+    const nodes = [tree, ...regionList, ...branches];
+    const firstWord = (tree.companyName || '').split(/\s+/)[0];
+    const usesPrefix = firstWord && firstWord.length >= 2 && children.some((c) => normalize(c.companyName).startsWith(`${normalize(firstWord)} `));
+    return {
+      regions: regionList,
+      looseBranches: loose,
+      prefix: usesPrefix ? firstWord : '',
+      stats: {
+        regions: regionList.length,
+        branches: branches.length,
+        withManager: nodes.filter((n) => contactsOf(n).length > 0).length,
+        nodes: nodes.length,
+      },
+    };
+  }, [tree]);
+
+  const matches = useCallback((node) => {
+    const q = normalize(query.trim());
+    if (!q) return true;
+    return [node.companyName, node.locality, node.companyAddress, contactsOf(node)[0]?.fullName].some((v) => normalize(v).includes(q));
+  }, [query]);
 
   const startEdit = (node) => {
     setEditingId(node.id);
-    setEditForm({ note: node.companyDescription || '', manager: node.Clients?.[0]?.fullName || '' });
+    setEditForm({ note: node.companyDescription || '', manager: contactsOf(node)[0]?.fullName || '' });
     setAddingRegion(false);
     setAddingBranchFor(null);
   };
@@ -71,7 +146,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
     setSaving(true);
     try {
       await updateClientCompany(node.id, { companyDescription: editForm.note });
-      const existingContact = node.Clients?.[0];
+      const existingContact = contactsOf(node)[0];
       const name = editForm.manager.trim();
       if (existingContact && name && name !== existingContact.fullName) {
         await updateClient(existingContact.id, { fullName: name });
@@ -127,243 +202,295 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
         companyName: newBranchForm.name.trim(),
         cuit: tree.cuit,
         companyType: tree.companyType,
-        companyAddress: newBranchForm.address || region.companyAddress || undefined,
+        companyAddress: newBranchForm.address || undefined,
         localityId: region.localityId || tree.localityId || undefined,
         parentCompanyId: region.id,
         companyLevel: 'subsede',
         newContact: newBranchForm.manager.trim() ? { fullName: newBranchForm.manager.trim(), clientType: 'Encargado de Planta' } : null,
       });
-      notify.success('Subsede agregada', newBranchForm.name.trim());
+      notify.success('Sede agregada', newBranchForm.name.trim());
       setAddingBranchFor(null);
       setNewBranchForm({ name: '', manager: '', address: '' });
       await loadTree();
     } catch (err) {
-      console.error('Error al agregar subsede:', err);
-      notify.error('No se pudo agregar la subsede', err);
+      console.error('Error al agregar sede:', err);
+      notify.error('No se pudo agregar la sede', err);
     } finally {
       setSaving(false);
     }
   };
 
   const renderEditForm = (node) => (
-    <div className="company-tree__inline-form" onClick={(e) => e.stopPropagation()}>
-      <input
-        type="text"
-        placeholder="Contacto asociado (nombre y apellido)"
-        value={editForm.manager}
-        onChange={(e) => setEditForm((p) => ({ ...p, manager: e.target.value }))}
-      />
-      <textarea
-        rows={2}
-        placeholder="Nota"
-        value={editForm.note}
-        onChange={(e) => setEditForm((p) => ({ ...p, note: e.target.value }))}
-      />
-      <div className="company-tree__inline-form-actions">
-        <button type="button" className="company-tree__inline-save" disabled={saving} onClick={() => saveEdit(node)}>
+    <div className="ctree-form" onClick={(e) => e.stopPropagation()}>
+      <label>
+        <span>Encargado</span>
+        <input
+          type="text"
+          placeholder="Nombre y apellido"
+          value={editForm.manager}
+          onChange={(e) => setEditForm((p) => ({ ...p, manager: e.target.value }))}
+          autoFocus
+        />
+      </label>
+      <label>
+        <span>Nota</span>
+        <textarea
+          rows={3}
+          placeholder="Teléfonos, horarios, a qué centro pertenece…"
+          value={editForm.note}
+          onChange={(e) => setEditForm((p) => ({ ...p, note: e.target.value }))}
+        />
+      </label>
+      <div className="ctree-form__actions">
+        <button type="button" className="ctree-btn ctree-btn--ghost" onClick={() => setEditingId(null)}>Cancelar</button>
+        <button type="button" className="ctree-btn ctree-btn--primary" disabled={saving} onClick={() => saveEdit(node)}>
           {saving ? 'Guardando…' : 'Guardar'}
         </button>
-        <button type="button" className="company-tree__inline-cancel" onClick={() => setEditingId(null)}>Cancelar</button>
       </div>
     </div>
   );
 
+  const branchProps = {
+    prefix, editingId, onStartEdit: startEdit, renderEditForm,
+    addingBranchFor, setAddingBranchFor, newBranchForm, setNewBranchForm, onSaveNewBranch: saveNewBranch, saving,
+  };
+
+  const filtering = query.trim().length > 0;
+  const visibleRegions = regions.filter((r) => matches(r) || (r.branches || []).some(matches));
+  const visibleLoose = looseBranches.filter(matches);
+  const headContacts = tree ? contactsOf(tree) : [];
+
   return (
     <div className="comp-modal-overlay" {...overlayHandlers}>
-      <div className="comp-modal comp-modal--wide" onClick={(e) => e.stopPropagation()}>
+      <div className="comp-modal comp-modal--wide ctree" onClick={(e) => e.stopPropagation()}>
         <div className="comp-modal__header">
           <div className="comp-detail-header-box">
-            <div className="companies-table__avatar" style={{ width: '40px', height: '40px' }}>
-              <Building2 size={20} />
-            </div>
+            <div className="ctree-avatar"><Building2 size={20} /></div>
             <div>
               <h2>{tree?.companyName || 'Estructura de la empresa'}</h2>
-              <span className="comp-detail-sub">Empresa madre · Regiones · Subsedes</span>
+              <span className="comp-detail-sub">
+                {tree ? [tree.companyType, tree.cuit && `CUIT ${tree.cuit}`].filter(Boolean).join(' · ') : 'Empresa madre, regiones y sedes'}
+              </span>
             </div>
           </div>
-          <button className="comp-modal__close" onClick={onClose}>
+          <button className="comp-modal__close" onClick={onClose} aria-label="Cerrar">
             <X size={20} />
           </button>
         </div>
 
-        <div className="company-tree__body">
+        <div className="ctree__body">
           {loading ? (
-            <LoadingState title="Cargando estructura…" message="Trayendo regiones y subsedes de la base de datos." />
+            <LoadingState title="Cargando estructura…" message="Trayendo regiones y sedes de la base de datos." />
           ) : error ? (
-            <div className="company-tree__empty-sub">{error}</div>
+            <div className="ctree-empty">{error}</div>
           ) : (
             <>
-              <div className="company-tree__root">
-                <Building2 size={16} />
-                <div className="company-tree__root-info">
-                  <strong>{tree.companyName}</strong>
-                  {tree.companyAddress && <span><MapPin size={11} /> {tree.companyAddress}</span>}
-                </div>
-                <ManagerLabel node={tree} />
+              <div className="ctree-stats">
+                <span><Network size={14} /> <strong>{stats.regions}</strong> {stats.regions === 1 ? 'región' : 'regiones'}</span>
+                <span><Store size={14} /> <strong>{stats.branches}</strong> {stats.branches === 1 ? 'sede' : 'sedes'}</span>
+                <span className={stats.withManager < stats.nodes ? 'is-warn' : ''}>
+                  <Users size={14} /> <strong>{stats.withManager}</strong> de {stats.nodes} con encargado
+                </span>
               </div>
 
-              <div className="company-tree__regions">
-                {(!tree.regions || tree.regions.length === 0) ? (
-                  <div className="company-tree__empty-sub">Esta empresa todavía no tiene regiones cargadas.</div>
-                ) : (
-                  tree.regions.map((region) => (
-                    <RegionBlock
-                      key={region.id}
-                      region={region}
-                      editingId={editingId}
-                      onStartEdit={startEdit}
-                      renderEditForm={renderEditForm}
-                      addingBranchFor={addingBranchFor}
-                      setAddingBranchFor={setAddingBranchFor}
-                      newBranchForm={newBranchForm}
-                      setNewBranchForm={setNewBranchForm}
-                      onSaveNewBranch={saveNewBranch}
-                      saving={saving}
-                    />
-                  ))
+              <section className="ctree-root">
+                <div className="ctree-root__top">
+                  <div className="ctree-root__title">
+                    <span className="ctree-kicker">Empresa madre</span>
+                    <strong>{tree.companyName}</strong>
+                    {placeOf(tree) && <span className="ctree-place"><MapPin size={12} /> {placeOf(tree)}</span>}
+                  </div>
+                  <EditButton label="Editar empresa madre" onClick={() => startEdit(tree)} />
+                </div>
+                {headContacts.length > 0 ? (
+                  <div className="ctree-contacts">
+                    {headContacts.slice(0, 4).map((c) => (
+                      <span key={c.id} className="ctree-manager" title={c.jobTitle || ''}><User size={12} /> {c.fullName}</span>
+                    ))}
+                    {headContacts.length > 4 && <span className="ctree-manager ctree-manager--more">+{headContacts.length - 4}</span>}
+                  </div>
+                ) : <div className="ctree-contacts"><ManagerChip node={tree} /></div>}
+                <Note text={tree.companyDescription} lines={3} />
+                {editingId === tree.id && renderEditForm(tree)}
+              </section>
+
+              {stats.branches >= SEARCH_FROM && (
+                <div className="ctree-search">
+                  <Search size={15} />
+                  <input
+                    type="search"
+                    placeholder="Buscar sede, localidad o encargado"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="ctree-regions">
+                {regions.length === 0 && looseBranches.length === 0 && (
+                  <div className="ctree-empty">Esta empresa todavía no tiene regiones ni sedes cargadas.</div>
+                )}
+                {filtering && visibleRegions.length === 0 && visibleLoose.length === 0 && (
+                  <div className="ctree-empty">Ninguna sede coincide con «{query.trim()}».</div>
                 )}
 
-                {addingRegion ? (
-                  <div className="company-tree__inline-form">
-                    <input
-                      type="text"
-                      placeholder="Nombre de la región"
-                      value={newRegionForm.name}
-                      onChange={(e) => setNewRegionForm((p) => ({ ...p, name: e.target.value }))}
-                      autoFocus
-                    />
-                    <div className="company-tree__inline-form-row">
-                      <input
-                        type="text"
-                        placeholder="Encargado regional"
-                        value={newRegionForm.manager}
-                        onChange={(e) => setNewRegionForm((p) => ({ ...p, manager: e.target.value }))}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Sede principal"
-                        value={newRegionForm.mainSite}
-                        onChange={(e) => setNewRegionForm((p) => ({ ...p, mainSite: e.target.value }))}
-                      />
+                {visibleRegions.map((region) => (
+                  <RegionCard
+                    key={region.id}
+                    region={region}
+                    branches={(region.branches || []).filter((b) => !filtering || matches(region) || matches(b))}
+                    forceOpen={filtering}
+                    {...branchProps}
+                  />
+                ))}
+
+                {visibleLoose.length > 0 && (
+                  <section className="ctree-region ctree-region--loose">
+                    <div className="ctree-region__header is-static">
+                      <span className="ctree-region__name">Sedes sin región</span>
+                      <span className="ctree-count">{visibleLoose.length}</span>
+                      <span className="ctree-hint">Dependen directo de la empresa madre</span>
                     </div>
-                    <div className="company-tree__inline-form-actions">
-                      <button type="button" className="company-tree__inline-save" disabled={saving} onClick={saveNewRegion}>
-                        {saving ? 'Guardando…' : 'Guardar Región'}
+                    <ul className="ctree-branches">
+                      {visibleLoose.map((b) => <BranchRow key={b.id} branch={b} {...branchProps} />)}
+                    </ul>
+                  </section>
+                )}
+
+                {!filtering && (addingRegion ? (
+                  <div className="ctree-form">
+                    <label>
+                      <span>Nombre de la región</span>
+                      <input
+                        type="text"
+                        placeholder="Ej.: Región Norte"
+                        value={newRegionForm.name}
+                        onChange={(e) => setNewRegionForm((p) => ({ ...p, name: e.target.value }))}
+                        autoFocus
+                      />
+                    </label>
+                    <div className="ctree-form__row">
+                      <label>
+                        <span>Encargado regional</span>
+                        <input type="text" placeholder="Nombre y apellido" value={newRegionForm.manager} onChange={(e) => setNewRegionForm((p) => ({ ...p, manager: e.target.value }))} />
+                      </label>
+                      <label>
+                        <span>Sede principal</span>
+                        <input type="text" placeholder="Dirección (opcional)" value={newRegionForm.mainSite} onChange={(e) => setNewRegionForm((p) => ({ ...p, mainSite: e.target.value }))} />
+                      </label>
+                    </div>
+                    <div className="ctree-form__actions">
+                      <button type="button" className="ctree-btn ctree-btn--ghost" onClick={() => setAddingRegion(false)}>Cancelar</button>
+                      <button type="button" className="ctree-btn ctree-btn--primary" disabled={saving} onClick={saveNewRegion}>
+                        {saving ? 'Guardando…' : 'Guardar región'}
                       </button>
-                      <button type="button" className="company-tree__inline-cancel" onClick={() => setAddingRegion(false)}>Cancelar</button>
                     </div>
                   </div>
                 ) : (
-                  <button type="button" className="company-tree__add-btn" onClick={() => { setAddingRegion(true); setEditingId(null); setAddingBranchFor(null); }}>
-                    <Plus size={13} /> Agregar Región
+                  <button type="button" className="ctree-add ctree-add--region" onClick={() => { setAddingRegion(true); setEditingId(null); setAddingBranchFor(null); }}>
+                    <Plus size={14} /> Agregar región
                   </button>
-                )}
+                ))}
               </div>
             </>
           )}
         </div>
 
-        <div className="comp-modal__actions">
-          <button type="button" className="comp-modal__submit-btn" onClick={onClose}>
-            Cerrar
-          </button>
-        </div>
       </div>
     </div>
   );
 };
 
-// Bloque de una región: su fila + subsedes + forms inline de editar/agregar.
-const RegionBlock = ({
-  region, editingId, onStartEdit, renderEditForm,
-  addingBranchFor, setAddingBranchFor, newBranchForm, setNewBranchForm, onSaveNewBranch, saving,
-}) => {
+// Una región: encabezado plegable con su encargado y nota, y la lista de sedes.
+const RegionCard = ({ region, branches, forceOpen, ...props }) => {
+  const { prefix, editingId, onStartEdit, renderEditForm, addingBranchFor, setAddingBranchFor, newBranchForm, setNewBranchForm, onSaveNewBranch, saving } = props;
   const [expanded, setExpanded] = useState(true);
-  const isEditing = editingId === region.id;
+  const open = forceOpen || expanded;
+  const total = (region.branches || []).length;
   const isAddingBranch = addingBranchFor === region.id;
 
   return (
-    <div className="company-tree__region">
-      <div className="company-tree__region-header" onClick={() => setExpanded((e) => !e)} role="button" tabIndex={0}>
-        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <span className="company-tree__region-name">{region.companyName}</span>
-        {region.companyAddress && (
-          <span className="company-tree__region-addr"><MapPin size={11} /> {region.companyAddress}</span>
-        )}
-        <div className="company-tree__region-actions">
-          <ManagerLabel node={region} />
-          <button type="button" className="company-tree__edit-btn" onClick={(e) => { e.stopPropagation(); onStartEdit(region); }}>
-            <Pencil size={11} /> Editar
-          </button>
+    <section className="ctree-region">
+      <div
+        className="ctree-region__header"
+        onClick={() => setExpanded((e) => !e)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((v) => !v); } }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+      >
+        <span className="ctree-chevron">{open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
+        <div className="ctree-region__title">
+          <span className="ctree-region__name">{shortName(region.companyName, prefix)}</span>
+          {placeOf(region) && <span className="ctree-place"><MapPin size={11} /> {placeOf(region)}</span>}
         </div>
+        <span className="ctree-count" title={`${total} ${total === 1 ? 'sede' : 'sedes'}`}>{total} {total === 1 ? 'sede' : 'sedes'}</span>
+        <ManagerChip node={region} />
+        <EditButton label="Editar región" onClick={() => onStartEdit(region)} />
       </div>
+      {open && <div className="ctree-region__note"><Note text={region.companyDescription} /></div>}
+      {editingId === region.id && renderEditForm(region)}
 
-      {isEditing && renderEditForm(region)}
-
-      {expanded && (
-        <div className="company-tree__subsedes">
-          {region.branches.length === 0 ? (
-            <div className="company-tree__empty-sub">Sin subsedes cargadas en esta región.</div>
+      {open && (
+        <>
+          {branches.length === 0 ? (
+            <div className="ctree-empty ctree-empty--inline">Todavía no hay sedes en esta región.</div>
           ) : (
-            region.branches.map((s) => (
-              <div key={s.id}>
-                <div className="company-tree__subsede">
-                  <div className="company-tree__subsede-dot" />
-                  <div className="company-tree__subsede-info">
-                    <span className="company-tree__subsede-name">{s.companyName}</span>
-                    {s.companyAddress && (
-                      <span className="company-tree__subsede-addr"><MapPin size={11} /> {s.companyAddress}</span>
-                    )}
-                  </div>
-                  <ManagerLabel node={s} />
-                  <button type="button" className="company-tree__edit-btn" onClick={() => onStartEdit(s)}>
-                    <Pencil size={11} /> Editar
-                  </button>
-                </div>
-                {editingId === s.id && renderEditForm(s)}
-              </div>
-            ))
+            <ul className="ctree-branches">
+              {branches.map((b) => <BranchRow key={b.id} branch={b} {...props} />)}
+            </ul>
           )}
 
-          {isAddingBranch ? (
-            <div className="company-tree__inline-form">
-              <input
-                type="text"
-                placeholder="Nombre de la subsede"
-                value={newBranchForm.name}
-                onChange={(e) => setNewBranchForm((p) => ({ ...p, name: e.target.value }))}
-                autoFocus
-              />
-              <div className="company-tree__inline-form-row">
-                <input
-                  type="text"
-                  placeholder="Encargado de planta"
-                  value={newBranchForm.manager}
-                  onChange={(e) => setNewBranchForm((p) => ({ ...p, manager: e.target.value }))}
-                />
-                <input
-                  type="text"
-                  placeholder="Dirección (opcional)"
-                  value={newBranchForm.address}
-                  onChange={(e) => setNewBranchForm((p) => ({ ...p, address: e.target.value }))}
-                />
+          {!forceOpen && (isAddingBranch ? (
+            <div className="ctree-form ctree-form--nested">
+              <label>
+                <span>Nombre de la sede</span>
+                <input type="text" placeholder="Ej.: Planta Totoras" value={newBranchForm.name} onChange={(e) => setNewBranchForm((p) => ({ ...p, name: e.target.value }))} autoFocus />
+              </label>
+              <div className="ctree-form__row">
+                <label>
+                  <span>Encargado</span>
+                  <input type="text" placeholder="Nombre y apellido" value={newBranchForm.manager} onChange={(e) => setNewBranchForm((p) => ({ ...p, manager: e.target.value }))} />
+                </label>
+                <label>
+                  <span>Dirección</span>
+                  <input type="text" placeholder="Opcional" value={newBranchForm.address} onChange={(e) => setNewBranchForm((p) => ({ ...p, address: e.target.value }))} />
+                </label>
               </div>
-              <div className="company-tree__inline-form-actions">
-                <button type="button" className="company-tree__inline-save" disabled={saving} onClick={() => onSaveNewBranch(region)}>
-                  {saving ? 'Guardando…' : 'Guardar Subsede'}
+              <div className="ctree-form__actions">
+                <button type="button" className="ctree-btn ctree-btn--ghost" onClick={() => setAddingBranchFor(null)}>Cancelar</button>
+                <button type="button" className="ctree-btn ctree-btn--primary" disabled={saving} onClick={() => onSaveNewBranch(region)}>
+                  {saving ? 'Guardando…' : 'Guardar sede'}
                 </button>
-                <button type="button" className="company-tree__inline-cancel" onClick={() => setAddingBranchFor(null)}>Cancelar</button>
               </div>
             </div>
           ) : (
-            <button type="button" className="company-tree__add-btn" onClick={() => setAddingBranchFor(region.id)}>
-              <Plus size={12} /> Agregar Subsede
+            <button type="button" className="ctree-add" onClick={() => setAddingBranchFor(region.id)}>
+              <Plus size={13} /> Agregar sede
             </button>
-          )}
-        </div>
+          ))}
+        </>
       )}
-    </div>
+    </section>
   );
 };
+
+const BranchRow = ({ branch, prefix, editingId, onStartEdit, renderEditForm }) => (
+  <li className="ctree-branch">
+    <div className="ctree-branch__main">
+      <span className="ctree-branch__icon"><Store size={14} /></span>
+      <div className="ctree-branch__info">
+        <span className="ctree-branch__name" title={branch.companyName}>{shortName(branch.companyName, prefix)}</span>
+        <span className={`ctree-place ${placeOf(branch) ? '' : 'is-missing'}`}>
+          <MapPin size={11} /> {placeOf(branch) || 'Sin dirección'}
+        </span>
+        <Note text={branch.companyDescription} lines={1} />
+      </div>
+      <ManagerChip node={branch} />
+      <EditButton label="Editar sede" onClick={() => onStartEdit(branch)} />
+    </div>
+    {editingId === branch.id && renderEditForm(branch)}
+  </li>
+);
 
 export default CompanyTreeModal;

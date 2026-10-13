@@ -259,9 +259,13 @@
 
 .companies-table__desc {
   display: block;
+  max-width: 320px;
   font-size: var(--text-xs);
   color: var(--text-muted);
   margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .companies-table__mono {

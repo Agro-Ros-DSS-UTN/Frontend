@@ -784,11 +784,11 @@ export const CompaniesPage = () => {
                               {company.companyName}
                             </button>
                             {company.companyLevel === 'madre' && (
-                              <span className="company-tree__madre-label" title="Empresa con regiones y subsedes">(Regional)</span>
+                              <span className="company-tree__madre-label" title="Tiene regiones y sedes: se ven con «Inspeccionar»">Con sedes</span>
                             )}
                           </div>
                           {company.companyDescription && (
-                            <span className="companies-table__desc">{company.companyDescription}</span>
+                            <span className="companies-table__desc" title={company.companyDescription}>{company.companyDescription}</span>
                           )}
                         </div>
                       </div>
