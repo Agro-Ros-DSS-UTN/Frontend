@@ -286,7 +286,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
           ) : (
             <>
               <div className="ctree-stats">
-                <span><Network size={14} /> <strong>{stats.regions}</strong> {stats.regions === 1 ? 'región' : 'regiones'}</span>
+                {stats.regions > 0 && <span><Network size={14} /> <strong>{stats.regions}</strong> {stats.regions === 1 ? 'región' : 'regiones'}</span>}
                 <span><Store size={14} /> <strong>{stats.branches}</strong> {stats.branches === 1 ? 'sede' : 'sedes'}</span>
                 <span className={stats.withManager < stats.nodes ? 'is-warn' : ''}>
                   <Users size={14} /> <strong>{stats.withManager}</strong> de {stats.nodes} con encargado
@@ -327,9 +327,6 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
               )}
 
               <div className="ctree-regions">
-                {regions.length === 0 && looseBranches.length === 0 && (
-                  <div className="ctree-empty">Esta empresa todavía no tiene regiones ni sedes cargadas.</div>
-                )}
                 {filtering && visibleRegions.length === 0 && visibleLoose.length === 0 && (
                   <div className="ctree-empty">Ninguna sede coincide con «{query.trim()}».</div>
                 )}
@@ -344,16 +341,21 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
                   />
                 ))}
 
-                {visibleLoose.length > 0 && (
+                {(visibleLoose.length > 0 || (!filtering && regions.length === 0)) && (
                   <section className="ctree-region ctree-region--loose">
                     <div className="ctree-region__header is-static">
-                      <span className="ctree-region__name">Sedes sin región</span>
+                      <span className="ctree-region__name">{regions.length ? 'Sedes sin región' : 'Sedes'}</span>
                       <span className="ctree-count">{visibleLoose.length}</span>
-                      <span className="ctree-hint">Dependen directo de la empresa madre</span>
+                      {regions.length > 0 && <span className="ctree-hint">Dependen directo de la empresa madre</span>}
                     </div>
-                    <ul className="ctree-branches">
-                      {visibleLoose.map((b) => <BranchRow key={b.id} branch={b} {...branchProps} />)}
-                    </ul>
+                    {visibleLoose.length > 0 ? (
+                      <ul className="ctree-branches">
+                        {visibleLoose.map((b) => <BranchRow key={b.id} branch={b} {...branchProps} />)}
+                      </ul>
+                    ) : (
+                      <div className="ctree-empty ctree-empty--inline">Todavía no hay sedes ni regiones cargadas.</div>
+                    )}
+                    {!filtering && regions.length === 0 && <AddBranch target={tree} {...branchProps} />}
                   </section>
                 )}
 
@@ -403,11 +405,10 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
 
 // Una región: encabezado plegable con su encargado y nota, y la lista de sedes.
 const RegionCard = ({ region, branches, forceOpen, ...props }) => {
-  const { prefix, editingId, onStartEdit, renderEditForm, addingBranchFor, setAddingBranchFor, newBranchForm, setNewBranchForm, onSaveNewBranch, saving } = props;
+  const { prefix, editingId, onStartEdit, renderEditForm } = props;
   const [expanded, setExpanded] = useState(true);
   const open = forceOpen || expanded;
   const total = (region.branches || []).length;
-  const isAddingBranch = addingBranchFor === region.id;
 
   return (
     <section className="ctree-region">
@@ -441,37 +442,45 @@ const RegionCard = ({ region, branches, forceOpen, ...props }) => {
             </ul>
           )}
 
-          {!forceOpen && (isAddingBranch ? (
-            <div className="ctree-form ctree-form--nested">
-              <label>
-                <span>Nombre de la sede</span>
-                <input type="text" placeholder="Ej.: Planta Totoras" value={newBranchForm.name} onChange={(e) => setNewBranchForm((p) => ({ ...p, name: e.target.value }))} autoFocus />
-              </label>
-              <div className="ctree-form__row">
-                <label>
-                  <span>Encargado</span>
-                  <input type="text" placeholder="Nombre y apellido" value={newBranchForm.manager} onChange={(e) => setNewBranchForm((p) => ({ ...p, manager: e.target.value }))} />
-                </label>
-                <label>
-                  <span>Dirección</span>
-                  <input type="text" placeholder="Opcional" value={newBranchForm.address} onChange={(e) => setNewBranchForm((p) => ({ ...p, address: e.target.value }))} />
-                </label>
-              </div>
-              <div className="ctree-form__actions">
-                <button type="button" className="ctree-btn ctree-btn--ghost" onClick={() => setAddingBranchFor(null)}>Cancelar</button>
-                <button type="button" className="ctree-btn ctree-btn--primary" disabled={saving} onClick={() => onSaveNewBranch(region)}>
-                  {saving ? 'Guardando…' : 'Guardar sede'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button type="button" className="ctree-add" onClick={() => setAddingBranchFor(region.id)}>
-              <Plus size={13} /> Agregar sede
-            </button>
-          ))}
+          {!forceOpen && <AddBranch target={region} {...props} />}
         </>
       )}
     </section>
+  );
+};
+
+// Alta de una sede dentro de una región (o directo bajo la madre si no hay regiones).
+const AddBranch = ({ target, addingBranchFor, setAddingBranchFor, newBranchForm, setNewBranchForm, onSaveNewBranch, saving }) => {
+  if (addingBranchFor !== target.id) {
+    return (
+      <button type="button" className="ctree-add" onClick={() => setAddingBranchFor(target.id)}>
+        <Plus size={13} /> Agregar sede
+      </button>
+    );
+  }
+  return (
+    <div className="ctree-form ctree-form--nested">
+      <label>
+        <span>Nombre de la sede</span>
+        <input type="text" placeholder="Ej.: Planta Totoras" value={newBranchForm.name} onChange={(e) => setNewBranchForm((p) => ({ ...p, name: e.target.value }))} autoFocus />
+      </label>
+      <div className="ctree-form__row">
+        <label>
+          <span>Encargado</span>
+          <input type="text" placeholder="Nombre y apellido" value={newBranchForm.manager} onChange={(e) => setNewBranchForm((p) => ({ ...p, manager: e.target.value }))} />
+        </label>
+        <label>
+          <span>Dirección</span>
+          <input type="text" placeholder="Opcional" value={newBranchForm.address} onChange={(e) => setNewBranchForm((p) => ({ ...p, address: e.target.value }))} />
+        </label>
+      </div>
+      <div className="ctree-form__actions">
+        <button type="button" className="ctree-btn ctree-btn--ghost" onClick={() => setAddingBranchFor(null)}>Cancelar</button>
+        <button type="button" className="ctree-btn ctree-btn--primary" disabled={saving} onClick={() => onSaveNewBranch(target)}>
+          {saving ? 'Guardando…' : 'Guardar sede'}
+        </button>
+      </div>
+    </div>
   );
 };
 
