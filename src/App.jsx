@@ -34,7 +34,7 @@ import './styles/global.css';
 
 const AppRoutes = () => {
   const { isAuthenticated, currentUser, login } = useAuth();
-  const userRole = (currentUser?.role || currentUser?.rol)?.toLowerCase();
+  const userRole = (currentUser?.role)?.toLowerCase();
 
   return (
     <Routes>
@@ -43,7 +43,7 @@ const AppRoutes = () => {
         path="/login"
         element={
           isAuthenticated ? (
-            <Navigate to={userRole === 'admin' ? '/admin/inicio' : '/seller/dashboard'} replace />
+            <Navigate to={userRole === 'admin' ? '/admin/home' : '/seller/dashboard'} replace />
           ) : (
             <LoginPage onLoginSuccess={(userData, opts) => login(userData, opts)} />
           )
@@ -59,24 +59,24 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="inicio" replace />} />
-        <Route path="inicio" element={<AdminHomePage />} />
+        <Route index element={<Navigate to="home" replace />} />
+        <Route path="home" element={<AdminHomePage />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
-        <Route path="usuarios" element={<UsersPage />} />
-        <Route path="contactos" element={<ContactsPage />} />
-        <Route path="empresas" element={<CompaniesPage />} />
-        <Route path="negocios" element={<OpportunitiesPage />} />
-        <Route path="oportunidades" element={<Navigate to="/admin/negocios" replace />} />
-        <Route path="tareas" element={<TasksPage />} />
-        <Route path="ordenes-servicio" element={<ServiceOrdersPage />} />
-        <Route path="empleados" element={<EmployeesPage />} />
-        <Route path="productos" element={<ProductsPage />} />
-        <Route path="objetivos" element={<ObjectivesPage />} />
-        <Route path="rutas" element={<RoadmapsPage />} />
-        <Route path="campañas" element={<CampaignsPage />} />
-        <Route path="actividades" element={<ActivitiesPage />} />
-        <Route path="perfil" element={<ProfilePage />} />
-        <Route path="configuracion" element={<Navigate to="/admin/perfil" replace />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="contacts" element={<ContactsPage />} />
+        <Route path="companies" element={<CompaniesPage />} />
+        <Route path="deals" element={<OpportunitiesPage />} />
+        <Route path="opportunities" element={<Navigate to="/admin/deals" replace />} />
+        <Route path="tasks" element={<TasksPage />} />
+        <Route path="service-orders" element={<ServiceOrdersPage />} />
+        <Route path="employees" element={<EmployeesPage />} />
+        <Route path="products" element={<ProductsPage />} />
+        <Route path="objectives" element={<ObjectivesPage />} />
+        <Route path="roadmaps" element={<RoadmapsPage />} />
+        <Route path="campaigns" element={<CampaignsPage />} />
+        <Route path="activities" element={<ActivitiesPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="settings" element={<Navigate to="/admin/profile" replace />} />
       </Route>
 
       {/* Seller Routes (Field Commercial Portal) */}
@@ -90,14 +90,14 @@ const AppRoutes = () => {
       >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<SellerDashboardPage />} />
-        <Route path="hoja-de-ruta" element={<SellerRoadmapPage />} />
-        <Route path="contactos" element={<ContactsPage />} />
-        <Route path="clientes" element={<Navigate to="/seller/contactos" replace />} />
-        <Route path="empresas" element={<CompaniesPage />} />
-        <Route path="tareas" element={<SellerTasksPage />} />
-        <Route path="actividades" element={<SellerActivitiesPage />} />
-        <Route path="promociones" element={<SellerPromotionsPage />} />
-        <Route path="perfil" element={<ProfilePage />} />
+        <Route path="roadmap" element={<SellerRoadmapPage />} />
+        <Route path="contacts" element={<ContactsPage />} />
+        <Route path="customers" element={<Navigate to="/seller/contacts" replace />} />
+        <Route path="companies" element={<CompaniesPage />} />
+        <Route path="tasks" element={<SellerTasksPage />} />
+        <Route path="activities" element={<SellerActivitiesPage />} />
+        <Route path="promotions" element={<SellerPromotionsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       {/* Default redirect */}
@@ -109,7 +109,7 @@ const AppRoutes = () => {
               !isAuthenticated
                 ? '/login'
                 : userRole === 'admin'
-                ? '/admin/inicio'
+                ? '/admin/home'
                 : '/seller/dashboard'
             }
             replace

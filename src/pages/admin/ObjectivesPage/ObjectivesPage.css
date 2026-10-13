@@ -146,7 +146,7 @@
 /* v2: filtros, tarjetas y selector de empresas/ítems */
 .obj-filtros { display: flex; gap: 6px; flex-wrap: wrap; }
 .obj-filtros button { border: 1px solid #e2e8f0; background: #fff; color: #334155; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 0.85rem; cursor: pointer; }
-.obj-filtros button.activo { background: #1a7d6b; border-color: #1a7d6b; color: #fff; }
+.obj-filtros button.active { background: #1a7d6b; border-color: #1a7d6b; color: #fff; }
 .obj-vacio { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 16px; border: 2px dashed #cbd5e1; border-radius: 16px; color: #64748b; background: #fff; }
 .obj-card__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .obj-card__tag { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #1a7d6b; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 12px; }

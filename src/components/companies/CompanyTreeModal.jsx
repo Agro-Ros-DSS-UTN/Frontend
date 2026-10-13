@@ -6,16 +6,16 @@ import { useOverlayClose } from '../../hooks/useOverlayClose';
 import { LoadingState } from '../ui/LoadingState/LoadingState';
 import '../../pages/admin/CompaniesPage/CompaniesPage.css';
 import './CompanyTreeModal.css';
-import { notificar } from '../../hooks/useNotificaciones';
+import { notify } from '../../hooks/useNotifications';
 
 // Encargado de un nodo (madre, región o subsede) — es un Contacto común,
 // solo que vinculado vía `clientCompanyId` a ESTE nivel puntual del árbol.
-const EncargadoLabel = ({ node }) => {
-  const encargado = node.Clients?.[0];
-  if (!encargado) return <span className="company-tree__no-encargado">Sin encargado asignado</span>;
+const ManagerLabel = ({ node }) => {
+  const manager = node.Clients?.[0];
+  if (!manager) return <span className="company-tree__no-encargado">Sin encargado asignado</span>;
   return (
     <span className="company-tree__encargado">
-      <User size={12} /> {encargado.nombreApellido}
+      <User size={12} /> {manager.fullName}
     </span>
   );
 };
@@ -33,11 +33,11 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
   const overlayHandlers = useOverlayClose(onClose);
 
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ nota: '', encargado: '' });
+  const [editForm, setEditForm] = useState({ note: '', manager: '' });
   const [addingRegion, setAddingRegion] = useState(false);
-  const [newRegionForm, setNewRegionForm] = useState({ nombre: '', encargado: '', sedePrincipal: '' });
-  const [addingSubsedeFor, setAddingSubsedeFor] = useState(null);
-  const [newSubsedeForm, setNewSubsedeForm] = useState({ nombre: '', encargado: '', direccion: '' });
+  const [newRegionForm, setNewRegionForm] = useState({ name: '', manager: '', mainSite: '' });
+  const [addingBranchFor, setAddingBranchFor] = useState(null);
+  const [newBranchForm, setNewBranchForm] = useState({ name: '', manager: '', address: '' });
   const [saving, setSaving] = useState(false);
 
   const loadTree = useCallback(() => {
@@ -62,84 +62,84 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
 
   const startEdit = (node) => {
     setEditingId(node.id);
-    setEditForm({ nota: node.descEmpresa || '', encargado: node.Clients?.[0]?.nombreApellido || '' });
+    setEditForm({ note: node.companyDescription || '', manager: node.Clients?.[0]?.fullName || '' });
     setAddingRegion(false);
-    setAddingSubsedeFor(null);
+    setAddingBranchFor(null);
   };
 
   const saveEdit = async (node) => {
     setSaving(true);
     try {
-      await updateClientCompany(node.id, { descEmpresa: editForm.nota });
+      await updateClientCompany(node.id, { companyDescription: editForm.note });
       const existingContact = node.Clients?.[0];
-      const nombre = editForm.encargado.trim();
-      if (existingContact && nombre && nombre !== existingContact.nombreApellido) {
-        await updateClient(existingContact.id, { nombreApellido: nombre });
-      } else if (!existingContact && nombre) {
+      const name = editForm.manager.trim();
+      if (existingContact && name && name !== existingContact.fullName) {
+        await updateClient(existingContact.id, { fullName: name });
+      } else if (!existingContact && name) {
         await createClient({
-          nombreApellido: nombre,
+          fullName: name,
           clientCompanyId: node.id,
-          tipoClient: (node.nivel || node.nivelEmpresa) === 'subsede' ? 'Encargado de Planta' : 'Encargado Regional',
+          clientType: (node.level || node.companyLevel) === 'subsede' ? 'Encargado de Planta' : 'Encargado Regional',
         });
       }
-      notificar.exito('Cambios guardados', node.nombreEmpresa);
+      notify.success('Cambios guardados', node.companyName);
       setEditingId(null);
       await loadTree();
     } catch (err) {
       console.error('Error al guardar cambios:', err);
-      notificar.error('No se pudieron guardar los cambios', err);
+      notify.error('No se pudieron guardar los cambios', err);
     } finally {
       setSaving(false);
     }
   };
 
   const saveNewRegion = async () => {
-    if (!newRegionForm.nombre.trim()) return;
+    if (!newRegionForm.name.trim()) return;
     setSaving(true);
     try {
       await createClientCompany({
-        nombreEmpresa: newRegionForm.nombre.trim(),
+        companyName: newRegionForm.name.trim(),
         cuit: tree.cuit,
-        tipoEmpresa: tree.tipoEmpresa,
-        direccionEmpresa: newRegionForm.sedePrincipal || undefined,
-        localidadId: tree.localidadId || undefined,
+        companyType: tree.companyType,
+        companyAddress: newRegionForm.mainSite || undefined,
+        localityId: tree.localityId || undefined,
         parentCompanyId: tree.id,
-        nivelEmpresa: 'region',
-        newContact: newRegionForm.encargado.trim() ? { nombreApellido: newRegionForm.encargado.trim(), tipoClient: 'Encargado Regional' } : null,
+        companyLevel: 'region',
+        newContact: newRegionForm.manager.trim() ? { fullName: newRegionForm.manager.trim(), clientType: 'Encargado Regional' } : null,
       });
-      notificar.exito('Región agregada', newRegionForm.nombre.trim());
+      notify.success('Región agregada', newRegionForm.name.trim());
       setAddingRegion(false);
-      setNewRegionForm({ nombre: '', encargado: '', sedePrincipal: '' });
+      setNewRegionForm({ name: '', manager: '', mainSite: '' });
       await loadTree();
     } catch (err) {
       console.error('Error al agregar región:', err);
-      notificar.error('No se pudo agregar la región', err);
+      notify.error('No se pudo agregar la región', err);
     } finally {
       setSaving(false);
     }
   };
 
-  const saveNewSubsede = async (region) => {
-    if (!newSubsedeForm.nombre.trim()) return;
+  const saveNewBranch = async (region) => {
+    if (!newBranchForm.name.trim()) return;
     setSaving(true);
     try {
       await createClientCompany({
-        nombreEmpresa: newSubsedeForm.nombre.trim(),
+        companyName: newBranchForm.name.trim(),
         cuit: tree.cuit,
-        tipoEmpresa: tree.tipoEmpresa,
-        direccionEmpresa: newSubsedeForm.direccion || region.direccionEmpresa || undefined,
-        localidadId: region.localidadId || tree.localidadId || undefined,
+        companyType: tree.companyType,
+        companyAddress: newBranchForm.address || region.companyAddress || undefined,
+        localityId: region.localityId || tree.localityId || undefined,
         parentCompanyId: region.id,
-        nivelEmpresa: 'subsede',
-        newContact: newSubsedeForm.encargado.trim() ? { nombreApellido: newSubsedeForm.encargado.trim(), tipoClient: 'Encargado de Planta' } : null,
+        companyLevel: 'subsede',
+        newContact: newBranchForm.manager.trim() ? { fullName: newBranchForm.manager.trim(), clientType: 'Encargado de Planta' } : null,
       });
-      notificar.exito('Subsede agregada', newSubsedeForm.nombre.trim());
-      setAddingSubsedeFor(null);
-      setNewSubsedeForm({ nombre: '', encargado: '', direccion: '' });
+      notify.success('Subsede agregada', newBranchForm.name.trim());
+      setAddingBranchFor(null);
+      setNewBranchForm({ name: '', manager: '', address: '' });
       await loadTree();
     } catch (err) {
       console.error('Error al agregar subsede:', err);
-      notificar.error('No se pudo agregar la subsede', err);
+      notify.error('No se pudo agregar la subsede', err);
     } finally {
       setSaving(false);
     }
@@ -150,14 +150,14 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
       <input
         type="text"
         placeholder="Contacto asociado (nombre y apellido)"
-        value={editForm.encargado}
-        onChange={(e) => setEditForm((p) => ({ ...p, encargado: e.target.value }))}
+        value={editForm.manager}
+        onChange={(e) => setEditForm((p) => ({ ...p, manager: e.target.value }))}
       />
       <textarea
         rows={2}
         placeholder="Nota"
-        value={editForm.nota}
-        onChange={(e) => setEditForm((p) => ({ ...p, nota: e.target.value }))}
+        value={editForm.note}
+        onChange={(e) => setEditForm((p) => ({ ...p, note: e.target.value }))}
       />
       <div className="company-tree__inline-form-actions">
         <button type="button" className="company-tree__inline-save" disabled={saving} onClick={() => saveEdit(node)}>
@@ -177,7 +177,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
               <Building2 size={20} />
             </div>
             <div>
-              <h2>{tree?.nombreEmpresa || 'Estructura de la empresa'}</h2>
+              <h2>{tree?.companyName || 'Estructura de la empresa'}</h2>
               <span className="comp-detail-sub">Empresa madre · Regiones · Subsedes</span>
             </div>
           </div>
@@ -196,28 +196,28 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
               <div className="company-tree__root">
                 <Building2 size={16} />
                 <div className="company-tree__root-info">
-                  <strong>{tree.nombreEmpresa}</strong>
-                  {tree.direccionEmpresa && <span><MapPin size={11} /> {tree.direccionEmpresa}</span>}
+                  <strong>{tree.companyName}</strong>
+                  {tree.companyAddress && <span><MapPin size={11} /> {tree.companyAddress}</span>}
                 </div>
-                <EncargadoLabel node={tree} />
+                <ManagerLabel node={tree} />
               </div>
 
               <div className="company-tree__regions">
-                {(!tree.regiones || tree.regiones.length === 0) ? (
+                {(!tree.regions || tree.regions.length === 0) ? (
                   <div className="company-tree__empty-sub">Esta empresa todavía no tiene regiones cargadas.</div>
                 ) : (
-                  tree.regiones.map((region) => (
+                  tree.regions.map((region) => (
                     <RegionBlock
                       key={region.id}
                       region={region}
                       editingId={editingId}
                       onStartEdit={startEdit}
                       renderEditForm={renderEditForm}
-                      addingSubsedeFor={addingSubsedeFor}
-                      setAddingSubsedeFor={setAddingSubsedeFor}
-                      newSubsedeForm={newSubsedeForm}
-                      setNewSubsedeForm={setNewSubsedeForm}
-                      onSaveNewSubsede={saveNewSubsede}
+                      addingBranchFor={addingBranchFor}
+                      setAddingBranchFor={setAddingBranchFor}
+                      newBranchForm={newBranchForm}
+                      setNewBranchForm={setNewBranchForm}
+                      onSaveNewBranch={saveNewBranch}
                       saving={saving}
                     />
                   ))
@@ -228,22 +228,22 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
                     <input
                       type="text"
                       placeholder="Nombre de la región"
-                      value={newRegionForm.nombre}
-                      onChange={(e) => setNewRegionForm((p) => ({ ...p, nombre: e.target.value }))}
+                      value={newRegionForm.name}
+                      onChange={(e) => setNewRegionForm((p) => ({ ...p, name: e.target.value }))}
                       autoFocus
                     />
                     <div className="company-tree__inline-form-row">
                       <input
                         type="text"
                         placeholder="Encargado regional"
-                        value={newRegionForm.encargado}
-                        onChange={(e) => setNewRegionForm((p) => ({ ...p, encargado: e.target.value }))}
+                        value={newRegionForm.manager}
+                        onChange={(e) => setNewRegionForm((p) => ({ ...p, manager: e.target.value }))}
                       />
                       <input
                         type="text"
                         placeholder="Sede principal"
-                        value={newRegionForm.sedePrincipal}
-                        onChange={(e) => setNewRegionForm((p) => ({ ...p, sedePrincipal: e.target.value }))}
+                        value={newRegionForm.mainSite}
+                        onChange={(e) => setNewRegionForm((p) => ({ ...p, mainSite: e.target.value }))}
                       />
                     </div>
                     <div className="company-tree__inline-form-actions">
@@ -254,7 +254,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
                     </div>
                   </div>
                 ) : (
-                  <button type="button" className="company-tree__add-btn" onClick={() => { setAddingRegion(true); setEditingId(null); setAddingSubsedeFor(null); }}>
+                  <button type="button" className="company-tree__add-btn" onClick={() => { setAddingRegion(true); setEditingId(null); setAddingBranchFor(null); }}>
                     <Plus size={13} /> Agregar Región
                   </button>
                 )}
@@ -276,22 +276,22 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
 // Bloque de una región: su fila + subsedes + forms inline de editar/agregar.
 const RegionBlock = ({
   region, editingId, onStartEdit, renderEditForm,
-  addingSubsedeFor, setAddingSubsedeFor, newSubsedeForm, setNewSubsedeForm, onSaveNewSubsede, saving,
+  addingBranchFor, setAddingBranchFor, newBranchForm, setNewBranchForm, onSaveNewBranch, saving,
 }) => {
   const [expanded, setExpanded] = useState(true);
   const isEditing = editingId === region.id;
-  const isAddingSubsede = addingSubsedeFor === region.id;
+  const isAddingBranch = addingBranchFor === region.id;
 
   return (
     <div className="company-tree__region">
       <div className="company-tree__region-header" onClick={() => setExpanded((e) => !e)} role="button" tabIndex={0}>
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <span className="company-tree__region-name">{region.nombreEmpresa}</span>
-        {region.direccionEmpresa && (
-          <span className="company-tree__region-addr"><MapPin size={11} /> {region.direccionEmpresa}</span>
+        <span className="company-tree__region-name">{region.companyName}</span>
+        {region.companyAddress && (
+          <span className="company-tree__region-addr"><MapPin size={11} /> {region.companyAddress}</span>
         )}
         <div className="company-tree__region-actions">
-          <EncargadoLabel node={region} />
+          <ManagerLabel node={region} />
           <button type="button" className="company-tree__edit-btn" onClick={(e) => { e.stopPropagation(); onStartEdit(region); }}>
             <Pencil size={11} /> Editar
           </button>
@@ -302,20 +302,20 @@ const RegionBlock = ({
 
       {expanded && (
         <div className="company-tree__subsedes">
-          {region.subsedes.length === 0 ? (
+          {region.branches.length === 0 ? (
             <div className="company-tree__empty-sub">Sin subsedes cargadas en esta región.</div>
           ) : (
-            region.subsedes.map((s) => (
+            region.branches.map((s) => (
               <div key={s.id}>
                 <div className="company-tree__subsede">
                   <div className="company-tree__subsede-dot" />
                   <div className="company-tree__subsede-info">
-                    <span className="company-tree__subsede-name">{s.nombreEmpresa}</span>
-                    {s.direccionEmpresa && (
-                      <span className="company-tree__subsede-addr"><MapPin size={11} /> {s.direccionEmpresa}</span>
+                    <span className="company-tree__subsede-name">{s.companyName}</span>
+                    {s.companyAddress && (
+                      <span className="company-tree__subsede-addr"><MapPin size={11} /> {s.companyAddress}</span>
                     )}
                   </div>
-                  <EncargadoLabel node={s} />
+                  <ManagerLabel node={s} />
                   <button type="button" className="company-tree__edit-btn" onClick={() => onStartEdit(s)}>
                     <Pencil size={11} /> Editar
                   </button>
@@ -325,38 +325,38 @@ const RegionBlock = ({
             ))
           )}
 
-          {isAddingSubsede ? (
+          {isAddingBranch ? (
             <div className="company-tree__inline-form">
               <input
                 type="text"
                 placeholder="Nombre de la subsede"
-                value={newSubsedeForm.nombre}
-                onChange={(e) => setNewSubsedeForm((p) => ({ ...p, nombre: e.target.value }))}
+                value={newBranchForm.name}
+                onChange={(e) => setNewBranchForm((p) => ({ ...p, name: e.target.value }))}
                 autoFocus
               />
               <div className="company-tree__inline-form-row">
                 <input
                   type="text"
                   placeholder="Encargado de planta"
-                  value={newSubsedeForm.encargado}
-                  onChange={(e) => setNewSubsedeForm((p) => ({ ...p, encargado: e.target.value }))}
+                  value={newBranchForm.manager}
+                  onChange={(e) => setNewBranchForm((p) => ({ ...p, manager: e.target.value }))}
                 />
                 <input
                   type="text"
                   placeholder="Dirección (opcional)"
-                  value={newSubsedeForm.direccion}
-                  onChange={(e) => setNewSubsedeForm((p) => ({ ...p, direccion: e.target.value }))}
+                  value={newBranchForm.address}
+                  onChange={(e) => setNewBranchForm((p) => ({ ...p, address: e.target.value }))}
                 />
               </div>
               <div className="company-tree__inline-form-actions">
-                <button type="button" className="company-tree__inline-save" disabled={saving} onClick={() => onSaveNewSubsede(region)}>
+                <button type="button" className="company-tree__inline-save" disabled={saving} onClick={() => onSaveNewBranch(region)}>
                   {saving ? 'Guardando…' : 'Guardar Subsede'}
                 </button>
-                <button type="button" className="company-tree__inline-cancel" onClick={() => setAddingSubsedeFor(null)}>Cancelar</button>
+                <button type="button" className="company-tree__inline-cancel" onClick={() => setAddingBranchFor(null)}>Cancelar</button>
               </div>
             </div>
           ) : (
-            <button type="button" className="company-tree__add-btn" onClick={() => setAddingSubsedeFor(region.id)}>
+            <button type="button" className="company-tree__add-btn" onClick={() => setAddingBranchFor(region.id)}>
               <Plus size={12} /> Agregar Subsede
             </button>
           )}

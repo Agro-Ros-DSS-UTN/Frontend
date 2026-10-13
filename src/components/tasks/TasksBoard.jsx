@@ -16,7 +16,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { tasksApi, activitiesApi } from '../../api/operations.api';
-import { tipoContactoLabel } from '../../data/catalogos';
+import { contactTypeLabel } from '../../data/catalogs';
 import { authApi } from '../../api/auth.api';
 import { useAuth } from '../../context/AuthContext';
 import { FormInput, FormSelect, FormTextarea } from '../ui/FormInput/FormInput';
@@ -25,9 +25,9 @@ import { CompanyAutocomplete } from '../ui/CompanyAutocomplete/CompanyAutocomple
 import { ContactAutocomplete } from '../ui/ContactAutocomplete/ContactAutocomplete';
 import { FilterTabs } from '../ui/FilterTabs/FilterTabs';
 import './TasksBoard.css';
-import { notificar } from '../../hooks/useNotificaciones';
+import { notify } from '../../hooks/useNotifications';
 
-const TIPO_OPTIONS = [
+const TYPE_OPTIONS = [
   { value: 'llamada', label: 'Llamada' },
   { value: 'visita', label: 'Visita a Campo' },
   { value: 'correo', label: 'Correo Electrónico' },
@@ -39,49 +39,49 @@ const TIPO_OPTIONS = [
 // las tareas y con qué rol quedan registradas al crearlas.
 const VARIANTS = {
   admin: {
-    creadoPorRol: 'administrador',
-    destinatarioRol: 'vendedor',
+    createdByRole: 'administrador',
+    recipientRole: 'vendedor',
     fetchParams: {},
-    defaultAsignado: 'Administración',
+    defaultAssigned: 'Administración',
   },
   seller: {
-    creadoPorRol: 'vendedor',
-    destinatarioRol: 'vendedor',
-    fetchParams: { rol: 'vendedor' },
-    defaultAsignado: 'Vendedor',
+    createdByRole: 'vendedor',
+    recipientRole: 'vendedor',
+    fetchParams: { role: 'vendedor' },
+    defaultAssigned: 'Vendedor',
   },
 };
 
-const isFinalizedEstado = (estado) => /finaliz|complet/i.test(String(estado || ''));
+const isFinalizedStatus = (status) => /finaliz|complet/i.test(String(status || ''));
 
 const normalizeTask = (t) => ({
   id: t.id,
-  titulo: t.titulo || t.descripcion || 'Tarea sin título',
-  tipo: t.tipo || 'tarea',
-  fechaVencimiento: t.fechaVencimiento || '',
-  horaVencimiento: t.horaVencimiento || '',
-  prioridad: t.prioridad || 'Media',
-  estado: t.estado === 'Cancelada' ? 'Cancelada' : isFinalizedEstado(t.estado) ? 'Finalizada' : 'Pendiente',
-  asignadoA: t.asignadoA || '—',
-  asignadosIds: (t.asignaciones || []).map((a) => a.idUser),
-  finalizadoPor: t.finalizadoPor?.nombreApellido || '',
-  fechaFinalizacion: t.fechaFinalizacion || null,
-  actividadId: t.formularioActividadId ? String(t.formularioActividadId) : '',
-  actividad: t.FormularioActividad
+  title: t.title || t.description || 'Tarea sin título',
+  type: t.type || 'tarea',
+  dueDate: t.dueDate || '',
+  dueTime: t.dueTime || '',
+  priority: t.priority || 'Media',
+  status: t.status === 'Cancelada' ? 'Cancelada' : isFinalizedStatus(t.status) ? 'Finalizada' : 'Pendiente',
+  assignedTo: t.assignedTo || '—',
+  assigneeIds: (t.assignments || []).map((a) => a.idUser),
+  completedBy: t.completedBy?.fullName || '',
+  completedAt: t.completedAt || null,
+  activityId: t.activityFormId ? String(t.activityFormId) : '',
+  activity: t.ActivityForm
     ? {
-        nombre: [tipoContactoLabel(t.FormularioActividad.tipoContacto), t.FormularioActividad.empresa].filter(Boolean).join(' · '),
-        fecha: t.FormularioActividad.fechaHora,
+        name: [contactTypeLabel(t.ActivityForm.contactType), t.ActivityForm.company].filter(Boolean).join(' · '),
+        date: t.ActivityForm.occurredAt,
       }
     : null,
-  empresa: t.empresa || '',
-  empresaId: t.empresaId || null,
-  contacto: t.contacto || '',
-  contactoId: t.contactoId || null,
-  contactoEmpresaId: t.contactoId ? t.empresaId || null : null,
-  contactoTelefono: t.contactoDetalle?.telefonos?.[0] || '',
-  notas: t.notas || '',
-  creadoPorRol: t.creadoPorRol || 'administrador',
-  creadoPorId: t.creadoPorId || null,
+  company: t.company || '',
+  companyId: t.companyId || null,
+  contact: t.contact || '',
+  contactId: t.contactId || null,
+  contactCompanyId: t.contactId ? t.companyId || null : null,
+  contactPhone: t.contactDetails?.phones?.[0] || '',
+  notes: t.notes || '',
+  createdByRole: t.createdByRole || 'administrador',
+  createdById: t.createdById || null,
 });
 
 const formatDateTime = (iso) => {
@@ -91,18 +91,18 @@ const formatDateTime = (iso) => {
 };
 
 const emptyForm = () => ({
-  titulo: '',
-  tipo: 'llamada',
-  fechaVencimiento: '',
-  horaVencimiento: '',
-  prioridad: 'Alta',
-  empresa: '',
-  empresaId: null,
-  contacto: '',
-  contactoId: null,
-  contactoEmpresaId: null,
-  actividadId: '',
-  notas: '',
+  title: '',
+  type: 'llamada',
+  dueDate: '',
+  dueTime: '',
+  priority: 'Alta',
+  company: '',
+  companyId: null,
+  contact: '',
+  contactId: null,
+  contactCompanyId: null,
+  activityId: '',
+  notes: '',
 });
 
 export const TasksBoard = ({ variant = 'admin' }) => {
@@ -124,7 +124,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
   const [assignableUsers, setAssignableUsers] = useState([]);
   const [selectedAssignees, setSelectedAssignees] = useState([]);
   const myUserId = currentUser?.idUser || currentUser?.id || null;
-  const isAdmin = String(currentUser?.role || currentUser?.rol || '').toLowerCase() === 'admin';
+  const isAdmin = String(currentUser?.role || '').toLowerCase() === 'admin';
   const [finalizingId, setFinalizingId] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
 
@@ -135,7 +135,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         const res = await authApi.getAllUsers();
         const raw = Array.isArray(res) ? res : res?.data || [];
         setAssignableUsers(
-          raw.filter((u) => String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo')
+          raw.filter((u) => String(u.accountStatus || 'Activo') === 'Activo')
         );
       } catch (err) {
         console.error('Error al obtener usuarios para enganchar a la tarea:', err);
@@ -152,10 +152,10 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         const list = Array.isArray(res) ? res : res?.data || [];
         setActivityOptions(
           list.map((a) => {
-            const fecha = a.fechaHora ? new Date(a.fechaHora).toLocaleDateString('es-AR') : '';
+            const date = a.occurredAt ? new Date(a.occurredAt).toLocaleDateString('es-AR') : '';
             return {
-              value: String(a.idFormulario),
-              label: [tipoContactoLabel(a.tipoContacto), a.empresa, fecha].filter(Boolean).join(' · '),
+              value: String(a.formId),
+              label: [contactTypeLabel(a.contactType), a.company, date].filter(Boolean).join(' · '),
             };
           })
         );
@@ -194,66 +194,66 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     let result = [...tasks];
 
     if (activeTab === 'todo') {
-      result = result.filter((t) => t.estado !== 'Finalizada');
-    } else if (activeTab === 'finalizadas') {
+      result = result.filter((t) => t.status !== 'Finalizada');
+    } else if (activeTab === 'completed') {
       result = result
-        .filter((t) => t.estado === 'Finalizada')
-        .sort((a, b) => new Date(b.fechaFinalizacion || 0) - new Date(a.fechaFinalizacion || 0));
-    } else if (activeTab === 'hoy') {
-      result = result.filter((t) => t.fechaVencimiento === todayStr && t.estado !== 'Finalizada');
+        .filter((t) => t.status === 'Finalizada')
+        .sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
+    } else if (activeTab === 'today') {
+      result = result.filter((t) => t.dueDate === todayStr && t.status !== 'Finalizada');
     }
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (t) =>
-          t.titulo.toLowerCase().includes(q) ||
-          t.empresa?.toLowerCase().includes(q) ||
-          t.asignadoA?.toLowerCase().includes(q)
+          t.title.toLowerCase().includes(q) ||
+          t.company?.toLowerCase().includes(q) ||
+          t.assignedTo?.toLowerCase().includes(q)
       );
     }
 
     if (priorityFilter !== 'all') {
-      result = result.filter((t) => t.prioridad === priorityFilter);
+      result = result.filter((t) => t.priority === priorityFilter);
     }
 
     return result;
   }, [tasks, activeTab, searchQuery, priorityFilter, todayStr]);
 
-  const pendientesCount = tasks.filter((t) => t.estado !== 'Finalizada').length;
-  const finalizadasCount = tasks.filter((t) => t.estado === 'Finalizada').length;
-  const hoyCount = tasks.filter(
-    (t) => t.fechaVencimiento === todayStr && t.estado !== 'Finalizada'
+  const pendingCount = tasks.filter((t) => t.status !== 'Finalizada').length;
+  const completedCount = tasks.filter((t) => t.status === 'Finalizada').length;
+  const todayCount = tasks.filter(
+    (t) => t.dueDate === todayStr && t.status !== 'Finalizada'
   ).length;
 
   // Un vendedor solo finaliza tareas asociadas a él; un administrador puede finalizar cualquiera.
   // El backend vuelve a validar esto: acá solo se evita el viaje y se avisa antes.
   const canFinalize = (task) =>
-    isAdmin || task.asignadosIds.includes(myUserId);
+    isAdmin || task.assigneeIds.includes(myUserId);
 
   const handleFinalizeTask = async (task) => {
     if (!canFinalize(task)) {
-      notificar.advertencia('No tiene acceso a finalizar dicha tarea');
+      notify.warning('No tiene acceso a finalizar dicha tarea');
       return;
     }
     setFinalizingId(task.id);
     try {
       await tasksApi.finalize(task.id);
-      notificar.exito(`Tarea "${task.titulo}" finalizada`);
+      notify.success(`Tarea "${task.title}" finalizada`);
       await fetchTasks();
     } catch (err) {
-      notificar.error('No se pudo finalizar la tarea', err);
+      notify.error('No se pudo finalizar la tarea', err);
     } finally {
       setFinalizingId(null);
     }
   };
 
-  const handleDeleteTask = async (taskId, titulo) => {
-    if (!window.confirm(`¿Eliminar la tarea "${titulo}"?`)) return;
+  const handleDeleteTask = async (taskId, title) => {
+    if (!window.confirm(`¿Eliminar la tarea "${title}"?`)) return;
     try {
-      await notificar.operacion(tasksApi.delete(taskId), {
-        cargando: 'Eliminando tarea…',
-        exito: 'Tarea eliminada',
+      await notify.operation(tasksApi.delete(taskId), {
+        loading: 'Eliminando tarea…',
+        success: 'Tarea eliminada',
         error: 'No se pudo eliminar la tarea',
       });
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
@@ -272,10 +272,10 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     e.preventDefault();
 
     const newErrors = {};
-    if (!form.titulo?.trim()) newErrors.titulo = 'El título de la tarea es obligatorio.';
-    if (!form.fechaVencimiento) newErrors.fechaVencimiento = 'Seleccioná la fecha límite.';
+    if (!form.title?.trim()) newErrors.title = 'El título de la tarea es obligatorio.';
+    if (!form.dueDate) newErrors.dueDate = 'Seleccioná la fecha límite.';
     if (variant === 'admin' && selectedAssignees.length === 0) {
-      newErrors.asignados = 'Asociá al menos un usuario a la tarea.';
+      newErrors.assignees = 'Asociá al menos un usuario a la tarea.';
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -284,40 +284,40 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     setErrors({});
 
     const editableFields = {
-      titulo: form.titulo.trim(),
-      descripcion: form.titulo.trim(),
-      tipo: form.tipo,
-      prioridad: form.prioridad,
-      fechaVencimiento: form.fechaVencimiento,
-      horaVencimiento: form.horaVencimiento || null,
+      title: form.title.trim(),
+      description: form.title.trim(),
+      type: form.type,
+      priority: form.priority,
+      dueDate: form.dueDate,
+      dueTime: form.dueTime || null,
       // Empresa elegida de la lista (id); si se escribió otra, el nombre queda en las notas.
-      ...(form.empresaId ? { empresaId: form.empresaId } : { empresa: form.empresa?.trim() || null }),
+      ...(form.companyId ? { companyId: form.companyId } : { company: form.company?.trim() || null }),
       // Contacto elegido de la lista (vínculo); si se escribió otro nombre, queda en las notas.
-      ...(form.contactoId ? { contactoId: form.contactoId } : { contactoId: null, contacto: form.contacto?.trim() || null }),
-      actividadId: form.actividadId ? Number(form.actividadId) : null,
-      notas: form.notas?.trim() || null,
+      ...(form.contactId ? { contactId: form.contactId } : { contactId: null, contact: form.contact?.trim() || null }),
+      activityId: form.activityId ? Number(form.activityId) : null,
+      notes: form.notes?.trim() || null,
     };
 
     try {
       setLoading(true);
       if (editingTask) {
         const payload = { ...editableFields };
-        if (variant === 'admin') payload.asignadosIds = selectedAssignees;
+        if (variant === 'admin') payload.assigneeIds = selectedAssignees;
         await tasksApi.update(editingTask.id, payload);
-        notificar.exito('Tarea actualizada');
+        notify.success('Tarea actualizada');
       } else {
         await tasksApi.create({
           ...editableFields,
           // El vendedor queda asociado a las tareas que él mismo crea, para poder finalizarlas.
-          asignadosIds: variant === 'admin' ? selectedAssignees : [myUserId].filter(Boolean),
+          assigneeIds: variant === 'admin' ? selectedAssignees : [myUserId].filter(Boolean),
         });
-        notificar.exito('Tarea creada', editableFields.titulo);
+        notify.success('Tarea creada', editableFields.title);
       }
       closeDrawer();
       await fetchTasks();
     } catch (err) {
       console.error('Error al guardar tarea:', err);
-      notificar.error('No se pudo guardar la tarea', err);
+      notify.error('No se pudo guardar la tarea', err);
     } finally {
       setLoading(false);
     }
@@ -335,20 +335,20 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     setEditingTask(task);
     setErrors({});
     setForm({
-      titulo: task.titulo,
-      tipo: task.tipo,
-      fechaVencimiento: task.fechaVencimiento,
-      horaVencimiento: task.horaVencimiento,
-      prioridad: task.prioridad,
-      empresa: task.empresa,
-      empresaId: task.empresaId,
-      contacto: task.contacto || '',
-      contactoId: task.contactoId || null,
-      contactoEmpresaId: task.contactoEmpresaId || null,
-      actividadId: task.actividadId,
-      notas: task.notas,
+      title: task.title,
+      type: task.type,
+      dueDate: task.dueDate,
+      dueTime: task.dueTime,
+      priority: task.priority,
+      company: task.company,
+      companyId: task.companyId,
+      contact: task.contact || '',
+      contactId: task.contactId || null,
+      contactCompanyId: task.contactCompanyId || null,
+      activityId: task.activityId,
+      notes: task.notes,
     });
-    setSelectedAssignees(task.asignadosIds);
+    setSelectedAssignees(task.assigneeIds);
     setShowDrawer(true);
   };
 
@@ -362,15 +362,15 @@ export const TasksBoard = ({ variant = 'admin' }) => {
   const handleExportCSV = () => {
     const headers = ['Título', 'Tipo', 'Fecha Límite', 'Hora', 'Prioridad', 'Estado', 'Asignado a', 'Empresa', 'Notas'];
     const rows = filteredTasks.map((t) => [
-      `"${(t.titulo || '').replace(/"/g, '""')}"`,
-      `"${t.tipo || ''}"`,
-      `"${t.fechaVencimiento || ''}"`,
-      `"${t.horaVencimiento || ''}"`,
-      `"${t.prioridad || ''}"`,
-      `"${t.estado || ''}"`,
-      `"${(t.asignadoA || '').replace(/"/g, '""')}"`,
-      `"${(t.empresa || '').replace(/"/g, '""')}"`,
-      `"${(t.notas || '').replace(/"/g, '""')}"`,
+      `"${(t.title || '').replace(/"/g, '""')}"`,
+      `"${t.type || ''}"`,
+      `"${t.dueDate || ''}"`,
+      `"${t.dueTime || ''}"`,
+      `"${t.priority || ''}"`,
+      `"${t.status || ''}"`,
+      `"${(t.assignedTo || '').replace(/"/g, '""')}"`,
+      `"${(t.company || '').replace(/"/g, '""')}"`,
+      `"${(t.notes || '').replace(/"/g, '""')}"`,
     ]);
     const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -383,8 +383,8 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     document.body.removeChild(link);
   };
 
-  const getTypeIcon = (tipo) => {
-    switch (tipo?.toLowerCase()) {
+  const getTypeIcon = (type) => {
+    switch (type?.toLowerCase()) {
       case 'llamada':
         return <Phone size={13} />;
       case 'correo':
@@ -400,7 +400,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
   };
 
 
-  const showingFinalized = activeTab === 'finalizadas';
+  const showingFinalized = activeTab === 'completed';
 
   return (
     <div className="tasks-board">
@@ -430,7 +430,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           </div>
           <div>
             <span className="tasks-board__stat-label">Pendientes</span>
-            <span className="tasks-board__stat-value">{pendientesCount}</span>
+            <span className="tasks-board__stat-value">{pendingCount}</span>
             <span className="tasks-board__stat-sub">Sincronizadas en la base de datos</span>
           </div>
         </div>
@@ -441,7 +441,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           </div>
           <div>
             <span className="tasks-board__stat-label">Para Hoy</span>
-            <span className="tasks-board__stat-value">{hoyCount}</span>
+            <span className="tasks-board__stat-value">{todayCount}</span>
             <span className="tasks-board__stat-sub">Vencen en el día</span>
           </div>
         </div>
@@ -452,7 +452,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           </div>
           <div>
             <span className="tasks-board__stat-label">Finalizadas</span>
-            <span className="tasks-board__stat-value">{finalizadasCount}</span>
+            <span className="tasks-board__stat-value">{completedCount}</span>
             <span className="tasks-board__stat-sub">Tareas concretadas</span>
           </div>
         </div>
@@ -475,9 +475,9 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             value={activeTab}
             onChange={setActiveTab}
             items={[
-              { value: 'todo', label: 'Pendientes', count: pendientesCount },
-              { value: 'hoy', label: 'Hoy' },
-              { value: 'finalizadas', label: 'Finalizadas', count: finalizadasCount },
+              { value: 'todo', label: 'Pendientes', count: pendingCount },
+              { value: 'today', label: 'Hoy' },
+              { value: 'completed', label: 'Finalizadas', count: completedCount },
             ]}
           />
           <select
@@ -519,37 +519,37 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                 </tr>
               ) : (
                 filteredTasks.map((t) => {
-                  const isFinalized = t.estado === 'Finalizada';
+                  const isFinalized = t.status === 'Finalizada';
                   return (
                     <tr key={t.id} className={isFinalized ? 'tasks-board__row--done' : ''}>
                       <td>
                         <div className={`tasks-board__task-title ${isFinalized ? 'tasks-board__task-title--done' : ''}`}>
-                          {t.titulo}
+                          {t.title}
                         </div>
                         <div className="tasks-board__task-type-row">
-                          {getTypeIcon(t.tipo)} <span className="tasks-board__task-type-label">{t.tipo}</span>
+                          {getTypeIcon(t.type)} <span className="tasks-board__task-type-label">{t.type}</span>
                         </div>
                       </td>
                       <td>
-                        <div className="tasks-board__empresa-name">{t.empresa || '—'}</div>
-                        {t.contacto && (
+                        <div className="tasks-board__empresa-name">{t.company || '—'}</div>
+                        {t.contact && (
                           <div className="tasks-board__empresa-contact">
-                            {t.contacto}
-                            {t.contactoTelefono && (
+                            {t.contact}
+                            {t.contactPhone && (
                               <>
                                 {' · '}
-                                <a href={`tel:${t.contactoTelefono.replace(/[^\d+]/g, '')}`} onClick={(e) => e.stopPropagation()}>{t.contactoTelefono}</a>
+                                <a href={`tel:${t.contactPhone.replace(/[^\d+]/g, '')}`} onClick={(e) => e.stopPropagation()}>{t.contactPhone}</a>
                               </>
                             )}
                           </div>
                         )}
                       </td>
                       <td>
-                        {t.actividad ? (
+                        {t.activity ? (
                           <>
-                            <div className="tasks-board__empresa-name">{t.actividad.nombre}</div>
-                            {t.actividad.fecha && (
-                              <div className="tasks-board__empresa-contact">{formatDateTime(t.actividad.fecha)}</div>
+                            <div className="tasks-board__empresa-name">{t.activity.name}</div>
+                            {t.activity.date && (
+                              <div className="tasks-board__empresa-contact">{formatDateTime(t.activity.date)}</div>
                             )}
                           </>
                         ) : (
@@ -558,22 +558,22 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                       </td>
                       <td>
                         <span className="tasks-board__fecha-text">
-                          {t.fechaVencimiento || '—'} {t.horaVencimiento ? `(${t.horaVencimiento} hs)` : ''}
+                          {t.dueDate || '—'} {t.dueTime ? `(${t.dueTime} hs)` : ''}
                         </span>
                       </td>
                       <td>
-                        <span className={`tasks-board__priority ${t.prioridad?.toLowerCase() || 'media'}`}>
-                          {t.prioridad}
+                        <span className={`tasks-board__priority ${t.priority?.toLowerCase() || 'media'}`}>
+                          {t.priority}
                         </span>
                       </td>
                       <td>
-                        <span className="tasks-board__asignado-text">{t.asignadoA}</span>
+                        <span className="tasks-board__asignado-text">{t.assignedTo}</span>
                       </td>
                       {showingFinalized && (
                         <td>
-                          <div className="tasks-board__empresa-name">{t.finalizadoPor || '—'}</div>
-                          {t.fechaFinalizacion && (
-                            <div className="tasks-board__empresa-contact">{formatDateTime(t.fechaFinalizacion)}</div>
+                          <div className="tasks-board__empresa-name">{t.completedBy || '—'}</div>
+                          {t.completedAt && (
+                            <div className="tasks-board__empresa-contact">{formatDateTime(t.completedAt)}</div>
                           )}
                         </td>
                       )}
@@ -581,7 +581,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                         <div className="tasks-board__row-actions">
                           {!isFinalized && (
                             <>
-                              {(variant === 'admin' || t.creadoPorId === myUserId) && (
+                              {(variant === 'admin' || t.createdById === myUserId) && (
                                 <button
                                   type="button"
                                   onClick={() => openEditDrawer(t)}
@@ -603,10 +603,10 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                             </>
                           )}
                           {/* El vendedor solo elimina las tareas que creó él (P-3). */}
-                          {(variant === 'admin' || t.creadoPorId === myUserId) && (
+                          {(variant === 'admin' || t.createdById === myUserId) && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteTask(t.id, t.titulo)}
+                              onClick={() => handleDeleteTask(t.id, t.title)}
                               title="Eliminar tarea"
                               className="tasks-board__delete-btn"
                             >
@@ -634,26 +634,26 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         <form onSubmit={handleCreateTaskSubmit} noValidate className="tasks-board__form">
           <FormInput
             label="Título de la Tarea"
-            name="titulo"
-            value={form.titulo}
+            name="title"
+            value={form.title}
             onChange={handleFormChange}
             placeholder="Ej: Llamar a productor para coordinar entrega de fertilizantes"
             required
-            error={errors.titulo}
+            error={errors.title}
           />
 
           <div className="tasks-board__form-row">
             <FormSelect
               label="Tipo de Actividad"
-              name="tipo"
-              value={form.tipo}
+              name="type"
+              value={form.type}
               onChange={handleFormChange}
-              options={TIPO_OPTIONS}
+              options={TYPE_OPTIONS}
             />
             <FormSelect
               label="Prioridad"
-              name="prioridad"
-              value={form.prioridad}
+              name="priority"
+              value={form.priority}
               onChange={handleFormChange}
               options={[
                 { value: 'Alta', label: 'Alta' },
@@ -666,18 +666,18 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           <div className="tasks-board__form-row">
             <FormInput
               label="Fecha Límite"
-              name="fechaVencimiento"
+              name="dueDate"
               type="date"
-              value={form.fechaVencimiento}
+              value={form.dueDate}
               onChange={handleFormChange}
               required
-              error={errors.fechaVencimiento}
+              error={errors.dueDate}
             />
             <FormInput
               label="Hora Estimada"
-              name="horaVencimiento"
+              name="dueTime"
               type="time"
-              value={form.horaVencimiento}
+              value={form.dueTime}
               onChange={handleFormChange}
             />
           </div>
@@ -685,36 +685,36 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           <div className="tasks-board__form-row">
             <CompanyAutocomplete
               label="Empresa"
-              name="empresa"
-              value={form.empresa}
-              onChange={(nombre, hit) =>
+              name="company"
+              value={form.company}
+              onChange={(name, hit) =>
                 setForm((prev) => {
-                  const empresaId = hit?.id || null;
+                  const companyId = hit?.id || null;
                   // Si el contacto elegido es de otra empresa, se desvincula.
-                  const contactoValido = prev.contactoId && (!empresaId || prev.contactoEmpresaId === empresaId);
+                  const validContact = prev.contactId && (!companyId || prev.contactCompanyId === companyId);
                   return {
                     ...prev,
-                    empresa: nombre,
-                    empresaId,
-                    ...(contactoValido || !prev.contactoId ? {} : { contacto: '', contactoId: null, contactoEmpresaId: null }),
+                    company: name,
+                    companyId,
+                    ...(validContact || !prev.contactId ? {} : { contact: '', contactId: null, contactCompanyId: null }),
                   };
                 })
               }
             />
             <ContactAutocomplete
               label="Contacto"
-              name="contacto"
-              value={form.contacto}
-              empresaId={form.empresaId}
-              textoLibre="en las notas de la tarea"
-              onChange={(nombre, contacto) =>
+              name="contact"
+              value={form.contact}
+              companyId={form.companyId}
+              freeText="en las notas de la tarea"
+              onChange={(name, contact) =>
                 setForm((prev) => ({
                   ...prev,
-                  contacto: nombre,
-                  contactoId: contacto?.id || null,
-                  contactoEmpresaId: contacto?.empresaId || null,
-                  empresa: !prev.empresaId && contacto?.empresa ? contacto.empresa : prev.empresa,
-                  empresaId: !prev.empresaId && contacto?.empresaId ? contacto.empresaId : prev.empresaId,
+                  contact: name,
+                  contactId: contact?.id || null,
+                  contactCompanyId: contact?.companyId || null,
+                  company: !prev.companyId && contact?.company ? contact.company : prev.company,
+                  companyId: !prev.companyId && contact?.companyId ? contact.companyId : prev.companyId,
                 }))
               }
             />
@@ -732,13 +732,13 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                     checked={selectedAssignees.includes(myUserId)}
                     onChange={() => {
                       toggleAssignee(myUserId);
-                      if (errors.asignados) setErrors((prev) => ({ ...prev, asignados: '' }));
+                      if (errors.assignees) setErrors((prev) => ({ ...prev, assignees: '' }));
                     }}
                   />
                   <span>Asociar mi usuario</span>
                 </label>
               )}
-              <div className={`tasks-board__assignee-list ${errors.asignados ? 'tasks-board__assignee-list--error' : ''}`}>
+              <div className={`tasks-board__assignee-list ${errors.assignees ? 'tasks-board__assignee-list--error' : ''}`}>
                 {assignableUsers.filter((u) => (u.idUser || u.id) !== myUserId).map((u) => {
                   const idUser = u.idUser || u.id;
                   return (
@@ -748,33 +748,33 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                         checked={selectedAssignees.includes(idUser)}
                         onChange={() => {
                           toggleAssignee(idUser);
-                          if (errors.asignados) setErrors((prev) => ({ ...prev, asignados: '' }));
+                          if (errors.assignees) setErrors((prev) => ({ ...prev, assignees: '' }));
                         }}
                       />
-                      <span>{u.nombreApellido || idUser}</span>
+                      <span>{u.fullName || idUser}</span>
                       <span className="tasks-board__assignee-role">
-                        {(u.role || u.rol || '').toLowerCase().includes('admin') ? 'Administrador' : 'Vendedor'}
+                        {(u.role || '').toLowerCase().includes('admin') ? 'Administrador' : 'Vendedor'}
                       </span>
                     </label>
                   );
                 })}
               </div>
-              {errors.asignados && <span className="form-input-error">{errors.asignados}</span>}
+              {errors.assignees && <span className="form-input-error">{errors.assignees}</span>}
             </div>
           )}
 
           <FormSelect
             label="Actividad asociada"
-            name="actividadId"
-            value={form.actividadId}
+            name="activityId"
+            value={form.activityId}
             onChange={handleFormChange}
             options={[{ value: '', label: 'Sin actividad asociada' }, ...activityOptions]}
           />
 
           <FormTextarea
             label="Notas Adicionales"
-            name="notas"
-            value={form.notas}
+            name="notes"
+            value={form.notes}
             onChange={handleFormChange}
             placeholder="Detalles sobre la conversación previa o indicaciones..."
             rows={2}

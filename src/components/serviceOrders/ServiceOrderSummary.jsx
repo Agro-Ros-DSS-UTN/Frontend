@@ -51,8 +51,8 @@ const MetaItem = ({ icon: Icon, label, children, wide = false }) => (
 
 export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, onPrintOrder, onPrintEval }) => {
   const overlayHandlers = useOverlayClose(onClose);
-  const ev = order.evaluacion;
-  const productos = order.productosAplicados || [];
+  const ev = order.evaluation;
+  const products = order.appliedProducts || [];
   const parseList = (value) => {
     if (Array.isArray(value)) return value;
     try {
@@ -62,8 +62,8 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
       return [];
     }
   };
-  const fotos = parseList(ev?.fotos);
-  const filasEval = parseList(ev?.detalle);
+  const photos = parseList(ev?.photos);
+  const rowsEval = parseList(ev?.details);
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
@@ -71,7 +71,7 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const ubicacion = [order.direccion, order.localidad, order.provincia].filter(Boolean).join(', ');
+  const location = [order.address, order.locality, order.province].filter(Boolean).join(', ');
 
   return (
     <div className="cs-overlay" {...overlayHandlers}>
@@ -79,7 +79,7 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
         className="cs-card"
         role="dialog"
         aria-modal="true"
-        aria-label={`Resumen de la orden ${order.numeroOrden}`}
+        aria-label={`Resumen de la orden ${order.orderNumber}`}
         initial="hidden"
         animate="visible"
         variants={containerVariants}
@@ -89,7 +89,7 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
             <div className="cs-breadcrumbs">
               <span>Órdenes de Servicio</span>
               <span className="cs-breadcrumbs__sep">/</span>
-              <span className="cs-breadcrumbs__current">{order.numeroOrden}</span>
+              <span className="cs-breadcrumbs__current">{order.orderNumber}</span>
             </div>
             <div className="cs-header__actions">
               <button type="button" className="cs-ghost-btn" onClick={onPrintOrder} title="Ver / imprimir la orden">
@@ -107,36 +107,36 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
 
         <div className="cs-body">
           <motion.div variants={itemVariants}>
-            <p className="sos-number">{order.numeroOrden}</p>
-            <h1 className="cs-title">{order.clienteNombre || 'Orden de servicio'}</h1>
+            <p className="sos-number">{order.orderNumber}</p>
+            <h1 className="cs-title">{order.customerName || 'Orden de servicio'}</h1>
           </motion.div>
 
           <motion.div variants={itemVariants} className="cs-meta-grid">
-            <MetaItem icon={Calendar} label="Fecha">{formatDate(order.fecha)}</MetaItem>
+            <MetaItem icon={Calendar} label="Fecha">{formatDate(order.date)}</MetaItem>
             <MetaItem icon={Flag} label="Estado">
-              <span className={`crm-status-pill ${/complet/i.test(order.estado || '') ? 'crm-status-pill--ok' : ''}`}>
-                {order.estado || '—'}
+              <span className={`crm-status-pill ${/complet/i.test(order.status || '') ? 'crm-status-pill--ok' : ''}`}>
+                {order.status || '—'}
               </span>
             </MetaItem>
-            <MetaItem icon={Wrench} label="Tipo de trabajo">{order.tipoTrabajo || '—'}</MetaItem>
+            <MetaItem icon={Wrench} label="Tipo de trabajo">{order.workType || '—'}</MetaItem>
             {/* Centro / Planta / Silo ya no se cargan; solo se muestran en órdenes viejas que los tengan */}
-            {order.centroNombre && <MetaItem icon={Building2} label="Centro">{order.centroNombre}</MetaItem>}
-            {(order.plantaNombre || order.silo) && (
+            {order.centerName && <MetaItem icon={Building2} label="Centro">{order.centerName}</MetaItem>}
+            {(order.plantName || order.silo) && (
               <MetaItem icon={Factory} label="Planta de acopio">
-                {order.plantaNombre || '—'}
+                {order.plantName || '—'}
                 {order.silo ? ` · Silo ${order.silo}` : ''}
               </MetaItem>
             )}
-            <MetaItem icon={UserCircle2} label="Técnico aplicador">{order.tecnicoAplicador || '—'}</MetaItem>
-            <MetaItem icon={MapPin} label="Ubicación" wide>{ubicacion || '—'}</MetaItem>
-            {order.observacionesOrden && (
+            <MetaItem icon={UserCircle2} label="Técnico aplicador">{order.technicianName || '—'}</MetaItem>
+            <MetaItem icon={MapPin} label="Ubicación" wide>{location || '—'}</MetaItem>
+            {order.orderNotes && (
               <MetaItem icon={FileText} label="Observaciones" wide>
-                <span className="cs-meta__desc">{order.observacionesOrden}</span>
+                <span className="cs-meta__desc">{order.orderNotes}</span>
               </MetaItem>
             )}
-            {order.recomendaciones && (
+            {order.recommendations && (
               <MetaItem icon={FileText} label="Recomendaciones" wide>
-                <span className="cs-meta__desc">{order.recomendaciones}</span>
+                <span className="cs-meta__desc">{order.recommendations}</span>
               </MetaItem>
             )}
           </motion.div>
@@ -144,9 +144,9 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
           <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
               <FlaskConical size={18} className="cs-meta__icon" /> Detalle del servicio
-              <span className="cs-count">{productos.length}</span>
+              <span className="cs-count">{products.length}</span>
             </h3>
-            {productos.length > 0 ? (
+            {products.length > 0 ? (
               <div className="cs-table-wrap">
                 <table className="cs-table">
                   <thead>
@@ -162,16 +162,16 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
                     </tr>
                   </thead>
                   <tbody>
-                    {productos.map((p, i) => (
+                    {products.map((p, i) => (
                       <tr key={i}>
-                        <td className="cs-table__detail">{p.tipoInstalacion || '—'}</td>
-                        <td>{p.numero || '—'}</td>
-                        <td>{p.capacidadTn || '—'}</td>
-                        <td>{p.grano || '—'}</td>
-                        <td>{p.cantidadTn || '—'}</td>
-                        <td>{[p.estadoCereal, p.estadoInstalaciones, p.estadoInfestacion].map((v) => v || '—').join(' / ')}</td>
-                        <td>{p.producto || '—'}</td>
-                        <td>{p.dosis || '—'}</td>
+                        <td className="cs-table__detail">{p.facilityType || '—'}</td>
+                        <td>{p.number || '—'}</td>
+                        <td>{p.capacityTn || '—'}</td>
+                        <td>{p.grain || '—'}</td>
+                        <td>{p.quantityTn || '—'}</td>
+                        <td>{[p.grainCondition, p.facilityCondition, p.infestationLevel].map((v) => v || '—').join(' / ')}</td>
+                        <td>{p.product || '—'}</td>
+                        <td>{p.dose || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -182,13 +182,13 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
             )}
           </motion.section>
 
-          {order.imagenOrdenOriginal && (
+          {order.originalOrderImage && (
             <motion.section variants={itemVariants} className="cs-section">
               <h3 className="cs-section__title">
                 <ImageIcon size={18} className="cs-meta__icon" /> Orden de servicio original
               </h3>
-              <a href={order.imagenOrdenOriginal} target="_blank" rel="noreferrer" className="sos-original" title="Abrir la imagen completa">
-                <img src={order.imagenOrdenOriginal} alt={`Orden de servicio original ${order.numeroOrden}`} />
+              <a href={order.originalOrderImage} target="_blank" rel="noreferrer" className="sos-original" title="Abrir la imagen completa">
+                <img src={order.originalOrderImage} alt={`Orden de servicio original ${order.orderNumber}`} />
               </a>
             </motion.section>
           )}
@@ -214,28 +214,28 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
               <>
                 <div className="cs-meta-grid">
                   <MetaItem icon={ShieldCheck} label="Resultado">
-                    <strong>{ev.resultado || '—'}</strong>
+                    <strong>{ev.result || '—'}</strong>
                   </MetaItem>
-                  <MetaItem icon={Calendar} label="Fecha de evaluación">{formatDate(ev.fechaEvaluacion)}</MetaItem>
-                  {filasEval.length === 0 && (
+                  <MetaItem icon={Calendar} label="Fecha de evaluación">{formatDate(ev.evaluationDate)}</MetaItem>
+                  {rowsEval.length === 0 && (
                     <>
-                      <MetaItem icon={Wheat} label="Estado del cereal">{ev.estadoCereal || '—'}</MetaItem>
-                      <MetaItem icon={MapPin} label="Lugar de toma de muestra">{ev.lugarToma || '—'}</MetaItem>
+                      <MetaItem icon={Wheat} label="Estado del cereal">{ev.grainCondition || '—'}</MetaItem>
+                      <MetaItem icon={MapPin} label="Lugar de toma de muestra">{ev.samplingPoint || '—'}</MetaItem>
                     </>
                   )}
                   <MetaItem icon={Gauge} label="PPM PH3">{ev.ppmPH3 !== null && ev.ppmPH3 !== undefined && ev.ppmPH3 !== '' ? ev.ppmPH3 : '—'}</MetaItem>
-                  {ev.observaciones && (
+                  {ev.notes && (
                     <MetaItem icon={FileText} label="Observaciones" wide>
-                      <span className="cs-meta__desc">{ev.observaciones}</span>
+                      <span className="cs-meta__desc">{ev.notes}</span>
                     </MetaItem>
                   )}
-                  {ev.recomendaciones && (
+                  {ev.recommendations && (
                     <MetaItem icon={FileText} label="Recomendaciones" wide>
-                      <span className="cs-meta__desc">{ev.recomendaciones}</span>
+                      <span className="cs-meta__desc">{ev.recommendations}</span>
                     </MetaItem>
                   )}
                 </div>
-                {filasEval.length > 0 && (
+                {rowsEval.length > 0 && (
                   <div className="cs-table-wrap">
                     <table className="cs-table">
                       <thead>
@@ -251,25 +251,25 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
                         </tr>
                       </thead>
                       <tbody>
-                        {filasEval.map((r, i) => (
+                        {rowsEval.map((r, i) => (
                           <tr key={i}>
-                            <td className="cs-table__detail">{r.tipoInstalacion || '—'}</td>
-                            <td>{r.numero || '—'}</td>
-                            <td>{r.capacidadTn || '—'}</td>
-                            <td>{r.grano || '—'}</td>
-                            <td>{r.cantidadTn || '—'}</td>
-                            <td>{r.estadoCereal || '—'}</td>
-                            <td>{r.lugarToma || '—'}</td>
-                            <td><strong>{r.resultado || '—'}</strong></td>
+                            <td className="cs-table__detail">{r.facilityType || '—'}</td>
+                            <td>{r.number || '—'}</td>
+                            <td>{r.capacityTn || '—'}</td>
+                            <td>{r.grain || '—'}</td>
+                            <td>{r.quantityTn || '—'}</td>
+                            <td>{r.grainCondition || '—'}</td>
+                            <td>{r.samplingPoint || '—'}</td>
+                            <td><strong>{r.result || '—'}</strong></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 )}
-                {fotos.length > 0 && (
+                {photos.length > 0 && (
                   <div className="sos-photos">
-                    {fotos.map((src, i) => (
+                    {photos.map((src, i) => (
                       <img key={i} src={src} alt={`Foto de la evaluación ${i + 1}`} />
                     ))}
                   </div>

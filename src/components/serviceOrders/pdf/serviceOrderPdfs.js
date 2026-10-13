@@ -10,10 +10,10 @@ import {
   toBlobUrl,
   INK,
 } from '../../../utils/pdfStamp';
-import { ORDEN_LAYOUT, EVALUACION_LAYOUT } from './plantillasLayout';
+import { ORDER_LAYOUT, EVALUATION_LAYOUT } from './templateLayouts';
 
 // Texto que la plantilla de evaluación ya trae impreso en "Recomendaciones"
-const RECOMENDACION_IMPRESA =
+const PRINTED_RECOMMENDATION =
   'Se recomienda prender los aireadores y proceder al retiro del cereal luego de las 96 hs de la liberación del servicio.';
 
 const templateUrl = (path) => `${import.meta.env?.BASE_URL || '/'}${path}`;
@@ -30,43 +30,43 @@ const parseList = (value) => {
 
 const hasData = (row) => Object.values(row || {}).some((v) => v !== null && v !== undefined && String(v).trim() !== '');
 
-const drawNumero = (page, fonts, layout, numero) => {
-  coverArea(page, layout.numero.tapar);
-  drawField(page, fonts, numero, layout.numero.texto);
+const drawNumber = (page, fonts, layout, number) => {
+  coverArea(page, layout.number.cover);
+  drawField(page, fonts, number, layout.number.text);
 };
 
-const drawFecha = (page, fonts, layout, value) => {
+const drawDate = (page, fonts, layout, value) => {
   const f = splitDate(value);
   if (!f) return;
-  drawField(page, fonts, f.dia, layout.fecha.dia);
-  drawField(page, fonts, f.mes, layout.fecha.mes);
-  drawField(page, fonts, f.anio, layout.fecha.anio);
+  drawField(page, fonts, f.day, layout.date.day);
+  drawField(page, fonts, f.month, layout.date.month);
+  drawField(page, fonts, f.year, layout.date.year);
 };
 
-const drawExcedente = (page, fonts, spec, cantidad) => {
-  if (!cantidad) return;
-  drawField(page, fonts, `+ ${cantidad} fila${cantidad === 1 ? '' : 's'} más: ver el detalle completo en el CRM.`, spec);
+const drawExcess = (page, fonts, spec, quantity) => {
+  if (!quantity) return;
+  drawField(page, fonts, `+ ${quantity} fila${quantity === 1 ? '' : 's'} más: ver el detalle completo en el CRM.`, spec);
 };
 
 // Firmas digitales en el espacio libre del pie (solo si se cargaron)
-const drawFirmas = async (pdf, page, fonts, spec, { firmaTecnico, firmaCliente, tecnico }) => {
+const drawSignatures = async (pdf, page, fonts, spec, { technicianSignature, customerSignature, technician }) => {
   const items = [
-    { box: spec.tecnico, img: firmaTecnico, leyenda: tecnico ? `Técnico: ${tecnico}` : 'Firma del técnico' },
-    { box: spec.cliente, img: firmaCliente, leyenda: 'Firma del cliente' },
+    { box: spec.technician, img: technicianSignature, legend: technician ? `Técnico: ${technician}` : 'Firma del técnico' },
+    { box: spec.customer, img: customerSignature, legend: 'Firma del cliente' },
   ];
   for (const it of items) {
     if (!it.img) continue;
     const ok = await drawImageInBox(pdf, page, it.img, it.box);
     if (!ok) continue;
     page.drawLine({
-      start: { x: it.box.x, y: spec.lineaY },
-      end: { x: it.box.x + it.box.width, y: spec.lineaY },
+      start: { x: it.box.x, y: spec.lineY },
+      end: { x: it.box.x + it.box.width, y: spec.lineY },
       thickness: 0.6,
       color: INK,
     });
-    drawField(page, fonts, it.leyenda, {
+    drawField(page, fonts, it.legend, {
       x: it.box.x + it.box.width / 2,
-      y: spec.leyendaY,
+      y: spec.legendY,
       size: spec.size,
       align: 'center',
       maxWidth: it.box.width,
@@ -75,84 +75,84 @@ const drawFirmas = async (pdf, page, fonts, spec, { firmaTecnico, firmaCliente, 
 };
 
 /** Orden de Servicio sobre la plantilla original. Devuelve un Object URL del PDF. */
-export const generarOrdenServicioPdf = async (order) => {
-  const L = ORDEN_LAYOUT;
-  const { pdf, page, fonts } = await loadTemplate(templateUrl(L.plantilla));
+export const generateServiceOrderPdf = async (order) => {
+  const L = ORDER_LAYOUT;
+  const { pdf, page, fonts } = await loadTemplate(templateUrl(L.template));
 
-  drawNumero(page, fonts, L, order.numeroOrden);
-  drawFecha(page, fonts, L, order.fecha);
-  drawField(page, fonts, order.clienteNombre, L.cliente);
-  drawField(page, fonts, order.direccion, L.direccion);
-  drawField(page, fonts, [order.localidad, order.provincia].filter(Boolean).join(', '), L.localidad);
+  drawNumber(page, fonts, L, order.orderNumber);
+  drawDate(page, fonts, L, order.date);
+  drawField(page, fonts, order.customerName, L.customer);
+  drawField(page, fonts, order.address, L.address);
+  drawField(page, fonts, [order.locality, order.province].filter(Boolean).join(', '), L.locality);
 
   // Tipo de trabajo: la planilla solo tiene casillas para Fumigación y Desinsectación
-  const tipo = String(order.tipoTrabajo || '');
-  const esFumigacion = /fumig/i.test(tipo);
-  const esDesinsectacion = /desinsect/i.test(tipo);
-  if (esFumigacion) drawCheck(page, L.tipoTrabajo.fumigacion);
-  if (esDesinsectacion) drawCheck(page, L.tipoTrabajo.desinsectacion);
+  const type = String(order.workType || '');
+  const isFumigation = /fumig/i.test(type);
+  const isDisinsection = /desinsect/i.test(type);
+  if (isFumigation) drawCheck(page, L.workType.fumigation);
+  if (isDisinsection) drawCheck(page, L.workType.disinsection);
 
-  const filas = parseList(order.productosAplicados).filter(hasData);
-  const sobrantes = drawTableRows(page, fonts, filas, L.tabla);
-  drawExcedente(page, fonts, L.tabla.excedente, sobrantes);
+  const rows = parseList(order.appliedProducts).filter(hasData);
+  const leftover = drawTableRows(page, fonts, rows, L.table);
+  drawExcess(page, fonts, L.table.excess, leftover);
 
   // Si el tipo no es ninguno de los dos de la planilla, se aclara en observaciones
-  const observaciones = [
-    !esFumigacion && !esDesinsectacion && tipo ? `Tipo de trabajo: ${tipo}.` : '',
-    order.observacionesOrden || '',
+  const notes = [
+    !isFumigation && !isDisinsection && type ? `Tipo de trabajo: ${type}.` : '',
+    order.orderNotes || '',
   ].filter(Boolean).join('\n');
-  drawParagraph(page, fonts, observaciones, L.observaciones);
-  drawParagraph(page, fonts, order.recomendaciones, L.recomendaciones);
+  drawParagraph(page, fonts, notes, L.notes);
+  drawParagraph(page, fonts, order.recommendations, L.recommendations);
 
-  await drawFirmas(pdf, page, fonts, L.firmas, {
-    firmaTecnico: order.firmaTecnico,
-    firmaCliente: order.firmaCliente,
-    tecnico: order.tecnicoAplicador,
+  await drawSignatures(pdf, page, fonts, L.signatures, {
+    technicianSignature: order.technicianSignature,
+    customerSignature: order.customerSignature,
+    technician: order.technicianName,
   });
 
-  pdf.setTitle(`Orden de Servicio ${order.numeroOrden || ''}`.trim());
+  pdf.setTitle(`Orden de Servicio ${order.orderNumber || ''}`.trim());
   return toBlobUrl(pdf);
 };
 
 /** Evaluación de Servicio (vinculada a su orden) sobre la plantilla original. */
-export const generarEvaluacionServicioPdf = async (order) => {
-  const ev = order.evaluacion;
+export const generateServiceEvaluationPdf = async (order) => {
+  const ev = order.evaluation;
   if (!ev) throw new Error('La orden no tiene una evaluación de servicio cargada.');
-  const L = EVALUACION_LAYOUT;
-  const { pdf, page, fonts } = await loadTemplate(templateUrl(L.plantilla));
+  const L = EVALUATION_LAYOUT;
+  const { pdf, page, fonts } = await loadTemplate(templateUrl(L.template));
 
-  drawNumero(page, fonts, L, order.numeroOrden);
-  drawFecha(page, fonts, L, ev.fechaEvaluacion);
-  drawField(page, fonts, order.clienteNombre, L.cliente);
-  drawField(page, fonts, [order.localidad, order.provincia].filter(Boolean).join(', '), L.localidad);
-  drawField(page, fonts, order.numeroOrden, L.ordenServicio);
+  drawNumber(page, fonts, L, order.orderNumber);
+  drawDate(page, fonts, L, ev.evaluationDate);
+  drawField(page, fonts, order.customerName, L.customer);
+  drawField(page, fonts, [order.locality, order.province].filter(Boolean).join(', '), L.locality);
+  drawField(page, fonts, order.orderNumber, L.serviceOrder);
 
   // Evaluaciones viejas (sin planilla): una fila con el resultado general
-  let filas = parseList(ev.detalle).filter(hasData);
-  if (filas.length === 0) {
-    filas = [{ estadoCereal: ev.estadoCereal, lugarToma: ev.lugarToma, resultado: ev.resultado }];
+  let rows = parseList(ev.details).filter(hasData);
+  if (rows.length === 0) {
+    rows = [{ grainCondition: ev.grainCondition, samplingPoint: ev.samplingPoint, result: ev.result }];
   }
-  const sobrantes = drawTableRows(page, fonts, filas, L.tabla);
-  drawExcedente(page, fonts, L.tabla.excedente, sobrantes);
+  const leftover = drawTableRows(page, fonts, rows, L.table);
+  drawExcess(page, fonts, L.table.excess, leftover);
 
   if (ev.ppmPH3 !== null && ev.ppmPH3 !== undefined && ev.ppmPH3 !== '') {
     drawField(page, fonts, String(ev.ppmPH3), L.ppm);
   }
-  drawParagraph(page, fonts, ev.observaciones, L.observaciones);
+  drawParagraph(page, fonts, ev.notes, L.notes);
 
   // No repetir la recomendación que ya está impresa en la plantilla
-  let recomendaciones = String(ev.recomendaciones || '').trim();
-  if (recomendaciones.startsWith(RECOMENDACION_IMPRESA)) {
-    recomendaciones = recomendaciones.slice(RECOMENDACION_IMPRESA.length).replace(/^[\s\-–—.]+/, '');
+  let recommendations = String(ev.recommendations || '').trim();
+  if (recommendations.startsWith(PRINTED_RECOMMENDATION)) {
+    recommendations = recommendations.slice(PRINTED_RECOMMENDATION.length).replace(/^[\s\-–—.]+/, '');
   }
-  drawParagraph(page, fonts, recomendaciones, L.recomendaciones);
+  drawParagraph(page, fonts, recommendations, L.recommendations);
 
-  await drawFirmas(pdf, page, fonts, L.firmas, {
-    firmaTecnico: ev.firmaTecnico,
-    firmaCliente: ev.firmaCliente,
-    tecnico: order.tecnicoAplicador,
+  await drawSignatures(pdf, page, fonts, L.signatures, {
+    technicianSignature: ev.technicianSignature,
+    customerSignature: ev.customerSignature,
+    technician: order.technicianName,
   });
 
-  pdf.setTitle(`Evaluación de Servicio ${order.numeroOrden || ''}`.trim());
+  pdf.setTitle(`Evaluación de Servicio ${order.orderNumber || ''}`.trim());
   return toBlobUrl(pdf);
 };

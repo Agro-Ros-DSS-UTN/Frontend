@@ -8,7 +8,7 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  const rawRole = (currentUser?.role || currentUser?.rol || '').toLowerCase().trim();
+  const rawRole = (currentUser?.role || '').toLowerCase().trim();
   const normalizedRole = (rawRole === 'administrador' || rawRole === 'admin')
     ? 'admin'
     : 'seller';
@@ -20,7 +20,7 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
     });
 
     if (!normalizedAllowed.includes(normalizedRole)) {
-      const redirect = normalizedRole === 'admin' ? '/admin/inicio' : '/seller/dashboard';
+      const redirect = normalizedRole === 'admin' ? '/admin/home' : '/seller/dashboard';
       return <Navigate to={redirect} replace />;
     }
   }

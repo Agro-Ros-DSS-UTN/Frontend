@@ -15,8 +15,8 @@ import { objectivesApi, roadmapsApi, tasksApi } from '../../../api/operations.ap
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import './SellerDashboardPage.css';
 
-const isCompleted = (estado) => /complet|finaliz|cancel/i.test(String(estado || ''));
-const hoyStr = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const isCompleted = (status) => /complet|finaliz|cancel/i.test(String(status || ''));
+const todayStr = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
 export const SellerDashboardPage = () => {
   const { currentUser } = useAuth();
@@ -35,7 +35,7 @@ export const SellerDashboardPage = () => {
       const [objRes, rdmRes, taskRes] = await Promise.allSettled([
         sellerUserId ? objectivesApi.getBySeller(sellerUserId) : Promise.resolve([]),
         sellerUserId ? roadmapsApi.getBySeller(sellerUserId) : Promise.resolve({ data: [] }),
-        tasksApi.getAll({ rol: 'vendedor' }),
+        tasksApi.getAll({ role: 'vendedor' }),
       ]);
 
       const pick = (r) => {
@@ -61,33 +61,33 @@ export const SellerDashboardPage = () => {
 
   // Objetivo vigente hoy; si no hay, el próximo.
   const activeObjective =
-    objectives.find((o) => o.fechaInicio <= hoyStr() && o.fechaFin >= hoyStr()) ||
-    [...objectives].filter((o) => o.fechaInicio > hoyStr()).sort((a, b) => (a.fechaInicio < b.fechaInicio ? -1 : 1))[0] ||
+    objectives.find((o) => o.startDate <= todayStr() && o.endDate >= todayStr()) ||
+    [...objectives].filter((o) => o.startDate > todayStr()).sort((a, b) => (a.startDate < b.startDate ? -1 : 1))[0] ||
     null;
   const activeRoute = roadmaps[0] || null;
-  const paradasList = activeRoute?.paradas || activeRoute?.RoadmapStops || [];
-  const pendingStops = paradasList.filter(
-    (p) => !isCompleted(p.estado) && !isCompleted(p.estadoParada)
+  const stopsList = activeRoute?.stops || activeRoute?.RoadmapStops || [];
+  const pendingStops = stopsList.filter(
+    (p) => !isCompleted(p.status) && !isCompleted(p.stopStatus)
   );
-  const nextStop = pendingStops[0] || paradasList[0] || null;
+  const nextStop = pendingStops[0] || stopsList[0] || null;
 
-  const meta = Number(activeObjective?.cantidadMeta) || 0;
-  const actual = Number(activeObjective?.progresoActual) || 0;
+  const meta = Number(activeObjective?.targetAmount) || 0;
+  const actual = Number(activeObjective?.currentProgress) || 0;
   const objProgress = meta > 0 ? Math.min(100, Math.round((actual / meta) * 100)) : 0;
 
   const pendingTasks = useMemo(
     () =>
       tasks
-        .filter((t) => !isCompleted(t.estado))
+        .filter((t) => !isCompleted(t.status))
         .map((t) => ({
           id: t.id,
-          cliente: t.empresa || 'Sin empresa asociada',
-          tarea: t.titulo || t.descripcion || 'Tarea asignada',
-          vencimiento:
-            [t.fechaVencimiento, t.horaVencimiento ? `${t.horaVencimiento} hs` : null]
+          customer: t.company || 'Sin empresa asociada',
+          task: t.title || t.description || 'Tarea asignada',
+          due:
+            [t.dueDate, t.dueTime ? `${t.dueTime} hs` : null]
               .filter(Boolean)
               .join(' · ') || 'Sin fecha',
-          prioridad: t.prioridad || 'Media',
+          priority: t.priority || 'Media',
         }))
         .slice(0, 6),
     [tasks]
@@ -95,7 +95,7 @@ export const SellerDashboardPage = () => {
 
   const pendingObjectivesCount = useMemo(
     () =>
-      objectives.filter((o) => !isCompleted(o.estado) && (Number(o.progresoActual) || 0) < (Number(o.cantidadMeta) || 0))
+      objectives.filter((o) => !isCompleted(o.status) && (Number(o.currentProgress) || 0) < (Number(o.targetAmount) || 0))
         .length,
     [objectives]
   );
@@ -142,11 +142,11 @@ export const SellerDashboardPage = () => {
       <div className="seller-banner">
         <div className="seller-banner__content">
           <div className="seller-banner__badge">
-            {activeObjective?.fechaInicio ? `${activeObjective.fechaInicio.split('-').reverse().slice(0, 2).join('/')} al ${activeObjective.fechaFin.split('-').reverse().slice(0, 2).join('/')} · ` : ''}
+            {activeObjective?.startDate ? `${activeObjective.startDate.split('-').reverse().slice(0, 2).join('/')} al ${activeObjective.endDate.split('-').reverse().slice(0, 2).join('/')} · ` : ''}
             Operaciones Pendientes
           </div>
           <h1 className="seller-banner__title">
-            ¡Bienvenido, {currentUser?.nombreApellido || currentUser?.name || currentUser?.idUser || 'Vendedor'}!
+            ¡Bienvenido, {currentUser?.fullName || currentUser?.name || currentUser?.idUser || 'Vendedor'}!
           </h1>
           <p className="seller-banner__desc">
             {pendingSummary.bold ? (
@@ -173,14 +173,14 @@ export const SellerDashboardPage = () => {
                   <h2 className="seller-card__title">Objetivo Semanal Asignado</h2>
                   <p className="seller-card__subtitle">
                     {activeObjective
-                      ? `Definido por la Administración · ${activeObjective.tipoPeriodo === 'mensual' ? 'Mensual' : 'Semanal'}`
+                      ? `Definido por la Administración · ${activeObjective.periodType === 'mensual' ? 'Mensual' : 'Semanal'}`
                       : 'Sin objetivo asignado todavía'}
                   </p>
                 </div>
               </div>
               {activeObjective && (
                 <span className="seller-status-pill in-progress">
-                  {({ completado: 'Cumplido', vencido: 'Vencido', en_proceso: 'En proceso' })[activeObjective.estado] || 'En proceso'}
+                  {({ completed: 'Cumplido', overdue: 'Vencido', in_progress: 'En proceso' })[activeObjective.status] || 'En proceso'}
                 </span>
               )}
             </div>
@@ -188,14 +188,14 @@ export const SellerDashboardPage = () => {
             {activeObjective ? (
               <div className="seller-objective-body">
                 <div style={{ marginBottom: '8px', fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
-                  {activeObjective.descripcion || 'Meta Semanal de Ventas y Visitas'}
+                  {activeObjective.description || 'Meta Semanal de Ventas y Visitas'}
                 </div>
 
                 <div className="seller-obj-stat-row">
                   <div>
                     <span className="seller-obj-label">Meta de Cumplimiento:</span>
                     <div className="seller-obj-val">
-                      {actual} / {meta} ({activeObjective.tipoObjetivo || 'Ventas'})
+                      {actual} / {meta} ({activeObjective.objectiveType || 'Ventas'})
                     </div>
                   </div>
                   <div className="seller-obj-pct-tag">{objProgress}% cumplido</div>
@@ -223,15 +223,15 @@ export const SellerDashboardPage = () => {
                   <h2 className="seller-card__title">Hoja de Ruta del Día</h2>
                   <p className="seller-card__subtitle">
                     {activeRoute
-                      ? `${activeRoute.nombreZona || activeRoute.zona || 'Zona Comercial'} · ${
-                          activeRoute.distanciaEstimadaKm || activeRoute.totalKm || 0
+                      ? `${activeRoute.zoneName || activeRoute.zone || 'Zona Comercial'} · ${
+                          activeRoute.estimatedDistanceKm || activeRoute.totalKm || 0
                         } km estimados`
                       : 'Sin hoja de ruta asignada'}
                   </p>
                 </div>
               </div>
               {activeRoute && (
-                <button className="seller-link-btn" onClick={() => navigate('/seller/hoja-de-ruta')}>
+                <button className="seller-link-btn" onClick={() => navigate('/seller/roadmap')}>
                   Abrir Mapa <ChevronRight size={14} />
                 </button>
               )}
@@ -240,22 +240,22 @@ export const SellerDashboardPage = () => {
             {activeRoute && nextStop ? (
               <div className="seller-next-stop-box">
                 <div className="next-stop-header">
-                  <span className="next-stop-badge">Próxima Parada #{nextStop.orden || 1}</span>
+                  <span className="next-stop-badge">Próxima Parada #{nextStop.order || 1}</span>
                   <span className="next-stop-time">
-                    <Clock size={12} /> {nextStop.horaEstimada || '09:00'} hs
+                    <Clock size={12} /> {nextStop.estimatedTime || '09:00'} hs
                   </span>
                 </div>
-                <div className="next-stop-client">{nextStop.nombreLugar || nextStop.cliente}</div>
+                <div className="next-stop-client">{nextStop.placeName || nextStop.customer}</div>
                 <div className="next-stop-addr">
-                  <MapPin size={13} /> {nextStop.direccion}, {nextStop.localidad || 'Santa Fe'}
+                  <MapPin size={13} /> {nextStop.address}, {nextStop.locality || 'Santa Fe'}
                 </div>
                 <div className="next-stop-service">
-                  <strong>Detalle:</strong> {nextStop.notas || nextStop.servicio || 'Visita comercial asignada'}
+                  <strong>Detalle:</strong> {nextStop.notes || nextStop.service || 'Visita comercial asignada'}
                 </div>
                 <div className="next-stop-actions">
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                      (nextStop.direccion || '') + ' ' + (nextStop.localidad || '')
+                      (nextStop.address || '') + ' ' + (nextStop.locality || '')
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -265,7 +265,7 @@ export const SellerDashboardPage = () => {
                   </a>
                   <button
                     className="seller-btn seller-btn--primary-sm"
-                    onClick={() => navigate('/seller/actividades')}
+                    onClick={() => navigate('/seller/activities')}
                   >
                     Registrar Visita
                   </button>
@@ -303,14 +303,14 @@ export const SellerDashboardPage = () => {
                     key={task.id}
                     className="seller-task-item"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => navigate('/seller/tareas')}
+                    onClick={() => navigate('/seller/tasks')}
                   >
                     <div className="seller-task-main">
-                      <div className="seller-task-client">{task.cliente}</div>
-                      <div className="seller-task-desc">{task.tarea}</div>
+                      <div className="seller-task-client">{task.customer}</div>
+                      <div className="seller-task-desc">{task.task}</div>
                       <div className="seller-task-meta">
-                        <span><Clock size={11} /> {task.vencimiento}</span>
-                        <span className={`priority-badge ${task.prioridad.toLowerCase()}`}>{task.prioridad}</span>
+                        <span><Clock size={11} /> {task.due}</span>
+                        <span className={`priority-badge ${task.priority.toLowerCase()}`}>{task.priority}</span>
                       </div>
                     </div>
                     <div className="seller-task-actions">

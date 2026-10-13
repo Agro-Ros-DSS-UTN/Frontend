@@ -23,21 +23,21 @@ import {
   MapPin,
   FileText,
 } from 'lucide-react';
-import { CONTACT_TYPES } from '../../../data/catalogos';
+import { CONTACT_TYPES } from '../../../data/catalogs';
 import { fetchClients, fetchClientCompanies, createClient, updateClient, deleteClient } from '../../../data/api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
-import { notificar } from '../../../hooks/useNotificaciones';
+import { notify } from '../../../hooks/useNotifications';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { ContactSummary } from '../../../components/contacts/ContactSummary';
 import './ContactsPage.css';
 
 const COLUMNS = [
-  { key: 'nombreApellido', label: 'Nombre',           sortable: true },
-  { key: 'direccionMail',  label: 'Correo',           sortable: true },
-  { key: 'telefonos',      label: 'Número de teléfono', sortable: false },
-  { key: 'tipoClient',     label: 'Tipo de contacto', sortable: true },
-  { key: 'localidad',      label: 'Localidad',        sortable: true },
-  { key: 'fechaAgregado',  label: 'Fecha de registro', sortable: true },
+  { key: 'fullName', label: 'Nombre',           sortable: true },
+  { key: 'email',  label: 'Correo',           sortable: true },
+  { key: 'phones',      label: 'Número de teléfono', sortable: false },
+  { key: 'clientType',     label: 'Tipo de contacto', sortable: true },
+  { key: 'locality',      label: 'Localidad',        sortable: true },
+  { key: 'addedAt',  label: 'Fecha de registro', sortable: true },
 ];
 
 const PAGE_SIZE = 20;
@@ -59,7 +59,7 @@ export const ContactsPage = () => {
   useEffect(() => {
     if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
   }, [location.state]);
-  const [sortBy, setSortBy] = useState('nombreApellido');
+  const [sortBy, setSortBy] = useState('fullName');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
@@ -102,9 +102,9 @@ export const ContactsPage = () => {
     const id = client?.id;
     if (!id || !window.confirm('¿Dar de baja este contacto? Deja de aparecer en las listas; su historial se conserva.')) return;
     try {
-      await notificar.operacion(deleteClient(id), {
-        cargando: 'Dando de baja el contacto…',
-        exito: 'Contacto dado de baja',
+      await notify.operation(deleteClient(id), {
+        loading: 'Dando de baja el contacto…',
+        success: 'Contacto dado de baja',
         error: 'No se pudo dar de baja el contacto',
       });
       setClients((prev) => prev.filter((c) => c.id !== id));
@@ -115,13 +115,13 @@ export const ContactsPage = () => {
 
   // Form state: { numDoc, nombreApellido, direccionMail, tipoClient, codigoPostal, clientCompanyId }
   const emptyContactForm = {
-    numDoc: '',
-    nombreApellido: '',
-    direccionMail: '',
-    tipoClient: 'Productor',
-    telefono: '',
+    docNumber: '',
+    fullName: '',
+    email: '',
+    clientType: 'Productor',
+    phone: '',
     clientCompanyId: '',
-    nota: '',
+    note: '',
   };
   const [form, setForm] = useState(emptyContactForm);
 
@@ -134,13 +134,13 @@ export const ContactsPage = () => {
   const openEditModal = (client) => {
     setEditingClient(client);
     setForm({
-      numDoc: client.numDoc || '',
-      nombreApellido: client.nombreApellido || '',
-      direccionMail: client.direccionMail || '',
-      tipoClient: client.tipoClient || 'Productor',
-      telefono: client.telefono || (Array.isArray(client.telefonos) ? (client.telefonos[0] || '') : ''),
+      docNumber: client.docNumber || '',
+      fullName: client.fullName || '',
+      email: client.email || '',
+      clientType: client.clientType || 'Productor',
+      phone: client.phone || (Array.isArray(client.phones) ? (client.phones[0] || '') : ''),
       clientCompanyId: client.clientCompanyId || '',
-      nota: client.nota || '',
+      note: client.note || '',
     });
     setShowModal(true);
   };
@@ -153,16 +153,16 @@ export const ContactsPage = () => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(c =>
-        c.nombreApellido?.toLowerCase().includes(q) ||
-        c.direccionMail?.toLowerCase().includes(q) ||
-        c.numDoc?.includes(q) ||
-        c.empresa?.toLowerCase().includes(q)
+        c.fullName?.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q) ||
+        c.docNumber?.includes(q) ||
+        c.company?.toLowerCase().includes(q)
       );
     }
 
     // Type filter
     if (typeFilter) {
-      result = result.filter(c => c.tipoClient === typeFilter);
+      result = result.filter(c => c.clientType === typeFilter);
     }
 
     // Sort
@@ -226,23 +226,23 @@ export const ContactsPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = {
-      dni: form.numDoc.trim() || null,
-      nombreApellido: form.nombreApellido,
-      email: form.direccionMail.trim() || null,
-      cargo: form.tipoClient,
-      empresaId: form.clientCompanyId ? Number(form.clientCompanyId) : null,
-      telefono: form.telefono.trim(),
-      observaciones: form.nota,
+      nationalId: form.docNumber.trim() || null,
+      fullName: form.fullName,
+      email: form.email.trim() || null,
+      jobTitle: form.clientType,
+      companyId: form.clientCompanyId ? Number(form.clientCompanyId) : null,
+      phone: form.phone.trim(),
+      notes: form.note,
     };
 
     if (editingClient) {
       try {
         const updated = await updateClient(editingClient.id, payload);
         setClients((prev) => prev.map((c) => (c.id === editingClient.id ? { ...c, ...(updated?.data || {}) } : c)));
-        notificar.exito('Cambios guardados', `Se actualizó a ${payload.nombreApellido}.`);
+        notify.success('Cambios guardados', `Se actualizó a ${payload.fullName}.`);
       } catch (err) {
         console.error('Error al editar contacto:', err);
-        notificar.error('No se pudieron guardar los cambios', err);
+        notify.error('No se pudieron guardar los cambios', err);
         return; // el formulario queda abierto para corregir y reintentar
       }
     } else {
@@ -250,10 +250,10 @@ export const ContactsPage = () => {
         const created = await createClient(payload);
         if (!created?.data?.id) throw new Error('El servidor no confirmó el alta del contacto.');
         setClients(prev => [created.data, ...prev]);
-        notificar.exito('Contacto registrado', payload.nombreApellido);
+        notify.success('Contacto registrado', payload.fullName);
       } catch (err) {
         console.error('Error al registrar contacto:', err);
-        notificar.error('No se pudo registrar el contacto', err);
+        notify.error('No se pudo registrar el contacto', err);
         return;
       }
     }
@@ -266,14 +266,14 @@ export const ContactsPage = () => {
   // Export contacts to CSV
   const handleExportContacts = () => {
     const headers = [
-      { key: 'nombreApellido', label: 'Nombre y Apellido' },
-      { key: 'tipoClient', label: 'Tipo de Contacto' },
-      { key: 'numDoc', label: 'DNI / CUIT' },
-      { key: 'direccionMail', label: 'Correo Electrónico' },
-      { key: 'telefonos', label: 'Teléfono' },
-      { key: 'localidad', label: 'Localidad' },
-      { key: 'empresa', label: 'Empresa Vinculada' },
-      { key: 'fechaAgregado', label: 'Fecha de Registro' },
+      { key: 'fullName', label: 'Nombre y Apellido' },
+      { key: 'clientType', label: 'Tipo de Contacto' },
+      { key: 'docNumber', label: 'DNI / CUIT' },
+      { key: 'email', label: 'Correo Electrónico' },
+      { key: 'phones', label: 'Teléfono' },
+      { key: 'locality', label: 'Localidad' },
+      { key: 'company', label: 'Empresa Vinculada' },
+      { key: 'addedAt', label: 'Fecha de Registro' },
     ];
 
     const csvRows = [];
@@ -283,7 +283,7 @@ export const ContactsPage = () => {
       const row = headers.map(h => {
         let val = client[h.key];
         if (Array.isArray(val)) {
-          val = val.map(v => typeof v === 'object' ? v.numero || v.nombre || JSON.stringify(v) : v).join('; ');
+          val = val.map(v => typeof v === 'object' ? v.number || v.name || JSON.stringify(v) : v).join('; ');
         }
         if (val === null || val === undefined) val = '';
         return `"${String(val).replace(/"/g, '""')}"`;
@@ -347,7 +347,7 @@ export const ContactsPage = () => {
               ...CONTACT_TYPES.map((type) => ({
                 value: type,
                 label: type,
-                count: clients.filter((c) => c.tipoClient === type).length,
+                count: clients.filter((c) => c.clientType === type).length,
               })),
             ]}
           />
@@ -411,8 +411,8 @@ export const ContactsPage = () => {
               ) : (
                 paginatedClients.map(client => {
                   const isSelected = selectedRows.includes(client.id);
-                  const initials = client.nombreApellido
-                    ? client.nombreApellido.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                  const initials = client.fullName
+                    ? client.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
                     : 'C';
 
                   return (
@@ -437,14 +437,14 @@ export const ContactsPage = () => {
                               onClick={() => setSummaryClient(client)}
                               title="Ver resumen del contacto"
                             >
-                              {client.nombreApellido}
+                              {client.fullName}
                             </button>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                              {client.numDoc && <span className="contacts-table__doc">{client.numDoc}</span>}
-                              {(client.empresa || client.clientCompanyId) && (
+                              {client.docNumber && <span className="contacts-table__doc">{client.docNumber}</span>}
+                              {(client.company || client.clientCompanyId) && (
                                 <span className="crm-outline-pill">
                                   <Building2 size={10} />
-                                  {client.empresa || 'Empresa'}
+                                  {client.company || 'Empresa'}
                                 </span>
                               )}
                             </div>
@@ -452,9 +452,9 @@ export const ContactsPage = () => {
                         </div>
                       </td>
                       <td>
-                        {client.direccionMail && client.direccionMail !== '-' ? (
-                          <a href={`mailto:${client.direccionMail}`} className="contacts-table__email" title="Enviar un correo">
-                            {client.direccionMail}
+                        {client.email && client.email !== '-' ? (
+                          <a href={`mailto:${client.email}`} className="contacts-table__email" title="Enviar un correo">
+                            {client.email}
                             <Mail size={12} />
                           </a>
                         ) : (
@@ -462,13 +462,13 @@ export const ContactsPage = () => {
                         )}
                       </td>
                       <td className="contacts-table__phone">
-                        {client.telefono || '—'}
+                        {client.phone || '—'}
                       </td>
                       <td>
-                        <span className="crm-outline-pill">{client.tipoClient || '—'}</span>
+                        <span className="crm-outline-pill">{client.clientType || '—'}</span>
                       </td>
-                      <td>{client.localidad || '—'}</td>
-                      <td className="contacts-table__date">{formatRegisterDate(client.fechaAgregado)}</td>
+                      <td>{client.locality || '—'}</td>
+                      <td className="contacts-table__date">{formatRegisterDate(client.addedAt)}</td>
                       <td className="contacts-table__actions-col">
                         <div className="contacts-table__actions">
                           <button className="contacts-table__action-btn" title="Editar" onClick={() => openEditModal(client)}>
@@ -542,8 +542,8 @@ export const ContactsPage = () => {
                   type="text"
                   className="contact-input"
                   placeholder="Ej: Roberto Aguilar"
-                  value={form.nombreApellido}
-                  onChange={(e) => setForm(prev => ({ ...prev, nombreApellido: e.target.value }))}
+                  value={form.fullName}
+                  onChange={(e) => setForm(prev => ({ ...prev, fullName: e.target.value }))}
                   required
                 />
               </div>
@@ -555,8 +555,8 @@ export const ContactsPage = () => {
                   type="text"
                   className="contact-input"
                   placeholder="Ej: 20-27845631-4"
-                  value={form.numDoc}
-                  onChange={(e) => setForm(prev => ({ ...prev, numDoc: e.target.value }))}
+                  value={form.docNumber}
+                  onChange={(e) => setForm(prev => ({ ...prev, docNumber: e.target.value }))}
                   disabled={!!editingClient}
                   title={editingClient ? 'El documento no se puede modificar una vez creado el contacto' : undefined}
                   required
@@ -570,8 +570,8 @@ export const ContactsPage = () => {
                   type="email"
                   className="contact-input"
                   placeholder="cliente@dominio.com.ar"
-                  value={form.direccionMail}
-                  onChange={(e) => setForm(prev => ({ ...prev, direccionMail: e.target.value }))}
+                  value={form.email}
+                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
                   required
                 />
               </div>
@@ -581,8 +581,8 @@ export const ContactsPage = () => {
                 <label>Tipo de Cliente *</label>
                 <select
                   className="contact-select"
-                  value={form.tipoClient}
-                  onChange={(e) => setForm(prev => ({ ...prev, tipoClient: e.target.value }))}
+                  value={form.clientType}
+                  onChange={(e) => setForm(prev => ({ ...prev, clientType: e.target.value }))}
                   required
                 >
                   {CONTACT_TYPES.map(type => (
@@ -598,8 +598,8 @@ export const ContactsPage = () => {
                   type="text"
                   className="contact-input"
                   placeholder="+54 341 456-7890"
-                  value={form.telefono}
-                  onChange={(e) => setForm(prev => ({ ...prev, telefono: e.target.value }))}
+                  value={form.phone}
+                  onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
                 />
               </div>
 
@@ -614,13 +614,13 @@ export const ContactsPage = () => {
                     setForm(prev => ({
                       ...prev,
                       clientCompanyId: e.target.value ? Number(e.target.value) : null,
-                      empresa: selComp ? (selComp.razonSocial || selComp.nombreEmpresa) : '',
+                      company: selComp ? (selComp.legalName || selComp.companyName) : '',
                     }));
                   }}
                 >
                   <option value="">Ninguna / Productor Directo</option>
                   {companies.map(c => (
-                    <option key={c.id} value={c.id}>{c.nombreEmpresa} ({c.localidad || 'Santa Fe'})</option>
+                    <option key={c.id} value={c.id}>{c.companyName} ({c.locality || 'Santa Fe'})</option>
                   ))}
                 </select>
               </div>
@@ -632,8 +632,8 @@ export const ContactsPage = () => {
                   className="contact-textarea"
                   rows={2}
                   placeholder="Información sobre campo, hectáreas o preferencias..."
-                  value={form.nota}
-                  onChange={(e) => setForm(prev => ({ ...prev, nota: e.target.value }))}
+                  value={form.note}
+                  onChange={(e) => setForm(prev => ({ ...prev, note: e.target.value }))}
                 />
               </div>
 
@@ -649,7 +649,7 @@ export const ContactsPage = () => {
       {summaryClient && (
         <ContactSummary
           contact={summaryClient}
-          companyName={summaryClient.empresa || companies.find((c) => c.id === summaryClient.clientCompanyId)?.nombreEmpresa}
+          companyName={summaryClient.company || companies.find((c) => c.id === summaryClient.clientCompanyId)?.companyName}
           onClose={() => setSummaryClient(null)}
           onEdit={() => {
             const client = summaryClient;

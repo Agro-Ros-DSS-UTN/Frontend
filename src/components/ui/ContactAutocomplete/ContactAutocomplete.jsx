@@ -28,12 +28,12 @@ async function loadContacts() {
 // onChange(nombre, contacto|null) — contacto incluye la empresa a la que pertenece, si tiene.
 export const ContactAutocomplete = ({
   label = 'Contacto asociado',
-  name = 'contacto',
+  name = 'contact',
   value,
   onChange,
   placeholder = 'Escribí para buscar entre los contactos cargados...',
-  empresaId = null, // si se indica, solo se sugieren contactos de esa empresa
-  textoLibre = 'como texto libre',
+  companyId = null, // si se indica, solo se sugieren contactos de esa empresa
+  freeText = 'como texto libre',
 }) => {
   const [contacts, setContacts] = useState(_cache || []);
   const [open, setOpen] = useState(false);
@@ -65,13 +65,13 @@ export const ContactAutocomplete = ({
       contacts
         .map((c) => ({
           id: c.id,
-          nombre: c.nombreApellido || '',
-          empresa: c.empresa || '',
-          empresaId: c.empresaId || null,
-          email: c.direccionMail && c.direccionMail !== '-' ? c.direccionMail : '',
+          name: c.fullName || '',
+          company: c.company || '',
+          companyId: c.companyId || null,
+          email: c.email && c.email !== '-' ? c.email : '',
         }))
-        .filter((c) => c.nombre && (!empresaId || c.empresaId === empresaId)),
-    [contacts, empresaId]
+        .filter((c) => c.name && (!companyId || c.companyId === companyId)),
+    [contacts, companyId]
   );
 
   const query = (value || '').toLowerCase().trim();
@@ -80,8 +80,8 @@ export const ContactAutocomplete = ({
     return normalized
       .filter(
         (c) =>
-          c.nombre.toLowerCase().includes(query) ||
-          c.empresa.toLowerCase().includes(query) ||
+          c.name.toLowerCase().includes(query) ||
+          c.company.toLowerCase().includes(query) ||
           c.email.toLowerCase().includes(query)
       )
       .slice(0, 8);
@@ -145,7 +145,7 @@ export const ContactAutocomplete = ({
                 key={c.id}
                 className="company-ac__item"
                 onClick={() => {
-                  onChange(c.nombre, c);
+                  onChange(c.name, c);
                   setOpen(false);
                 }}
               >
@@ -153,13 +153,13 @@ export const ContactAutocomplete = ({
                   <User size={14} />
                 </span>
                 <span className="company-ac__item-info">
-                  <strong>{c.nombre}</strong>
-                  <span>{[c.empresa, c.email].filter(Boolean).join(' · ') || 'Contacto'}</span>
+                  <strong>{c.name}</strong>
+                  <span>{[c.company, c.email].filter(Boolean).join(' · ') || 'Contacto'}</span>
                 </span>
               </button>
             ))
           ) : (
-            <div className="company-ac__empty">{value ? <>Sin coincidencias. Se guardará «{value}» {textoLibre}.</> : 'Esta empresa no tiene contactos cargados.'}</div>
+            <div className="company-ac__empty">{value ? <>Sin coincidencias. Se guardará «{value}» {freeText}.</> : 'Esta empresa no tiene contactos cargados.'}</div>
           )}
         </div>
       )}

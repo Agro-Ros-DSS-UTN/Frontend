@@ -18,11 +18,11 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { notificar } from '../../../hooks/useNotificaciones';
+import { notify } from '../../../hooks/useNotifications';
 import './ProfilePage.css';
 
 const TABS = [
-  { key: 'perfil', label: 'Perfil' },
+  { key: 'profile', label: 'Perfil' },
   { key: 'password', label: 'Contraseña' },
 ];
 
@@ -32,39 +32,39 @@ export const ProfilePage = () => {
   const { currentUser, profileImage, updateProfileImage, updateCurrentUser } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('perfil');
+  const [activeTab, setActiveTab] = useState('profile');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const isSeller = (currentUser?.role || currentUser?.rol)?.toLowerCase() === 'vendedor';
+  const isSeller = (currentUser?.role)?.toLowerCase() === 'vendedor';
 
   const seller = null;
   // Zona asignada por la administración (localidades) y datos frescos del servidor.
-  const [zona, setZona] = useState([]);
+  const [zone, setZone] = useState([]);
   useEffect(() => {
     authApi.me()
       .then((res) => {
         const u = res?.data || {};
-        setZona(Array.isArray(u.zona) ? u.zona : []);
-        if (u.telefono) setPhones([u.telefono]);
+        setZone(Array.isArray(u.zone) ? u.zone : []);
+        if (u.phone) setPhones([u.phone]);
         if (u.email !== undefined) setForm((prev) => ({ ...prev, email: u.email || '' }));
       })
       .catch(() => {});
   }, []);
 
   // Form state (initialize from currentUser + seller)
-  const nameParts = (currentUser?.nombreApellido || '').split(' ');
+  const nameParts = (currentUser?.fullName || '').split(' ');
   const [form, setForm] = useState({
-    nombre: nameParts[0] || '',
-    apellido: nameParts.slice(1).join(' ') || '',
-    email: currentUser?.email || currentUser?.direccionMail || '',
-    numDoc: currentUser?.numDoc || currentUser?.idUser || '',
-    direccion: currentUser?.direccion || '',
-    idioma: 'Español',
-    formatoFecha: 'Argentina',
+    name: nameParts[0] || '',
+    surname: nameParts.slice(1).join(' ') || '',
+    email: currentUser?.email || '',
+    docNumber: currentUser?.docNumber || currentUser?.idUser || '',
+    address: currentUser?.address || '',
+    language: 'Español',
+    formatDate: 'Argentina',
   });
 
-  const [phones, setPhones] = useState([currentUser?.telefono || '']);
+  const [phones, setPhones] = useState([currentUser?.phone || '']);
 
   // ── Cambio de contraseña ──
   const [currentPassword, setCurrentPassword] = useState('');
@@ -119,7 +119,7 @@ export const ProfilePage = () => {
       const userId = currentUser?.idUser || currentUser?.id;
       // El servidor verifica la contraseña actual, guarda la nueva y cierra las
       // sesiones abiertas en otros equipos; este equipo recibe un token nuevo.
-      const res = await authApi.cambiarPassword(currentPassword, newPassword);
+      const res = await authApi.changePassword(currentPassword, newPassword);
       if (res?.token && updateCurrentUser) updateCurrentUser({ token: res.token });
 
       setCurrentPassword('');
@@ -206,20 +206,19 @@ export const ProfilePage = () => {
     setSaving(true);
     try {
       const userId = currentUser?.idUser || currentUser?.id;
-      const fullName = `${form.nombre} ${form.apellido}`.trim();
+      const fullName = `${form.name} ${form.surname}`.trim();
 
       if (userId) {
         await authApi.updateUser(userId, {
-          nombreApellido: fullName,
+          fullName: fullName,
           email: form.email.trim() || null,
-          telefono: (phones.find((p) => p && p.trim()) || '').trim() || null,
+          phone: (phones.find((p) => p && p.trim()) || '').trim() || null,
         });
 
         if (updateCurrentUser) {
           updateCurrentUser({
-            nombreApellido: fullName,
+            fullName: fullName,
             email: form.email,
-            direccionMail: form.email,
           });
         }
       }
@@ -228,7 +227,7 @@ export const ProfilePage = () => {
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.error('Error al guardar datos de perfil:', err);
-      notificar.error('No se pudieron guardar los cambios', err);
+      notify.error('No se pudieron guardar los cambios', err);
     } finally {
       setSaving(false);
     }
@@ -240,7 +239,7 @@ export const ProfilePage = () => {
       <div className="profile-page__back">
         <button
           className="profile-page__back-btn"
-          onClick={() => navigate(isSeller ? '/seller/dashboard' : '/admin/inicio')}
+          onClick={() => navigate(isSeller ? '/seller/dashboard' : '/admin/home')}
         >
           <ChevronLeft size={16} />
           Volver a Inicio
@@ -266,7 +265,7 @@ export const ProfilePage = () => {
       {/* Hint */}
       <p className="profile-page__hint">Estas preferencias solo se aplican a ti.</p>
 
-      {activeTab === 'perfil' && (
+      {activeTab === 'profile' && (
         <div className="profile-page__content">
           {/* Global Section */}
           <section className="profile-section">
@@ -349,8 +348,8 @@ export const ProfilePage = () => {
               <input
                 type="text"
                 className="profile-field__input"
-                value={form.nombre}
-                onChange={(e) => updateField('nombre', e.target.value)}
+                value={form.name}
+                onChange={(e) => updateField('name', e.target.value)}
               />
             </div>
 
@@ -360,8 +359,8 @@ export const ProfilePage = () => {
               <input
                 type="text"
                 className="profile-field__input"
-                value={form.apellido}
-                onChange={(e) => updateField('apellido', e.target.value)}
+                value={form.surname}
+                onChange={(e) => updateField('surname', e.target.value)}
               />
             </div>
 
@@ -386,7 +385,7 @@ export const ProfilePage = () => {
               <input
                 type="text"
                 className="profile-field__input profile-field__input--readonly"
-                value={form.numDoc}
+                value={form.docNumber}
                 readOnly
               />
             </div>
@@ -399,8 +398,8 @@ export const ProfilePage = () => {
               <input
                 type="text"
                 className="profile-field__input"
-                value={form.direccion}
-                onChange={(e) => updateField('direccion', e.target.value)}
+                value={form.address}
+                onChange={(e) => updateField('address', e.target.value)}
               />
             </div>
 
@@ -411,8 +410,8 @@ export const ProfilePage = () => {
               </label>
               <select
                 className="profile-field__select"
-                value={form.idioma}
-                onChange={(e) => updateField('idioma', e.target.value)}
+                value={form.language}
+                onChange={(e) => updateField('language', e.target.value)}
               >
                 <option value="Español">Español</option>
                 <option value="English">English</option>
@@ -430,8 +429,8 @@ export const ProfilePage = () => {
               </p>
               <select
                 className="profile-field__select"
-                value={form.formatoFecha}
-                onChange={(e) => updateField('formatoFecha', e.target.value)}
+                value={form.formatDate}
+                onChange={(e) => updateField('formatDate', e.target.value)}
               >
                 <option value="Argentina">Argentina</option>
                 <option value="España">España</option>
@@ -484,12 +483,12 @@ export const ProfilePage = () => {
             <section className="profile-section">
               <h2 className="profile-section__title">Zona asignada</h2>
               <p className="profile-section__desc">Localidades en las que trabajás. Las asigna la administración.</p>
-              {zona.length === 0 ? (
+              {zone.length === 0 ? (
                 <p className="profile-section__desc">Todavía no tenés localidades asignadas.</p>
               ) : (
                 <div className="profile-zona">
-                  {zona.map((l) => (
-                    <span key={l.id} className="profile-zona__chip">{l.nombre}{l.provincia ? ` · ${l.provincia}` : ''}</span>
+                  {zone.map((l) => (
+                    <span key={l.id} className="profile-zona__chip">{l.name}{l.province ? ` · ${l.province}` : ''}</span>
                   ))}
                 </div>
               )}

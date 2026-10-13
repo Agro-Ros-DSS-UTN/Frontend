@@ -18,8 +18,8 @@ export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
 
   if (!route) return null;
 
-  const total = route.totalVisitas || route.paradas?.length || 0;
-  const done = route.visitasCompletadas || 0;
+  const total = route.totalVisits || route.stops?.length || 0;
+  const done = route.completedVisits || 0;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
@@ -36,11 +36,11 @@ export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
           {/* Hero */}
           <div className="rdm__hero">
             <span className="rdm__tag">Zona de recorrido asignada</span>
-            <h3 className="rdm__zone">{route.zona || 'Recorrido comercial'}</h3>
+            <h3 className="rdm__zone">{route.zone || 'Recorrido comercial'}</h3>
 
             <div className="rdm__meta">
-              <span><User size={13} /> {route.vendedor || 'Vendedor'}</span>
-              <span><CalendarDays size={13} /> {route.fecha || 'Sin fecha'}</span>
+              <span><User size={13} /> {route.seller || 'Vendedor'}</span>
+              <span><CalendarDays size={13} /> {route.date || 'Sin fecha'}</span>
               <span><RouteIcon size={13} /> {route.totalKm || 0} km estimados</span>
               <span><MapPin size={13} /> {total} paradas</span>
             </div>
@@ -56,35 +56,35 @@ export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
             </div>
           </div>
 
-          {route.observaciones && (
+          {route.notes && (
             <div className="rdm__notes">
               <span className="rdm__notes-label">Notas del recorrido</span>
-              <p>{route.observaciones}</p>
+              <p>{route.notes}</p>
             </div>
           )}
 
           {/* Timeline de paradas */}
           <div className="rdm__stops">
-            <span className="rdm__stops-label">Paradas programadas ({route.paradas?.length || 0})</span>
+            <span className="rdm__stops-label">Paradas programadas ({route.stops?.length || 0})</span>
             <div className="rdm__timeline">
-              {(route.paradas || []).map((stop, idx) => {
-                const st = String(stop.estado || 'Pendiente');
+              {(route.stops || []).map((stop, idx) => {
+                const st = String(stop.status || 'Pendiente');
                 const isDone = /complet/i.test(st);
                 const isOnWay = /camino/i.test(st);
                 return (
                   <div key={stop.id || idx} className="rdm__stop">
                     <div className={`rdm__stop-node ${isDone ? 'is-done' : isOnWay ? 'is-onway' : ''}`}>
-                      {isDone ? <CheckCircle2 size={15} /> : (stop.orden || idx + 1)}
+                      {isDone ? <CheckCircle2 size={15} /> : (stop.order || idx + 1)}
                     </div>
                     <div className="rdm__stop-body">
                       <div className="rdm__stop-top">
-                        <span className="rdm__stop-client">{stop.cliente || 'Parada'}</span>
-                        <span className="rdm__stop-time"><Clock size={12} /> {stop.horaEstimada || '—'} hs</span>
+                        <span className="rdm__stop-client">{stop.customer || 'Parada'}</span>
+                        <span className="rdm__stop-time"><Clock size={12} /> {stop.estimatedTime || '—'} hs</span>
                       </div>
                       <div className="rdm__stop-addr">
-                        <MapPin size={12} /> {stop.direccion}{stop.localidad ? `, ${stop.localidad}` : ''}
+                        <MapPin size={12} /> {stop.address}{stop.locality ? `, ${stop.locality}` : ''}
                       </div>
-                      {stop.servicio && <div className="rdm__stop-service">{stop.servicio}</div>}
+                      {stop.service && <div className="rdm__stop-service">{stop.service}</div>}
                     </div>
                     <span className={`rdm__stop-badge ${isDone ? 'is-done' : isOnWay ? 'is-onway' : ''}`}>
                       {isDone ? 'Completada' : isOnWay ? 'En camino' : 'Pendiente'}

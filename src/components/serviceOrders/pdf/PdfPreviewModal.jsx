@@ -9,31 +9,31 @@ import './PdfPreviewModal.css';
  * siempre aparece, queda un botón "Descargar".
  * `generar` es una función async que devuelve un Object URL del PDF.
  */
-export const PdfPreviewModal = ({ titulo, subtitulo, nombreArchivo, generar, onClose }) => {
+export const PdfPreviewModal = ({ title, subtitle, fileName, generate, onClose }) => {
   const [url, setUrl] = useState(null);
   const [error, setError] = useState('');
   const overlayHandlers = useOverlayClose(onClose);
 
   useEffect(() => {
-    let vivo = true;
-    let creada = null;
+    let alive = true;
+    let created = null;
     setUrl(null);
     setError('');
-    generar()
+    generate()
       .then((u) => {
-        creada = u;
-        if (vivo) setUrl(u);
+        created = u;
+        if (alive) setUrl(u);
         else URL.revokeObjectURL(u);
       })
       .catch((err) => {
         console.error('Error al generar el PDF:', err);
-        if (vivo) setError(err?.message || 'No se pudo generar el PDF.');
+        if (alive) setError(err?.message || 'No se pudo generar el PDF.');
       });
     return () => {
-      vivo = false;
-      if (creada) URL.revokeObjectURL(creada);
+      alive = false;
+      if (created) URL.revokeObjectURL(created);
     };
-  }, [generar]);
+  }, [generate]);
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
@@ -43,17 +43,17 @@ export const PdfPreviewModal = ({ titulo, subtitulo, nombreArchivo, generar, onC
 
   return (
     <div className="pdf-preview-overlay" {...overlayHandlers}>
-      <div className="pdf-preview" role="dialog" aria-modal="true" aria-label={titulo}>
+      <div className="pdf-preview" role="dialog" aria-modal="true" aria-label={title}>
         <header className="pdf-preview__header">
           <div>
-            <h2>{titulo}</h2>
-            {subtitulo && <span>{subtitulo}</span>}
+            <h2>{title}</h2>
+            {subtitle && <span>{subtitle}</span>}
           </div>
           <div className="pdf-preview__actions">
             <a
               className={`pdf-preview__btn pdf-preview__btn--movil ${!url ? 'is-disabled' : ''}`}
               href={url || undefined}
-              download={nombreArchivo}
+              download={fileName}
               aria-disabled={!url}
               onClick={(e) => !url && e.preventDefault()}
             >
@@ -77,7 +77,7 @@ export const PdfPreviewModal = ({ titulo, subtitulo, nombreArchivo, generar, onC
               <p>Generando el PDF sobre la plantilla original…</p>
             </div>
           ) : (
-            <iframe src={url} title={titulo} className="pdf-preview__frame" />
+            <iframe src={url} title={title} className="pdf-preview__frame" />
           )}
         </div>
       </div>

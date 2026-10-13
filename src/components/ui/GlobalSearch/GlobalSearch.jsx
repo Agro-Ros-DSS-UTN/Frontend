@@ -29,13 +29,13 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
 
   const CATEGORIES = useMemo(() => {
     const cats = [
-      { key: 'contactos', label: 'Contactos', icon: Users, path: `${base}/contactos` },
-      { key: 'empresas', label: 'Empresas', icon: Building2, path: `${base}/empresas` },
-      { key: 'tareas', label: 'Tareas', icon: CheckSquare, path: `${base}/tareas` },
+      { key: 'contacts', label: 'Contactos', icon: Users, path: `${base}/contacts` },
+      { key: 'companies', label: 'Empresas', icon: Building2, path: `${base}/companies` },
+      { key: 'tasks', label: 'Tareas', icon: CheckSquare, path: `${base}/tasks` },
     ];
     if (!isSeller) {
-      cats.splice(2, 0, { key: 'negocios', label: 'Oportunidades', icon: Handshake, path: '/admin/negocios' });
-      cats.push({ key: 'ordenes', label: 'Órdenes de Servicio', icon: FileCheck2, path: '/admin/ordenes-servicio' });
+      cats.splice(2, 0, { key: 'deals', label: 'Oportunidades', icon: Handshake, path: '/admin/deals' });
+      cats.push({ key: 'orders', label: 'Órdenes de Servicio', icon: FileCheck2, path: '/admin/service-orders' });
     }
     return cats;
   }, [isSeller, base]);
@@ -45,7 +45,7 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [data, setData] = useState({ contactos: [], empresas: [], negocios: [], tareas: [], ordenes: [] });
+  const [data, setData] = useState({ contacts: [], companies: [], deals: [], tasks: [], orders: [] });
   const [inspectingId, setInspectingId] = useState(null);
   const inputRef = useRef(null);
 
@@ -68,11 +68,11 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
         return Array.isArray(arr) ? arr : [];
       };
       setData({
-        contactos: pick(clientsRes),
-        empresas: pick(companiesRes),
-        negocios: pick(oppsRes),
-        tareas: pick(tasksRes),
-        ordenes: pick(ordersRes),
+        contacts: pick(clientsRes),
+        companies: pick(companiesRes),
+        deals: pick(oppsRes),
+        tasks: pick(tasksRes),
+        orders: pick(ordersRes),
       });
       setLoading(false);
       setLoaded(true);
@@ -103,31 +103,31 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
       const items = data[cat.key] || [];
       let matches = [];
 
-      if (cat.key === 'contactos') {
+      if (cat.key === 'contacts') {
         matches = items.filter(
-          (c) => norm(c.nombreApellido).includes(q) || norm(c.direccionMail).includes(q) || norm(c.numDoc).includes(q)
-        ).map((c) => ({ id: c.id, title: c.nombreApellido || 'Contacto', subtitle: c.direccionMail || c.numDoc || '' }));
-      } else if (cat.key === 'empresas') {
+          (c) => norm(c.fullName).includes(q) || norm(c.email).includes(q) || norm(c.docNumber).includes(q)
+        ).map((c) => ({ id: c.id, title: c.fullName || 'Contacto', subtitle: c.email || c.docNumber || '' }));
+      } else if (cat.key === 'companies') {
         matches = items.filter(
-          (c) => norm(c.razonSocial || c.nombreEmpresa).includes(q) || norm(c.cuit).includes(q) || norm(c.localidad).includes(q)
+          (c) => norm(c.legalName || c.companyName).includes(q) || norm(c.cuit).includes(q) || norm(c.locality).includes(q)
         ).map((c) => ({
           id: c.id,
-          title: c.razonSocial || c.nombreEmpresa || 'Empresa',
-          subtitle: [c.localidad, c.cuit].filter(Boolean).join(' · '),
-          nivelEmpresa: c.nivelEmpresa,
+          title: c.legalName || c.companyName || 'Empresa',
+          subtitle: [c.locality, c.cuit].filter(Boolean).join(' · '),
+          companyLevel: c.companyLevel,
         }));
-      } else if (cat.key === 'negocios') {
+      } else if (cat.key === 'deals') {
         matches = items.filter(
-          (o) => norm(o.titulo).includes(q) || norm(o.empresa).includes(q)
-        ).map((o) => ({ id: o.id, title: o.titulo || 'Oportunidad', subtitle: [o.empresa, o.estado].filter(Boolean).join(' · ') }));
-      } else if (cat.key === 'tareas') {
+          (o) => norm(o.title).includes(q) || norm(o.company).includes(q)
+        ).map((o) => ({ id: o.id, title: o.title || 'Oportunidad', subtitle: [o.company, o.status].filter(Boolean).join(' · ') }));
+      } else if (cat.key === 'tasks') {
         matches = items.filter(
-          (t) => norm(t.titulo).includes(q) || norm(t.descripcion).includes(q) || norm(t.empresa).includes(q) || norm(t.asignadoA).includes(q)
-        ).map((t) => ({ id: t.id, title: t.titulo || t.descripcion || 'Tarea', subtitle: [t.empresa, t.asignadoA].filter(Boolean).join(' · ') }));
-      } else if (cat.key === 'ordenes') {
+          (t) => norm(t.title).includes(q) || norm(t.description).includes(q) || norm(t.company).includes(q) || norm(t.assignedTo).includes(q)
+        ).map((t) => ({ id: t.id, title: t.title || t.description || 'Tarea', subtitle: [t.company, t.assignedTo].filter(Boolean).join(' · ') }));
+      } else if (cat.key === 'orders') {
         matches = items.filter(
-          (o) => norm(o.numeroOrden).includes(q) || norm(o.clienteNombre).includes(q) || norm(o.plantaNombre).includes(q)
-        ).map((o) => ({ id: o.id, title: o.numeroOrden || 'Orden de Servicio', subtitle: [o.clienteNombre, o.plantaNombre].filter(Boolean).join(' · ') }));
+          (o) => norm(o.orderNumber).includes(q) || norm(o.customerName).includes(q) || norm(o.plantName).includes(q)
+        ).map((o) => ({ id: o.id, title: o.orderNumber || 'Orden de Servicio', subtitle: [o.customerName, o.plantName].filter(Boolean).join(' · ') }));
       }
 
       matches.slice(0, 5).forEach((m) => out.push({ ...m, category: cat }));
@@ -237,7 +237,7 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
                     <span className="gsearch-result-title">{r.title}</span>
                     {r.subtitle && <span className="gsearch-result-subtitle">{r.subtitle}</span>}
                   </div>
-                  {r.category.key === 'empresas' && r.nivelEmpresa === 'madre' && (
+                  {r.category.key === 'companies' && r.companyLevel === 'madre' && (
                     <button
                       type="button"
                       className="gsearch-inspect-btn"

@@ -18,12 +18,12 @@ import './Sidebar.css';
 
 const sellerNavItems = [
   { path: '/seller/dashboard',    icon: Home,            label: 'Inicio', dividerAfter: true },
-  { path: '/seller/hoja-de-ruta', icon: MapPin,          label: 'Hoja de Ruta' },
-  { path: '/seller/contactos',    icon: Users,           label: 'Contactos' },
-  { path: '/seller/empresas',     icon: Building2,       label: 'Empresas' },
-  { path: '/seller/tareas',       icon: CheckSquare,     label: 'Tareas' },
-  { path: '/seller/actividades',  icon: ClipboardList,   label: 'Actividades' },
-  { path: '/seller/promociones',  icon: Sparkles,        label: 'Promociones' },
+  { path: '/seller/roadmap', icon: MapPin,          label: 'Hoja de Ruta' },
+  { path: '/seller/contacts',    icon: Users,           label: 'Contactos' },
+  { path: '/seller/companies',     icon: Building2,       label: 'Empresas' },
+  { path: '/seller/tasks',       icon: CheckSquare,     label: 'Tareas' },
+  { path: '/seller/activities',  icon: ClipboardList,   label: 'Actividades' },
+  { path: '/seller/promotions',  icon: Sparkles,        label: 'Promociones' },
 ];
 
 export const SellerSidebar = () => {

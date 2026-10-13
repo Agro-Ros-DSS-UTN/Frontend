@@ -1,5 +1,5 @@
 ﻿import { DollarSign, Plus, Check } from 'lucide-react';
-import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/catalogos';
+import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/catalogs';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { FormInput, FormTextarea, FormSelect } from '../../../components/ui/FormInput/FormInput';
 import { ImageUpload } from '../../../components/ui/ImageUpload/ImageUpload';
@@ -36,12 +36,12 @@ export const ProductFormDrawer = ({
         {/* Nombre del Producto */}
         <FormInput
           label="Nombre del producto"
-          name="nombre"
-          value={form.nombre}
+          name="name"
+          value={form.name}
           onChange={handleChange}
           placeholder="Ej: Glifosato Premium 48% SL (Bidón 20L)"
           required
-          error={errors.nombre}
+          error={errors.name}
         />
 
         {/* SKU / Referencia */}
@@ -59,15 +59,15 @@ export const ProductFormDrawer = ({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <FormSelect
             label="Categoría de Producto"
-            name="tipoProducto"
-            value={form.tipoProducto}
+            name="productType"
+            value={form.productType}
             onChange={handleChange}
             options={PRODUCT_CATEGORIES}
           />
           <FormSelect
             label="Frecuencia de Facturación"
-            name="frecuenciaFacturacion"
-            value={form.frecuenciaFacturacion}
+            name="billingFrequency"
+            value={form.billingFrequency}
             onChange={handleChange}
             options={BILLING_FREQUENCIES}
           />
@@ -77,20 +77,20 @@ export const ProductFormDrawer = ({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <FormInput
             label="Precio Unitario ($)"
-            name="precioUnitario"
+            name="unitPrice"
             type="number"
-            value={form.precioUnitario}
+            value={form.unitPrice}
             onChange={handleChange}
             placeholder="0.00"
             required
-            error={errors.precioUnitario}
+            error={errors.unitPrice}
             icon={DollarSign}
           />
           <FormInput
             label="Coste Unitario Estimado ($)"
-            name="costeUnidad"
+            name="costPerUnit"
             type="number"
-            value={form.costeUnidad}
+            value={form.costPerUnit}
             onChange={handleChange}
             placeholder="0.00"
             icon={DollarSign}
@@ -98,7 +98,7 @@ export const ProductFormDrawer = ({
         </div>
 
         {/* Cálculo de Margen en Tiempo Real */}
-        {form.precioUnitario > 0 && (
+        {form.unitPrice > 0 && (
           <div className="product-margin-preview-box">
             <div>
               <span className="margin-lbl">Margen Bruto Unitario:</span>
@@ -116,8 +116,8 @@ export const ProductFormDrawer = ({
         {/* Descripción */}
         <FormTextarea
           label="Descripción o Indicaciones Agronómicas"
-          name="descripcion"
-          value={form.descripcion}
+          name="description"
+          value={form.description}
           onChange={handleChange}
           placeholder="Ej: Herbicida no selectivo para barbecho químico previo a siembra directa de soja/maíz."
           rows={3}
@@ -126,9 +126,9 @@ export const ProductFormDrawer = ({
         {/* Componente Moderno y Compacto de Subida de Imagen */}
         <ImageUpload
           label="Foto del Producto (Opcional)"
-          value={form.imagenUrl}
-          onChange={(url) => setForm((prev) => ({ ...prev, imagenUrl: url }))}
-          onRemove={() => setForm((prev) => ({ ...prev, imagenUrl: null }))}
+          value={form.imageUrl}
+          onChange={(url) => setForm((prev) => ({ ...prev, imageUrl: url }))}
+          onRemove={() => setForm((prev) => ({ ...prev, imageUrl: null }))}
           maxSizeMB={5}
         />
 
@@ -137,8 +137,8 @@ export const ProductFormDrawer = ({
           <input
             type="checkbox"
             id="activo-check"
-            name="activo"
-            checked={form.activo}
+            name="active"
+            checked={form.active}
             onChange={handleChange}
             style={{ width: '18px', height: '18px', accentColor: '#1a7d6b', cursor: 'pointer' }}
           />

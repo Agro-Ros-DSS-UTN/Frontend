@@ -9,10 +9,10 @@ import { toastManager } from '../components/ui/Toast/Toast';
  * forma de hook, para usarlo dentro de componentes.
  */
 
-const DURACION = { exito: 4000, info: 4000, advertencia: 6000, error: 7000 };
+const DURATION = { success: 4000, info: 4000, warning: 6000, error: 7000 };
 
 // Mensaje legible a partir de un error de axios, fetch o del backend.
-export const mensajeDeError = (err, fallback = 'Intentá de nuevo en unos segundos.') => {
+export const errorMessage = (err, fallback = 'Intentá de nuevo en unos segundos.') => {
   if (err?.code === 'ECONNABORTED' || /timeout of \d+ms/i.test(err?.message || '')) {
     return 'La base de datos tardó demasiado en responder. Revisá tu conexión e intentá de nuevo.';
   }
@@ -22,23 +22,23 @@ export const mensajeDeError = (err, fallback = 'Intentá de nuevo en unos segund
   return msg;
 };
 
-export const notificar = {
-  exito: (titulo, descripcion) =>
-    toastManager.add({ type: 'success', title: titulo, description: descripcion, timeout: DURACION.exito }),
+export const notify = {
+  success: (title, description) =>
+    toastManager.add({ type: 'success', title: title, description: description, timeout: DURATION.success }),
 
-  info: (titulo, descripcion) =>
-    toastManager.add({ type: 'info', title: titulo, description: descripcion, timeout: DURACION.info }),
+  info: (title, description) =>
+    toastManager.add({ type: 'info', title: title, description: description, timeout: DURATION.info }),
 
-  advertencia: (titulo, descripcion) =>
-    toastManager.add({ type: 'warning', title: titulo, description: descripcion, timeout: DURACION.advertencia }),
+  warning: (title, description) =>
+    toastManager.add({ type: 'warning', title: title, description: description, timeout: DURATION.warning }),
 
   // `detalle` puede ser un texto o directamente el error capturado en el catch
-  error: (titulo, detalle) =>
+  error: (title, details) =>
     toastManager.add({
       type: 'error',
-      title: titulo,
-      description: typeof detalle === 'string' ? detalle : mensajeDeError(detalle),
-      timeout: DURACION.error,
+      title: title,
+      description: typeof details === 'string' ? details : errorMessage(details),
+      timeout: DURATION.error,
     }),
 
   /**
@@ -52,25 +52,25 @@ export const notificar = {
    *     error: 'No se pudo eliminar el producto',
    *   });
    */
-  operacion: (promesa, { cargando = 'Guardando…', exito, error }) =>
-    toastManager.promise(promesa, {
-      loading: { title: cargando, type: 'loading' },
-      success: (resultado) => ({
-        title: typeof exito === 'function' ? exito(resultado) : exito,
+  operation: (promise, { loading = 'Guardando…', success, error }) =>
+    toastManager.promise(promise, {
+      loading: { title: loading, type: 'loading' },
+      success: (result) => ({
+        title: typeof success === 'function' ? success(result) : success,
         type: 'success',
-        timeout: DURACION.exito,
+        timeout: DURATION.success,
       }),
       error: (err) => ({
         title: error,
-        description: mensajeDeError(err),
+        description: errorMessage(err),
         type: 'error',
-        timeout: DURACION.error,
+        timeout: DURATION.error,
       }),
     }),
 
-  cerrar: (id) => toastManager.close(id),
+  close: (id) => toastManager.close(id),
 };
 
-export const useNotificaciones = () => notificar;
+export const useNotifications = () => notify;
 
-export default useNotificaciones;
+export default useNotifications;

@@ -23,15 +23,15 @@ import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
 import '../UsersPage/UsersPage.css';
 import './EmployeesPage.css';
-import { notificar } from '../../../hooks/useNotificaciones';
-import { ROLES_EMPLEADO } from '../../../data/catalogos';
+import { notify } from '../../../hooks/useNotifications';
+import { EMPLOYEE_ROLES } from '../../../data/catalogs';
 
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const rolLabel = (rol) => (ROLES_EMPLEADO.find((r) => r.value === rol)?.label || rol || '—').replace(' (ejecuta órdenes)', '');
+const roleLabel = (role) => (EMPLOYEE_ROLES.find((r) => r.value === role)?.label || role || '—').replace(' (ejecuta órdenes)', '');
 
 // Sugerencias para el puesto; se puede escribir cualquier otro.
-const PUESTO_SUGERENCIAS = [
+const JOB_TITLE_SUGGESTIONS = [
   'Técnico Aplicador',
   'Operario',
   'Ayudante',
@@ -43,26 +43,26 @@ const PUESTO_SUGERENCIAS = [
 const PAGE_SIZE = 10;
 
 const COLUMNS = [
-  { key: 'nombreApellido', label: 'Empleado', sortable: true },
-  { key: 'matricula', label: 'Matrícula', sortable: true },
-  { key: 'rol', label: 'Rol', sortable: true },
-  { key: 'puesto', label: 'Puesto', sortable: true },
-  { key: 'contacto', label: 'Teléfono / Email', sortable: false },
-  { key: 'fechaIngreso', label: 'Ingreso', sortable: true },
-  { key: 'activo', label: 'Estado', sortable: true },
+  { key: 'fullName', label: 'Empleado', sortable: true },
+  { key: 'licenseNumber', label: 'Matrícula', sortable: true },
+  { key: 'role', label: 'Rol', sortable: true },
+  { key: 'jobTitle', label: 'Puesto', sortable: true },
+  { key: 'contact', label: 'Teléfono / Email', sortable: false },
+  { key: 'hireDate', label: 'Ingreso', sortable: true },
+  { key: 'active', label: 'Estado', sortable: true },
 ];
 
 const emptyForm = () => ({
-  nombreApellido: '',
-  dni: '',
-  matricula: '',
-  rol: 'tecnico',
-  puesto: '',
-  telefono: '',
+  fullName: '',
+  nationalId: '',
+  licenseNumber: '',
+  role: 'tecnico',
+  jobTitle: '',
+  phone: '',
   email: '',
-  fechaIngreso: '',
-  activo: true,
-  observaciones: '',
+  hireDate: '',
+  active: true,
+  notes: '',
   profileImage: null,
 });
 
@@ -83,10 +83,10 @@ const formatDate = (value) => {
 
 const validate = (form) => {
   const errors = {};
-  if (!form.nombreApellido.trim()) errors.nombreApellido = 'El nombre y apellido es obligatorio.';
-  if (!form.dni.trim()) errors.dni = 'El DNI es obligatorio.';
-  if (form.rol === 'tecnico' && !form.matricula.trim()) errors.matricula = 'La matrícula es obligatoria para los técnicos aplicadores.';
-  if (!form.puesto.trim()) errors.puesto = 'El puesto es obligatorio.';
+  if (!form.fullName.trim()) errors.fullName = 'El nombre y apellido es obligatorio.';
+  if (!form.nationalId.trim()) errors.nationalId = 'El DNI es obligatorio.';
+  if (form.role === 'tecnico' && !form.licenseNumber.trim()) errors.licenseNumber = 'La matrícula es obligatoria para los técnicos aplicadores.';
+  if (!form.jobTitle.trim()) errors.jobTitle = 'El puesto es obligatorio.';
   return errors;
 };
 
@@ -96,7 +96,7 @@ export const EmployeesPage = () => {
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('nombreApellido');
+  const [sortBy, setSortBy] = useState('fullName');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [showDrawer, setShowDrawer] = useState(false);
@@ -121,22 +121,22 @@ export const EmployeesPage = () => {
     fetchEmployees();
   }, []);
 
-  const activos = employees.filter((e) => e.activo !== false).length;
-  const aplicadores = employees.filter((e) => ['tecnico', 'supervisor'].includes(e.rol) && e.activo !== false).length;
+  const active = employees.filter((e) => e.active !== false).length;
+  const applicators = employees.filter((e) => ['tecnico', 'supervisor'].includes(e.role) && e.active !== false).length;
 
   const filtered = useMemo(() => {
     let result = employees;
-    if (statusFilter === 'activo') result = result.filter((e) => e.activo !== false);
-    if (statusFilter === 'inactivo') result = result.filter((e) => e.activo === false);
+    if (statusFilter === 'active') result = result.filter((e) => e.active !== false);
+    if (statusFilter === 'inactive') result = result.filter((e) => e.active === false);
 
     const q = searchQuery.toLowerCase().trim();
     if (q) {
       result = result.filter(
         (e) =>
-          e.nombreApellido?.toLowerCase().includes(q) ||
-          e.dni?.toLowerCase().includes(q) ||
-          e.matricula?.toLowerCase().includes(q) ||
-          e.puesto?.toLowerCase().includes(q) ||
+          e.fullName?.toLowerCase().includes(q) ||
+          e.nationalId?.toLowerCase().includes(q) ||
+          e.licenseNumber?.toLowerCase().includes(q) ||
+          e.jobTitle?.toLowerCase().includes(q) ||
           e.email?.toLowerCase().includes(q)
       );
     }
@@ -173,16 +173,16 @@ export const EmployeesPage = () => {
     setEditingId(emp.id);
     setErrors({});
     setForm({
-      nombreApellido: emp.nombreApellido || '',
-      dni: emp.dni || '',
-      matricula: emp.matricula || '',
-      rol: emp.rol || 'ayudante',
-      puesto: emp.puesto || '',
-      telefono: emp.telefono || '',
+      fullName: emp.fullName || '',
+      nationalId: emp.nationalId || '',
+      licenseNumber: emp.licenseNumber || '',
+      role: emp.role || 'ayudante',
+      jobTitle: emp.jobTitle || '',
+      phone: emp.phone || '',
       email: emp.email || '',
-      fechaIngreso: emp.fechaIngreso || '',
-      activo: emp.activo !== false,
-      observaciones: emp.observaciones || '',
+      hireDate: emp.hireDate || '',
+      active: emp.active !== false,
+      notes: emp.notes || '',
       profileImage: emp.profileImage || null,
     });
     setShowDrawer(true);
@@ -206,23 +206,23 @@ export const EmployeesPage = () => {
     try {
       const payload = {
         ...form,
-        nombreApellido: form.nombreApellido.trim(),
-        dni: form.dni.trim(),
-        matricula: form.matricula.trim(),
-        puesto: form.puesto.trim(),
+        fullName: form.fullName.trim(),
+        nationalId: form.nationalId.trim(),
+        licenseNumber: form.licenseNumber.trim(),
+        jobTitle: form.jobTitle.trim(),
       };
       if (editingId) await employeesApi.update(editingId, payload);
       else await employeesApi.create(payload);
-      notificar.exito(
+      notify.success(
         editingId ? 'Cambios guardados' : 'Empleado registrado',
-        `${payload.nombreApellido} · ${payload.puesto}`
+        `${payload.fullName} · ${payload.jobTitle}`
       );
       setShowDrawer(false);
       setForm(emptyForm());
       await fetchEmployees();
     } catch (err) {
       console.error('Error al guardar el empleado:', err);
-      notificar.error('No se pudo guardar el empleado', err);
+      notify.error('No se pudo guardar el empleado', err);
     } finally {
       setSaving(false);
     }
@@ -231,14 +231,14 @@ export const EmployeesPage = () => {
   const handleExportCSV = () => {
     const headers = ['Nombre y Apellido', 'DNI', 'Matrícula', 'Puesto', 'Teléfono', 'Email', 'Fecha de Ingreso', 'Estado'];
     const rows = filtered.map((e) => [
-      `"${(e.nombreApellido || '').replace(/"/g, '""')}"`,
-      `"${e.dni || ''}"`,
-      `"${e.matricula || ''}"`,
-      `"${e.puesto || ''}"`,
-      `"${e.telefono || ''}"`,
+      `"${(e.fullName || '').replace(/"/g, '""')}"`,
+      `"${e.nationalId || ''}"`,
+      `"${e.licenseNumber || ''}"`,
+      `"${e.jobTitle || ''}"`,
+      `"${e.phone || ''}"`,
       `"${e.email || ''}"`,
-      `"${e.fechaIngreso || ''}"`,
-      `"${e.activo === false ? 'Inactivo' : 'Activo'}"`,
+      `"${e.hireDate || ''}"`,
+      `"${e.active === false ? 'Inactivo' : 'Activo'}"`,
     ]);
     const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -252,11 +252,11 @@ export const EmployeesPage = () => {
   };
 
   const handleDelete = async (emp) => {
-    if (!window.confirm(`¿Eliminar al empleado "${emp.nombreApellido}"?`)) return;
+    if (!window.confirm(`¿Eliminar al empleado "${emp.fullName}"?`)) return;
     try {
-      await notificar.operacion(employeesApi.delete(emp.id), {
-        cargando: `Eliminando a ${emp.nombreApellido}…`,
-        exito: 'Empleado eliminado',
+      await notify.operation(employeesApi.delete(emp.id), {
+        loading: `Eliminando a ${emp.fullName}…`,
+        success: 'Empleado eliminado',
         error: 'No se pudo eliminar el empleado',
       });
       setEmployees((prev) => prev.filter((x) => x.id !== emp.id));
@@ -294,11 +294,11 @@ export const EmployeesPage = () => {
         </div>
         <div className="emp-stat">
           <span className="emp-stat__label">Activos</span>
-          <span className="emp-stat__value">{activos}</span>
+          <span className="emp-stat__value">{active}</span>
         </div>
         <div className="emp-stat">
           <span className="emp-stat__label">Técnicos activos</span>
-          <span className="emp-stat__value">{aplicadores}</span>
+          <span className="emp-stat__value">{applicators}</span>
         </div>
       </div>
 
@@ -320,8 +320,8 @@ export const EmployeesPage = () => {
             onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
             items={[
               { value: 'all', label: 'Todos los empleados', count: employees.length },
-              { value: 'activo', label: 'Activos', count: activos },
-              { value: 'inactivo', label: 'Inactivos', count: employees.length - activos },
+              { value: 'active', label: 'Activos', count: active },
+              { value: 'inactive', label: 'Inactivos', count: employees.length - active },
             ]}
           />
         </div>
@@ -370,31 +370,31 @@ export const EmployeesPage = () => {
                 </tr>
               ) : (
                 paginated.map((emp) => {
-                  const activo = emp.activo !== false;
+                  const isActive = emp.active !== false;
                   return (
                     <tr key={emp.id} className="users-table__row">
                       <td>
                         <div className="users-table__name-cell">
                           <div className="users-table__avatar users-table__avatar--vendedor emp-avatar">
-                            {emp.profileImage ? <img src={emp.profileImage} alt={emp.nombreApellido} /> : initials(emp.nombreApellido)}
+                            {emp.profileImage ? <img src={emp.profileImage} alt={emp.fullName} /> : initials(emp.fullName)}
                           </div>
                           <div>
-                            <span className="users-table__name">{emp.nombreApellido}</span>
-                            <span className="users-table__id-sub">{emp.dni ? `DNI ${emp.dni}` : 'Sin DNI'}</span>
+                            <span className="users-table__name">{emp.fullName}</span>
+                            <span className="users-table__id-sub">{emp.nationalId ? `DNI ${emp.nationalId}` : 'Sin DNI'}</span>
                           </div>
                         </div>
                       </td>
-                      <td>{emp.matricula || <span style={{ color: '#94a3b8' }}>-</span>}</td>
+                      <td>{emp.licenseNumber || <span style={{ color: '#94a3b8' }}>-</span>}</td>
                       <td>
-                        <span className={`users-table__role-pill ${['tecnico', 'supervisor'].includes(emp.rol) ? 'users-table__role-pill--admin' : 'users-table__role-pill--vendedor'}`}>
-                          {rolLabel(emp.rol)}
+                        <span className={`users-table__role-pill ${['tecnico', 'supervisor'].includes(emp.role) ? 'users-table__role-pill--admin' : 'users-table__role-pill--vendedor'}`}>
+                          {roleLabel(emp.role)}
                         </span>
                       </td>
                       <td>
-                        {emp.puesto ? (
+                        {emp.jobTitle ? (
                           <span className="users-table__role-pill users-table__role-pill--vendedor">
                             <HardHat size={12} />
-                            {emp.puesto}
+                            {emp.jobTitle}
                           </span>
                         ) : (
                           <span style={{ color: '#94a3b8' }}>-</span>
@@ -404,10 +404,10 @@ export const EmployeesPage = () => {
                         <div className="emp-contact-cell">
                           {/* Teléfono y email del empleado. El email solo es enlace si es una dirección válida
                               (hay datos viejos con valores de relleno, como "2"). */}
-                          {emp.telefono && (
+                          {emp.phone && (
                             <span className="emp-contact-line">
                               <Phone size={12} aria-hidden="true" />
-                              {emp.telefono}
+                              {emp.phone}
                             </span>
                           )}
                           {emp.email && (EMAIL_OK.test(emp.email) ? (
@@ -421,14 +421,14 @@ export const EmployeesPage = () => {
                               {emp.email}
                             </span>
                           ))}
-                          {!emp.email && !emp.telefono && <span style={{ color: '#94a3b8' }}>-</span>}
+                          {!emp.email && !emp.phone && <span style={{ color: '#94a3b8' }}>-</span>}
                         </div>
                       </td>
-                      <td>{formatDate(emp.fechaIngreso)}</td>
+                      <td>{formatDate(emp.hireDate)}</td>
                       <td>
-                        <span className={`users-table__status-pill ${activo ? 'users-table__status-pill--active' : 'users-table__status-pill--inactive'}`}>
+                        <span className={`users-table__status-pill ${isActive ? 'users-table__status-pill--active' : 'users-table__status-pill--inactive'}`}>
                           <span className="status-dot" />
-                          {activo ? 'Activo' : 'Inactivo'}
+                          {isActive ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
@@ -506,62 +506,62 @@ export const EmployeesPage = () => {
 
           <FormInput
             label="Nombre y Apellido"
-            name="nombreApellido"
-            value={form.nombreApellido}
+            name="fullName"
+            value={form.fullName}
             onChange={handleChange}
             placeholder="Ej: Juan Carlos Pereyra"
             required
-            error={errors.nombreApellido}
+            error={errors.fullName}
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <FormInput label="DNI" name="dni" value={form.dni} onChange={handleChange} placeholder="24.891.432" required error={errors.dni} />
-            <FormInput label="Matrícula" name="matricula" value={form.matricula} onChange={handleChange} placeholder="Mat. 4812" required={form.rol === 'tecnico'} error={errors.matricula} />
+            <FormInput label="DNI" name="nationalId" value={form.nationalId} onChange={handleChange} placeholder="24.891.432" required error={errors.nationalId} />
+            <FormInput label="Matrícula" name="licenseNumber" value={form.licenseNumber} onChange={handleChange} placeholder="Mat. 4812" required={form.role === 'tecnico'} error={errors.licenseNumber} />
           </div>
 
           <FormSelect
             label="Rol"
-            name="rol"
-            value={form.rol}
+            name="role"
+            value={form.role}
             onChange={handleChange}
-            options={ROLES_EMPLEADO}
+            options={EMPLOYEE_ROLES}
           />
           <p className="emp-rol-help">Solo los empleados con rol <strong>Técnico</strong> pueden asignarse a una orden de servicio.</p>
 
           <FormInput
             label="Puesto"
-            name="puesto"
-            value={form.puesto}
+            name="jobTitle"
+            value={form.jobTitle}
             onChange={handleChange}
             placeholder="Elegí uno de la lista o escribí otro puesto"
             list="emp-puestos"
             autoComplete="off"
             required
-            error={errors.puesto}
+            error={errors.jobTitle}
           />
           <datalist id="emp-puestos">
-            {PUESTO_SUGERENCIAS.map((p) => (
+            {JOB_TITLE_SUGGESTIONS.map((p) => (
               <option key={p} value={p} />
             ))}
           </datalist>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <FormInput label="Teléfono" name="telefono" value={form.telefono} onChange={handleChange} placeholder="+54 341 555-0123" />
+            <FormInput label="Teléfono" name="phone" value={form.phone} onChange={handleChange} placeholder="+54 341 555-0123" />
             <FormInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="empleado@correo.com" />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'end' }}>
-            <FormInput label="Fecha de Ingreso" name="fechaIngreso" type="date" value={form.fechaIngreso} onChange={handleChange} />
+            <FormInput label="Fecha de Ingreso" name="hireDate" type="date" value={form.hireDate} onChange={handleChange} />
             <label className="emp-check">
-              <input type="checkbox" name="activo" checked={form.activo} onChange={handleChange} />
+              <input type="checkbox" name="active" checked={form.active} onChange={handleChange} />
               <span>Empleado activo</span>
             </label>
           </div>
 
           <FormTextarea
             label="Observaciones"
-            name="observaciones"
-            value={form.observaciones}
+            name="notes"
+            value={form.notes}
             onChange={handleChange}
             placeholder="Certificaciones, cursos de bioseguridad, notas internas..."
             rows={2}

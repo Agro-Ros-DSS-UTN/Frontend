@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { escapeHtml, safeColor, safeUrl } from '../../../utils/seguridad';
+import { escapeHtml, safeColor, safeUrl } from '../../../utils/security';
 import { useNavigate } from 'react-router-dom';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import {
@@ -40,13 +40,13 @@ import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/
 import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
 import { MAX_ROADMAP_STOPS } from '../../../utils/timeOptions';
 import './RoadmapsPage.css';
-import { notificar } from '../../../hooks/useNotificaciones';
+import { notify } from '../../../hooks/useNotifications';
 
 // Base de datos de ejemplo amplia de empresas y localidades agrícolas
 
 export const RoadmapsPage = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('hoy'); // 'hoy' | 'historial'
+  const [activeTab, setActiveTab] = useState('today'); // 'hoy' | 'historial'
   const [selectedSellerId, setSelectedSellerId] = useState('all');
   const [selectedStop, setSelectedStop] = useState(null);
   const [selectedRouteId, setSelectedRouteId] = useState(null);
@@ -62,24 +62,24 @@ export const RoadmapsPage = () => {
 
   // Form State for creating Roadmap with Zone Name
   const [formData, setFormData] = useState({
-    nombreZona: '',
+    zoneName: '',
     sellerId: '',
-    fechaRuta: new Date().toISOString().split('T')[0],
-    horaRuta: '09:00',
-    fechaFinPropuesta: '',
-    horaFinPropuesta: '',
-    distanciaEstimadaKm: 120,
-    observaciones: '',
-    paradas: [
+    roadmapDate: new Date().toISOString().split('T')[0],
+    roadmapTime: '09:00',
+    proposedEndDate: '',
+    proposedEndTime: '',
+    estimatedDistanceKm: 120,
+    notes: '',
+    stops: [
       {
         clientCompanyId: '',
-        nombreLugar: '',
-        direccion: '',
-        localidad: '',
-        latitud: -32.85,
-        longitud: -61.45,
-        horaEstimada: '09:00',
-        notas: ''
+        placeName: '',
+        address: '',
+        locality: '',
+        latitude: -32.85,
+        longitude: -61.45,
+        estimatedTime: '09:00',
+        notes: ''
       }
     ]
   });
@@ -105,28 +105,28 @@ export const RoadmapsPage = () => {
           const colors = ['#1a7d6b', '#0284c7', '#d97706', '#8b5cf6', '#ec4899'];
           const formatted = rawRoadmaps.map((r, i) => ({
             id: r.id,
-            vendedorId: r.idUserAsignado,
-            vendedor: r.asignado?.nombreApellido || 'Sin asignar',
+            sellerId: r.assignedUserId,
+            seller: r.assigned?.fullName || 'Sin asignar',
             color: colors[i % colors.length],
-            zona: r.nombreZona || r.descripcion || 'Zona Comercial',
-            fecha: r.fechaRuta,
-            totalKm: r.distanciaEstimadaKm || 0,
-            totalVisitas: r.paradas?.length || 0,
-            visitasCompletadas: r.paradas?.filter(p => (p.estado || p.estadoParada) === 'completada').length || 0,
-            observaciones: r.observaciones || r.descripcion || '',
-            paradas: (r.paradas || []).map((p, idx) => ({
+            zone: r.zoneName || r.description || 'Zona Comercial',
+            date: r.roadmapDate,
+            totalKm: r.estimatedDistanceKm || 0,
+            totalVisits: r.stops?.length || 0,
+            completedVisits: r.stops?.filter(p => (p.status || p.stopStatus) === 'completada').length || 0,
+            notes: r.notes || r.description || '',
+            stops: (r.stops || []).map((p, idx) => ({
               id: p.id,
-              orden: p.orden || (idx + 1),
-              cliente: p.nombreLugar,
-              direccion: p.direccion || '',
-              localidad: p.localidad || '',
+              order: p.order || (idx + 1),
+              customer: p.placeName,
+              address: p.address || '',
+              locality: p.locality || '',
               // Sin coordenadas reales la parada no se dibuja (no se inventa una ubicación).
-              coords: p.latitud !== null && p.latitud !== undefined && p.longitud !== null && p.longitud !== undefined ? [Number(p.latitud), Number(p.longitud)] : null,
-              servicio: p.notas || 'Visita comercial',
-              contacto: '',
-              horaEstimada: p.horaEstimada || '',
+              coords: p.latitude !== null && p.latitude !== undefined && p.longitude !== null && p.longitude !== undefined ? [Number(p.latitude), Number(p.longitude)] : null,
+              service: p.notes || 'Visita comercial',
+              contact: '',
+              estimatedTime: p.estimatedTime || '',
               url: p.url || null,
-              estado: (p.estado || p.estadoParada) === 'completada' ? 'Completada' : ((p.estado || p.estadoParada) === 'en_camino' ? 'En camino' : ((p.estado || p.estadoParada) === 'omitida' ? 'Omitida' : 'Pendiente'))
+              status: (p.status || p.stopStatus) === 'completada' ? 'Completada' : ((p.status || p.stopStatus) === 'en_camino' ? 'En camino' : ((p.status || p.stopStatus) === 'omitida' ? 'Omitida' : 'Pendiente'))
             }))
           }));
           setApiRoadmaps(formatted);
@@ -144,7 +144,7 @@ export const RoadmapsPage = () => {
           // Cualquier usuario activo puede recibir una hoja de ruta: un vendedor
           // (el caso más común) o un administrador organizando su propio viaje.
           const assignableUsers = rawUsers.filter(
-            (u) => String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo'
+            (u) => String(u.accountStatus || 'Activo') === 'Activo'
           );
           setSellersList(assignableUsers);
           if (assignableUsers.length > 0) {
@@ -167,7 +167,7 @@ export const RoadmapsPage = () => {
   // Filtered routes for today
   const routesToday = useMemo(() => {
     if (selectedSellerId === 'all') return apiRoadmaps;
-    return apiRoadmaps.filter(r => String(r.vendedorId) === String(selectedSellerId));
+    return apiRoadmaps.filter(r => String(r.sellerId) === String(selectedSellerId));
   }, [selectedSellerId, apiRoadmaps]);
 
   // Selected route object — null mientras esté seleccionado "Todos los
@@ -179,15 +179,15 @@ export const RoadmapsPage = () => {
 
   // KPI Calculations
   const totalKmToday = routesToday.reduce((sum, r) => sum + (r.totalKm || 0), 0);
-  const totalStopsToday = routesToday.reduce((sum, r) => sum + (r.totalVisitas || 0), 0);
-  const completedStopsToday = routesToday.reduce((sum, r) => sum + (r.visitasCompletadas || 0), 0);
+  const totalStopsToday = routesToday.reduce((sum, r) => sum + (r.totalVisits || 0), 0);
+  const completedStopsToday = routesToday.reduce((sum, r) => sum + (r.completedVisits || 0), 0);
 
   // Generate Google Maps Deep Link URL for mobile GPS navigation
   const googleMapsUrl = useMemo(() => {
-    if (!currentRoute || !currentRoute.paradas || currentRoute.paradas.length === 0) {
+    if (!currentRoute || !currentRoute.stops || currentRoute.stops.length === 0) {
       return 'https://www.google.com/maps';
     }
-    const coordsStr = currentRoute.paradas.map(p => (p.coords ? `${p.coords[0]},${p.coords[1]}` : encodeURIComponent([p.direccion, p.localidad, p.cliente].filter(Boolean).join(', '))));
+    const coordsStr = currentRoute.stops.map(p => (p.coords ? `${p.coords[0]},${p.coords[1]}` : encodeURIComponent([p.address, p.locality, p.customer].filter(Boolean).join(', '))));
     const origin = coordsStr[0];
     const destination = coordsStr[coordsStr.length - 1];
     const waypoints = coordsStr.slice(1, -1).join('|');
@@ -214,22 +214,22 @@ export const RoadmapsPage = () => {
     const allMarkers = [];
 
     routesToday.forEach((route) => {
-      if (!route.paradas || route.paradas.length === 0) return;
+      if (!route.stops || route.stops.length === 0) return;
 
       const polylineCoords = [];
 
-      route.paradas.filter((stop) => stop.coords).forEach((stop) => {
+      route.stops.filter((stop) => stop.coords).forEach((stop) => {
         polylineCoords.push(stop.coords);
 
-        const isCompleted = stop.estado === 'Completada';
-        const isCurrent = stop.estado === 'En camino';
+        const isCompleted = stop.status === 'Completada';
+        const isCurrent = stop.status === 'En camino';
         const markerBg = isCompleted ? '#16a34a' : (route.color || '#1a7d6b');
 
         const customIcon = L.divIcon({
           className: 'leaflet-custom-marker-wrapper',
           html: `
             <div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''}" style="background-color: ${safeColor(markerBg)};">
-              <span>${escapeHtml(stop.orden)}</span>
+              <span>${escapeHtml(stop.order)}</span>
             </div>
           `,
           iconSize: [30, 30],
@@ -245,19 +245,19 @@ export const RoadmapsPage = () => {
         marker.bindPopup(`
           <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width: 220px; padding: 4px;">
             <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: ${safeColor(route.color)}; margin-bottom: 2px;">
-              ${escapeHtml(route.vendedor)} · PARADA #${escapeHtml(stop.orden)}
+              ${escapeHtml(route.seller)} · PARADA #${escapeHtml(stop.order)}
             </div>
             <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">
-              ${escapeHtml(stop.cliente)}
+              ${escapeHtml(stop.customer)}
             </div>
             <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
-              ${escapeHtml([stop.direccion, stop.localidad].filter(Boolean).join(', '))}
+              ${escapeHtml([stop.address, stop.locality].filter(Boolean).join(', '))}
             </div>
             <div style="font-size: 11px; color: #334155; margin-bottom: 4px;">
-              <strong>Detalle:</strong> ${escapeHtml(stop.servicio)}
+              <strong>Detalle:</strong> ${escapeHtml(stop.service)}
             </div>
             <div style="font-size: 12px; color: #1a7d6b; font-weight: 700; border-top: 1px dashed #e2e8f0; padding-top: 4px;">
-              Horario: ${escapeHtml(stop.horaEstimada || '—')} hs
+              Horario: ${escapeHtml(stop.estimatedTime || '—')} hs
             </div>
           </div>
         `);
@@ -265,7 +265,7 @@ export const RoadmapsPage = () => {
         marker.on('click', () => {
           setSelectedStop(stop);
           setSelectedRouteId(route.id);
-          setSelectedSellerId(String(route.vendedorId));
+          setSelectedSellerId(String(route.sellerId));
         });
       });
 
@@ -287,7 +287,7 @@ export const RoadmapsPage = () => {
 
   // Initialize and update standard Leaflet Interactive Map
   useEffect(() => {
-    if (activeTab !== 'hoy' || !mapContainerRef.current || isMapFullscreen) return;
+    if (activeTab !== 'today' || !mapContainerRef.current || isMapFullscreen) return;
 
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
@@ -330,8 +330,8 @@ export const RoadmapsPage = () => {
   }, [isMapFullscreen, routesToday]);
 
   // Delete Roadmap Handler
-  const handleDeleteRoadmap = async (routeId, routeZona) => {
-    if (!window.confirm(`¿Estás seguro de eliminar la hoja de ruta "${routeZona || 'seleccionada'}"?`)) {
+  const handleDeleteRoadmap = async (routeId, routeZone) => {
+    if (!window.confirm(`¿Estás seguro de eliminar la hoja de ruta "${routeZone || 'seleccionada'}"?`)) {
       return;
     }
     try {
@@ -342,11 +342,11 @@ export const RoadmapsPage = () => {
         const remaining = apiRoadmaps.filter(r => r.id !== routeId);
         setSelectedRouteId(remaining.length > 0 ? remaining[0].id : null);
       }
-      notificar.exito('Hoja de ruta eliminada', `Se eliminó «${routeZona}».`);
+      notify.success('Hoja de ruta eliminada', `Se eliminó «${routeZone}».`);
     } catch (err) {
       console.error('Error deleting roadmap:', err);
       // No se saca de la pantalla: la base no confirmó el borrado
-      notificar.error('No se pudo eliminar la hoja de ruta', err);
+      notify.error('No se pudo eliminar la hoja de ruta', err);
     } finally {
       setLoading(false);
     }
@@ -355,20 +355,20 @@ export const RoadmapsPage = () => {
   // Modal Handlers
   const handleAddStopField = () => {
     setFormData(prev => {
-      if (prev.paradas.length >= MAX_ROADMAP_STOPS) return prev;
+      if (prev.stops.length >= MAX_ROADMAP_STOPS) return prev;
       return {
         ...prev,
-        paradas: [
-          ...prev.paradas,
+        stops: [
+          ...prev.stops,
           {
             clientCompanyId: '',
-            nombreLugar: '',
-            direccion: '',
-            localidad: '',
-            latitud: -33.00 - (prev.paradas.length * 0.05),
-            longitud: -61.20 - (prev.paradas.length * 0.05),
-            horaEstimada: '10:00',
-            notas: ''
+            placeName: '',
+            address: '',
+            locality: '',
+            latitude: -33.00 - (prev.stops.length * 0.05),
+            longitude: -61.20 - (prev.stops.length * 0.05),
+            estimatedTime: '10:00',
+            notes: ''
           }
         ]
       };
@@ -378,31 +378,31 @@ export const RoadmapsPage = () => {
   const handleRemoveStopField = (index) => {
     setFormData(prev => ({
       ...prev,
-      paradas: prev.paradas.filter((_, idx) => idx !== index)
+      stops: prev.stops.filter((_, idx) => idx !== index)
     }));
   };
 
   const handleStopChange = (index, field, value) => {
     setFormData(prev => {
-      const newStops = [...prev.paradas];
+      const newStops = [...prev.stops];
       newStops[index] = { ...newStops[index], [field]: value };
-      return { ...prev, paradas: newStops };
+      return { ...prev, stops: newStops };
     });
   };
 
   // Al elegir (o tipear) una empresa en el autocompletado de una parada —
   // autocompleta dirección y localidad si matchea una empresa real de la base.
-  const handleStopCompanySelect = (index, nombre, company) => {
+  const handleStopCompanySelect = (index, name, company) => {
     setFormData(prev => {
-      const newStops = [...prev.paradas];
+      const newStops = [...prev.stops];
       newStops[index] = {
         ...newStops[index],
-        nombreLugar: nombre,
+        placeName: name,
         clientCompanyId: company?.id || '',
-        direccion: company?.direccion || newStops[index].direccion,
-        localidad: company?.loc || newStops[index].localidad,
+        address: company?.address || newStops[index].address,
+        locality: company?.loc || newStops[index].locality,
       };
-      return { ...prev, paradas: newStops };
+      return { ...prev, stops: newStops };
     });
   };
 
@@ -414,25 +414,25 @@ export const RoadmapsPage = () => {
       const selectedSeller = sellersList.find(s => String(s.idUser || s.id) === String(formData.sellerId)) || sellersList[0];
 
       const payload = {
-        nombreZona: formData.nombreZona || 'Recorrido',
-        descripcion: null,
-        fechaRuta: formData.fechaRuta,
-        horaRuta: formData.horaRuta || null,
-        fechaFinPropuesta: formData.fechaFinPropuesta || null,
-        horaFinPropuesta: formData.horaFinPropuesta || null,
-        idUserAsignado: selectedSeller ? (selectedSeller.idUser || selectedSeller.id) : null,
-        distanciaEstimadaKm: Number(formData.distanciaEstimadaKm) || 0,
-        observaciones: formData.observaciones,
-        paradas: formData.paradas.map((p, idx) => ({
-          orden: idx + 1,
-          empresaId: (p.clientCompanyId && !isNaN(Number(p.clientCompanyId))) ? Number(p.clientCompanyId) : null,
-          nombreLugar: p.nombreLugar || `Parada #${idx + 1}`,
-          direccion: p.direccion || null,
+        zoneName: formData.zoneName || 'Recorrido',
+        description: null,
+        roadmapDate: formData.roadmapDate,
+        roadmapTime: formData.roadmapTime || null,
+        proposedEndDate: formData.proposedEndDate || null,
+        proposedEndTime: formData.proposedEndTime || null,
+        assignedUserId: selectedSeller ? (selectedSeller.idUser || selectedSeller.id) : null,
+        estimatedDistanceKm: Number(formData.estimatedDistanceKm) || 0,
+        notes: formData.notes,
+        stops: formData.stops.map((p, idx) => ({
+          order: idx + 1,
+          companyId: (p.clientCompanyId && !isNaN(Number(p.clientCompanyId))) ? Number(p.clientCompanyId) : null,
+          placeName: p.placeName || `Parada #${idx + 1}`,
+          address: p.address || null,
           // Coordenadas solo si se cargaron; si no, el backend usa las de la empresa o su localidad.
-          latitud: p.latitud !== '' && p.latitud !== undefined && !isNaN(Number(p.latitud)) ? Number(p.latitud) : null,
-          longitud: p.longitud !== '' && p.longitud !== undefined && !isNaN(Number(p.longitud)) ? Number(p.longitud) : null,
-          horaEstimada: p.horaEstimada || null,
-          notas: p.notas || null
+          latitude: p.latitude !== '' && p.latitude !== undefined && !isNaN(Number(p.latitude)) ? Number(p.latitude) : null,
+          longitude: p.longitude !== '' && p.longitude !== undefined && !isNaN(Number(p.longitude)) ? Number(p.longitude) : null,
+          estimatedTime: p.estimatedTime || null,
+          notes: p.notes || null
         }))
       };
 
@@ -441,33 +441,33 @@ export const RoadmapsPage = () => {
       
       // Reset form
       setFormData({
-        nombreZona: '',
+        zoneName: '',
         sellerId: sellersList[0]?.idUser || sellersList[0]?.id || '',
-        fechaRuta: new Date().toISOString().split('T')[0],
-        horaRuta: '09:00',
-        fechaFinPropuesta: '',
-        horaFinPropuesta: '',
-        distanciaEstimadaKm: 120,
-        observaciones: '',
-        paradas: [
+        roadmapDate: new Date().toISOString().split('T')[0],
+        roadmapTime: '09:00',
+        proposedEndDate: '',
+        proposedEndTime: '',
+        estimatedDistanceKm: 120,
+        notes: '',
+        stops: [
           {
             clientCompanyId: '',
-            nombreLugar: '',
-            direccion: '',
-            localidad: '',
-            latitud: -32.85,
-            longitud: -61.45,
-            horaEstimada: '09:00',
-            notas: ''
+            placeName: '',
+            address: '',
+            locality: '',
+            latitude: -32.85,
+            longitude: -61.45,
+            estimatedTime: '09:00',
+            notes: ''
           }
         ]
       });
 
       await fetchInitialData();
-      notificar.exito('Hoja de ruta guardada');
+      notify.success('Hoja de ruta guardada');
     } catch (err) {
       console.error('Error creating roadmap:', err);
-      notificar.error('No se pudo guardar la hoja de ruta', err);
+      notify.error('No se pudo guardar la hoja de ruta', err);
     } finally {
       setLoading(false);
     }
@@ -513,8 +513,8 @@ export const RoadmapsPage = () => {
           value={activeTab}
           onChange={setActiveTab}
           items={[
-            { value: 'hoy', label: 'Rutas del Día (Hoy)', icon: MapIcon },
-            { value: 'historial', label: 'Registro Mensual', icon: BarChart3 },
+            { value: 'today', label: 'Rutas del Día (Hoy)', icon: MapIcon },
+            { value: 'history', label: 'Registro Mensual', icon: BarChart3 },
           ]}
         />
       </div>
@@ -524,7 +524,7 @@ export const RoadmapsPage = () => {
           title="Conectando con la base de datos…"
           message="Aguardá un instante mientras sincronizamos las hojas de ruta y sus paradas."
         />
-      ) : activeTab === 'hoy' && (
+      ) : activeTab === 'today' && (
         <>
           {/* KPI Cards */}
           <div className="roadmaps-kpis">
@@ -579,28 +579,28 @@ export const RoadmapsPage = () => {
               </button>
 
               {apiRoadmaps.map((r) => {
-                const pct = r.totalVisitas > 0 ? Math.round((r.visitasCompletadas / r.totalVisitas) * 100) : 0;
-                const active = selectedSellerId === String(r.vendedorId);
+                const pct = r.totalVisits > 0 ? Math.round((r.completedVisits / r.totalVisits) * 100) : 0;
+                const active = selectedSellerId === String(r.sellerId);
                 return (
                   <button
                     key={r.id}
                     type="button"
                     className={`rv-card ${active ? 'is-active' : ''}`}
                     onClick={() => {
-                      setSelectedSellerId(active ? 'all' : String(r.vendedorId));
+                      setSelectedSellerId(active ? 'all' : String(r.sellerId));
                       setSelectedRouteId(r.id);
                     }}
                   >
                     <div className="rv-card__head">
                       <span className="rv-card__dot" style={{ background: r.color || '#1a7d6b' }} />
-                      <span className="rv-card__name">{r.vendedor}</span>
+                      <span className="rv-card__name">{r.seller}</span>
                     </div>
-                    <span className="rv-card__zone">{r.zona}</span>
+                    <span className="rv-card__zone">{r.zone}</span>
                     <div className="rv-card__bar">
                       <div className="rv-card__bar-fill" style={{ width: `${pct}%`, background: r.color || '#1a7d6b' }} />
                     </div>
                     <span className="rv-card__sub">
-                      {r.visitasCompletadas}/{r.totalVisitas} visitas · {pct}%
+                      {r.completedVisits}/{r.totalVisits} visitas · {pct}%
                     </span>
                   </button>
                 );
@@ -657,7 +657,7 @@ export const RoadmapsPage = () => {
                     {routesToday.map(r => (
                       <span key={r.id} className="map-legend-item">
                         <span className="map-legend-dot" style={{ backgroundColor: r.color || '#1a7d6b' }} />
-                        {r.vendedor.split(' ')[0]}
+                        {r.seller.split(' ')[0]}
                       </span>
                     ))}
                   </div>
@@ -681,16 +681,16 @@ export const RoadmapsPage = () => {
                           ZONA DE RECORRIDO
                         </span>
                         <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 0 0', lineHeight: 1.2 }}>
-                          {currentRoute.zona}
+                          {currentRoute.zone}
                         </h2>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span className="roadmap-status-badge">
-                          {currentRoute.visitasCompletadas === currentRoute.totalVisitas && currentRoute.totalVisitas > 0 ? 'Completada' : 'En curso'}
+                          {currentRoute.completedVisits === currentRoute.totalVisits && currentRoute.totalVisits > 0 ? 'Completada' : 'En curso'}
                         </span>
                         <button
                           type="button"
-                          onClick={() => handleDeleteRoadmap(currentRoute.id, currentRoute.zona)}
+                          onClick={() => handleDeleteRoadmap(currentRoute.id, currentRoute.zone)}
                           style={{
                             background: '#fef2f2',
                             border: '1px solid #fecaca',
@@ -714,13 +714,13 @@ export const RoadmapsPage = () => {
                     </div>
 
                     <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
-                      Vendedor: <strong style={{ color: '#0f172a' }}>{currentRoute.vendedor}</strong> · Fecha: {currentRoute.fecha}
+                      Vendedor: <strong style={{ color: '#0f172a' }}>{currentRoute.seller}</strong> · Fecha: {currentRoute.date}
                     </div>
 
                     {/* Observaciones del Recorrido */}
-                    {currentRoute.observaciones && (
+                    {currentRoute.notes && (
                       <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', fontSize: '0.8rem', color: '#334155', marginTop: '2px' }}>
-                        <strong style={{ color: '#0f172a' }}>Notas del Recorrido:</strong> {currentRoute.observaciones}
+                        <strong style={{ color: '#0f172a' }}>Notas del Recorrido:</strong> {currentRoute.notes}
                       </div>
                     )}
 
@@ -742,46 +742,46 @@ export const RoadmapsPage = () => {
                         onClick={() => setSelectedRouteId(r.id)}
                       >
                         <span className="dot" style={{ backgroundColor: r.color || '#1a7d6b' }} />
-                        <span>{r.vendedor.split(' ')[0]}</span>
-                        <span className="badge">{r.visitasCompletadas}/{r.totalVisitas}</span>
+                        <span>{r.seller.split(' ')[0]}</span>
+                        <span className="badge">{r.completedVisits}/{r.totalVisits}</span>
                       </button>
                     ))}
                   </div>
 
                   <div className="roadmap-timeline">
-                    {currentRoute.paradas && currentRoute.paradas.map((stop) => {
-                      const isSelected = selectedStop?.cliente === stop.cliente;
+                    {currentRoute.stops && currentRoute.stops.map((stop) => {
+                      const isSelected = selectedStop?.customer === stop.customer;
                       return (
                         <div
-                          key={stop.orden}
+                          key={stop.order}
                           className={`roadmap-timeline-item ${isSelected ? 'roadmap-timeline-item--selected' : ''}`}
                           onClick={() => setSelectedStop(stop)}
                         >
                           <div className="timeline-node">
                             <span
-                              className={`node-circle ${stop.estado.toLowerCase().replace(' ', '-')}`}
+                              className={`node-circle ${stop.status.toLowerCase().replace(' ', '-')}`}
                               style={{
                                 borderColor: currentRoute.color || '#1a7d6b',
-                                backgroundColor: stop.estado === 'Completada' ? (currentRoute.color || '#1a7d6b') : '#fff',
+                                backgroundColor: stop.status === 'Completada' ? (currentRoute.color || '#1a7d6b') : '#fff',
                               }}
                             >
-                              {stop.orden}
+                              {stop.order}
                             </span>
                           </div>
 
                           <div className="timeline-content">
                             <div className="timeline-title-row">
-                              <span className="timeline-client">{stop.cliente}</span>
-                              <span className="timeline-time">{stop.horaEstimada} hs</span>
+                              <span className="timeline-client">{stop.customer}</span>
+                              <span className="timeline-time">{stop.estimatedTime} hs</span>
                             </div>
                             <div className="timeline-addr">
-                              <MapPin size={12} /> {stop.direccion}, {stop.localidad}
+                              <MapPin size={12} /> {stop.address}, {stop.locality}
                             </div>
-                            <div className="timeline-service">{stop.servicio}</div>
+                            <div className="timeline-service">{stop.service}</div>
                             <div className="timeline-footer">
-                              <span className="timeline-contact">Contacto: {stop.contacto}</span>
-                              <span className={`roadmap-status-tag ${stop.estado.toLowerCase().replace(' ', '-')}`}>
-                                {stop.estado}
+                              <span className="timeline-contact">Contacto: {stop.contact}</span>
+                              <span className={`roadmap-status-tag ${stop.status.toLowerCase().replace(' ', '-')}`}>
+                                {stop.status}
                               </span>
                             </div>
                           </div>
@@ -796,7 +796,7 @@ export const RoadmapsPage = () => {
         </>
       )}
 
-      {activeTab === 'historial' && (
+      {activeTab === 'history' && (
         <div className="roadmaps-history-section">
           <div className="roadmaps-kpis">
             <div className="roadmap-kpi-card">
@@ -852,10 +852,10 @@ export const RoadmapsPage = () => {
                     apiRoadmaps.map(row => (
                       <tr key={row.id}>
                         <td><strong>#{row.id}</strong></td>
-                        <td>{row.fecha}</td>
-                        <td>{row.vendedor}</td>
-                        <td><strong>{row.zona}</strong></td>
-                        <td>{row.totalVisitas} paradas</td>
+                        <td>{row.date}</td>
+                        <td>{row.seller}</td>
+                        <td><strong>{row.zone}</strong></td>
+                        <td>{row.totalVisits} paradas</td>
                         <td>{row.totalKm} km</td>
                         <td>
                           <div style={{ display: 'flex', gap: '6px' }}>
@@ -864,7 +864,7 @@ export const RoadmapsPage = () => {
                               style={{ padding: '4px 8px', fontSize: '0.75rem' }}
                               onClick={() => {
                                 setSelectedRouteId(row.id);
-                                setSelectedSellerId(String(row.vendedorId));
+                                setSelectedSellerId(String(row.sellerId));
                                 setShowDetailModal(true);
                               }}
                             >
@@ -884,7 +884,7 @@ export const RoadmapsPage = () => {
                                 fontSize: '0.75rem',
                                 fontWeight: 600
                               }}
-                              onClick={() => handleDeleteRoadmap(row.id, row.zona)}
+                              onClick={() => handleDeleteRoadmap(row.id, row.zone)}
                               title="Eliminar hoja de ruta"
                             >
                               <Trash2 size={12} /> Eliminar
@@ -959,8 +959,8 @@ export const RoadmapsPage = () => {
                   type="text"
                   className="roadmaps-input"
                   placeholder="Ej: Zona Sur - Casilda / Córdoba Capital"
-                  value={formData.nombreZona}
-                  onChange={e => setFormData({ ...formData, nombreZona: e.target.value })}
+                  value={formData.zoneName}
+                  onChange={e => setFormData({ ...formData, zoneName: e.target.value })}
                   required
                 />
               </div>
@@ -977,7 +977,7 @@ export const RoadmapsPage = () => {
                     <option value="">Seleccionar persona...</option>
                     {sellersList.map((u, idx) => (
                       <option key={u.idUser || u.id || idx} value={u.idUser || u.id}>
-                        {u.nombreApellido || u.idUser} ({(u.role || u.rol || 'vendedor').toLowerCase() === 'admin' ? 'Administrador' : 'Vendedor'})
+                        {u.fullName || u.idUser} ({(u.role || 'vendedor').toLowerCase() === 'admin' ? 'Administrador' : 'Vendedor'})
                       </option>
                     ))}
                   </select>
@@ -988,8 +988,8 @@ export const RoadmapsPage = () => {
                   <input
                     type="date"
                     className="roadmaps-input"
-                    value={formData.fechaRuta}
-                    onChange={e => setFormData({ ...formData, fechaRuta: e.target.value })}
+                    value={formData.roadmapDate}
+                    onChange={e => setFormData({ ...formData, roadmapDate: e.target.value })}
                     required
                   />
                 </div>
@@ -1001,8 +1001,8 @@ export const RoadmapsPage = () => {
                   <input
                     type="time"
                     className="roadmaps-input"
-                    value={formData.horaRuta}
-                    onChange={e => setFormData({ ...formData, horaRuta: e.target.value })}
+                    value={formData.roadmapTime}
+                    onChange={e => setFormData({ ...formData, roadmapTime: e.target.value })}
                   />
                 </div>
                 <div className="roadmaps-form-field">
@@ -1010,8 +1010,8 @@ export const RoadmapsPage = () => {
                   <input
                     type="date"
                     className="roadmaps-input"
-                    value={formData.fechaFinPropuesta}
-                    onChange={e => setFormData({ ...formData, fechaFinPropuesta: e.target.value })}
+                    value={formData.proposedEndDate}
+                    onChange={e => setFormData({ ...formData, proposedEndDate: e.target.value })}
                   />
                 </div>
                 <div className="roadmaps-form-field">
@@ -1019,15 +1019,15 @@ export const RoadmapsPage = () => {
                   <input
                     type="time"
                     className="roadmaps-input"
-                    value={formData.horaFinPropuesta}
-                    onChange={e => setFormData({ ...formData, horaFinPropuesta: e.target.value })}
+                    value={formData.proposedEndTime}
+                    onChange={e => setFormData({ ...formData, proposedEndTime: e.target.value })}
                   />
                 </div>
               </div>
 
               {/* Dynamic Paradas List */}
               <div className="roadmaps-form-field" style={{ marginTop: '0.5rem' }}>
-                {formData.paradas.map((stop, idx) => (
+                {formData.stops.map((stop, idx) => (
                   <div key={idx} style={{ marginBottom: '0.75rem' }}>
                     {idx > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -1044,8 +1044,8 @@ export const RoadmapsPage = () => {
                     <CompanyAutocomplete
                       label={idx === 0 ? 'Destino principal' : 'Empresa o lugar'}
                       name={`parada-${idx}`}
-                      value={stop.nombreLugar}
-                      onChange={(nombre, company) => handleStopCompanySelect(idx, nombre, company)}
+                      value={stop.placeName}
+                      onChange={(name, company) => handleStopCompanySelect(idx, name, company)}
                       placeholder="Buscá una empresa cargada en la base…"
                       required
                     />
@@ -1054,17 +1054,17 @@ export const RoadmapsPage = () => {
                       className="roadmaps-input"
                       style={{ marginTop: '0.4rem' }}
                       placeholder={idx === 0 ? 'Dirección del destino' : 'Dirección de la parada'}
-                      value={stop.direccion}
-                      onChange={e => handleStopChange(idx, 'direccion', e.target.value)}
+                      value={stop.address}
+                      onChange={e => handleStopChange(idx, 'address', e.target.value)}
                       required
                     />
                   </div>
                 ))}
 
-                {formData.paradas.length < MAX_ROADMAP_STOPS && (
+                {formData.stops.length < MAX_ROADMAP_STOPS && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <FlipCheckbox id="addParadaAdmin" checked={false} onChange={e => e.target.checked && handleAddStopField()} />
-                    <label htmlFor="addParadaAdmin" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                    <FlipCheckbox id="addStopAdmin" checked={false} onChange={e => e.target.checked && handleAddStopField()} />
+                    <label htmlFor="addStopAdmin" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
                       Agregar una parada
                     </label>
                   </div>
@@ -1077,8 +1077,8 @@ export const RoadmapsPage = () => {
                   className="roadmaps-textarea"
                   rows={2}
                   placeholder="Instrucciones especiales para el vendedor..."
-                  value={formData.observaciones}
-                  onChange={e => setFormData({ ...formData, observaciones: e.target.value })}
+                  value={formData.notes}
+                  onChange={e => setFormData({ ...formData, notes: e.target.value })}
                 />
               </div>
 

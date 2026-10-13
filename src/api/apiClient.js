@@ -39,7 +39,7 @@ apiClient.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
     const url = error?.config?.url || '';
-    const isLoginAttempt = url.includes('/auth/login') || url.includes('/users/login');
+    const isLoginAttempt = url.includes('/auth/login');
     // Solo un 401 es sesión vencida; un 403 es falta de permiso para esa acción.
     if (status === 401 && !isLoginAttempt) triggerSessionExpired();
     // Mensaje del servidor disponible como error.message para los toasts.

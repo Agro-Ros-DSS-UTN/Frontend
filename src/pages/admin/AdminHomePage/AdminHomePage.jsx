@@ -23,9 +23,9 @@ import { useAuth } from '../../../context/AuthContext';
 import { tasksApi, roadmapsApi, objectivesApi, activitiesApi } from '../../../api/operations.api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import './AdminHomePage.css';
-import { notificar } from '../../../hooks/useNotificaciones';
+import { notify } from '../../../hooks/useNotifications';
 
-const isCompleted = (estado) => /complet|cumplid|finaliz/i.test(String(estado || ''));
+const isCompleted = (status) => /complet|cumplid|finaliz/i.test(String(status || ''));
 
 const localDate = (date = new Date()) => {
   const y = date.getFullYear();
@@ -60,7 +60,7 @@ const shortName = (name = '') => {
   return last ? `${first} ${last[0]}.` : first || '';
 };
 
-const hace = (iso) => {
+const ago = (iso) => {
   const d = new Date(iso);
   if (isNaN(d)) return '';
   const mins = Math.round((Date.now() - d.getTime()) / 60000);
@@ -83,15 +83,15 @@ const isoWeekEnd = (week) => {
   return sunday;
 };
 
-const dueLabel = (fecha, hora) => {
-  if (!fecha) return { text: 'Sin fecha', critical: false };
-  const h = hora ? ` ${hora}` : '';
-  if (fecha < localDate()) return { text: `VENCIDA ${fecha}`, critical: true };
-  if (fecha === localDate()) return { text: `VENCE HOY${h}`, critical: true };
-  if (fecha === shiftDays(1)) return { text: `Mañana${h}`, critical: false };
-  const d = new Date(`${fecha}T00:00:00`);
+const dueLabel = (date, time) => {
+  if (!date) return { text: 'Sin fecha', critical: false };
+  const h = time ? ` ${time}` : '';
+  if (date < localDate()) return { text: `VENCIDA ${date}`, critical: true };
+  if (date === localDate()) return { text: `VENCE HOY${h}`, critical: true };
+  if (date === shiftDays(1)) return { text: `Mañana${h}`, critical: false };
+  const d = new Date(`${date}T00:00:00`);
   const weekday = d.toLocaleDateString('es-AR', { weekday: 'long' });
-  return { text: `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${fecha.slice(8)}/${fecha.slice(5, 7)}${h}`, critical: false };
+  return { text: `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${date.slice(8)}/${date.slice(5, 7)}${h}`, critical: false };
 };
 
 const pick = (r) => {
@@ -144,68 +144,68 @@ export const AdminHomePage = () => {
 
   const today = localDate();
 
-  const pendingTasks = useMemo(() => tasks.filter((t) => !isCompleted(t.estado)), [tasks]);
+  const pendingTasks = useMemo(() => tasks.filter((t) => !isCompleted(t.status)), [tasks]);
   const completedTasksCount = tasks.length - pendingTasks.length;
   const criticalTasksCount = useMemo(
-    () => pendingTasks.filter((t) => t.fechaVencimiento && t.fechaVencimiento <= today).length,
+    () => pendingTasks.filter((t) => t.dueDate && t.dueDate <= today).length,
     [pendingTasks, today]
   );
   const orderedPendingTasks = useMemo(
     () =>
       [...pendingTasks]
-        .sort((a, b) => (a.fechaVencimiento || '9999').localeCompare(b.fechaVencimiento || '9999'))
+        .sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'))
         .slice(0, 4),
     [pendingTasks]
   );
 
-  const todaysRoadmaps = useMemo(() => roadmaps.filter((r) => r.fechaRuta === today), [roadmaps, today]);
-  const routesInProgress = todaysRoadmaps.filter((r) => r.estado === 'en_curso').length;
+  const todaysRoadmaps = useMemo(() => roadmaps.filter((r) => r.roadmapDate === today), [roadmaps, today]);
+  const routesInProgress = todaysRoadmaps.filter((r) => r.status === 'en_curso').length;
 
   const pendingObjectives = useMemo(
     () =>
       objectives.filter(
-        (o) => !isCompleted(o.estado) && (Number(o.progresoActual) || 0) < (Number(o.cantidadMeta) || 0)
+        (o) => !isCompleted(o.status) && (Number(o.currentProgress) || 0) < (Number(o.targetAmount) || 0)
       ),
     [objectives]
   );
   const objectivesAvgPct = useMemo(() => {
     if (pendingObjectives.length === 0) return 0;
     const sum = pendingObjectives.reduce((acc, o) => {
-      const meta = Number(o.cantidadMeta) || 0;
-      const actual = Number(o.progresoActual) || 0;
+      const meta = Number(o.targetAmount) || 0;
+      const actual = Number(o.currentProgress) || 0;
       return acc + (meta > 0 ? Math.min(100, (actual / meta) * 100) : 0);
     }, 0);
     return Math.round((sum / pendingObjectives.length) * 10) / 10;
   }, [pendingObjectives]);
   const objectiveOwners = useMemo(
-    () => [...new Set(pendingObjectives.map((o) => o.vendedor?.nombreApellido).filter(Boolean))],
+    () => [...new Set(pendingObjectives.map((o) => o.seller?.fullName).filter(Boolean))],
     [pendingObjectives]
   );
 
-  const activitiesToday = useMemo(() => activities.filter((a) => dayOf(a.fechaHora) === today), [activities, today]);
+  const activitiesToday = useMemo(() => activities.filter((a) => dayOf(a.occurredAt) === today), [activities, today]);
   const activitiesYesterday = useMemo(
-    () => activities.filter((a) => dayOf(a.fechaHora) === shiftDays(-1)).length,
+    () => activities.filter((a) => dayOf(a.occurredAt) === shiftDays(-1)).length,
     [activities]
   );
   const activityDelta = activitiesToday.length - activitiesYesterday;
   const activeAuthorsToday = useMemo(
-    () => new Set(activitiesToday.map((a) => a.autorNombre).filter(Boolean)).size,
+    () => new Set(activitiesToday.map((a) => a.authorName).filter(Boolean)).size,
     [activitiesToday]
   );
   const recentActivities = useMemo(
-    () => [...activities].sort((a, b) => new Date(b.fechaHora || 0) - new Date(a.fechaHora || 0)).slice(0, 3),
+    () => [...activities].sort((a, b) => new Date(b.occurredAt || 0) - new Date(a.occurredAt || 0)).slice(0, 3),
     [activities]
   );
 
   const handleCompleteTask = async (task) => {
-    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, estado: 'Finalizada' } : t)));
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: 'Finalizada' } : t)));
     try {
       await tasksApi.finalize(task.id);
-      notificar.exito('Tarea finalizada', task.titulo);
+      notify.success('Tarea finalizada', task.title);
     } catch (err) {
       console.error('No se pudo completar la tarea:', err);
-      notificar.error('No se pudo finalizar la tarea', err);
-      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, estado: task.estado } : t)));
+      notify.error('No se pudo finalizar la tarea', err);
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)));
     }
   };
 
@@ -220,7 +220,7 @@ export const AdminHomePage = () => {
     );
   }
 
-  const fechaHoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const todayDate = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
   const mainObjective = pendingObjectives[0];
 
   return (
@@ -229,16 +229,16 @@ export const AdminHomePage = () => {
       <section className="ah-banner">
         <div className="ah-banner__text">
           <span className="ah-banner__badge"><span className="ah-banner__badge-dot" /> Resumen del equipo</span>
-          <h1 className="ah-banner__title">¡Bienvenido, {currentUser?.nombreApellido || currentUser?.idUser || 'Admin'}!</h1>
+          <h1 className="ah-banner__title">¡Bienvenido, {currentUser?.fullName || currentUser?.idUser || 'Admin'}!</h1>
           <p className="ah-banner__desc">
-            Esto es lo que está pasando hoy, <strong>{fechaHoy}</strong>
+            Esto es lo que está pasando hoy, <strong>{todayDate}</strong>
           </p>
         </div>
         <div className="ah-banner__actions">
-          <button type="button" className="ah-banner__btn ah-banner__btn--ghost" onClick={() => navigate('/admin/rutas')}>
+          <button type="button" className="ah-banner__btn ah-banner__btn--ghost" onClick={() => navigate('/admin/roadmaps')}>
             <SlidersHorizontal size={16} /> Asignar Hoja de Ruta
           </button>
-          <button type="button" className="ah-banner__btn ah-banner__btn--primary" onClick={() => navigate('/admin/actividades')}>
+          <button type="button" className="ah-banner__btn ah-banner__btn--primary" onClick={() => navigate('/admin/activities')}>
             <PlusCircle size={16} /> Nueva Actividad de Campo
           </button>
         </div>
@@ -322,7 +322,7 @@ export const AdminHomePage = () => {
                   <p className="ah-card__sub">Monitoreo de técnicos y vendedores en territorio</p>
                 </div>
               </div>
-              <button type="button" className="ah-link" onClick={() => navigate('/admin/rutas')}>
+              <button type="button" className="ah-link" onClick={() => navigate('/admin/roadmaps')}>
                 Ver todas <ArrowRight size={14} />
               </button>
             </header>
@@ -330,21 +330,21 @@ export const AdminHomePage = () => {
             {todaysRoadmaps.length > 0 ? (
               <div className="ah-stack">
                 {todaysRoadmaps.map((r, i) => {
-                  const paradas = r.paradas || r.RoadmapStops || [];
-                  const done = paradas.filter((p) => isCompleted(p.estadoParada) || isCompleted(p.estado)).length;
-                  const pct = paradas.length > 0 ? Math.round((done / paradas.length) * 100) : 0;
-                  const next = paradas.find((p) => !(isCompleted(p.estadoParada) || isCompleted(p.estado)));
-                  const owner = r.asignado?.nombreApellido || 'Sin asignar';
-                  const inProgress = r.estado === 'en_curso';
-                  const finished = r.estado === 'finalizada';
+                  const stops = r.stops || r.RoadmapStops || [];
+                  const done = stops.filter((p) => isCompleted(p.stopStatus) || isCompleted(p.status)).length;
+                  const pct = stops.length > 0 ? Math.round((done / stops.length) * 100) : 0;
+                  const next = stops.find((p) => !(isCompleted(p.stopStatus) || isCompleted(p.status)));
+                  const owner = r.assigned?.fullName || 'Sin asignar';
+                  const inProgress = r.status === 'en_curso';
+                  const finished = r.status === 'finalizada';
                   return (
-                    <div key={r.id} className="ah-route" onClick={() => navigate('/admin/rutas')}>
+                    <div key={r.id} className="ah-route" onClick={() => navigate('/admin/roadmaps')}>
                       <div className="ah-route__top">
                         <div className="ah-route__owner">
                           <span className={`ah-avatar ah-avatar--${AVATAR_TONES[i % AVATAR_TONES.length]}`}>{initialsOf(owner)}</span>
                           <div className="ah-min0">
-                            <h4 className="ah-route__name">{r.nombreZona || 'Zona comercial'}</h4>
-                            <p className="ah-route__meta">{owner} · {paradas.length} {paradas.length === 1 ? 'parada' : 'paradas'}</p>
+                            <h4 className="ah-route__name">{r.zoneName || 'Zona comercial'}</h4>
+                            <p className="ah-route__meta">{owner} · {stops.length} {stops.length === 1 ? 'parada' : 'paradas'}</p>
                           </div>
                         </div>
                         <span className={`ah-status ${inProgress ? 'ah-status--progress' : finished ? 'ah-status--done' : 'ah-status--planned'}`}>
@@ -354,7 +354,7 @@ export const AdminHomePage = () => {
 
                       <div className="ah-progress">
                         <div className="ah-progress__label">
-                          <span>Avance: {done} de {paradas.length} paradas completadas</span>
+                          <span>Avance: {done} de {stops.length} paradas completadas</span>
                           <strong>{pct}%</strong>
                         </div>
                         <div className="ah-progress__track">
@@ -365,9 +365,9 @@ export const AdminHomePage = () => {
                       <div className="ah-route__foot">
                         <span className="ah-route__next">
                           <MapPin size={12} />
-                          {next ? <>Próxima: <strong>{next.nombreLugar || next.direccion || 'Parada'}</strong></> : 'Sin paradas pendientes'}
+                          {next ? <>Próxima: <strong>{next.placeName || next.address || 'Parada'}</strong></> : 'Sin paradas pendientes'}
                         </span>
-                        {next?.horaEstimada && <span className="ah-route__eta">ETA {next.horaEstimada} hs</span>}
+                        {next?.estimatedTime && <span className="ah-route__eta">ETA {next.estimatedTime} hs</span>}
                       </div>
                     </div>
                   );
@@ -383,7 +383,7 @@ export const AdminHomePage = () => {
               <span className={`ah-live__dot ${routesInProgress > 0 ? 'ah-live__dot--on' : ''}`} />
               {routesInProgress} {routesInProgress === 1 ? 'ruta en desplazamiento' : 'rutas en desplazamiento'}
             </span>
-            <button type="button" className="ah-outline-btn" onClick={() => navigate('/admin/rutas')}>
+            <button type="button" className="ah-outline-btn" onClick={() => navigate('/admin/roadmaps')}>
               <Radio size={12} /> Ver Mapa
             </button>
           </footer>
@@ -405,7 +405,7 @@ export const AdminHomePage = () => {
                   </p>
                 </div>
               </div>
-              <button type="button" className="ah-link" onClick={() => navigate('/admin/tareas')}>
+              <button type="button" className="ah-link" onClick={() => navigate('/admin/tasks')}>
                 Ver todas <ArrowRight size={14} />
               </button>
             </header>
@@ -413,25 +413,25 @@ export const AdminHomePage = () => {
             {orderedPendingTasks.length > 0 ? (
               <div className="ah-stack ah-stack--tight">
                 {orderedPendingTasks.map((t) => {
-                  const due = dueLabel(t.fechaVencimiento, t.horaVencimiento);
-                  const prioridad = (t.prioridad || 'Media').toLowerCase();
+                  const due = dueLabel(t.dueDate, t.dueTime);
+                  const priority = (t.priority || 'Media').toLowerCase();
                   return (
                     <div key={t.id} className="ah-task">
                       <button
                         type="button"
                         className="ah-task__check"
-                        aria-label={`Marcar "${t.titulo || 'tarea'}" como completada`}
+                        aria-label={`Marcar "${t.title || 'tarea'}" como completada`}
                         onClick={() => handleCompleteTask(t)}
                       />
-                      <div className="ah-task__body" onClick={() => navigate('/admin/tareas')}>
+                      <div className="ah-task__body" onClick={() => navigate('/admin/tasks')}>
                         <div className="ah-task__title-row">
-                          <h4 className="ah-task__title">{t.titulo || t.descripcion || 'Tarea'}</h4>
-                          <span className={`ah-priority ah-priority--${prioridad}`}>{t.prioridad || 'Media'}</span>
+                          <h4 className="ah-task__title">{t.title || t.description || 'Tarea'}</h4>
+                          <span className={`ah-priority ah-priority--${priority}`}>{t.priority || 'Media'}</span>
                         </div>
                         <div className="ah-task__meta">
                           <span className={due.critical ? 'ah-task__due--critical' : ''}>{due.text}</span>
                           <span>•</span>
-                          <span className="ah-truncate">Asignado a: {shortName(t.asignadoA || '') || 'Sin asignar'}</span>
+                          <span className="ah-truncate">Asignado a: {shortName(t.assignedTo || '') || 'Sin asignar'}</span>
                         </div>
                       </div>
                     </div>
@@ -445,7 +445,7 @@ export const AdminHomePage = () => {
 
           <footer className="ah-card__foot">
             <span className="ah-muted">¿Necesitás cargar una tarea nueva?</span>
-            <button type="button" className="ah-underline-btn" onClick={() => navigate('/admin/tareas')}>
+            <button type="button" className="ah-underline-btn" onClick={() => navigate('/admin/tasks')}>
               Ir a Tareas
             </button>
           </footer>
@@ -467,26 +467,26 @@ export const AdminHomePage = () => {
                   <p className="ah-card__sub">Avance contra la meta asignada</p>
                 </div>
               </div>
-              <button type="button" className="ah-link" onClick={() => navigate('/admin/objetivos')}>
+              <button type="button" className="ah-link" onClick={() => navigate('/admin/objectives')}>
                 Ver todos <ArrowRight size={14} />
               </button>
             </header>
 
             {mainObjective ? (() => {
-              const meta = Number(mainObjective.cantidadMeta) || 0;
-              const actual = Number(mainObjective.progresoActual) || 0;
+              const meta = Number(mainObjective.targetAmount) || 0;
+              const actual = Number(mainObjective.currentProgress) || 0;
               const pct = meta > 0 ? Math.min(100, Math.round((actual / meta) * 1000) / 10) : 0;
-              const week = Number(mainObjective.periodoSemana);
+              const week = Number(mainObjective.weekPeriod);
               const daysLeft = week > 0 ? Math.ceil((isoWeekEnd(week) - new Date()) / 86400000) : null;
-              const owner = mainObjective.vendedor?.nombreApellido;
+              const owner = mainObjective.seller?.fullName;
               return (
-                <div className="ah-objective" onClick={() => navigate('/admin/objetivos')}>
+                <div className="ah-objective" onClick={() => navigate('/admin/objectives')}>
                   <div className="ah-objective__top">
                     <div className="ah-min0">
                       <span className="ah-objective__eyebrow">
-                        {mainObjective.tipoObjetivo || 'Objetivo'}{week > 0 ? ` · Semana ${week}` : ''}
+                        {mainObjective.objectiveType || 'Objetivo'}{week > 0 ? ` · Semana ${week}` : ''}
                       </span>
-                      <h4 className="ah-objective__title">{mainObjective.descripcion || 'Objetivo del equipo'}</h4>
+                      <h4 className="ah-objective__title">{mainObjective.description || 'Objetivo del equipo'}</h4>
                       {owner && <p className="ah-objective__owner">{owner}</p>}
                     </div>
                     <div className="ah-objective__amount">
@@ -557,7 +557,7 @@ export const AdminHomePage = () => {
                   <p className="ah-card__sub">Registros comerciales y agronómicos del equipo</p>
                 </div>
               </div>
-              <button type="button" className="ah-link" onClick={() => navigate('/admin/actividades')}>
+              <button type="button" className="ah-link" onClick={() => navigate('/admin/activities')}>
                 Ver todas <ArrowRight size={14} />
               </button>
             </header>
@@ -565,19 +565,19 @@ export const AdminHomePage = () => {
             {recentActivities.length > 0 ? (
               <ol className="ah-timeline">
                 {recentActivities.map((a) => {
-                  const tipo = String(a.tipoContacto || '').toLowerCase();
-                  const tone = tipo.includes('visita') ? 'emerald' : tipo.includes('llamada') ? 'slate' : 'sky';
+                  const type = String(a.contactType || '').toLowerCase();
+                  const tone = type.includes('visita') ? 'emerald' : type.includes('llamada') ? 'slate' : 'sky';
                   return (
-                    <li key={a.idFormulario || a.id} className="ah-event" onClick={() => navigate('/admin/actividades')}>
+                    <li key={a.formId || a.id} className="ah-event" onClick={() => navigate('/admin/activities')}>
                       <span className={`ah-event__dot ah-event__dot--${tone}`} />
                       <div className="ah-event__head">
-                        <h4 className="ah-event__title">{a.tipoContacto || 'Actividad'}</h4>
-                        <span className="ah-event__time">{hace(a.fechaHora)}</span>
+                        <h4 className="ah-event__title">{a.contactType || 'Actividad'}</h4>
+                        <span className="ah-event__time">{ago(a.occurredAt)}</span>
                       </div>
-                      <p className="ah-event__desc">{a.descripcion || 'Sin descripción'}</p>
+                      <p className="ah-event__desc">{a.description || 'Sin descripción'}</p>
                       <div className="ah-event__meta">
-                        {a.autorNombre && <span><User size={11} /> {a.autorNombre}</span>}
-                        {a.empresa && <span><Building2 size={11} /> {a.empresa}</span>}
+                        {a.authorName && <span><User size={11} /> {a.authorName}</span>}
+                        {a.company && <span><Building2 size={11} /> {a.company}</span>}
                       </div>
                     </li>
                   );

@@ -23,8 +23,8 @@ import {
   UserCircle2,
   Edit2,
 } from 'lucide-react';
-import { ESTADOS_OPORTUNIDAD } from '../../../data/catalogos';
-import { fetchOpportunities, createNegocio, deleteOpportunity, updateOpportunity } from '../../../data/api';
+import { OPPORTUNITY_STATUSES } from '../../../data/catalogs';
+import { fetchOpportunities, createDeal, deleteOpportunity, updateOpportunity } from '../../../data/api';
 import { authApi } from '../../../api/auth.api';
 import { useAuth } from '../../../context/AuthContext';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
@@ -37,13 +37,13 @@ import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import '../../../components/tasks/TasksBoard.css';
 import '../../../components/companies/CompanySummary.css';
 import './OpportunitiesPage.css';
-import { notificar } from '../../../hooks/useNotificaciones';
+import { notify } from '../../../hooks/useNotifications';
 
 // Ciclo de vida de la Oportunidad (5 estados). "bg/text" para las píldoras.
-const DEAL_STAGES = ESTADOS_OPORTUNIDAD.map((e) => ({ key: e.key, label: e.label, color: e.color, bg: e.color, text: '#ffffff', ayuda: e.ayuda }));
-const ESTADOS_ABIERTOS = ESTADOS_OPORTUNIDAD.filter((e) => e.abierta).map((e) => e.key);
+const DEAL_STAGES = OPPORTUNITY_STATUSES.map((e) => ({ key: e.key, label: e.label, color: e.color, bg: e.color, text: '#ffffff', help: e.help }));
+const OPEN_STATUSES = OPPORTUNITY_STATUSES.filter((e) => e.open).map((e) => e.key);
 
-const POTENCIALIDAD_OPTIONS = [
+const POTENTIAL_OPTIONS = [
   { value: '', label: 'Sin indicar' },
   { value: 'Alta', label: 'Alta' },
   { value: 'Media', label: 'Media' },
@@ -54,37 +54,37 @@ const getStageInfo = (key) => DEAL_STAGES.find((s) => s.key === key) || DEAL_STA
 
 const normalizeDeal = (o) => ({
   id: o.id,
-  nombreNegocio: o.titulo || o.nombreNegocio || 'Oportunidad sin título',
-  etapaKey: o.estado || 'Prospecto',
-  prioridad: o.potencialidad || '',
-  valor: Number(o.volumenPotencial) || 0,
-  volumenFacturado: Number(o.volumenFacturado) || 0,
-  fechaCierre: o.fechaCierreEstimada || '',
-  fechaInicio: o.fechaInicio || '',
-  diasSinContacto: o.diasSinContacto,
-  cantidadActividades: o.cantidadActividades || 0,
-  motivoPerdida: o.motivoPerdida || '',
-  propietario: o.responsable?.nombreApellido || '—',
-  propietarioId: o.usuarioId || '',
-  empresa: o.empresa || '',
-  clientCompanyId: o.empresaId || null,
-  contacto: o.contacto?.nombreApellido || '',
-  contactoId: o.contactoId || null,
+  dealName: o.title || o.dealName || 'Oportunidad sin título',
+  stageKey: o.status || 'Prospecto',
+  priority: o.potential || '',
+  value: Number(o.potentialVolume) || 0,
+  billedVolume: Number(o.billedVolume) || 0,
+  closeDate: o.expectedCloseDate || '',
+  startDate: o.startDate || '',
+  daysWithoutContact: o.daysWithoutContact,
+  activityCount: o.activityCount || 0,
+  lossReason: o.lossReason || '',
+  ownerName: o.owner?.fullName || '—',
+  ownerId: o.userId || '',
+  company: o.company || '',
+  clientCompanyId: o.companyId || null,
+  contact: o.contact?.fullName || '',
+  contactId: o.contactId || null,
 });
 
 const emptyForm = (ownerId = '') => ({
-  nombreNegocio: '',
-  empresa: '',
+  dealName: '',
+  company: '',
   clientCompanyId: null,
-  contacto: '',
-  contactoId: null,
-  etapaKey: 'Prospecto',
-  valor: '',
-  volumenFacturado: '',
-  fechaCierre: '',
-  propietarioId: ownerId,
-  prioridad: '',
-  motivoPerdida: '',
+  contact: '',
+  contactId: null,
+  stageKey: 'Prospecto',
+  value: '',
+  billedVolume: '',
+  closeDate: '',
+  ownerId: ownerId,
+  priority: '',
+  lossReason: '',
 });
 
 const formatCurrency = (val) => (!val ? '$0' : `$${Number(val).toLocaleString('es-AR')}`);
@@ -103,7 +103,7 @@ const itemVariants = {
 
 const DealSummary = ({ deal, onClose, onEdit }) => {
   const overlayHandlers = useOverlayClose(onClose);
-  const stage = getStageInfo(deal.etapaKey);
+  const stage = getStageInfo(deal.stageKey);
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
@@ -129,7 +129,7 @@ const DealSummary = ({ deal, onClose, onEdit }) => {
             <div className="cs-breadcrumbs">
               <span>Oportunidades</span>
               <span className="cs-breadcrumbs__sep">/</span>
-              <span className="cs-breadcrumbs__current">{deal.nombreNegocio}</span>
+              <span className="cs-breadcrumbs__current">{deal.dealName}</span>
             </div>
             <div className="cs-header__actions">
               <button type="button" className="cs-ghost-btn" onClick={onEdit} title="Editar oportunidad">
@@ -142,19 +142,19 @@ const DealSummary = ({ deal, onClose, onEdit }) => {
           </motion.div>
         </header>
         <div className="cs-body">
-          <motion.h1 variants={itemVariants} className="cs-title">{deal.nombreNegocio}</motion.h1>
+          <motion.h1 variants={itemVariants} className="cs-title">{deal.dealName}</motion.h1>
           <motion.div variants={itemVariants} className="cs-meta-grid">
             <Meta icon={Flag} label="Estado"><span className="cs-tag">{stage.label}</span></Meta>
-            <Meta icon={DollarSign} label="Volumen potencial">{formatCurrency(deal.valor)}</Meta>
-            <Meta icon={DollarSign} label="Volumen facturado">{formatCurrency(deal.volumenFacturado)}</Meta>
-            <Meta icon={Calendar} label="Cierre estimado">{formatDate(deal.fechaCierre)}</Meta>
-            <Meta icon={Building2} label="Empresa">{deal.empresa || '—'}</Meta>
-            <Meta icon={User} label="Contacto">{deal.contacto || '—'}</Meta>
-            <Meta icon={UserCircle2} label="Responsable">{deal.propietario || '—'}</Meta>
-            <Meta icon={TrendingUp} label="Potencialidad"><span className="cs-tag">{deal.prioridad || '—'}</span></Meta>
-            <Meta icon={Tag} label="Actividades">{deal.cantidadActividades} {deal.diasSinContacto !== null && deal.diasSinContacto !== undefined ? `· último movimiento hace ${deal.diasSinContacto} días` : ''}</Meta>
-            <Meta icon={Calendar} label="Fecha de alta">{formatDate(deal.fechaInicio)}</Meta>
-            {deal.etapaKey === 'Perdida' && <Meta icon={X} label="Motivo de pérdida">{deal.motivoPerdida || '—'}</Meta>}
+            <Meta icon={DollarSign} label="Volumen potencial">{formatCurrency(deal.value)}</Meta>
+            <Meta icon={DollarSign} label="Volumen facturado">{formatCurrency(deal.billedVolume)}</Meta>
+            <Meta icon={Calendar} label="Cierre estimado">{formatDate(deal.closeDate)}</Meta>
+            <Meta icon={Building2} label="Empresa">{deal.company || '—'}</Meta>
+            <Meta icon={User} label="Contacto">{deal.contact || '—'}</Meta>
+            <Meta icon={UserCircle2} label="Responsable">{deal.ownerName || '—'}</Meta>
+            <Meta icon={TrendingUp} label="Potencialidad"><span className="cs-tag">{deal.priority || '—'}</span></Meta>
+            <Meta icon={Tag} label="Actividades">{deal.activityCount} {deal.daysWithoutContact !== null && deal.daysWithoutContact !== undefined ? `· último movimiento hace ${deal.daysWithoutContact} días` : ''}</Meta>
+            <Meta icon={Calendar} label="Fecha de alta">{formatDate(deal.startDate)}</Meta>
+            {deal.stageKey === 'Perdida' && <Meta icon={X} label="Motivo de pérdida">{deal.lossReason || '—'}</Meta>}
           </motion.div>
         </div>
       </motion.div>
@@ -169,7 +169,7 @@ export const OpportunitiesPage = () => {
   const [deals, setDeals] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('todos');
+  const [activeTab, setActiveTab] = useState('all');
   const [viewMode, setViewMode] = useState('table');
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
@@ -204,41 +204,41 @@ export const OpportunitiesPage = () => {
       .getAllUsers()
       .then((res) => {
         const raw = Array.isArray(res) ? res : res?.data || [];
-        setUsers(raw.filter((u) => String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo'));
+        setUsers(raw.filter((u) => String(u.accountStatus || 'Activo') === 'Activo'));
       })
       .catch((err) => console.error('No se pudieron cargar los usuarios:', err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const ownerOptions = useMemo(
-    () => users.map((u) => ({ value: u.idUser, label: u.nombreApellido || u.idUser })),
+    () => users.map((u) => ({ value: u.idUser, label: u.fullName || u.idUser })),
     [users]
   );
 
   const filteredDeals = useMemo(() => {
     let result = [...deals];
-    if (activeTab === 'abiertas') result = result.filter((d) => ESTADOS_ABIERTOS.includes(d.etapaKey));
-    else if (activeTab === 'ganadas') result = result.filter((d) => d.etapaKey === 'Ganada');
-    else if (activeTab === 'estancadas') result = result.filter((d) => ESTADOS_ABIERTOS.includes(d.etapaKey) && d.diasSinContacto >= 15);
+    if (activeTab === 'open') result = result.filter((d) => OPEN_STATUSES.includes(d.stageKey));
+    else if (activeTab === 'won') result = result.filter((d) => d.stageKey === 'Ganada');
+    else if (activeTab === 'stalled') result = result.filter((d) => OPEN_STATUSES.includes(d.stageKey) && d.daysWithoutContact >= 15);
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (d) =>
-          d.nombreNegocio?.toLowerCase().includes(q) ||
-          d.empresa?.toLowerCase().includes(q) ||
-          d.contacto?.toLowerCase().includes(q) ||
-          d.propietario?.toLowerCase().includes(q)
+          d.dealName?.toLowerCase().includes(q) ||
+          d.company?.toLowerCase().includes(q) ||
+          d.contact?.toLowerCase().includes(q) ||
+          d.ownerName?.toLowerCase().includes(q)
       );
     }
     return result;
   }, [deals, activeTab, searchQuery]);
 
-  const openDeals = useMemo(() => deals.filter((d) => ESTADOS_ABIERTOS.includes(d.etapaKey)), [deals]);
-  const pipelineVolume = useMemo(() => openDeals.reduce((sum, d) => sum + (Number(d.valor) || 0), 0), [openDeals]);
-  const wonDeals = useMemo(() => deals.filter((d) => d.etapaKey === 'Ganada'), [deals]);
+  const openDeals = useMemo(() => deals.filter((d) => OPEN_STATUSES.includes(d.stageKey)), [deals]);
+  const pipelineVolume = useMemo(() => openDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0), [openDeals]);
+  const wonDeals = useMemo(() => deals.filter((d) => d.stageKey === 'Ganada'), [deals]);
   const avgTicket = useMemo(() => {
-    const won = wonDeals.map((d) => d.volumenFacturado || d.valor).filter((v) => v > 0);
+    const won = wonDeals.map((d) => d.billedVolume || d.value).filter((v) => v > 0);
     return won.length ? Math.round(won.reduce((s, v) => s + v, 0) / won.length) : 0;
   }, [wonDeals]);
 
@@ -246,15 +246,15 @@ export const OpportunitiesPage = () => {
     const headers = ['ID', 'Oportunidad', 'Empresa', 'Contacto', 'Estado', 'Volumen potencial ($)', 'Cierre estimado', 'Responsable', 'Potencialidad', 'Actividades'];
     const rows = filteredDeals.map((d) => [
       d.id,
-      `"${(d.nombreNegocio || '').replace(/"/g, '""')}"`,
-      `"${(d.empresa || '').replace(/"/g, '""')}"`,
-      `"${(d.contacto || '').replace(/"/g, '""')}"`,
-      `"${getStageInfo(d.etapaKey).label}"`,
-      d.valor || 0,
-      d.fechaCierre || '',
-      `"${(d.propietario || '').replace(/"/g, '""')}"`,
-      d.prioridad,
-      d.cantidadActividades,
+      `"${(d.dealName || '').replace(/"/g, '""')}"`,
+      `"${(d.company || '').replace(/"/g, '""')}"`,
+      `"${(d.contact || '').replace(/"/g, '""')}"`,
+      `"${getStageInfo(d.stageKey).label}"`,
+      d.value || 0,
+      d.closeDate || '',
+      `"${(d.ownerName || '').replace(/"/g, '""')}"`,
+      d.priority,
+      d.activityCount,
     ]);
     const csv = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -280,31 +280,31 @@ export const OpportunitiesPage = () => {
     if (!draggedItem) return;
     const target = draggedItem;
     setDraggedItem(null);
-    if (target.etapaKey === newStageKey) return;
-    let motivoPerdida;
+    if (target.stageKey === newStageKey) return;
+    let lossReason;
     if (newStageKey === 'Perdida') {
-      motivoPerdida = window.prompt('¿Por qué se perdió la oportunidad? (precio, competencia, sin necesidad…)', '') ?? undefined;
-      if (motivoPerdida === undefined) return; // canceló
+      lossReason = window.prompt('¿Por qué se perdió la oportunidad? (precio, competencia, sin necesidad…)', '') ?? undefined;
+      if (lossReason === undefined) return; // canceló
     }
-    setDeals((prev) => prev.map((d) => (d.id === target.id ? { ...d, etapaKey: newStageKey, motivoPerdida: motivoPerdida ?? d.motivoPerdida } : d)));
+    setDeals((prev) => prev.map((d) => (d.id === target.id ? { ...d, stageKey: newStageKey, lossReason: lossReason ?? d.lossReason } : d)));
     try {
-      await updateOpportunity(target.id, { estado: newStageKey, ...(motivoPerdida !== undefined ? { motivoPerdida } : {}) });
+      await updateOpportunity(target.id, { status: newStageKey, ...(lossReason !== undefined ? { lossReason } : {}) });
     } catch (err) {
       console.error('Error al cambiar el estado de la oportunidad:', err);
-      notificar.error('No se pudo cambiar el estado', err);
+      notify.error('No se pudo cambiar el estado', err);
       fetchData();
     }
   };
 
   const handleDeleteDeal = async (deal) => {
-    if (!window.confirm(`¿Dar de baja la oportunidad "${deal.nombreNegocio}"? Sus actividades se conservan.`)) return;
+    if (!window.confirm(`¿Dar de baja la oportunidad "${deal.dealName}"? Sus actividades se conservan.`)) return;
     try {
       await deleteOpportunity(deal.id);
       setDeals((prev) => prev.filter((d) => d.id !== deal.id));
-      notificar.exito('Oportunidad dada de baja');
+      notify.success('Oportunidad dada de baja');
     } catch (err) {
       console.error('Error al dar de baja la oportunidad:', err);
-      notificar.error('No se pudo dar de baja la oportunidad', err);
+      notify.error('No se pudo dar de baja la oportunidad', err);
     }
   };
 
@@ -326,18 +326,18 @@ export const OpportunitiesPage = () => {
     setEditingDeal(deal);
     setErrors({});
     setForm({
-      nombreNegocio: deal.nombreNegocio,
-      empresa: deal.empresa,
+      dealName: deal.dealName,
+      company: deal.company,
       clientCompanyId: deal.clientCompanyId,
-      contacto: deal.contacto,
-      contactoId: deal.contactoId,
-      etapaKey: deal.etapaKey,
-      valor: deal.valor ? String(deal.valor) : '',
-      volumenFacturado: deal.volumenFacturado ? String(deal.volumenFacturado) : '',
-      fechaCierre: deal.fechaCierre,
-      propietarioId: deal.propietarioId,
-      prioridad: deal.prioridad,
-      motivoPerdida: deal.motivoPerdida,
+      contact: deal.contact,
+      contactId: deal.contactId,
+      stageKey: deal.stageKey,
+      value: deal.value ? String(deal.value) : '',
+      billedVolume: deal.billedVolume ? String(deal.billedVolume) : '',
+      closeDate: deal.closeDate,
+      ownerId: deal.ownerId,
+      priority: deal.priority,
+      lossReason: deal.lossReason,
     });
     setShowDrawer(true);
   };
@@ -350,10 +350,10 @@ export const OpportunitiesPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
-    if (!form.nombreNegocio?.trim()) newErrors.nombreNegocio = 'Poné un título para la oportunidad.';
-    if (!form.clientCompanyId) newErrors.empresa = 'Elegí la empresa de la lista.';
-    if (isAdmin && !form.propietarioId) newErrors.propietarioId = 'Elegí el responsable.';
-    if (form.etapaKey === 'Perdida' && !form.motivoPerdida?.trim()) newErrors.motivoPerdida = 'Indicá por qué se perdió.';
+    if (!form.dealName?.trim()) newErrors.dealName = 'Poné un título para la oportunidad.';
+    if (!form.clientCompanyId) newErrors.company = 'Elegí la empresa de la lista.';
+    if (isAdmin && !form.ownerId) newErrors.ownerId = 'Elegí el responsable.';
+    if (form.stageKey === 'Perdida' && !form.lossReason?.trim()) newErrors.lossReason = 'Indicá por qué se perdió.';
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
       return;
@@ -361,32 +361,32 @@ export const OpportunitiesPage = () => {
     setErrors({});
 
     const payload = {
-      titulo: form.nombreNegocio.trim(),
-      estado: form.etapaKey,
-      potencialidad: form.prioridad || null,
-      ...(isAdmin ? { usuarioId: form.propietarioId } : {}),
-      contactoId: form.contactoId || null,
-      volumenPotencial: form.valor === '' ? null : Number(form.valor),
-      volumenFacturado: form.volumenFacturado === '' ? null : Number(form.volumenFacturado),
-      fechaCierreEstimada: form.fechaCierre || null,
-      motivoPerdida: form.etapaKey === 'Perdida' ? form.motivoPerdida.trim() : null,
-      empresaId: form.clientCompanyId,
+      title: form.dealName.trim(),
+      status: form.stageKey,
+      potential: form.priority || null,
+      ...(isAdmin ? { userId: form.ownerId } : {}),
+      contactId: form.contactId || null,
+      potentialVolume: form.value === '' ? null : Number(form.value),
+      billedVolume: form.billedVolume === '' ? null : Number(form.billedVolume),
+      expectedCloseDate: form.closeDate || null,
+      lossReason: form.stageKey === 'Perdida' ? form.lossReason.trim() : null,
+      companyId: form.clientCompanyId,
     };
 
     try {
       setSaving(true);
       if (editingDeal) {
         await updateOpportunity(editingDeal.id, payload);
-        notificar.exito('Oportunidad actualizada');
+        notify.success('Oportunidad actualizada');
       } else {
-        await createNegocio(payload);
-        notificar.exito('Oportunidad creada');
+        await createDeal(payload);
+        notify.success('Oportunidad creada');
       }
       closeDrawer();
       await fetchData();
     } catch (err) {
       console.error('Error al guardar la oportunidad:', err);
-      notificar.error('No se pudo guardar la oportunidad', err);
+      notify.error('No se pudo guardar la oportunidad', err);
     } finally {
       setSaving(false);
     }
@@ -470,10 +470,10 @@ export const OpportunitiesPage = () => {
             value={activeTab}
             onChange={setActiveTab}
             items={[
-              { value: 'todos', label: 'Todas', count: deals.length },
-              { value: 'abiertas', label: 'Abiertas', count: openDeals.length },
-              { value: 'estancadas', label: 'Sin movimiento (15+ días)', count: deals.filter((d) => ESTADOS_ABIERTOS.includes(d.etapaKey) && d.diasSinContacto >= 15).length },
-              { value: 'ganadas', label: 'Ganadas', count: wonDeals.length },
+              { value: 'all', label: 'Todas', count: deals.length },
+              { value: 'open', label: 'Abiertas', count: openDeals.length },
+              { value: 'stalled', label: 'Sin movimiento (15+ días)', count: deals.filter((d) => OPEN_STATUSES.includes(d.stageKey) && d.daysWithoutContact >= 15).length },
+              { value: 'won', label: 'Ganadas', count: wonDeals.length },
             ]}
           />
 
@@ -522,25 +522,25 @@ export const OpportunitiesPage = () => {
                   </tr>
                 ) : (
                   filteredDeals.map((deal) => {
-                    const stage = getStageInfo(deal.etapaKey);
+                    const stage = getStageInfo(deal.stageKey);
                     return (
                       <tr key={deal.id} className="deals-table-row">
                         <td>
                           <button type="button" className="deal-title-link deal-title-btn" onClick={() => setSelectedDeal(deal)}>
-                            {deal.nombreNegocio}
+                            {deal.dealName}
                           </button>
-                          <span className="deal-pipeline-sub">{deal.cantidadActividades} {deal.cantidadActividades === 1 ? 'actividad' : 'actividades'}</span>
+                          <span className="deal-pipeline-sub">{deal.activityCount} {deal.activityCount === 1 ? 'actividad' : 'actividades'}</span>
                         </td>
                         <td>
                           <div className="deal-company-cell">
                             <Building2 size={13} className="cell-icon" />
-                            <span>{deal.empresa || '—'}</span>
+                            <span>{deal.company || '—'}</span>
                           </div>
                         </td>
                         <td>
                           <div className="deal-contact-cell">
                             <User size={13} className="cell-icon" />
-                            <span>{deal.contacto || '—'}</span>
+                            <span>{deal.contact || '—'}</span>
                           </div>
                         </td>
                         <td>
@@ -549,22 +549,22 @@ export const OpportunitiesPage = () => {
                           </span>
                         </td>
                         <td>
-                          {deal.prioridad ? <span className={`prio-chip prio-chip--${deal.prioridad.toLowerCase()}`}>{deal.prioridad}</span> : '—'}
+                          {deal.priority ? <span className={`prio-chip prio-chip--${deal.priority.toLowerCase()}`}>{deal.priority}</span> : '—'}
                         </td>
                         <td>
                           <div className="deal-owner-cell">
-                            <div className="owner-avatar-mini">{(deal.propietario || 'U').charAt(0)}</div>
-                            <span>{deal.propietario}</span>
+                            <div className="owner-avatar-mini">{(deal.ownerName || 'U').charAt(0)}</div>
+                            <span>{deal.ownerName}</span>
                           </div>
                         </td>
                         <td>
                           <div className="deal-date-cell">
                             <Calendar size={12} />
-                            <span>{deal.diasSinContacto === null || deal.diasSinContacto === undefined ? '—' : deal.diasSinContacto === 0 ? 'hoy' : `hace ${deal.diasSinContacto} d`}</span>
+                            <span>{deal.daysWithoutContact === null || deal.daysWithoutContact === undefined ? '—' : deal.daysWithoutContact === 0 ? 'hoy' : `hace ${deal.daysWithoutContact} d`}</span>
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <span className="deal-value-amount">{formatCurrency(deal.valor)}</span>
+                          <span className="deal-value-amount">{formatCurrency(deal.value)}</span>
                         </td>
                         <td>
                           <div className="tasks-board__row-actions">
@@ -590,8 +590,8 @@ export const OpportunitiesPage = () => {
         ) : (
           <div className="deals-kanban">
             {DEAL_STAGES.map((stage) => {
-              const stageDeals = filteredDeals.filter((d) => d.etapaKey === stage.key);
-              const stageTotal = stageDeals.reduce((sum, d) => sum + (Number(d.valor) || 0), 0);
+              const stageDeals = filteredDeals.filter((d) => d.stageKey === stage.key);
+              const stageTotal = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
               return (
                 <div key={stage.key} className="deals-kanban-col" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, stage.key)}>
                   <div className="kanban-col-header" style={{ borderTopColor: stage.color }}>
@@ -617,16 +617,16 @@ export const OpportunitiesPage = () => {
                           onClick={() => setSelectedDeal(deal)}
                         >
                           <div className="kanban-card-top">
-                            <span className="kanban-card-title">{deal.nombreNegocio}</span>
-                            {deal.prioridad && <span className={`prio-chip prio-chip--${deal.prioridad.toLowerCase()} prio-chip--sm`}>{deal.prioridad}</span>}
+                            <span className="kanban-card-title">{deal.dealName}</span>
+                            {deal.priority && <span className={`prio-chip prio-chip--${deal.priority.toLowerCase()} prio-chip--sm`}>{deal.priority}</span>}
                           </div>
                           <div className="kanban-card-company">
-                            <Building2 size={12} /> {deal.empresa || '—'}
+                            <Building2 size={12} /> {deal.company || '—'}
                           </div>
                           <div className="kanban-card-footer">
-                            <span className="kanban-card-amount">{formatCurrency(deal.valor)}</span>
-                            <div className="kanban-card-owner" title={deal.propietario}>
-                              {(deal.propietario || 'U').charAt(0)}
+                            <span className="kanban-card-amount">{formatCurrency(deal.value)}</span>
+                            <div className="kanban-card-owner" title={deal.ownerName}>
+                              {(deal.ownerName || 'U').charAt(0)}
                             </div>
                           </div>
                         </div>
@@ -644,65 +644,65 @@ export const OpportunitiesPage = () => {
         <form onSubmit={handleSubmit} noValidate className="tasks-board__form">
           <FormInput
             label="Título"
-            name="nombreNegocio"
-            value={form.nombreNegocio}
+            name="dealName"
+            value={form.dealName}
             onChange={handleFormChange}
             placeholder="Ej: Fumigación de silos — campaña gruesa 2026"
             required
-            error={errors.nombreNegocio}
+            error={errors.dealName}
           />
 
           <CompanyAutocomplete
             label="Empresa"
-            name="empresa"
-            value={form.empresa}
+            name="company"
+            value={form.company}
             required
-            error={errors.empresa}
-            onChange={(nombre, item) => setForm((prev) => ({ ...prev, empresa: nombre, clientCompanyId: item?.id || null }))}
+            error={errors.company}
+            onChange={(name, item) => setForm((prev) => ({ ...prev, company: name, clientCompanyId: item?.id || null }))}
           />
 
           <ContactAutocomplete
             label="Contacto"
-            name="contacto"
-            value={form.contacto}
-            onChange={(nombre, contacto) =>
+            name="contact"
+            value={form.contact}
+            onChange={(name, contact) =>
               setForm((prev) => ({
                 ...prev,
-                contacto: nombre,
-                contactoId: contacto?.id || null,
-                empresa: !prev.empresa && contacto?.empresa ? contacto.empresa : prev.empresa,
+                contact: name,
+                contactId: contact?.id || null,
+                company: !prev.company && contact?.company ? contact.company : prev.company,
               }))
             }
           />
 
           <FormSelect
             label="Estado"
-            name="etapaKey"
-            value={form.etapaKey}
+            name="stageKey"
+            value={form.stageKey}
             onChange={handleFormChange}
-            options={DEAL_STAGES.map((s) => ({ value: s.key, label: `${s.label} — ${s.ayuda}` }))}
+            options={DEAL_STAGES.map((s) => ({ value: s.key, label: `${s.label} — ${s.help}` }))}
           />
-          {form.etapaKey === 'Perdida' && (
+          {form.stageKey === 'Perdida' && (
             <FormInput
               label="Motivo de la pérdida"
-              name="motivoPerdida"
-              value={form.motivoPerdida}
+              name="lossReason"
+              value={form.lossReason}
               onChange={handleFormChange}
               placeholder="Ej: precio, eligió a la competencia, sin necesidad este año"
               required
-              error={errors.motivoPerdida}
+              error={errors.lossReason}
             />
           )}
 
           <div className="tasks-board__form-row">
-            <FormInput label="Volumen potencial ($)" name="valor" type="number" value={form.valor} onChange={handleFormChange} placeholder="Ej: 322200" />
-            <FormInput label="Volumen facturado ($)" name="volumenFacturado" type="number" value={form.volumenFacturado} onChange={handleFormChange} placeholder="Al ganarla" />
+            <FormInput label="Volumen potencial ($)" name="value" type="number" value={form.value} onChange={handleFormChange} placeholder="Ej: 322200" />
+            <FormInput label="Volumen facturado ($)" name="billedVolume" type="number" value={form.billedVolume} onChange={handleFormChange} placeholder="Al ganarla" />
           </div>
           <FormInput
             label="Cierre estimado"
-            name="fechaCierre"
+            name="closeDate"
             type="date"
-            value={form.fechaCierre}
+            value={form.closeDate}
             onChange={handleFormChange}
           />
 
@@ -710,17 +710,17 @@ export const OpportunitiesPage = () => {
             {isAdmin ? (
               <FormSelect
                 label="Responsable"
-                name="propietarioId"
-                value={form.propietarioId}
+                name="ownerId"
+                value={form.ownerId}
                 onChange={handleFormChange}
                 options={[{ value: '', label: 'Seleccionar usuario…' }, ...ownerOptions]}
                 required
-                error={errors.propietarioId}
+                error={errors.ownerId}
               />
             ) : (
-              <div className="act-board__readonly"><span className="form-input-label">Responsable</span><p>{currentUser?.nombreApellido}</p></div>
+              <div className="act-board__readonly"><span className="form-input-label">Responsable</span><p>{currentUser?.fullName}</p></div>
             )}
-            <FormSelect label="Potencialidad" name="prioridad" value={form.prioridad} onChange={handleFormChange} options={POTENCIALIDAD_OPTIONS} />
+            <FormSelect label="Potencialidad" name="priority" value={form.priority} onChange={handleFormChange} options={POTENTIAL_OPTIONS} />
           </div>
 
           <div className="tasks-board__form-actions">

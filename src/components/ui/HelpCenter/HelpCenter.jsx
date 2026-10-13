@@ -80,7 +80,7 @@ export const HelpCenter = ({ variant = 'admin' }) => {
 
   const whatsappUrl = SUPPORT_WHATSAPP_NUMBER
     ? `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(
-        `Hola, soy ${currentUser?.nombreApellido || 'un usuario'} (${roleLabel}) del CRM de Agroquímica Rosario y tengo una consulta/problema: `
+        `Hola, soy ${currentUser?.fullName || 'un usuario'} (${roleLabel}) del CRM de Agroquímica Rosario y tengo una consulta/problema: `
       )}`
     : null;
 

@@ -45,8 +45,8 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
     return () => window.removeEventListener('keydown', handleSlash);
   }, []);
 
-  const initials = currentUser?.nombreApellido
-    ? currentUser.nombreApellido.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+  const initials = currentUser?.fullName
+    ? currentUser.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
     : 'VG';
 
   return (
@@ -89,7 +89,7 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
           type="button"
           className="topbar__icon-btn"
           title="Configuración"
-          onClick={() => navigate('/seller/perfil')}
+          onClick={() => navigate('/seller/profile')}
         >
           <Settings size={18} />
         </button>
@@ -110,7 +110,7 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
               )}
             </div>
             <span className="topbar__user-name">
-              {currentUser?.nombreApellido || 'Vendedor de Prueba 3'}
+              {currentUser?.fullName || 'Vendedor de Prueba 3'}
             </span>
             <ChevronDown size={14} className={`topbar__chevron ${showUserMenu ? 'topbar__chevron--open' : ''}`} />
           </button>
@@ -119,8 +119,8 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
             <UserProfileSidebar
               className="topbar__dropdown"
               user={{
-                name: currentUser?.nombreApellido || 'Vendedor de Prueba 3',
-                email: currentUser?.direccionMail || 'vendedor3@agroquimicarosario.com',
+                name: currentUser?.fullName || 'Vendedor de Prueba 3',
+                email: currentUser?.email || 'vendedor3@agroquimicarosario.com',
                 avatarUrl: profileImage || null,
                 initials,
               }}

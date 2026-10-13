@@ -17,7 +17,7 @@ import { FormInput, FormTextarea } from '../ui/FormInput/FormInput';
 import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
 import { LoadingState } from '../ui/LoadingState/LoadingState';
 import './PromotionsBoard.css';
-import { notificar } from '../../hooks/useNotificaciones';
+import { notify } from '../../hooks/useNotifications';
 
 const ACCENTS = [
   { value: '#1a7d6b', label: 'Verde AgroRos' },
@@ -28,9 +28,9 @@ const ACCENTS = [
   { value: '#dc2626', label: 'Rojo' },
 ];
 
-const daysLeft = (fechaFin) => {
-  if (!fechaFin) return null;
-  const end = new Date(fechaFin);
+const daysLeft = (endDate) => {
+  if (!endDate) return null;
+  const end = new Date(endDate);
   if (isNaN(end)) return null;
   const diff = Math.ceil((end - new Date()) / 86400000);
   return diff;
@@ -38,24 +38,24 @@ const daysLeft = (fechaFin) => {
 
 const normalize = (p, i) => ({
   id: p.id,
-  nombre: p.nombre || 'Promoción',
-  beneficio: p.beneficio || 'Oferta Exclusiva',
+  name: p.name || 'Promoción',
+  benefit: p.benefit || 'Oferta Exclusiva',
   color: p.color || ACCENTS[i % ACCENTS.length].value,
-  descripcion: p.descripcion || p.condiciones || 'Promoción autorizada para productores.',
-  condiciones: p.condiciones || '',
-  fechaInicio: p.fechaInicio ? String(p.fechaInicio).slice(0, 10) : '',
-  fechaFin: p.fechaFin ? String(p.fechaFin).slice(0, 10) : '',
+  description: p.description || p.conditions || 'Promoción autorizada para productores.',
+  conditions: p.conditions || '',
+  startDate: p.startDate ? String(p.startDate).slice(0, 10) : '',
+  endDate: p.endDate ? String(p.endDate).slice(0, 10) : '',
   items: Array.isArray(p.items) ? p.items : [],
 });
 
 const emptyForm = () => ({
-  nombre: '',
-  beneficio: '',
+  name: '',
+  benefit: '',
   color: '#1a7d6b',
-  descripcion: '',
-  fechaInicio: new Date().toISOString().slice(0, 10),
-  fechaFin: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
-  condiciones: '',
+  description: '',
+  startDate: new Date().toISOString().slice(0, 10),
+  endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+  conditions: '',
   itemIds: [],
 });
 
@@ -73,11 +73,11 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
   const [form, setForm] = useState(emptyForm());
 
   // Productos del catálogo incluidos en la promoción (reemplaza el vínculo por línea de la v1).
-  const [catalogo, setCatalogo] = useState([]);
-  const [buscarItem, setBuscarItem] = useState('');
+  const [catalog, setCatalog] = useState([]);
+  const [searchItem, setSearchItem] = useState('');
   useEffect(() => {
     if (isSeller) return;
-    catalogApi.getItems({ activos: 1 }).then(setCatalogo).catch(() => setCatalogo([]));
+    catalogApi.getItems({ active: 1 }).then(setCatalog).catch(() => setCatalog([]));
   }, [isSeller]);
 
   const fetchPromos = async () => {
@@ -103,14 +103,14 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     const q = search.toLowerCase().trim();
     return promos.filter(
       (p) =>
-        p.nombre.toLowerCase().includes(q) ||
-        p.descripcion.toLowerCase().includes(q) ||
-        p.beneficio.toLowerCase().includes(q)
+        p.name.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        p.benefit.toLowerCase().includes(q)
     );
   }, [promos, search]);
 
-  const vigentes = promos.filter((p) => {
-    const d = daysLeft(p.fechaFin);
+  const active = promos.filter((p) => {
+    const d = daysLeft(p.endDate);
     return d === null || d >= 0;
   }).length;
 
@@ -125,13 +125,13 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     setEditingId(p.id);
     setErrors({});
     setForm({
-      nombre: p.nombre,
-      beneficio: p.beneficio === 'Oferta Exclusiva' ? '' : p.beneficio,
+      name: p.name,
+      benefit: p.benefit === 'Oferta Exclusiva' ? '' : p.benefit,
       color: p.color,
-      descripcion: p.descripcion,
-      fechaInicio: p.fechaInicio || new Date().toISOString().slice(0, 10),
-      fechaFin: p.fechaFin || new Date().toISOString().slice(0, 10),
-      condiciones: p.condiciones,
+      description: p.description,
+      startDate: p.startDate || new Date().toISOString().slice(0, 10),
+      endDate: p.endDate || new Date().toISOString().slice(0, 10),
+      conditions: p.conditions,
       itemIds: p.items.map((i) => i.id),
     });
     setShowDrawer(true);
@@ -146,8 +146,8 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
-    if (!form.nombre.trim()) newErrors.nombre = 'El nombre de la promoción es obligatorio.';
-    if (!form.descripcion.trim()) newErrors.descripcion = 'Describí el beneficio de la promoción.';
+    if (!form.name.trim()) newErrors.name = 'El nombre de la promoción es obligatorio.';
+    if (!form.description.trim()) newErrors.description = 'Describí el beneficio de la promoción.';
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
       return;
@@ -156,35 +156,35 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     setSaving(true);
     try {
       const payload = {
-        nombre: form.nombre.trim(),
-        beneficio: form.beneficio.trim() || 'Oferta Exclusiva',
+        name: form.name.trim(),
+        benefit: form.benefit.trim() || 'Oferta Exclusiva',
         color: form.color,
-        descripcion: form.descripcion.trim(),
-        fechaInicio: form.fechaInicio,
-        fechaFin: form.fechaFin,
-        condiciones: form.condiciones.trim(),
+        description: form.description.trim(),
+        startDate: form.startDate,
+        endDate: form.endDate,
+        conditions: form.conditions.trim(),
         itemIds: form.itemIds,
       };
       if (editingId) await promotionsApi.update(editingId, payload);
       else await promotionsApi.create(payload);
-      notificar.exito(editingId ? 'Promoción actualizada' : 'Promoción creada', payload.nombre);
+      notify.success(editingId ? 'Promoción actualizada' : 'Promoción creada', payload.name);
       setShowDrawer(false);
       setForm(emptyForm());
       await fetchPromos();
     } catch (err) {
       console.error('Error al guardar la promoción:', err);
-      notificar.error('No se pudo guardar la promoción', err);
+      notify.error('No se pudo guardar la promoción', err);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (p) => {
-    if (!window.confirm(`¿Eliminar la promoción "${p.nombre}"?`)) return;
+    if (!window.confirm(`¿Eliminar la promoción "${p.name}"?`)) return;
     try {
-      await notificar.operacion(promotionsApi.delete(p.id), {
-        cargando: 'Eliminando promoción…',
-        exito: 'Promoción eliminada',
+      await notify.operation(promotionsApi.delete(p.id), {
+        loading: 'Eliminando promoción…',
+        success: 'Promoción eliminada',
         error: 'No se pudo eliminar la promoción',
       });
       setPromos((prev) => prev.filter((x) => x.id !== p.id));
@@ -194,19 +194,19 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
   };
 
   const promoText = (p) =>
-    `📢 Agroquímica Rosario · Promoción vigente: *${p.nombre}*\n✅ Beneficio: ${p.beneficio}\n📝 ${p.descripcion}${
-      p.condiciones ? `\n📌 Condiciones: ${p.condiciones}` : ''
-    }${p.fechaFin ? `\n📅 Válida hasta: ${p.fechaFin}` : ''}`;
+    `📢 Agroquímica Rosario · Promoción vigente: *${p.name}*\n✅ Beneficio: ${p.benefit}\n📝 ${p.description}${
+      p.conditions ? `\n📌 Condiciones: ${p.conditions}` : ''
+    }${p.endDate ? `\n📅 Válida hasta: ${p.endDate}` : ''}`;
 
   const handleExportCSV = () => {
     const headers = ['Nombre', 'Beneficio', 'Descripción', 'Condiciones', 'Fecha de Inicio', 'Fecha de Fin'];
     const rows = filtered.map((p) => [
-      `"${(p.nombre || '').replace(/"/g, '""')}"`,
-      `"${(p.beneficio || '').replace(/"/g, '""')}"`,
-      `"${(p.descripcion || '').replace(/"/g, '""')}"`,
-      `"${(p.condiciones || '').replace(/"/g, '""')}"`,
-      `"${p.fechaInicio || ''}"`,
-      `"${p.fechaFin || ''}"`,
+      `"${(p.name || '').replace(/"/g, '""')}"`,
+      `"${(p.benefit || '').replace(/"/g, '""')}"`,
+      `"${(p.description || '').replace(/"/g, '""')}"`,
+      `"${(p.conditions || '').replace(/"/g, '""')}"`,
+      `"${p.startDate || ''}"`,
+      `"${p.endDate || ''}"`,
     ]);
     const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -258,7 +258,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
         </div>
         <div className="promo-board__stat">
           <span className="promo-board__stat-label">Vigentes</span>
-          <span className="promo-board__stat-value">{vigentes}</span>
+          <span className="promo-board__stat-value">{active}</span>
         </div>
       </div>
 
@@ -288,13 +288,13 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
       ) : (
         <div className="promo-board__grid">
           {filtered.map((p) => {
-            const d = daysLeft(p.fechaFin);
-            const vencida = d !== null && d < 0;
+            const d = daysLeft(p.endDate);
+            const overdue = d !== null && d < 0;
             return (
-              <div key={p.id} className={`promo-card ${vencida ? 'promo-card--expired' : ''}`}>
+              <div key={p.id} className={`promo-card ${overdue ? 'promo-card--expired' : ''}`}>
                 <div className="promo-card__accent" style={{ background: p.color }}>
                   <span className="promo-card__benefit">
-                    <Tag size={13} /> {p.beneficio}
+                    <Tag size={13} /> {p.benefit}
                   </span>
                   <button
                     type="button"
@@ -307,28 +307,28 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
                 </div>
 
                 <div className="promo-card__body">
-                  <h2 className="promo-card__name">{p.nombre}</h2>
-                  <p className="promo-card__desc">{p.descripcion}</p>
+                  <h2 className="promo-card__name">{p.name}</h2>
+                  <p className="promo-card__desc">{p.description}</p>
 
-                  {p.condiciones && (
+                  {p.conditions && (
                     <p className="promo-card__cond">
-                      <strong>Condiciones:</strong> {p.condiciones}
+                      <strong>Condiciones:</strong> {p.conditions}
                     </p>
                   )}
                   {p.items.length > 0 && (
                     <p className="promo-card__cond">
-                      <strong>Productos:</strong> {p.items.map((i) => i.nombre).join(', ')}
+                      <strong>Productos:</strong> {p.items.map((i) => i.name).join(', ')}
                     </p>
                   )}
 
                   <div className="promo-card__dates">
                     <span>
                       <Calendar size={13} />
-                      {p.fechaInicio || '—'} → {p.fechaFin || '—'}
+                      {p.startDate || '—'} → {p.endDate || '—'}
                     </span>
                     {d !== null && (
-                      <span className={`promo-card__ttl ${vencida ? 'is-expired' : d <= 7 ? 'is-soon' : ''}`}>
-                        {vencida ? 'Vencida' : d === 0 ? 'Vence hoy' : `Faltan ${d} días`}
+                      <span className={`promo-card__ttl ${overdue ? 'is-expired' : d <= 7 ? 'is-soon' : ''}`}>
+                        {overdue ? 'Vencida' : d === 0 ? 'Vence hoy' : `Faltan ${d} días`}
                       </span>
                     )}
                   </div>
@@ -379,31 +379,31 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
         <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
           <FormInput
             label="Nombre de la Promoción"
-            name="nombre"
-            value={form.nombre}
+            name="name"
+            value={form.name}
             onChange={handleChange}
             placeholder="Ej: Campaña Soja 2026/27"
             required
-            error={errors.nombre}
+            error={errors.name}
           />
 
           <FormInput
             label="Beneficio (etiqueta corta)"
-            name="beneficio"
-            value={form.beneficio}
+            name="benefit"
+            value={form.benefit}
             onChange={handleChange}
             placeholder="Ej: 15% OFF · 3 cuotas sin interés"
           />
 
           <FormTextarea
             label="Descripción de la Oferta"
-            name="descripcion"
-            value={form.descripcion}
+            name="description"
+            value={form.description}
             onChange={handleChange}
             placeholder="Ej: 15% de descuento acumulable en fertilizantes y coadyuvantes"
             rows={2}
             required
-            error={errors.descripcion}
+            error={errors.description}
           />
 
           <div className="promo-board__color-field">
@@ -423,25 +423,25 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <FormInput label="Fecha de Inicio" name="fechaInicio" type="date" value={form.fechaInicio} onChange={handleChange} />
-            <FormInput label="Fecha de Fin" name="fechaFin" type="date" value={form.fechaFin} onChange={handleChange} />
+            <FormInput label="Fecha de Inicio" name="startDate" type="date" value={form.startDate} onChange={handleChange} />
+            <FormInput label="Fecha de Fin" name="endDate" type="date" value={form.endDate} onChange={handleChange} />
           </div>
 
           <FormInput
             label="Condiciones Generales"
-            name="condiciones"
-            value={form.condiciones}
+            name="conditions"
+            value={form.conditions}
             onChange={handleChange}
             placeholder="Ej: Pago a 30/60 días con eCheq"
           />
 
           <div className="promo-items">
             <p className="promo-items__label">Productos incluidos <span>{form.itemIds.length ? `${form.itemIds.length} elegidos` : 'opcional'}</span></p>
-            <input className="promo-items__search" value={buscarItem} onChange={(e) => setBuscarItem(e.target.value)} placeholder="Buscar en el catálogo…" />
+            <input className="promo-items__search" value={searchItem} onChange={(e) => setSearchItem(e.target.value)} placeholder="Buscar en el catálogo…" />
             <div className="promo-items__list">
-              {catalogo.length === 0 && <p className="promo-items__empty">El catálogo está vacío.</p>}
-              {catalogo
-                .filter((i) => !buscarItem.trim() || i.nombre.toLowerCase().includes(buscarItem.toLowerCase().trim()))
+              {catalog.length === 0 && <p className="promo-items__empty">El catálogo está vacío.</p>}
+              {catalog
+                .filter((i) => !searchItem.trim() || i.name.toLowerCase().includes(searchItem.toLowerCase().trim()))
                 .slice(0, 60)
                 .map((i) => (
                   <label key={i.id} className="promo-items__item">
@@ -450,7 +450,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
                       checked={form.itemIds.includes(i.id)}
                       onChange={() => setForm((prev) => ({ ...prev, itemIds: prev.itemIds.includes(i.id) ? prev.itemIds.filter((x) => x !== i.id) : [...prev.itemIds, i.id] }))}
                     />
-                    <span>{i.nombre}{i.linea?.nombre ? ` · ${i.linea.nombre}` : ''}</span>
+                    <span>{i.name}{i.productLine?.name ? ` · ${i.productLine.name}` : ''}</span>
                   </label>
                 ))}
             </div>

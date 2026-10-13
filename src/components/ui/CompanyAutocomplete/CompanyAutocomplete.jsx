@@ -1,22 +1,22 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Building2, X, Plus, ArrowLeft } from 'lucide-react';
 import { companiesApi } from '../../../api/companies.api';
-import { notificar } from '../../../hooks/useNotificaciones';
-import { LocalidadSelect } from '../LocalidadSelect/LocalidadSelect';
+import { notify } from '../../../hooks/useNotifications';
+import { LocalitySelect } from '../LocalitySelect/LocalitySelect';
 import './CompanyAutocomplete.css';
 
-const TIPO_EMPRESA_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
+const COMPANY_TYPE_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
 
-const emptyNewCompanyForm = (nombreInicial = '') => ({
-  nombreEmpresa: nombreInicial,
+const emptyNewCompanyForm = (initialName = '') => ({
+  companyName: initialName,
   cuit: '',
-  direccionEmpresa: '',
-  tipoEmpresa: 'Productor',
-  localidad: '',
-  localidadId: null,
-  localidadSel: null,
-  esRegional: false,
-  empresaMadre: '',
+  companyAddress: '',
+  companyType: 'Productor',
+  locality: '',
+  localityId: null,
+  selectedLocality: null,
+  isRegional: false,
+  headOfficeCompany: '',
 });
 
 /**
@@ -53,7 +53,7 @@ async function loadCompanies() {
 
 export const CompanyAutocomplete = ({
   label = 'Empresa / Cliente Asociado',
-  name = 'empresa',
+  name = 'company',
   value,
   onChange,
   placeholder = 'Escribí para buscar entre las empresas cargadas...',
@@ -98,14 +98,14 @@ export const CompanyAutocomplete = ({
       companies
         .map((c) => ({
           id: c.id,
-          nombre: c.razonSocial || c.nombreEmpresa || '',
-          tipo: c.tipoEmpresa || '',
-          loc: c.localidad || c.Locality?.nomLocalidad || '',
-          direccion: c.direccion || c.direccionEmpresa || '',
-          provincia: c.provincia || c.Locality?.Province?.nomProvincia || '',
-          nivel: c.nivel || c.nivelEmpresa || 'independiente',
+          companyName: c.legalName || c.companyName || '',
+          type: c.companyType || '',
+          loc: c.locality || c.Locality?.localityName || '',
+          address: c.address || c.companyAddress || '',
+          province: c.province || c.Locality?.Province?.provinceName || '',
+          level: c.level || c.companyLevel || 'independiente',
         }))
-        .filter((c) => c.nombre),
+        .filter((c) => c.companyName),
     [companies]
   );
 
@@ -116,8 +116,8 @@ export const CompanyAutocomplete = ({
     return normalized
       .filter(
         (c) =>
-          c.nombre.toLowerCase().includes(query) ||
-          c.tipo.toLowerCase().includes(query) ||
+          c.companyName.toLowerCase().includes(query) ||
+          c.type.toLowerCase().includes(query) ||
           c.loc.toLowerCase().includes(query)
       )
       .slice(0, 8);
@@ -125,7 +125,7 @@ export const CompanyAutocomplete = ({
 
   // Notifica el nombre y, si coincide con una empresa cargada, su objeto (id incluido)
   const emit = (name) => {
-    const hit = normalized.find((c) => c.nombre.toLowerCase().trim() === (name || '').toLowerCase().trim());
+    const hit = normalized.find((c) => c.companyName.toLowerCase().trim() === (name || '').toLowerCase().trim());
     onChange(name, hit || null);
   };
 
@@ -136,21 +136,21 @@ export const CompanyAutocomplete = ({
   };
 
   const handleCreateCompany = async () => {
-    const nombre = newCompanyForm.nombreEmpresa.trim();
-    if (!nombre || !newCompanyForm.cuit.trim()) {
+    const companyName = newCompanyForm.companyName.trim();
+    if (!companyName || !newCompanyForm.cuit.trim()) {
       setCreateError('El nombre y el CUIT de la empresa son obligatorios.');
       return;
     }
 
-    let madre = null;
-    if (newCompanyForm.esRegional) {
-      const madreNombre = newCompanyForm.empresaMadre.trim().toLowerCase();
-      if (!madreNombre) {
+    let headOffice = null;
+    if (newCompanyForm.isRegional) {
+      const headOfficeName = newCompanyForm.headOfficeCompany.trim().toLowerCase();
+      if (!headOfficeName) {
         setCreateError('Ingresá el nombre de la empresa principal.');
         return;
       }
-      madre = normalized.find((c) => c.nombre.toLowerCase().trim() === madreNombre);
-      if (!madre) {
+      headOffice = normalized.find((c) => c.companyName.toLowerCase().trim() === headOfficeName);
+      if (!headOffice) {
         setCreateError('No hay ninguna empresa cargada con ese nombre. Elegí la empresa principal de la lista.');
         return;
       }
@@ -160,22 +160,22 @@ export const CompanyAutocomplete = ({
     setCreateError('');
     try {
       const res = await companiesApi.create({
-        razonSocial: nombre,
+        legalName: companyName,
         cuit: newCompanyForm.cuit.trim(),
-        direccion: newCompanyForm.direccionEmpresa || undefined,
-        tipoEmpresa: newCompanyForm.tipoEmpresa,
-        localidadId: newCompanyForm.localidadId || undefined,
-        localidad: newCompanyForm.localidadId ? undefined : (newCompanyForm.localidad || undefined),
-        empresaPadreId: madre ? madre.id : undefined,
-        nivel: madre ? 'region' : undefined,
+        address: newCompanyForm.companyAddress || undefined,
+        companyType: newCompanyForm.companyType,
+        localityId: newCompanyForm.localityId || undefined,
+        locality: newCompanyForm.localityId ? undefined : (newCompanyForm.locality || undefined),
+        parentCompanyId: headOffice ? headOffice.id : undefined,
+        level: headOffice ? 'region' : undefined,
       });
       const created = res?.data || res;
       if (!created?.id) throw new Error('El servidor no confirmó el alta de la empresa.');
 
       // La empresa principal pasa a figurar como "empresa madre" con regionales.
-      if (madre && madre.nivel !== 'madre') {
+      if (headOffice && headOffice.level !== 'madre') {
         try {
-          await companiesApi.update(madre.id, { nivel: 'madre' });
+          await companiesApi.update(headOffice.id, { level: 'madre' });
         } catch (updErr) {
           console.warn('La regional se creó, pero no se pudo marcar la empresa principal como madre:', updErr);
         }
@@ -183,24 +183,24 @@ export const CompanyAutocomplete = ({
 
       const newEntry = {
         id: created.id,
-        nombre: created.razonSocial || nombre,
-        tipo: created.tipoEmpresa || newCompanyForm.tipoEmpresa,
-        loc: created.localidad || newCompanyForm.localidad || '',
-        direccion: created.direccion || newCompanyForm.direccionEmpresa || '',
+        companyName: created.legalName || companyName,
+        type: created.companyType || newCompanyForm.companyType,
+        loc: created.locality || newCompanyForm.locality || '',
+        address: created.address || newCompanyForm.companyAddress || '',
       };
 
       // Refresca el cache compartido para que las demás instancias del
       // autocompletado (otros formularios abiertos) también vean la empresa nueva.
       _cache = [
-        ...(_cache || []).map((c) => (madre && c.id === madre.id ? { ...c, nivel: 'madre', nivelEmpresa: 'madre' } : c)),
+        ...(_cache || []).map((c) => (headOffice && c.id === headOffice.id ? { ...c, level: 'madre', companyLevel: 'madre' } : c)),
         created,
       ];
       setCompanies(_cache);
 
-      onChange(newEntry.nombre, newEntry);
+      onChange(newEntry.companyName, newEntry);
       setShowCreateForm(false);
       setOpen(false);
-      notificar.exito('Empresa registrada', `«${newEntry.nombre}» se dio de alta.`);
+      notify.success('Empresa registrada', `«${newEntry.companyName}» se dio de alta.`);
     } catch (err) {
       console.error('Error al dar de alta la empresa:', err);
       setCreateError(err?.response?.data?.message || 'No se pudo registrar la empresa. Probá de nuevo.');
@@ -273,8 +273,8 @@ export const CompanyAutocomplete = ({
               <label>Nombre de la empresa *</label>
               <input
                 type="text"
-                value={newCompanyForm.nombreEmpresa}
-                onChange={(e) => setNewCompanyForm((p) => ({ ...p, nombreEmpresa: e.target.value }))}
+                value={newCompanyForm.companyName}
+                onChange={(e) => setNewCompanyForm((p) => ({ ...p, companyName: e.target.value }))}
                 placeholder="Ej: Cargill S.A."
                 autoFocus
               />
@@ -293,8 +293,8 @@ export const CompanyAutocomplete = ({
                 <label>Dirección</label>
                 <input
                   type="text"
-                  value={newCompanyForm.direccionEmpresa}
-                  onChange={(e) => setNewCompanyForm((p) => ({ ...p, direccionEmpresa: e.target.value }))}
+                  value={newCompanyForm.companyAddress}
+                  onChange={(e) => setNewCompanyForm((p) => ({ ...p, companyAddress: e.target.value }))}
                   placeholder="Ej: Ruta 9 Km 300"
                 />
               </div>
@@ -303,18 +303,18 @@ export const CompanyAutocomplete = ({
               <div className="company-ac__create-field">
                 <label>Tipo</label>
                 <select
-                  value={newCompanyForm.tipoEmpresa}
-                  onChange={(e) => setNewCompanyForm((p) => ({ ...p, tipoEmpresa: e.target.value }))}
+                  value={newCompanyForm.companyType}
+                  onChange={(e) => setNewCompanyForm((p) => ({ ...p, companyType: e.target.value }))}
                 >
-                  {TIPO_EMPRESA_OPTIONS.map((t) => (
+                  {COMPANY_TYPE_OPTIONS.map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
               </div>
               <div className="company-ac__create-field">
-                <LocalidadSelect
-                  value={newCompanyForm.localidadSel}
-                  onChange={(l) => setNewCompanyForm((p) => ({ ...p, localidadSel: l, localidadId: l?.id || null, localidad: l?.nombre || '' }))}
+                <LocalitySelect
+                  value={newCompanyForm.selectedLocality}
+                  onChange={(l) => setNewCompanyForm((p) => ({ ...p, selectedLocality: l, localityId: l?.id || null, locality: l?.companyName || '' }))}
                 />
               </div>
             </div>
@@ -322,27 +322,27 @@ export const CompanyAutocomplete = ({
             <label className="company-ac__create-check">
               <input
                 type="checkbox"
-                checked={newCompanyForm.esRegional}
-                onChange={(e) => setNewCompanyForm((p) => ({ ...p, esRegional: e.target.checked }))}
+                checked={newCompanyForm.isRegional}
+                onChange={(e) => setNewCompanyForm((p) => ({ ...p, isRegional: e.target.checked }))}
               />
               <span>¿Es una regional de una empresa?</span>
             </label>
 
-            {newCompanyForm.esRegional && (
+            {newCompanyForm.isRegional && (
               <div className="company-ac__create-field">
                 <label>Ingrese el nombre de la empresa principal *</label>
                 <input
                   type="text"
                   list={`${name}-empresas-principales`}
-                  value={newCompanyForm.empresaMadre}
-                  onChange={(e) => setNewCompanyForm((p) => ({ ...p, empresaMadre: e.target.value }))}
+                  value={newCompanyForm.headOfficeCompany}
+                  onChange={(e) => setNewCompanyForm((p) => ({ ...p, headOfficeCompany: e.target.value }))}
                   placeholder="Ej: AFA SCL"
                 />
                 <datalist id={`${name}-empresas-principales`}>
                   {normalized
-                    .filter((c) => c.nivel !== 'region' && c.nivel !== 'subsede')
+                    .filter((c) => c.level !== 'region' && c.level !== 'subsede')
                     .map((c) => (
-                      <option key={c.id} value={c.nombre} />
+                      <option key={c.id} value={c.companyName} />
                     ))}
                 </datalist>
               </div>
@@ -379,7 +379,7 @@ export const CompanyAutocomplete = ({
                 key={c.id}
                 className="company-ac__item"
                 onClick={() => {
-                  onChange(c.nombre, { id: c.id, nombre: c.nombre, tipo: c.tipo, loc: c.loc, direccion: c.direccion, provincia: c.provincia });
+                  onChange(c.companyName, { id: c.id, companyName: c.companyName, type: c.type, loc: c.loc, address: c.address, province: c.province });
                   setOpen(false);
                 }}
               >
@@ -387,8 +387,8 @@ export const CompanyAutocomplete = ({
                   <Building2 size={14} />
                 </span>
                 <span className="company-ac__item-info">
-                  <strong>{c.nombre}</strong>
-                  <span>{[c.tipo, c.loc].filter(Boolean).join(' · ') || 'Empresa cliente'}</span>
+                  <strong>{c.companyName}</strong>
+                  <span>{[c.type, c.loc].filter(Boolean).join(' · ') || 'Empresa cliente'}</span>
                 </span>
               </button>
             ))

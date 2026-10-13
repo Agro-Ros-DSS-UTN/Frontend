@@ -22,25 +22,25 @@ export const ProductDetailDrawer = ({
 }) => {
   if (!product) return null;
 
-  const marginAmt = (product.precioUnitario || 0) - (product.costeUnidad || 0);
-  const marginPct = product.precioUnitario
-    ? Math.round((marginAmt / product.precioUnitario) * 100)
+  const marginAmt = (product.unitPrice || 0) - (product.costPerUnit || 0);
+  const marginPct = product.unitPrice
+    ? Math.round((marginAmt / product.unitPrice) * 100)
     : 0;
 
   return (
     <SlideDrawer
       isOpen={!!product}
       onClose={onClose}
-      title={`Detalle: ${product.nombre}`}
+      title={`Detalle: ${product.name}`}
       width="540px"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {/* Imagen o Placeholder */}
-        {product.imagenUrl ? (
+        {product.imageUrl ? (
           <div style={{ width: '100%', height: '220px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
             <img
-              src={product.imagenUrl}
-              alt={product.nombre}
+              src={product.imageUrl}
+              alt={product.name}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           </div>
@@ -79,10 +79,10 @@ export const ProductDetailDrawer = ({
                 borderRadius: '8px',
               }}
             >
-              {product.tipoProducto || 'General'}
+              {product.productType || 'General'}
             </span>
             <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', margin: '8px 0 2px 0' }}>
-              {product.nombre}
+              {product.name}
             </h2>
             <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
               SKU: {product.ref || 'N/A'}
@@ -90,13 +90,13 @@ export const ProductDetailDrawer = ({
           </div>
 
           <span
-            className={`status-pill ${product.activo ? 'status-pill--active' : 'status-pill--inactive'}`}
+            className={`status-pill ${product.active ? 'status-pill--active' : 'status-pill--inactive'}`}
             style={{ cursor: 'pointer' }}
             onClick={() => onToggleStatus(product.id)}
             title="Clic para cambiar estado"
           >
-            {product.activo ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-            {product.activo ? 'Activo' : 'Inactivo'}
+            {product.active ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+            {product.active ? 'Activo' : 'Inactivo'}
           </span>
         </div>
 
@@ -107,7 +107,7 @@ export const ProductDetailDrawer = ({
               Precio Lista
             </span>
             <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>
-              {formatCurrency(product.precioUnitario)}
+              {formatCurrency(product.unitPrice)}
             </div>
           </div>
 
@@ -116,7 +116,7 @@ export const ProductDetailDrawer = ({
               Coste Unidad
             </span>
             <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#64748b', marginTop: '4px' }}>
-              {formatCurrency(product.costeUnidad)}
+              {formatCurrency(product.costPerUnit)}
             </div>
           </div>
 
@@ -136,7 +136,7 @@ export const ProductDetailDrawer = ({
             Descripción e Indicaciones
           </span>
           <p style={{ fontSize: '0.9rem', color: '#475569', margin: '6px 0 0 0', lineHeight: 1.5 }}>
-            {product.descripcion || 'Sin descripción agronómica cargada para este producto.'}
+            {product.description || 'Sin descripción agronómica cargada para este producto.'}
           </p>
         </div>
 
@@ -157,7 +157,7 @@ export const ProductDetailDrawer = ({
             className="roadmaps-btn roadmaps-btn--outline"
             style={{ padding: '10px 14px', borderRadius: '8px', color: '#ef4444', borderColor: '#fca5a5' }}
             onClick={() => {
-              if (window.confirm(`¿Estás seguro de eliminar "${product.nombre}"?`)) {
+              if (window.confirm(`¿Estás seguro de eliminar "${product.name}"?`)) {
                 onDelete(product.id);
               }
             }}

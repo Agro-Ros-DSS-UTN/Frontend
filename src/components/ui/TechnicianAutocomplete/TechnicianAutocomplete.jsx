@@ -12,14 +12,14 @@ const toList = (res) => {
 // (decisión del modelo v2). Se cargan en Empleados.
 async function loadPeople() {
   try {
-    const tecnicos = await employeesApi.getTechnicians();
-    return tecnicos
-      .filter((e) => e.nombreApellido)
+    const technicians = await employeesApi.getTechnicians();
+    return technicians
+      .filter((e) => e.fullName)
       .map((e) => ({
         key: `emp-${e.id}`,
-        value: e.nombreApellido,
-        nombre: e.nombreApellido,
-        detalle: ['Técnico', e.matricula && `Mat. ${e.matricula}`].filter(Boolean).join(' · '),
+        value: e.fullName,
+        name: e.fullName,
+        details: ['Técnico', e.licenseNumber && `Mat. ${e.licenseNumber}`].filter(Boolean).join(' · '),
       }));
   } catch (err) {
     console.warn('No se pudo cargar el listado de técnicos:', err?.message);
@@ -30,7 +30,7 @@ async function loadPeople() {
 // onChange(texto) — permite elegir de la lista o escribir un nombre libre.
 export const TechnicianAutocomplete = ({
   label = 'Técnico aplicador',
-  name = 'tecnicoAplicador',
+  name = 'technicianName',
   value,
   onChange,
   placeholder = 'Buscá entre los técnicos cargados en Empleados…',
@@ -64,7 +64,7 @@ export const TechnicianAutocomplete = ({
   const matches = useMemo(() => {
     if (!query) return people.slice(0, 8);
     return people
-      .filter((p) => p.value.toLowerCase().includes(query) || p.detalle.toLowerCase().includes(query))
+      .filter((p) => p.value.toLowerCase().includes(query) || p.details.toLowerCase().includes(query))
       .slice(0, 8);
   }, [people, query]);
 
@@ -134,8 +134,8 @@ export const TechnicianAutocomplete = ({
                   <HardHat size={14} />
                 </span>
                 <span className="company-ac__item-info">
-                  <strong>{p.nombre}</strong>
-                  <span>{p.detalle}</span>
+                  <strong>{p.name}</strong>
+                  <span>{p.details}</span>
                 </span>
               </button>
             ))

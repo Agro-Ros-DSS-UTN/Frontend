@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
-import { LocalidadSelect } from '../../../components/ui/LocalidadSelect/LocalidadSelect';
+import { LocalitySelect } from '../../../components/ui/LocalitySelect/LocalitySelect';
 import { useAuth } from '../../../context/AuthContext';
 import {
   Search,
@@ -35,7 +35,7 @@ import {
   Network,
   Loader2,
 } from 'lucide-react';
-import { notificar, mensajeDeError } from '../../../hooks/useNotificaciones';
+import { notify, errorMessage } from '../../../hooks/useNotifications';
 import {
   fetchClientCompanies,
   createClientCompany,
@@ -54,19 +54,19 @@ import { CompanyTreeModal } from '../../../components/companies/CompanyTreeModal
 import { CompanySummary } from '../../../components/companies/CompanySummary';
 import './CompaniesPage.css';
 
-const TIPO_EMPRESA_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
+const COMPANY_TYPE_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
 
 const COLUMNS = [
-  { key: 'nombreEmpresa',     label: 'Empresa',               sortable: true },
+  { key: 'companyName',     label: 'Empresa',               sortable: true },
   { key: 'cuit',              label: 'CUIT',                  sortable: true },
-  { key: 'tipoEmpresa',       label: 'Tipo',                  sortable: true },
-  { key: 'localidad',         label: 'Localidad',             sortable: true },
-  { key: 'direccionEmpresa',  label: 'Dirección',             sortable: true },
-  { key: 'contactoAsociado',  label: 'Contacto Asociado',     sortable: false },
-  { key: 'proveedorActual',   label: 'Proveedor Actual',      sortable: true },
-  { key: 'creadoPorNombre',   label: 'Propietario del Registro', sortable: false },
-  { key: 'fechaRegistro',     label: 'Registro',              sortable: true },
-  { key: 'superficieHa',      label: 'Superficie (Ha)',       sortable: true },
+  { key: 'companyType',       label: 'Tipo',                  sortable: true },
+  { key: 'locality',         label: 'Localidad',             sortable: true },
+  { key: 'companyAddress',  label: 'Dirección',             sortable: true },
+  { key: 'associatedContact',  label: 'Contacto Asociado',     sortable: false },
+  { key: 'currentSupplier',   label: 'Proveedor Actual',      sortable: true },
+  { key: 'createdByName',   label: 'Propietario del Registro', sortable: false },
+  { key: 'createdAt',     label: 'Registro',              sortable: true },
+  { key: 'areaHa',      label: 'Superficie (Ha)',       sortable: true },
 ];
 
 const PAGE_SIZE = 20;
@@ -86,7 +86,7 @@ export const CompaniesPage = () => {
   useEffect(() => {
     if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
   }, [location.state]);
-  const [sortBy, setSortBy] = useState('nombreEmpresa');
+  const [sortBy, setSortBy] = useState('companyName');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [deletingId, setDeletingId] = useState(null);
@@ -106,30 +106,30 @@ export const CompaniesPage = () => {
   const [contactDropdownOpen, setContactDropdownOpen] = useState(false);
   const contactSearchRef = useRef(null);
   const [newContact, setNewContact] = useState({
-    nombreApellido: '',
-    tipoClient: 'Encargado de Planta',
-    telefono: '',
-    direccionMail: '',
-    numDoc: '',
-    nota: '',
+    fullName: '',
+    clientType: 'Encargado de Planta',
+    phone: '',
+    email: '',
+    docNumber: '',
+    note: '',
   });
 
   // ── Empresa con regiones (Empresa Madre -> Regiones -> Subsedes) ──
-  const [esConRegiones, setEsConRegiones] = useState(false);
-  const [encargadoGeneral, setEncargadoGeneral] = useState('');
-  const emptyRegion = () => ({ nombre: '', encargado: '', sedePrincipal: '', subsedes: [] });
-  const emptySubsede = () => ({ nombre: '', encargado: '', direccion: '' });
-  const [regiones, setRegiones] = useState([]);
-  const [creandoJerarquia, setCreandoJerarquia] = useState(false);
+  const [hasRegions, setHasRegions] = useState(false);
+  const [generalManager, setGeneralManager] = useState('');
+  const emptyRegion = () => ({ name: '', manager: '', mainSite: '', branches: [] });
+  const emptyBranch = () => ({ name: '', manager: '', address: '' });
+  const [regions, setRegions] = useState([]);
+  const [creatingHierarchy, setCreatingHierarchy] = useState(false);
 
-  const addRegion = () => setRegiones((prev) => [...prev, emptyRegion()]);
-  const removeRegion = (idx) => setRegiones((prev) => prev.filter((_, i) => i !== idx));
-  const updateRegion = (idx, field, value) => setRegiones((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
-  const addSubsede = (regionIdx) => setRegiones((prev) => prev.map((r, i) => (i === regionIdx ? { ...r, subsedes: [...r.subsedes, emptySubsede()] } : r)));
-  const removeSubsede = (regionIdx, subIdx) => setRegiones((prev) => prev.map((r, i) => (i === regionIdx ? { ...r, subsedes: r.subsedes.filter((_, si) => si !== subIdx) } : r)));
-  const updateSubsede = (regionIdx, subIdx, field, value) => setRegiones((prev) => prev.map((r, i) => (i === regionIdx ? {
+  const addRegion = () => setRegions((prev) => [...prev, emptyRegion()]);
+  const removeRegion = (idx) => setRegions((prev) => prev.filter((_, i) => i !== idx));
+  const updateRegion = (idx, field, value) => setRegions((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+  const addBranch = (regionIdx) => setRegions((prev) => prev.map((r, i) => (i === regionIdx ? { ...r, branches: [...r.branches, emptyBranch()] } : r)));
+  const removeBranch = (regionIdx, subIdx) => setRegions((prev) => prev.map((r, i) => (i === regionIdx ? { ...r, branches: r.branches.filter((_, subIndex) => subIndex !== subIdx) } : r)));
+  const updateBranch = (regionIdx, subIdx, field, value) => setRegions((prev) => prev.map((r, i) => (i === regionIdx ? {
     ...r,
-    subsedes: r.subsedes.map((s, si) => (si === subIdx ? { ...s, [field]: value } : s)),
+    branches: r.branches.map((s, subIndex) => (subIndex === subIdx ? { ...s, [field]: value } : s)),
   } : r)));
 
   // Cerrar el dropdown de contactos al hacer clic fuera del buscador o presionar Escape
@@ -182,17 +182,17 @@ export const CompaniesPage = () => {
 
   // Form state matching backend payload: { nombreEmpresa, cuit, direccionEmpresa, tipoEmpresa, superficieHa, localityCodPostal }
   const emptyCompanyForm = {
-    nombreEmpresa: '',
+    companyName: '',
     cuit: '',
-    tipoEmpresa: 'Productor',
-    direccionEmpresa: '',
-    localidad: '',
-    localidadId: null,
-    localidadSel: null,
-    superficieHa: '',
-    proveedorActual: '',
-    descEmpresa: '',
-    creadoPorId: currentUser?.idUser || '',
+    companyType: 'Productor',
+    companyAddress: '',
+    locality: '',
+    localityId: null,
+    selectedLocality: null,
+    areaHa: '',
+    currentSupplier: '',
+    companyDescription: '',
+    createdById: currentUser?.idUser || '',
   };
   const [form, setForm] = useState(emptyCompanyForm);
 
@@ -202,29 +202,29 @@ export const CompaniesPage = () => {
     setIncludeContact(true);
     setContactMode('existing');
     setSelectedExistingContact(null);
-    setEsConRegiones(false);
-    setEncargadoGeneral('');
-    setRegiones([]);
+    setHasRegions(false);
+    setGeneralManager('');
+    setRegions([]);
     setShowModal(true);
   };
 
   const openEditModal = (company) => {
     setEditingCompany(company);
     setForm({
-      nombreEmpresa: company.razonSocial || company.nombreEmpresa || '',
+      companyName: company.legalName || company.companyName || '',
       cuit: company.cuit || '',
-      tipoEmpresa: company.tipoEmpresa || 'Productor',
-      direccionEmpresa: company.direccionEmpresa || '',
-      localidad: company.localidad || '',
-      localidadId: company.localidadId || null,
-      localidadSel: company.localidadDetalle ? { id: company.localidadDetalle.id, nombre: company.localidadDetalle.nombre, provincia: company.localidadDetalle.provincia } : null,
-      superficieHa: company.superficieHa || '',
-      proveedorActual: company.proveedorActual || '',
-      descEmpresa: company.descEmpresa || '',
-      creadoPorId: company.creadoPorId || '',
+      companyType: company.companyType || 'Productor',
+      companyAddress: company.companyAddress || '',
+      locality: company.locality || '',
+      localityId: company.localityId || null,
+      selectedLocality: company.localityDetails ? { id: company.localityDetails.id, name: company.localityDetails.name, province: company.localityDetails.province } : null,
+      areaHa: company.areaHa || '',
+      currentSupplier: company.currentSupplier || '',
+      companyDescription: company.companyDescription || '',
+      createdById: company.createdById || '',
     });
     setIncludeContact(false);
-    setEsConRegiones(false);
+    setHasRegions(false);
     setShowModal(true);
   };
 
@@ -235,14 +235,14 @@ export const CompaniesPage = () => {
     }
     const q = contactSearchQuery.toLowerCase().trim();
     return clients.filter(c =>
-      (c.nombreApellido && c.nombreApellido.toLowerCase().includes(q)) ||
-      (c.nombre && c.nombre.toLowerCase().includes(q)) ||
-      (c.apellido && c.apellido.toLowerCase().includes(q)) ||
-      (c.direccionMail && c.direccionMail.toLowerCase().includes(q)) ||
+      (c.fullName && c.fullName.toLowerCase().includes(q)) ||
+      (c.name && c.name.toLowerCase().includes(q)) ||
+      (c.surname && c.surname.toLowerCase().includes(q)) ||
       (c.email && c.email.toLowerCase().includes(q)) ||
-      (c.numDoc && c.numDoc.includes(q)) ||
-      (c.localidad && c.localidad.toLowerCase().includes(q)) ||
-      (c.tipoClient && c.tipoClient.toLowerCase().includes(q))
+      (c.email && c.email.toLowerCase().includes(q)) ||
+      (c.docNumber && c.docNumber.includes(q)) ||
+      (c.locality && c.locality.toLowerCase().includes(q)) ||
+      (c.clientType && c.clientType.toLowerCase().includes(q))
     );
   }, [clients, contactSearchQuery]);
 
@@ -260,16 +260,16 @@ export const CompaniesPage = () => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(c =>
-        c.nombreEmpresa.toLowerCase().includes(q) ||
+        c.companyName.toLowerCase().includes(q) ||
         c.cuit.includes(q) ||
-        (c.Locality?.nomLocalidad || c.localidad || '').toLowerCase().includes(q) ||
-        c.tipoEmpresa?.toLowerCase().includes(q) ||
-        (c.creadoPorNombre || '').toLowerCase().includes(q)
+        (c.Locality?.localityName || c.locality || '').toLowerCase().includes(q) ||
+        c.companyType?.toLowerCase().includes(q) ||
+        (c.createdByName || '').toLowerCase().includes(q)
       );
     }
 
     if (typeFilter) {
-      result = result.filter((c) => c.tipoEmpresa === typeFilter);
+      result = result.filter((c) => c.companyType === typeFilter);
     }
 
     result.sort((a, b) => {
@@ -350,156 +350,156 @@ export const CompaniesPage = () => {
     setContactSearchQuery('');
     setContactDropdownOpen(false);
     setNewContact({
-      nombreApellido: '',
-      tipoClient: 'Encargado de Planta',
-      telefono: '',
-      direccionMail: '',
-      numDoc: '',
-      nota: '',
+      fullName: '',
+      clientType: 'Encargado de Planta',
+      phone: '',
+      email: '',
+      docNumber: '',
+      note: '',
     });
-    setEsConRegiones(false);
-    setEncargadoGeneral('');
-    setRegiones([]);
+    setHasRegions(false);
+    setGeneralManager('');
+    setRegions([]);
   };
 
   // Crea la empresa madre + cada región + cada subsede en secuencia (cada
   // nodo del árbol es una empresa más, enlazada por `parentCompanyId`), con
   // el encargado de cada nivel como un Contacto vinculado vía `newContact`.
-  const handleCreateJerarquia = async () => {
-    if (!form.nombreEmpresa.trim()) {
-      notificar.advertencia('Falta el nombre', 'Ingresá el nombre de la empresa madre.');
+  const handleCreateHierarchy = async () => {
+    if (!form.companyName.trim()) {
+      notify.warning('Falta el nombre', 'Ingresá el nombre de la empresa madre.');
       return false;
     }
     if (!form.cuit.trim()) {
-      notificar.advertencia('Falta el CUIT', 'Ingresá el CUIT de la empresa madre (las regiones y subsedes usan el mismo).');
+      notify.warning('Falta el CUIT', 'Ingresá el CUIT de la empresa madre (las regiones y subsedes usan el mismo).');
       return false;
     }
-    setCreandoJerarquia(true);
+    setCreatingHierarchy(true);
     try {
-      const madreRes = await createClientCompany({
-        nombreEmpresa: form.nombreEmpresa,
+      const headOfficeRes = await createClientCompany({
+        companyName: form.companyName,
         cuit: form.cuit.trim(),
-        tipoEmpresa: form.tipoEmpresa,
-        direccionEmpresa: form.direccionEmpresa || undefined,
-        localidad: form.localidadId ? undefined : form.localidad,
-        localidadId: form.localidadId || undefined,
-        descEmpresa: form.descEmpresa,
-        creadoPorId: form.creadoPorId || currentUser?.idUser || null,
+        companyType: form.companyType,
+        companyAddress: form.companyAddress || undefined,
+        locality: form.localityId ? undefined : form.locality,
+        localityId: form.localityId || undefined,
+        companyDescription: form.companyDescription,
+        createdById: form.createdById || currentUser?.idUser || null,
         parentCompanyId: null,
-        nivelEmpresa: 'madre',
-        newContact: encargadoGeneral.trim() ? {
-          nombreApellido: encargadoGeneral.trim(),
-          tipoClient: 'Encargado Regional',
-          nota: `Encargado general de ${form.nombreEmpresa}`,
+        companyLevel: 'madre',
+        newContact: generalManager.trim() ? {
+          fullName: generalManager.trim(),
+          clientType: 'Encargado Regional',
+          note: `Encargado general de ${form.companyName}`,
         } : null,
       });
-      const madre = madreRes?.data;
-      if (!madre?.id) throw new Error('El servidor no confirmó el alta de la empresa madre.');
-      const madreCreador = users.find((u) => u.idUser === form.creadoPorId);
+      const headOffice = headOfficeRes?.data;
+      if (!headOffice?.id) throw new Error('El servidor no confirmó el alta de la empresa madre.');
+      const headOfficeCreator = users.find((u) => u.idUser === form.createdById);
 
-      for (const region of regiones) {
-        if (!region.nombre.trim()) continue;
+      for (const region of regions) {
+        if (!region.name.trim()) continue;
         const regionRes = await createClientCompany({
-          nombreEmpresa: region.nombre.trim(),
-          cuit: madre.cuit,
-          tipoEmpresa: form.tipoEmpresa,
-          direccionEmpresa: region.sedePrincipal || undefined,
-          localidad: form.localidadId ? undefined : form.localidad,
-          localidadId: form.localidadId || undefined,
-          creadoPorId: form.creadoPorId || currentUser?.idUser || null,
-          parentCompanyId: madre.id,
-          nivelEmpresa: 'region',
-          newContact: region.encargado.trim() ? {
-            nombreApellido: region.encargado.trim(),
-            tipoClient: 'Encargado Regional',
-            nota: `Encargado de la región ${region.nombre}`,
+          companyName: region.name.trim(),
+          cuit: headOffice.cuit,
+          companyType: form.companyType,
+          companyAddress: region.mainSite || undefined,
+          locality: form.localityId ? undefined : form.locality,
+          localityId: form.localityId || undefined,
+          createdById: form.createdById || currentUser?.idUser || null,
+          parentCompanyId: headOffice.id,
+          companyLevel: 'region',
+          newContact: region.manager.trim() ? {
+            fullName: region.manager.trim(),
+            clientType: 'Encargado Regional',
+            note: `Encargado de la región ${region.name}`,
           } : null,
         });
         const regionCompany = regionRes?.data;
-        if (!regionCompany?.id) throw new Error(`No se pudo crear la región ${region.nombre}.`);
+        if (!regionCompany?.id) throw new Error(`No se pudo crear la región ${region.name}.`);
 
-        for (const sub of region.subsedes) {
-          if (!sub.nombre.trim()) continue;
+        for (const sub of region.branches) {
+          if (!sub.name.trim()) continue;
           await createClientCompany({
-            nombreEmpresa: sub.nombre.trim(),
-            cuit: madre.cuit,
-            tipoEmpresa: form.tipoEmpresa,
-            direccionEmpresa: sub.direccion || region.sedePrincipal || undefined,
-            localidad: form.localidadId ? undefined : form.localidad,
-            localidadId: form.localidadId || undefined,
-            creadoPorId: form.creadoPorId || currentUser?.idUser || null,
+            companyName: sub.name.trim(),
+            cuit: headOffice.cuit,
+            companyType: form.companyType,
+            companyAddress: sub.address || region.mainSite || undefined,
+            locality: form.localityId ? undefined : form.locality,
+            localityId: form.localityId || undefined,
+            createdById: form.createdById || currentUser?.idUser || null,
             parentCompanyId: regionCompany.id,
-            nivelEmpresa: 'subsede',
-            newContact: sub.encargado.trim() ? {
-              nombreApellido: sub.encargado.trim(),
-              tipoClient: 'Encargado de Planta',
-              nota: `Encargado de la subsede ${sub.nombre}`,
+            companyLevel: 'subsede',
+            newContact: sub.manager.trim() ? {
+              fullName: sub.manager.trim(),
+              clientType: 'Encargado de Planta',
+              note: `Encargado de la subsede ${sub.name}`,
             } : null,
           });
         }
       }
 
-      setCompanies((prev) => [{ ...madre, creadoPorNombre: madreCreador?.nombreApellido || null }, ...prev]);
-      notificar.exito('Empresa registrada', `«${madre.razonSocial}» se dio de alta con sus regiones y subsedes.`);
+      setCompanies((prev) => [{ ...headOffice, createdByName: headOfficeCreator?.fullName || null }, ...prev]);
+      notify.success('Empresa registrada', `«${headOffice.legalName}» se dio de alta con sus regiones y subsedes.`);
       return true;
     } catch (err) {
       console.error('Error al crear la jerarquía de empresa:', err);
-      notificar.error(
+      notify.error(
         'No se pudo crear la estructura',
-        `${mensajeDeError(err, 'Revisá los datos y probá de nuevo.')} Puede que algunos niveles ya se hayan guardado.`
+        `${errorMessage(err, 'Revisá los datos y probá de nuevo.')} Puede que algunos niveles ya se hayan guardado.`
       );
       return false;
     } finally {
-      setCreandoJerarquia(false);
+      setCreatingHierarchy(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (esConRegiones && !editingCompany) {
-      const ok = await handleCreateJerarquia();
+    if (hasRegions && !editingCompany) {
+      const ok = await handleCreateHierarchy();
       if (ok) resetCompanyModalState();
       return;
     }
 
-    if (includeContact && contactMode === 'new' && !newContact.nombreApellido.trim()) {
-      notificar.advertencia('Falta el contacto', 'Ingresá el nombre y apellido del nuevo contacto.');
+    if (includeContact && contactMode === 'new' && !newContact.fullName.trim()) {
+      notify.warning('Falta el contacto', 'Ingresá el nombre y apellido del nuevo contacto.');
       return;
     }
-    if (!form.nombreEmpresa.trim() || !form.cuit.trim()) {
-      notificar.advertencia('Faltan datos', 'La razón social y el CUIT son obligatorios.');
+    if (!form.companyName.trim() || !form.cuit.trim()) {
+      notify.warning('Faltan datos', 'La razón social y el CUIT son obligatorios.');
       return;
     }
 
     // ── Modo edición: actualiza la empresa existente ──
     if (editingCompany) {
       const updatePayload = {
-        nombreEmpresa: form.nombreEmpresa,
+        companyName: form.companyName,
         cuit: form.cuit,
-        tipoEmpresa: form.tipoEmpresa,
-        direccionEmpresa: form.direccionEmpresa,
-        localidad: form.localidadId ? undefined : form.localidad,
-        localidadId: form.localidadId || undefined,
-        superficieHa: form.superficieHa === '' ? null : Number(form.superficieHa),
-        proveedorActual: form.proveedorActual,
-        descEmpresa: form.descEmpresa,
-        creadoPorId: form.creadoPorId || null,
+        companyType: form.companyType,
+        companyAddress: form.companyAddress,
+        locality: form.localityId ? undefined : form.locality,
+        localityId: form.localityId || undefined,
+        areaHa: form.areaHa === '' ? null : Number(form.areaHa),
+        currentSupplier: form.currentSupplier,
+        companyDescription: form.companyDescription,
+        createdById: form.createdById || null,
       };
       try {
         const response = await updateClientCompany(editingCompany.id, updatePayload);
         const updatedCompany = response?.data || response;
-        const creador = users.find((u) => u.idUser === form.creadoPorId);
+        const creator = users.find((u) => u.idUser === form.createdById);
         setCompanies((prev) => prev.map((c) => (c.id === editingCompany.id ? {
           ...c,
           ...updatePayload,
           ...updatedCompany,
-          creadoPorNombre: creador?.nombreApellido || c.creadoPorNombre || null,
+          createdByName: creator?.fullName || c.createdByName || null,
         } : c)));
-        notificar.exito('Cambios guardados', `Se actualizó «${form.nombreEmpresa}».`);
+        notify.success('Cambios guardados', `Se actualizó «${form.companyName}».`);
       } catch (err) {
         console.error('Error al editar empresa:', err);
-        notificar.error('No se pudieron guardar los cambios', err);
+        notify.error('No se pudieron guardar los cambios', err);
         return;
       }
       resetCompanyModalState();
@@ -508,24 +508,24 @@ export const CompaniesPage = () => {
 
     // ── Modo alta: crea una empresa nueva ──
     const newCompPayload = {
-      nombreEmpresa: form.nombreEmpresa,
+      companyName: form.companyName,
       cuit: form.cuit.trim(),
-      tipoEmpresa: form.tipoEmpresa,
-      direccionEmpresa: form.direccionEmpresa || undefined,
-      localidad: form.localidadId ? undefined : form.localidad,
-      localidadId: form.localidadId || undefined,
-      superficieHa: form.superficieHa === '' ? null : Number(form.superficieHa),
-      proveedorActual: form.proveedorActual,
-      descEmpresa: form.descEmpresa,
-      creadoPorId: form.creadoPorId || currentUser?.idUser || null,
-      contactoExistenteId: (includeContact && contactMode === 'existing' && selectedExistingContact) ? selectedExistingContact.id : null,
-      newContact: (includeContact && contactMode === 'new' && newContact.nombreApellido.trim()) ? {
-        nombreApellido: newContact.nombreApellido.trim(),
-        tipoClient: newContact.tipoClient || 'Encargado de Planta',
-        telefono: newContact.telefono ? newContact.telefono.trim() : '',
-        direccionMail: newContact.direccionMail ? newContact.direccionMail.trim() : '',
-        numDoc: newContact.numDoc ? newContact.numDoc.trim() : undefined,
-        nota: newContact.nota || ('Contacto referente de ' + form.nombreEmpresa),
+      companyType: form.companyType,
+      companyAddress: form.companyAddress || undefined,
+      locality: form.localityId ? undefined : form.locality,
+      localityId: form.localityId || undefined,
+      areaHa: form.areaHa === '' ? null : Number(form.areaHa),
+      currentSupplier: form.currentSupplier,
+      companyDescription: form.companyDescription,
+      createdById: form.createdById || currentUser?.idUser || null,
+      existingContactId: (includeContact && contactMode === 'existing' && selectedExistingContact) ? selectedExistingContact.id : null,
+      newContact: (includeContact && contactMode === 'new' && newContact.fullName.trim()) ? {
+        fullName: newContact.fullName.trim(),
+        clientType: newContact.clientType || 'Encargado de Planta',
+        phone: newContact.phone ? newContact.phone.trim() : '',
+        email: newContact.email ? newContact.email.trim() : '',
+        docNumber: newContact.docNumber ? newContact.docNumber.trim() : undefined,
+        note: newContact.note || ('Contacto referente de ' + form.companyName),
       } : null,
     };
 
@@ -534,9 +534,9 @@ export const CompaniesPage = () => {
       const createdCompany = response?.data;
       if (!createdCompany?.id) throw new Error('El servidor no confirmó el alta de la empresa.');
       const companyId = createdCompany.id;
-      const creador = users.find((u) => u.idUser === newCompPayload.creadoPorId);
+      const creator = users.find((u) => u.idUser === newCompPayload.createdById);
 
-      setCompanies(prev => [{ ...createdCompany, creadoPorNombre: creador?.nombreApellido || null }, ...prev]);
+      setCompanies(prev => [{ ...createdCompany, createdByName: creator?.fullName || null }, ...prev]);
 
       if (includeContact && contactMode === 'existing' && selectedExistingContact) {
         setClients(prevClients => prevClients.map(cl => {
@@ -544,19 +544,19 @@ export const CompaniesPage = () => {
             return {
               ...cl,
               clientCompanyId: companyId,
-              empresa: createdCompany.razonSocial,
+              company: createdCompany.legalName,
             };
           }
           return cl;
         }));
-      } else if (includeContact && contactMode === 'new' && newContact.nombreApellido.trim()) {
+      } else if (includeContact && contactMode === 'new' && newContact.fullName.trim()) {
         const createdContact = response?.contact;
         if (createdContact) setClients(prevClients => [createdContact, ...prevClients]);
       }
-      notificar.exito('Empresa registrada', `«${createdCompany.razonSocial}» se dio de alta.`);
+      notify.success('Empresa registrada', `«${createdCompany.legalName}» se dio de alta.`);
     } catch (err) {
       console.error('Error al registrar empresa:', err);
-      notificar.error('No se pudo registrar la empresa', err);
+      notify.error('No se pudo registrar la empresa', err);
       return;
     }
 
@@ -566,24 +566,24 @@ export const CompaniesPage = () => {
   const handleDeleteCompany = async (company) => {
     if (deletingId) return;
     // Baja lógica: la empresa deja de verse pero su historial (contactos, oportunidades, órdenes) se conserva.
-    const contactos = 0;
-    const regionales = companies.filter((c) => c.parentCompanyId === company.id).length;
-    const consecuencias = [
-      contactos && `${contactos} contacto${contactos === 1 ? '' : 's'} vinculado${contactos === 1 ? '' : 's'} (se borran también)`,
-      regionales && `${regionales} regional${regionales === 1 ? '' : 'es'}/subsede${regionales === 1 ? '' : 's'} que quedarán sin empresa principal`,
+    const contacts = 0;
+    const regional = companies.filter((c) => c.parentCompanyId === company.id).length;
+    const consequences = [
+      contacts && `${contacts} contacto${contacts === 1 ? '' : 's'} vinculado${contacts === 1 ? '' : 's'} (se borran también)`,
+      regional && `${regional} regional${regional === 1 ? '' : 'es'}/subsede${regional === 1 ? '' : 's'} que quedarán sin empresa principal`,
     ].filter(Boolean);
-    const aviso = consecuencias.length ? `\n\nAtención, tiene:\n• ${consecuencias.join('\n• ')}` : '';
-    if (!window.confirm(`¿Dar de baja la empresa "${company.nombreEmpresa}"? Deja de aparecer en las listas, pero su historial se conserva y la administración puede restaurarla.${aviso}`)) return;
+    const notice = consequences.length ? `\n\nAtención, tiene:\n• ${consequences.join('\n• ')}` : '';
+    if (!window.confirm(`¿Dar de baja la empresa "${company.companyName}"? Deja de aparecer en las listas, pero su historial se conserva y la administración puede restaurarla.${notice}`)) return;
 
     setDeletingId(company.id);
     try {
-      await notificar.operacion(deleteClientCompany(company.id), {
-        cargando: `Dando de baja «${company.nombreEmpresa}»…`,
-        exito: 'Empresa dada de baja',
+      await notify.operation(deleteClientCompany(company.id), {
+        loading: `Dando de baja «${company.companyName}»…`,
+        success: 'Empresa dada de baja',
         error: 'No se pudo dar de baja la empresa',
       });
       setCompanies((prev) => prev.filter((c) => c.id !== company.id));
-      if (contactos) setClients((prev) => prev.filter((cl) => cl.clientCompanyId !== company.id));
+      if (contacts) setClients((prev) => prev.filter((cl) => cl.clientCompanyId !== company.id));
       setSelectedRows((prev) => prev.filter((id) => id !== company.id));
     } catch (err) {
       console.error('Error al eliminar empresa:', err);
@@ -594,13 +594,13 @@ export const CompaniesPage = () => {
 
   const handleExportCompanies = () => {
     const headers = [
-      { key: 'nombreEmpresa', label: 'Empresa / Razón Social' },
+      { key: 'companyName', label: 'Empresa / Razón Social' },
       { key: 'cuit', label: 'CUIT' },
-      { key: 'tipoEmpresa', label: 'Tipo de Empresa' },
-      { key: 'superficieHa', label: 'Superficie (ha)' },
-      { key: 'proveedorActual', label: 'Proveedor Actual' },
-      { key: 'localidad', label: 'Localidad' },
-      { key: 'direccionEmpresa', label: 'Dirección' },
+      { key: 'companyType', label: 'Tipo de Empresa' },
+      { key: 'areaHa', label: 'Superficie (ha)' },
+      { key: 'currentSupplier', label: 'Proveedor Actual' },
+      { key: 'locality', label: 'Localidad' },
+      { key: 'companyAddress', label: 'Dirección' },
     ];
 
     const csvRows = [];
@@ -631,7 +631,7 @@ export const CompaniesPage = () => {
     if (!selectedCompanyForDetail) return [];
     return clients.filter(c =>
       c.clientCompanyId === selectedCompanyForDetail.id ||
-      c.empresa?.toLowerCase() === selectedCompanyForDetail.nombreEmpresa?.toLowerCase()
+      c.company?.toLowerCase() === selectedCompanyForDetail.companyName?.toLowerCase()
     );
   }, [clients, selectedCompanyForDetail]);
 
@@ -639,15 +639,15 @@ export const CompaniesPage = () => {
     if (!selectedCompanyForDetail) return [];
     return opportunities.filter(o =>
       o.clientCompanyId === selectedCompanyForDetail.id ||
-      o.empresa?.toLowerCase() === selectedCompanyForDetail.nombreEmpresa?.toLowerCase()
+      o.company?.toLowerCase() === selectedCompanyForDetail.companyName?.toLowerCase()
     );
   }, [opportunities, selectedCompanyForDetail]);
 
   const relatedActivities = useMemo(() => {
     if (!selectedCompanyForDetail) return [];
     return activities.filter(a =>
-      a.empresaId === selectedCompanyForDetail.id ||
-      a.empresa?.toLowerCase() === selectedCompanyForDetail.nombreEmpresa?.toLowerCase()
+      a.companyId === selectedCompanyForDetail.id ||
+      a.company?.toLowerCase() === selectedCompanyForDetail.companyName?.toLowerCase()
     );
   }, [activities, selectedCompanyForDetail]);
 
@@ -697,10 +697,10 @@ export const CompaniesPage = () => {
             onChange={(t) => { setTypeFilter(t); setCurrentPage(1); }}
             items={[
               { value: '', label: 'Todas las empresas', count: topLevelCompanies.length },
-              ...TIPO_EMPRESA_OPTIONS.map((type) => ({
+              ...COMPANY_TYPE_OPTIONS.map((type) => ({
                 value: type,
                 label: type,
-                count: topLevelCompanies.filter((c) => c.tipoEmpresa === type).length,
+                count: topLevelCompanies.filter((c) => c.companyType === type).length,
               })),
             ]}
           />
@@ -781,51 +781,51 @@ export const CompaniesPage = () => {
                               onClick={() => setSelectedCompanyForDetail(company)}
                               title="Ver resumen de la empresa"
                             >
-                              {company.nombreEmpresa}
+                              {company.companyName}
                             </button>
-                            {company.nivelEmpresa === 'madre' && (
+                            {company.companyLevel === 'madre' && (
                               <span className="company-tree__madre-label" title="Empresa con regiones y subsedes">(Regional)</span>
                             )}
                           </div>
-                          {company.descEmpresa && (
-                            <span className="companies-table__desc">{company.descEmpresa}</span>
+                          {company.companyDescription && (
+                            <span className="companies-table__desc">{company.companyDescription}</span>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="companies-table__cuit">{company.cuit}</td>
                     <td>
-                      <span className={`companies-table__badge companies-table__badge--${(company.tipoEmpresa || 'productor').toLowerCase()}`}>
-                        {company.tipoEmpresa}
+                      <span className={`companies-table__badge companies-table__badge--${(company.companyType || 'productor').toLowerCase()}`}>
+                        {company.companyType}
                       </span>
                     </td>
-                    <td>{company.Locality?.nomLocalidad || company.localidad || '-'}</td>
-                    <td className="companies-table__address">{company.direccionEmpresa || '-'}</td>
+                    <td>{company.Locality?.localityName || company.locality || '-'}</td>
+                    <td className="companies-table__address">{company.companyAddress || '-'}</td>
                     <td>
                       {companyContactMap.get(company.id)
-                        ? companyContactMap.get(company.id).nombreApellido
+                        ? companyContactMap.get(company.id).fullName
                         : <span className="companies-table__provider">Sin contacto asociado</span>}
                     </td>
                     <td>
                       <span className="companies-table__provider">
-                        {company.proveedorActual || 'Sin especificar'}
+                        {company.currentSupplier || 'Sin especificar'}
                       </span>
                     </td>
                     <td>
-                      {company.creadoPorNombre ? (
-                        <span className="companies-table__owner">{company.creadoPorNombre}</span>
+                      {company.createdByName ? (
+                        <span className="companies-table__owner">{company.createdByName}</span>
                       ) : (
                         <span className="companies-table__provider">Sin especificar</span>
                       )}
                     </td>
-                    <td className="companies-table__date">{formatDate(company.fechaRegistro)}</td>
+                    <td className="companies-table__date">{formatDate(company.createdAt)}</td>
                     <td className="companies-table__surface">
-                      {company.superficieHa ? <Ruler size={13} className="inline-icon" /> : null}
-                      {formatSurface(company.superficieHa)}
+                      {company.areaHa ? <Ruler size={13} className="inline-icon" /> : null}
+                      {formatSurface(company.areaHa)}
                     </td>
                     <td className="companies-table__actions-col" onClick={e => e.stopPropagation()}>
                       <div className="companies-table__actions">
-                        {company.nivelEmpresa === 'madre' && (
+                        {company.companyLevel === 'madre' && (
                           <button
                             className="companies-table__action-btn"
                             title="Inspeccionar regiones y subsedes"
@@ -913,8 +913,8 @@ export const CompaniesPage = () => {
                   type="text"
                   className="comp-input"
                   placeholder="Ej: Campo Grande S.R.L."
-                  value={form.nombreEmpresa}
-                  onChange={(e) => setForm(prev => ({ ...prev, nombreEmpresa: e.target.value }))}
+                  value={form.companyName}
+                  onChange={(e) => setForm(prev => ({ ...prev, companyName: e.target.value }))}
                   required
                 />
               </div>
@@ -937,8 +937,8 @@ export const CompaniesPage = () => {
                 <label>Tipo de Empresa</label>
                 <select
                   className="comp-select"
-                  value={form.tipoEmpresa}
-                  onChange={(e) => setForm(prev => ({ ...prev, tipoEmpresa: e.target.value }))}
+                  value={form.companyType}
+                  onChange={(e) => setForm(prev => ({ ...prev, companyType: e.target.value }))}
                 >
                   <option value="Productor">Productor</option>
                   <option value="Distribuidor">Distribuidor</option>
@@ -952,13 +952,13 @@ export const CompaniesPage = () => {
                 <label><UserCheck size={14} /> Propietario del Registro</label>
                 <select
                   className="comp-select"
-                  value={form.creadoPorId}
-                  onChange={(e) => setForm(prev => ({ ...prev, creadoPorId: e.target.value }))}
+                  value={form.createdById}
+                  onChange={(e) => setForm(prev => ({ ...prev, createdById: e.target.value }))}
                 >
                   <option value="">Sin especificar</option>
                   {users.map((u) => (
                     <option key={u.idUser} value={u.idUser}>
-                      {u.nombreApellido || u.idUser} ({(u.role || '').toLowerCase() === 'admin' ? 'Administrador' : 'Vendedor'})
+                      {u.fullName || u.idUser} ({(u.role || '').toLowerCase() === 'admin' ? 'Administrador' : 'Vendedor'})
                     </option>
                   ))}
                 </select>
@@ -972,14 +972,14 @@ export const CompaniesPage = () => {
                     type="text"
                     className="comp-input"
                     placeholder="-"
-                    value={form.direccionEmpresa}
-                    onChange={(e) => setForm(prev => ({ ...prev, direccionEmpresa: e.target.value }))}
+                    value={form.companyAddress}
+                    onChange={(e) => setForm(prev => ({ ...prev, companyAddress: e.target.value }))}
                   />
                 </div>
                 <div className="comp-field" style={{ flex: 1 }}>
-                  <LocalidadSelect
-                    value={form.localidadSel}
-                    onChange={(l) => setForm(prev => ({ ...prev, localidadSel: l, localidadId: l?.id || null, localidad: l?.nombre || '' }))}
+                  <LocalitySelect
+                    value={form.selectedLocality}
+                    onChange={(l) => setForm(prev => ({ ...prev, selectedLocality: l, localityId: l?.id || null, locality: l?.name || '' }))}
                   />
                 </div>
               </div>
@@ -992,8 +992,8 @@ export const CompaniesPage = () => {
                     type="number"
                     className="comp-input"
                     placeholder="-"
-                    value={form.superficieHa}
-                    onChange={(e) => setForm(prev => ({ ...prev, superficieHa: e.target.value }))}
+                    value={form.areaHa}
+                    onChange={(e) => setForm(prev => ({ ...prev, areaHa: e.target.value }))}
                   />
                 </div>
                 <div className="comp-field" style={{ flex: 1 }}>
@@ -1002,8 +1002,8 @@ export const CompaniesPage = () => {
                     type="text"
                     className="comp-input"
                     placeholder="-"
-                    value={form.proveedorActual}
-                    onChange={(e) => setForm(prev => ({ ...prev, proveedorActual: e.target.value }))}
+                    value={form.currentSupplier}
+                    onChange={(e) => setForm(prev => ({ ...prev, currentSupplier: e.target.value }))}
                   />
                 </div>
               </div>
@@ -1015,8 +1015,8 @@ export const CompaniesPage = () => {
                   className="comp-textarea"
                   rows={3}
                   placeholder="Información adicional sobre la empresa o tipo de explotación..."
-                  value={form.descEmpresa}
-                  onChange={(e) => setForm(prev => ({ ...prev, descEmpresa: e.target.value }))}
+                  value={form.companyDescription}
+                  onChange={(e) => setForm(prev => ({ ...prev, companyDescription: e.target.value }))}
                 />
               </div>
 
@@ -1025,16 +1025,16 @@ export const CompaniesPage = () => {
                 <div className="comp-contact-section">
                   <div className="comp-contact-section__header">
                     <FlipCheckbox
-                      id="esConRegiones"
-                      checked={esConRegiones}
-                      onChange={(e) => setEsConRegiones(e.target.checked)}
+                      id="hasRegions"
+                      checked={hasRegions}
+                      onChange={(e) => setHasRegions(e.target.checked)}
                     />
-                    <label htmlFor="esConRegiones" className="comp-checkbox-label-content">
+                    <label htmlFor="hasRegions" className="comp-checkbox-label-content">
                       <span className="comp-checkbox-title">¿Es una empresa con regiones?</span>
                     </label>
                   </div>
 
-                  {esConRegiones && (
+                  {hasRegions && (
                     <div className="company-hierarchy-form">
                       <div className="comp-field">
                         <label><User size={14} /> Encargado General de la Empresa</label>
@@ -1042,13 +1042,13 @@ export const CompaniesPage = () => {
                           type="text"
                           className="comp-input"
                           placeholder="Ej: Ing. Roberto Sánchez"
-                          value={encargadoGeneral}
-                          onChange={(e) => setEncargadoGeneral(e.target.value)}
+                          value={generalManager}
+                          onChange={(e) => setGeneralManager(e.target.value)}
                         />
                       </div>
 
                       <div className="company-hierarchy-form__regions">
-                        {regiones.map((region, rIdx) => (
+                        {regions.map((region, rIdx) => (
                           <div key={rIdx} className="company-hierarchy-form__region-block">
                             <div className="company-hierarchy-form__region-header">
                               <span>Región #{rIdx + 1}</span>
@@ -1059,38 +1059,38 @@ export const CompaniesPage = () => {
                             <div className="comp-field-row">
                               <div className="comp-field" style={{ flex: 1 }}>
                                 <label>Nombre de la Región *</label>
-                                <input type="text" className="comp-input" placeholder="Ej: Regional 1" value={region.nombre} onChange={(e) => updateRegion(rIdx, 'nombre', e.target.value)} />
+                                <input type="text" className="comp-input" placeholder="Ej: Regional 1" value={region.name} onChange={(e) => updateRegion(rIdx, 'name', e.target.value)} />
                               </div>
                               <div className="comp-field" style={{ flex: 1 }}>
                                 <label>Encargado Regional</label>
-                                <input type="text" className="comp-input" placeholder="Nombre y apellido" value={region.encargado} onChange={(e) => updateRegion(rIdx, 'encargado', e.target.value)} />
+                                <input type="text" className="comp-input" placeholder="Nombre y apellido" value={region.manager} onChange={(e) => updateRegion(rIdx, 'manager', e.target.value)} />
                               </div>
                             </div>
                             <div className="comp-field">
                               <label><MapPin size={14} /> Sede Principal de la Región</label>
-                              <input type="text" className="comp-input" placeholder="Dirección de la sede regional" value={region.sedePrincipal} onChange={(e) => updateRegion(rIdx, 'sedePrincipal', e.target.value)} />
+                              <input type="text" className="comp-input" placeholder="Dirección de la sede regional" value={region.mainSite} onChange={(e) => updateRegion(rIdx, 'mainSite', e.target.value)} />
                             </div>
 
                             <div className="company-hierarchy-form__subsedes">
-                              {region.subsedes.map((sub, sIdx) => (
+                              {region.branches.map((sub, sIdx) => (
                                 <div key={sIdx} className="company-hierarchy-form__subsede-block">
                                   <div className="comp-field-row">
                                     <div className="comp-field" style={{ flex: 1 }}>
                                       <label>Subsede #{sIdx + 1}</label>
-                                      <input type="text" className="comp-input" placeholder="Ej: Sub Centro A" value={sub.nombre} onChange={(e) => updateSubsede(rIdx, sIdx, 'nombre', e.target.value)} />
+                                      <input type="text" className="comp-input" placeholder="Ej: Sub Centro A" value={sub.name} onChange={(e) => updateBranch(rIdx, sIdx, 'name', e.target.value)} />
                                     </div>
                                     <div className="comp-field" style={{ flex: 1 }}>
                                       <label>Encargado de Planta</label>
-                                      <input type="text" className="comp-input" placeholder="Nombre y apellido" value={sub.encargado} onChange={(e) => updateSubsede(rIdx, sIdx, 'encargado', e.target.value)} />
+                                      <input type="text" className="comp-input" placeholder="Nombre y apellido" value={sub.manager} onChange={(e) => updateBranch(rIdx, sIdx, 'manager', e.target.value)} />
                                     </div>
-                                    <button type="button" className="company-hierarchy-form__remove-sub" onClick={() => removeSubsede(rIdx, sIdx)} title="Quitar subsede">
+                                    <button type="button" className="company-hierarchy-form__remove-sub" onClick={() => removeBranch(rIdx, sIdx)} title="Quitar subsede">
                                       <X size={13} />
                                     </button>
                                   </div>
-                                  <input type="text" className="comp-input" placeholder="Dirección de la subsede (opcional)" value={sub.direccion} onChange={(e) => updateSubsede(rIdx, sIdx, 'direccion', e.target.value)} />
+                                  <input type="text" className="comp-input" placeholder="Dirección de la subsede (opcional)" value={sub.address} onChange={(e) => updateBranch(rIdx, sIdx, 'address', e.target.value)} />
                                 </div>
                               ))}
-                              <button type="button" className="company-hierarchy-form__add-sub" onClick={() => addSubsede(rIdx)}>
+                              <button type="button" className="company-hierarchy-form__add-sub" onClick={() => addBranch(rIdx)}>
                                 <Plus size={13} /> Agregar Subsede
                               </button>
                             </div>
@@ -1107,7 +1107,7 @@ export const CompaniesPage = () => {
 
               {/* Botones */}
               {/* ── Sección: Contacto Referente / Encargado de la Empresa (solo al crear, y no para empresas con regiones) ── */}
-              {!editingCompany && !esConRegiones && (
+              {!editingCompany && !hasRegions && (
               <div className="comp-contact-section">
                 <div className="comp-contact-section__header">
                   <FlipCheckbox
@@ -1225,17 +1225,17 @@ export const CompaniesPage = () => {
                                         }}
                                       >
                                         <div className="comp-contact-item-avatar">
-                                          {(c.nombreApellido || c.nombre || 'C').charAt(0).toUpperCase()}
+                                          {(c.fullName || c.name || 'C').charAt(0).toUpperCase()}
                                         </div>
                                         <div className="comp-contact-item-info">
                                           <div className="comp-contact-item-name">
-                                            <strong>{c.nombreApellido || (c.nombre || '') + ' ' + (c.apellido || '')}</strong>
-                                            <span className="comp-contact-item-role">{c.tipoClient || 'Contacto'}</span>
+                                            <strong>{c.fullName || (c.name || '') + ' ' + (c.surname || '')}</strong>
+                                            <span className="comp-contact-item-role">{c.clientType || 'Contacto'}</span>
                                           </div>
                                           <div className="comp-contact-item-meta">
-                                            {c.direccionMail && <span>{c.direccionMail}</span>}
-                                            {c.telefonos && <span> • {Array.isArray(c.telefonos) ? c.telefonos[0] : c.telefonos}</span>}
-                                            {(c.localidad || c.codigoPostal) && <span> • {c.localidad || c.codigoPostal}</span>}
+                                            {c.email && <span>{c.email}</span>}
+                                            {c.phones && <span> • {Array.isArray(c.phones) ? c.phones[0] : c.phones}</span>}
+                                            {(c.locality || c.postalCode) && <span> • {c.locality || c.postalCode}</span>}
                                           </div>
                                         </div>
                                       </div>
@@ -1247,7 +1247,7 @@ export const CompaniesPage = () => {
                                         type="button"
                                         className="comp-contact-quick-new-btn"
                                         onClick={() => {
-                                          setNewContact(prev => ({ ...prev, nombreApellido: contactSearchQuery }));
+                                          setNewContact(prev => ({ ...prev, fullName: contactSearchQuery }));
                                           setContactMode('new');
                                           setContactDropdownOpen(false);
                                         }}
@@ -1267,21 +1267,21 @@ export const CompaniesPage = () => {
                             <div className="comp-selected-contact-left">
                               <div className="comp-selected-avatar">
                                 <CheckCircle2 size={16} className="comp-selected-check" />
-                                <span>{(selectedExistingContact.nombreApellido || 'C').charAt(0).toUpperCase()}</span>
+                                <span>{(selectedExistingContact.fullName || 'C').charAt(0).toUpperCase()}</span>
                               </div>
                               <div className="comp-selected-info">
                                 <span className="comp-selected-tag">CONTACTO ASOCIADO</span>
-                                <strong className="comp-selected-name">{selectedExistingContact.nombreApellido}</strong>
+                                <strong className="comp-selected-name">{selectedExistingContact.fullName}</strong>
                                 <div className="comp-selected-sub">
-                                  <span className="comp-badge-role">{selectedExistingContact.tipoClient || 'Contacto'}</span>
-                                  {selectedExistingContact.direccionMail && (
+                                  <span className="comp-badge-role">{selectedExistingContact.clientType || 'Contacto'}</span>
+                                  {selectedExistingContact.email && (
                                     <span className="comp-selected-mail">
-                                      <Mail size={11} /> {selectedExistingContact.direccionMail}
+                                      <Mail size={11} /> {selectedExistingContact.email}
                                     </span>
                                   )}
-                                  {selectedExistingContact.telefonos && (
+                                  {selectedExistingContact.phones && (
                                     <span className="comp-selected-phone">
-                                      <Phone size={11} /> {Array.isArray(selectedExistingContact.telefonos) ? selectedExistingContact.telefonos[0] : selectedExistingContact.telefonos}
+                                      <Phone size={11} /> {Array.isArray(selectedExistingContact.phones) ? selectedExistingContact.phones[0] : selectedExistingContact.phones}
                                     </span>
                                   )}
                                 </div>
@@ -1313,8 +1313,8 @@ export const CompaniesPage = () => {
                             type="text"
                             className="comp-input"
                             placeholder="Ej: Ing. Carlos Mendoza"
-                            value={newContact.nombreApellido}
-                            onChange={(e) => setNewContact(prev => ({ ...prev, nombreApellido: e.target.value }))}
+                            value={newContact.fullName}
+                            onChange={(e) => setNewContact(prev => ({ ...prev, fullName: e.target.value }))}
                             required={includeContact && contactMode === 'new'}
                           />
                         </div>
@@ -1324,8 +1324,8 @@ export const CompaniesPage = () => {
                             <label><Briefcase size={14} /> Rol / Puesto</label>
                             <select
                               className="comp-select"
-                              value={newContact.tipoClient}
-                              onChange={(e) => setNewContact(prev => ({ ...prev, tipoClient: e.target.value }))}
+                              value={newContact.clientType}
+                              onChange={(e) => setNewContact(prev => ({ ...prev, clientType: e.target.value }))}
                             >
                               <option value="Encargado Regional">Encargado Regional</option>
                               <option value="Encargado de Planta">Encargado de Planta</option>
@@ -1342,8 +1342,8 @@ export const CompaniesPage = () => {
                               type="text"
                               className="comp-input"
                               placeholder="+54 341 555-0123"
-                              value={newContact.telefono}
-                              onChange={(e) => setNewContact(prev => ({ ...prev, telefono: e.target.value }))}
+                              value={newContact.phone}
+                              onChange={(e) => setNewContact(prev => ({ ...prev, phone: e.target.value }))}
                             />
                           </div>
                         </div>
@@ -1355,8 +1355,8 @@ export const CompaniesPage = () => {
                               type="email"
                               className="comp-input"
                               placeholder="contacto@empresa.com"
-                              value={newContact.direccionMail}
-                              onChange={(e) => setNewContact(prev => ({ ...prev, direccionMail: e.target.value }))}
+                              value={newContact.email}
+                              onChange={(e) => setNewContact(prev => ({ ...prev, email: e.target.value }))}
                             />
                           </div>
                           <div className="comp-field" style={{ flex: 1 }}>
@@ -1365,8 +1365,8 @@ export const CompaniesPage = () => {
                               type="text"
                               className="comp-input"
                               placeholder="20-35441223-4"
-                              value={newContact.numDoc}
-                              onChange={(e) => setNewContact(prev => ({ ...prev, numDoc: e.target.value }))}
+                              value={newContact.docNumber}
+                              onChange={(e) => setNewContact(prev => ({ ...prev, docNumber: e.target.value }))}
                             />
                           </div>
                         </div>
@@ -1393,11 +1393,11 @@ export const CompaniesPage = () => {
                   variant="primary"
                   size="md"
                   icon={Building2}
-                  disabled={creandoJerarquia}
+                  disabled={creatingHierarchy}
                 >
-                  {creandoJerarquia
+                  {creatingHierarchy
                     ? 'Guardando estructura…'
-                    : editingCompany ? 'Guardar Cambios' : esConRegiones ? 'Guardar Empresa y Estructura' : 'Registrar Empresa'}
+                    : editingCompany ? 'Guardar Cambios' : hasRegions ? 'Guardar Empresa y Estructura' : 'Registrar Empresa'}
                 </Button>
               </div>
             </form>

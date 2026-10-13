@@ -13,14 +13,14 @@ import {
   DollarSign,
   Layers,
 } from 'lucide-react';
-import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/catalogos';
+import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/catalogs';
 import {
   getProducts,
   createProduct as apiCreateProduct,
   updateProduct as apiUpdateProduct,
   deleteProduct as apiDeleteProduct,
 } from '../../../data/api';
-import { notificar } from '../../../hooks/useNotificaciones';
+import { notify } from '../../../hooks/useNotifications';
 import { DataTable } from '../../../components/ui/DataTable/DataTable';
 import {
   INITIAL_PRODUCT_FORM,
@@ -36,7 +36,7 @@ import './ProductsPage.css';
 export const ProductsPage = () => {
   // ── 1. Declaración agrupada de todos los estados del componente ──
   const [products, setProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('todos');
+  const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -59,7 +59,7 @@ export const ProductsPage = () => {
       } catch (err) {
         console.warn('[Productos] Error al cargar el catálogo:', err);
         setProducts([]);
-        notificar.error('No se pudo cargar el catálogo', err);
+        notify.error('No se pudo cargar el catálogo', err);
       } finally {
         setLoading(false);
       }
@@ -98,15 +98,15 @@ export const ProductsPage = () => {
     if (e) e.stopPropagation();
     setForm({
       id: prod.id,
-      nombre: prod.nombre,
+      name: prod.name,
       ref: prod.ref || '',
-      descripcion: prod.descripcion || '',
-      tipoProducto: prod.tipoProducto || PRODUCT_CATEGORIES[0],
-      frecuenciaFacturacion: prod.frecuenciaFacturacion || BILLING_FREQUENCIES[0],
-      precioUnitario: prod.precioUnitario ?? '',
-      costeUnidad: prod.costeUnidad ?? '',
-      activo: prod.activo !== false,
-      imagenUrl: prod.imagenUrl || null,
+      description: prod.description || '',
+      productType: prod.productType || PRODUCT_CATEGORIES[0],
+      billingFrequency: prod.billingFrequency || BILLING_FREQUENCIES[0],
+      unitPrice: prod.unitPrice ?? '',
+      costPerUnit: prod.costPerUnit ?? '',
+      active: prod.active !== false,
+      imageUrl: prod.imageUrl || null,
     });
     setErrors({});
     setSelectedProductDetail(null);
@@ -121,48 +121,48 @@ export const ProductsPage = () => {
 
   // ── 4. Cálculos y Filtrado Memorizado ──
   const calculatedMargin = useMemo(() => {
-    const price = Number(form.precioUnitario) || 0;
-    const cost = Number(form.costeUnidad) || 0;
+    const price = Number(form.unitPrice) || 0;
+    const cost = Number(form.costPerUnit) || 0;
     if (price <= 0) return { amount: 0, percent: 0 };
     const amount = price - cost;
     const percent = Math.round((amount / price) * 100);
     return { amount, percent };
-  }, [form.precioUnitario, form.costeUnidad]);
+  }, [form.unitPrice, form.costPerUnit]);
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
     if (activeTab === 'herbicidas') {
-      result = result.filter((p) => p.tipoProducto === 'Herbicida');
+      result = result.filter((p) => p.productType === 'Herbicida');
     } else if (activeTab === 'fungicidas') {
-      result = result.filter((p) => p.tipoProducto === 'Fungicida' || p.tipoProducto === 'Insecticida');
+      result = result.filter((p) => p.productType === 'Fungicida' || p.productType === 'Insecticida');
     } else if (activeTab === 'fertilizantes') {
-      result = result.filter((p) => p.tipoProducto === 'Fertilizante Foliar' || p.tipoProducto === 'Curasemillas');
+      result = result.filter((p) => p.productType === 'Fertilizante Foliar' || p.productType === 'Curasemillas');
     } else if (activeTab === 'servicios') {
-      result = result.filter((p) => p.tipoProducto === 'Servicio Agronómico');
+      result = result.filter((p) => p.productType === 'Servicio Agronómico');
     }
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (p) =>
-          p.nombre.toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q) ||
           p.ref?.toLowerCase().includes(q) ||
-          p.descripcion?.toLowerCase().includes(q)
+          p.description?.toLowerCase().includes(q)
       );
     }
 
     if (categoryFilter !== 'all') {
-      result = result.filter((p) => p.tipoProducto === categoryFilter);
+      result = result.filter((p) => p.productType === categoryFilter);
     }
 
     if (statusFilter !== 'all') {
-      const isActive = statusFilter === 'activo';
-      result = result.filter((p) => p.activo === isActive);
+      const isActive = statusFilter === 'active';
+      result = result.filter((p) => p.active === isActive);
     }
 
     if (billingFilter !== 'all') {
-      result = result.filter((p) => p.frecuenciaFacturacion === billingFilter);
+      result = result.filter((p) => p.billingFrequency === billingFilter);
     }
 
     return result;
@@ -178,22 +178,22 @@ export const ProductsPage = () => {
     if (e) e.stopPropagation();
     const target = products.find((p) => p.id === prodId);
     if (!target) return;
-    const newStatus = !target.activo;
+    const newStatus = !target.active;
 
     // Cambio optimista: se revierte si la base no lo confirma
     setProducts((prev) =>
-      prev.map((p) => (p.id === prodId ? { ...p, activo: newStatus } : p))
+      prev.map((p) => (p.id === prodId ? { ...p, active: newStatus } : p))
     );
 
     try {
-      await apiUpdateProduct(prodId, { activo: newStatus });
-      notificar.exito(newStatus ? 'Producto activado' : 'Producto desactivado', target.nombre);
+      await apiUpdateProduct(prodId, { active: newStatus });
+      notify.success(newStatus ? 'Producto activado' : 'Producto desactivado', target.name);
     } catch (err) {
       console.warn('[DB Error] No se pudo actualizar estado en MySQL:', err);
       setProducts((prev) =>
-        prev.map((p) => (p.id === prodId ? { ...p, activo: target.activo } : p))
+        prev.map((p) => (p.id === prodId ? { ...p, active: target.active } : p))
       );
-      notificar.error('No se pudo cambiar el estado del producto', err);
+      notify.error('No se pudo cambiar el estado del producto', err);
     }
   };
 
@@ -201,9 +201,9 @@ export const ProductsPage = () => {
     if (e) e.stopPropagation();
     const target = products.find((p) => p.id === prodId);
     try {
-      await notificar.operacion(apiDeleteProduct(prodId), {
-        cargando: 'Eliminando producto…',
-        exito: target?.nombre ? `Producto «${target.nombre}» eliminado` : 'Producto eliminado',
+      await notify.operation(apiDeleteProduct(prodId), {
+        loading: 'Eliminando producto…',
+        success: target?.name ? `Producto «${target.name}» eliminado` : 'Producto eliminado',
         error: 'No se pudo eliminar el producto',
       });
     } catch (err) {
@@ -228,15 +228,15 @@ export const ProductsPage = () => {
     setErrors({});
 
     const payload = {
-      nombre: form.nombre,
+      name: form.name,
       ref: form.ref.trim(),
-      descripcion: form.descripcion,
-      tipoProducto: form.tipoProducto,
-      frecuenciaFacturacion: form.frecuenciaFacturacion,
-      precioUnitario: Number(form.precioUnitario) || 0,
-      costeUnidad: Number(form.costeUnidad) || 0,
-      activo: form.activo,
-      imagenUrl: form.imagenUrl || null,
+      description: form.description,
+      productType: form.productType,
+      billingFrequency: form.billingFrequency,
+      unitPrice: Number(form.unitPrice) || 0,
+      costPerUnit: Number(form.costPerUnit) || 0,
+      active: form.active,
+      imageUrl: form.imageUrl || null,
     };
 
     try {
@@ -244,17 +244,17 @@ export const ProductsPage = () => {
         const createdProd = await apiCreateProduct(payload);
         if (!createdProd?.id) throw new Error('El servidor no confirmó el alta del producto.');
         setProducts((prev) => [createdProd, ...prev]);
-        notificar.exito('Producto creado', payload.nombre);
+        notify.success('Producto creado', payload.name);
       } else {
         await apiUpdateProduct(form.id, payload);
         setProducts((prev) =>
           prev.map((p) => (p.id === form.id ? { ...p, ...payload } : p))
         );
-        notificar.exito('Cambios guardados', payload.nombre);
+        notify.success('Cambios guardados', payload.name);
       }
     } catch (err) {
       console.error('[DB Error] No se pudo guardar el producto:', err);
-      notificar.error('No se pudo guardar el producto', err);
+      notify.error('No se pudo guardar el producto', err);
       return; // el formulario queda abierto para reintentar
     }
 
@@ -273,19 +273,19 @@ export const ProductsPage = () => {
   const handleExportCSV = () => {
     const headers = ['ID', 'Nombre', 'Referencia / SKU', 'Categoría', 'Frecuencia Facturación', 'Precio Unitario ($)', 'Coste ($)', 'Margen ($)', 'Margen (%)', 'Estado'];
     const rows = filteredProducts.map((p) => {
-      const marginAmt = (p.precioUnitario || 0) - (p.costeUnidad || 0);
-      const marginPct = p.precioUnitario ? Math.round((marginAmt / p.precioUnitario) * 100) : 0;
+      const marginAmt = (p.unitPrice || 0) - (p.costPerUnit || 0);
+      const marginPct = p.unitPrice ? Math.round((marginAmt / p.unitPrice) * 100) : 0;
       return [
         p.id,
-        `"${(p.nombre || '').replace(/"/g, '""')}"`,
+        `"${(p.name || '').replace(/"/g, '""')}"`,
         `"${(p.ref || '').replace(/"/g, '""')}"`,
-        `"${p.tipoProducto}"`,
-        `"${p.frecuenciaFacturacion}"`,
-        p.precioUnitario || 0,
-        p.costeUnidad || 0,
+        `"${p.productType}"`,
+        `"${p.billingFrequency}"`,
+        p.unitPrice || 0,
+        p.costPerUnit || 0,
         marginAmt,
         `${marginPct}%`,
-        p.activo ? 'Activo' : 'Inactivo',
+        p.active ? 'Activo' : 'Inactivo',
       ];
     });
 
@@ -303,44 +303,44 @@ export const ProductsPage = () => {
   // ── 6. Columnas para el componente DataTable ──
   const tableColumns = [
     {
-      key: 'nombre',
+      key: 'name',
       label: 'Producto / Servicio',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {row.imagenUrl ? (
-            <img src={row.imagenUrl} alt={row.nombre} className="product-table-img" />
+          {row.imageUrl ? (
+            <img src={row.imageUrl} alt={row.name} className="product-table-img" />
           ) : (
             <div className="product-table-img-placeholder">
               <Package size={18} color="#64748b" />
             </div>
           )}
           <div>
-            <div style={{ fontWeight: 700, color: '#0f172a' }}>{row.nombre}</div>
+            <div style={{ fontWeight: 700, color: '#0f172a' }}>{row.name}</div>
             <div style={{ fontSize: '0.8rem', color: '#64748b' }}>SKU: {row.ref || 'N/A'}</div>
           </div>
         </div>
       ),
     },
     {
-      key: 'tipoProducto',
+      key: 'productType',
       label: 'Categoría',
       render: (row) => (
-        <span className="category-pill">{row.tipoProducto}</span>
+        <span className="category-pill">{row.productType}</span>
       ),
     },
     {
-      key: 'precioUnitario',
+      key: 'unitPrice',
       label: 'Precio Unitario',
       render: (row) => (
-        <strong style={{ color: '#0f172a' }}>{formatCurrency(row.precioUnitario)}</strong>
+        <strong style={{ color: '#0f172a' }}>{formatCurrency(row.unitPrice)}</strong>
       ),
     },
     {
-      key: 'margen',
+      key: 'margin',
       label: 'Margen / Rent.',
       render: (row) => {
-        const marginAmt = (row.precioUnitario || 0) - (row.costeUnidad || 0);
-        const marginPct = row.precioUnitario ? Math.round((marginAmt / row.precioUnitario) * 100) : 0;
+        const marginAmt = (row.unitPrice || 0) - (row.costPerUnit || 0);
+        const marginPct = row.unitPrice ? Math.round((marginAmt / row.unitPrice) * 100) : 0;
         return (
           <span style={{ fontSize: '0.85rem', fontWeight: 700, color: marginPct >= 30 ? '#16a34a' : '#0284c7' }}>
             {marginPct}% ({formatCurrency(marginAmt)})
@@ -349,22 +349,22 @@ export const ProductsPage = () => {
       },
     },
     {
-      key: 'activo',
+      key: 'active',
       label: 'Estado',
       render: (row) => (
         <span
-          className={`status-pill ${row.activo ? 'status-pill--active' : 'status-pill--inactive'}`}
+          className={`status-pill ${row.active ? 'status-pill--active' : 'status-pill--inactive'}`}
           onClick={(e) => toggleProductStatus(row.id, e)}
           style={{ cursor: 'pointer' }}
           title="Clic para alternar estado"
         >
-          {row.activo ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-          {row.activo ? 'Activo' : 'Inactivo'}
+          {row.active ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+          {row.active ? 'Activo' : 'Inactivo'}
         </span>
       ),
     },
     {
-      key: 'acciones',
+      key: 'actions',
       label: 'Acciones',
       align: 'right',
       render: (row) => (
@@ -381,7 +381,7 @@ export const ProductsPage = () => {
             type="button"
             className="table-action-btn delete"
             onClick={(e) => {
-              if (window.confirm(`¿Eliminar "${row.nombre}" de la base de datos?`)) {
+              if (window.confirm(`¿Eliminar "${row.name}" de la base de datos?`)) {
                 deleteProduct(row.id, e);
               }
             }}
@@ -434,10 +434,10 @@ export const ProductsPage = () => {
             items={PRODUCT_TABS.map((tab) => ({
               value: tab.key,
               label: tab.label,
-              count: tab.key === 'todos'
+              count: tab.key === 'all'
                 ? products.length
                 : products.filter((p) => {
-                    const t = (p.tipoProducto || '').toLowerCase();
+                    const t = (p.productType || '').toLowerCase();
                     if (tab.key === 'herbicidas') return t.includes('herbi');
                     if (tab.key === 'fungicidas') return t.includes('fungi') || t.includes('insect');
                     if (tab.key === 'fertilizantes') return t.includes('fert') || t.includes('cura');
@@ -465,8 +465,8 @@ export const ProductsPage = () => {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="all">Todos los estados</option>
-              <option value="activo">Activos</option>
-              <option value="inactivo">Inactivos</option>
+              <option value="active">Activos</option>
+              <option value="inactive">Inactivos</option>
             </select>
           </div>
         </div>

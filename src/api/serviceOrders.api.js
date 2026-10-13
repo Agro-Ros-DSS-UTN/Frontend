@@ -6,7 +6,7 @@ export const serviceOrdersApi = {
    * Obtener todas las órdenes de servicio con sus productos aplicados y evaluación
    */
   getAll: async () => {
-    const response = await apiClient.get('/ordenes-servicio');
+    const response = await apiClient.get('/service-orders');
     return response.data?.data || response.data || [];
   },
 
@@ -14,7 +14,7 @@ export const serviceOrdersApi = {
    * Obtener orden de servicio por ID
    */
   getById: async (id) => {
-    const response = await apiClient.get(`/ordenes-servicio/${id}`);
+    const response = await apiClient.get(`/service-orders/${id}`);
     return response.data?.data || response.data;
   },
 
@@ -22,7 +22,7 @@ export const serviceOrdersApi = {
    * Crear nueva orden de servicio con productos asociados
    */
   create: async (orderData) => {
-    const response = await apiClient.post('/ordenes-servicio', orderData);
+    const response = await apiClient.post('/service-orders', orderData);
     return response.data?.data || response.data;
   },
 
@@ -30,7 +30,7 @@ export const serviceOrdersApi = {
    * Actualizar orden de servicio y sus productos aplicados
    */
   update: async (id, orderData) => {
-    const response = await apiClient.put(`/ordenes-servicio/${id}`, orderData);
+    const response = await apiClient.put(`/service-orders/${id}`, orderData);
     return response.data?.data || response.data;
   },
 
@@ -38,7 +38,7 @@ export const serviceOrdersApi = {
    * Eliminar orden de servicio
    */
   delete: async (id) => {
-    const response = await apiClient.delete(`/ordenes-servicio/${id}`);
+    const response = await apiClient.delete(`/service-orders/${id}`);
     return response.data;
   },
 
@@ -46,7 +46,7 @@ export const serviceOrdersApi = {
    * Registrar o actualizar evaluación de servicio técnico
    */
   saveEvaluation: async (id, evaluationData) => {
-    const response = await apiClient.post(`/ordenes-servicio/${id}/evaluacion`, evaluationData);
+    const response = await apiClient.post(`/service-orders/${id}/evaluation`, evaluationData);
     return response.data?.data || response.data;
   }
 };

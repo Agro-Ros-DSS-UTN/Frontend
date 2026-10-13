@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getDashboardData, OPPORTUNITY_STATES, fetchClientCompanies } from '../../../data/api';
-import { tipoContactoLabel } from '../../../data/catalogos';
+import { contactTypeLabel } from '../../../data/catalogs';
 import { activitiesApi, tasksApi } from '../../../api/operations.api';
 import { VoiceNotePlayer } from '../../../components/ui/VoiceRecorder/VoiceRecorder';
 import './AdminDashboard.css';
@@ -119,7 +119,7 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
     const padding = { top: 30, right: 30, bottom: 40, left: 55 };
     const chartW = w - padding.left - padding.right;
     const chartH = h - padding.top - padding.bottom;
-    const maxVal = Math.max(...data.map((d) => d.ventas), 1000);
+    const maxVal = Math.max(...data.map((d) => d.sales), 1000);
 
     // Y Axis Grid
     ctx.strokeStyle = '#f1f5f9';
@@ -141,8 +141,8 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
 
     const points = data.map((d, i) => ({
       x: padding.left + (i / (data.length - 1 || 1)) * chartW,
-      y: padding.top + chartH - (d.ventas / maxVal) * chartH,
-      val: d.ventas,
+      y: padding.top + chartH - (d.sales / maxVal) * chartH,
+      val: d.sales,
     }));
 
     // Area fill
@@ -181,7 +181,7 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
       ctx.fillStyle = '#64748b';
       ctx.font = '10px "Plus Jakarta Sans", Inter, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(data[i].mes.slice(0, 3), p.x, padding.top + chartH + 16);
+      ctx.fillText(data[i].month.slice(0, 3), p.x, padding.top + chartH + 16);
     });
   }, [data]);
 
@@ -195,7 +195,7 @@ const ProductLinesChart = ({ data, width = '100%', height = 260 }) => {
     const padding = { top: 15, right: 60, bottom: 25, left: 130 };
     const chartW = w - padding.left - padding.right;
     const chartH = h - padding.top - padding.bottom;
-    const maxVal = Math.max(...data.map((d) => d.interacciones), 1);
+    const maxVal = Math.max(...data.map((d) => d.interactions), 1);
     const itemH = chartH / data.length;
     const barH = Math.min(16, itemH * 0.55);
 
@@ -205,10 +205,10 @@ const ProductLinesChart = ({ data, width = '100%', height = 260 }) => {
       ctx.fillStyle = '#334155';
       ctx.font = '11px "Plus Jakarta Sans", Inter, sans-serif';
       ctx.textAlign = 'right';
-      const label = d.linea.length > 17 ? d.linea.slice(0, 16) + '…' : d.linea;
+      const label = d.productLine.length > 17 ? d.productLine.slice(0, 16) + '…' : d.productLine;
       ctx.fillText(label, padding.left - 10, cy + 3);
 
-      const bWidth = (d.interacciones / maxVal) * chartW;
+      const bWidth = (d.interactions / maxVal) * chartW;
       ctx.beginPath();
       ctx.roundRect(padding.left, cy - barH / 2, Math.max(bWidth, 4), barH, [4]);
       ctx.fillStyle = d.color || '#1a7d6b';
@@ -217,7 +217,7 @@ const ProductLinesChart = ({ data, width = '100%', height = 260 }) => {
       ctx.fillStyle = '#64748b';
       ctx.font = 'bold 11px "Plus Jakarta Sans", Inter, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`${d.interacciones} (${d.pct}%)`, padding.left + Math.max(bWidth, 4) + 6, cy + 3);
+      ctx.fillText(`${d.interactions} (${d.pct}%)`, padding.left + Math.max(bWidth, 4) + 6, cy + 3);
     });
   }, [data]);
 
@@ -329,26 +329,26 @@ export const AdminDashboardPage = () => {
           const formattedActs = rawActs.map((a) => {
             let parsedAttachments = null;
             try {
-              if (a.archivoAdjunto) {
-                parsedAttachments = typeof a.archivoAdjunto === 'string'
-                  ? JSON.parse(a.archivoAdjunto)
-                  : a.archivoAdjunto;
+              if (a.fileAttachment) {
+                parsedAttachments = typeof a.fileAttachment === 'string'
+                  ? JSON.parse(a.fileAttachment)
+                  : a.fileAttachment;
               }
             } catch (_) {
-              parsedAttachments = { fotoUrl: a.archivoAdjunto };
+              parsedAttachments = { photoUrl: a.fileAttachment };
             }
 
             return {
-              idFormulario: a.idFormulario || a.id,
-              tipoContacto: tipoContactoLabel(a.tipoContacto),
-              empresaId: a.empresaId || null,
-              empresa: a.empresa || '',
-              descripcion: a.descripcion || 'Sin descripción',
-              montoVenta: a.montoVenta ? Number(a.montoVenta) : null,
-              fechaHora: a.fechaHora || new Date().toISOString(),
-              autorNombre: a.autorNombre || '—',
-              idUser: a.usuarioId || null,
-              fotoUrl: parsedAttachments?.fotoUrl || null,
+              formId: a.formId || a.id,
+              contactType: contactTypeLabel(a.contactType),
+              companyId: a.companyId || null,
+              company: a.company || '',
+              description: a.description || 'Sin descripción',
+              saleAmount: a.saleAmount ? Number(a.saleAmount) : null,
+              occurredAt: a.occurredAt || new Date().toISOString(),
+              authorName: a.authorName || '—',
+              idUser: a.userId || null,
+              photoUrl: parsedAttachments?.photoUrl || null,
               audioData: parsedAttachments?.audioData || null,
             };
           });
@@ -368,7 +368,7 @@ export const AdminDashboardPage = () => {
   }, []);
 
   const ownerOptions = useMemo(() => [
-    ...new Set(sellers.map((s) => s.nombreApellido || s.user?.nombreApellido).filter(Boolean)),
+    ...new Set(sellers.map((s) => s.fullName || s.user?.fullName).filter(Boolean)),
   ], [sellers]);
 
   const periodOptions = ['Últimos 7 días', 'Últimos 30 días', 'Este trimestre', 'Año actual 2026'];
@@ -376,7 +376,7 @@ export const AdminDashboardPage = () => {
   const filteredOpps = useMemo(() => {
     let opps = opportunities;
     if (filterOwner) {
-      opps = opps.filter((o) => o.propietario === filterOwner);
+      opps = opps.filter((o) => o.ownerName === filterOwner);
     }
     return opps;
   }, [opportunities, filterOwner]);
@@ -384,26 +384,26 @@ export const AdminDashboardPage = () => {
   const filteredActivities = useMemo(() => {
     let acts = activities;
     if (filterOwner) {
-      acts = acts.filter((a) => a.autorNombre === filterOwner);
+      acts = acts.filter((a) => a.authorName === filterOwner);
     }
     return acts;
   }, [activities, filterOwner]);
 
   // KPIs
   const totalClientsCount = clients.length;
-  const totalVentasHistoricas = filteredOpps.reduce((sum, o) => sum + (Number(o.volumenFacturado) || 0), 0);
+  const historicalSalesTotal = filteredOpps.reduce((sum, o) => sum + (Number(o.billedVolume) || 0), 0);
   const totalInteractions = filteredActivities.length;
-  const activeClientsCount = clients.filter((c) => c.estado === 'Activo' || c.tipoCliente !== 'Inactivo').length;
+  const activeClientsCount = clients.filter((c) => c.status === 'Activo' || c.customerType !== 'Inactivo').length;
 
-  const oppsConVentas = filteredOpps.filter((o) => Number(o.volumenFacturado) > 0);
-  const avgTicket = oppsConVentas.length > 0 ? totalVentasHistoricas / oppsConVentas.length : 0;
+  const oppsWithSales = filteredOpps.filter((o) => Number(o.billedVolume) > 0);
+  const avgTicket = oppsWithSales.length > 0 ? historicalSalesTotal / oppsWithSales.length : 0;
 
   const nextActionsCount = useMemo(() => {
     const now = new Date();
     const nextWeek = new Date();
     nextWeek.setDate(now.getDate() + 7);
     return filteredActivities.filter((a) => {
-      const actDate = new Date(a.fechaHora || a.fecha);
+      const actDate = new Date(a.occurredAt || a.date);
       return actDate >= now && actDate <= nextWeek;
     }).length;
   }, [filteredActivities]);
@@ -417,8 +417,8 @@ export const AdminDashboardPage = () => {
     const counts = {};
     OPPORTUNITY_STATES.forEach((st) => (counts[st.key] = 0));
     filteredOpps.forEach((o) => {
-      const estado = o.estado || 'Prospecto';
-      counts[estado] = (counts[estado] || 0) + 1;
+      const status = o.status || 'Prospecto';
+      counts[status] = (counts[status] || 0) + 1;
     });
 
     const colors = Object.fromEntries(OPPORTUNITY_STATES.map((st) => [st.key, st.color]));
@@ -434,20 +434,20 @@ export const AdminDashboardPage = () => {
     const medals = ['🥇', '🥈', '🥉'];
     return clients
       .map((c) => {
-        const clientOpps = filteredOpps.filter((o) => o.empresaId === c.id);
-        const ventasTotal = clientOpps.reduce((sum, o) => sum + (Number(o.volumenFacturado) || 0), 0);
-        const interacciones = filteredActivities.filter((a) => a.empresaId === c.id).length;
+        const clientOpps = filteredOpps.filter((o) => o.companyId === c.id);
+        const totalSales = clientOpps.reduce((sum, o) => sum + (Number(o.billedVolume) || 0), 0);
+        const interactions = filteredActivities.filter((a) => a.companyId === c.id).length;
 
         return {
-          empresa: c.razonSocial || c.nombreEmpresa,
-          tipo: c.tipoEmpresa || 'Cliente',
-          ventas: ventasTotal,
-          interacciones,
-          estado: c.estado || 'Activo',
-          diasSinCtcto: c.diasSinContacto || 0,
+          company: c.legalName || c.companyName,
+          type: c.companyType || 'Cliente',
+          sales: totalSales,
+          interactions,
+          status: c.status || 'Activo',
+          daysNoContact: c.daysWithoutContact || 0,
         };
       })
-      .sort((a, b) => b.ventas - a.ventas)
+      .sort((a, b) => b.sales - a.sales)
       .slice(0, 5)
       .map((item, idx) => ({ ...item, rank: idx + 1, medal: medals[idx] || `${idx + 1}º` }));
   }, [clients, filteredOpps, filteredActivities]);
@@ -572,7 +572,7 @@ export const AdminDashboardPage = () => {
             <DollarSign size={16} className="exec-kpi-icon teal" />
             <span className="exec-kpi-title">VENTAS TOTALES ($)</span>
           </div>
-          <div className="exec-kpi-value">{formatCurrency(totalVentasHistoricas)}</div>
+          <div className="exec-kpi-value">{formatCurrency(historicalSalesTotal)}</div>
           <span className="exec-kpi-foot">acumulado histórico</span>
         </div>
 
@@ -645,14 +645,14 @@ export const AdminDashboardPage = () => {
                   </tr>
                 ) : (
                   top5Clients.map((c) => (
-                    <tr key={c.empresa}>
+                    <tr key={c.company}>
                       <td className="rank-cell"><strong>{c.medal}</strong></td>
-                      <td className="name-cell"><strong>{c.empresa}</strong></td>
-                      <td><span className="client-type-tag">{c.tipo}</span></td>
-                      <td className="amount-cell"><strong>{formatCurrency(c.ventas)}</strong></td>
-                      <td>{c.interacciones}</td>
-                      <td><span className="client-status-badge">{c.estado}</span></td>
-                      <td className="text-muted">{c.diasSinCtcto} días</td>
+                      <td className="name-cell"><strong>{c.company}</strong></td>
+                      <td><span className="client-type-tag">{c.type}</span></td>
+                      <td className="amount-cell"><strong>{formatCurrency(c.sales)}</strong></td>
+                      <td>{c.interactions}</td>
+                      <td><span className="client-status-badge">{c.status}</span></td>
+                      <td className="text-muted">{c.daysNoContact} días</td>
                     </tr>
                   ))
                 )}
@@ -722,7 +722,7 @@ export const AdminDashboardPage = () => {
           ) : (
             activities.slice(0, 4).map((a) => (
               <div
-                key={a.idFormulario}
+                key={a.formId}
                 style={{
                   background: '#f8fafc',
                   border: '1px solid #e2e8f0',
@@ -741,8 +741,8 @@ export const AdminDashboardPage = () => {
                       width: '32px',
                       height: '32px',
                       borderRadius: '50%',
-                      background: a.autorNombre?.toLowerCase().includes('admin') ? '#faf5ff' : '#f0fdf4',
-                      color: a.autorNombre?.toLowerCase().includes('admin') ? '#9333ea' : '#16a34a',
+                      background: a.authorName?.toLowerCase().includes('admin') ? '#faf5ff' : '#f0fdf4',
+                      color: a.authorName?.toLowerCase().includes('admin') ? '#9333ea' : '#16a34a',
                       border: '1px solid #e2e8f0',
                       display: 'flex',
                       alignItems: 'center',
@@ -752,12 +752,12 @@ export const AdminDashboardPage = () => {
                       flexShrink: 0,
                     }}
                   >
-                    {a.autorNombre ? a.autorNombre[0].toUpperCase() : 'U'}
+                    {a.authorName ? a.authorName[0].toUpperCase() : 'U'}
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>{a.autorNombre}</strong>
+                      <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>{a.authorName}</strong>
                       <span
                         style={{
                           fontSize: '11px',
@@ -768,11 +768,11 @@ export const AdminDashboardPage = () => {
                           color: '#0284c7',
                         }}
                       >
-                        {a.tipoContacto}
+                        {a.contactType}
                       </span>
                     </div>
                     <p style={{ margin: 0, fontSize: '0.85rem', color: '#334155', lineHeight: 1.4 }}>
-                      {a.descripcion}
+                      {a.description}
                     </p>
 
                     {a.audioData?.url && (
@@ -785,11 +785,11 @@ export const AdminDashboardPage = () => {
 
                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                   <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                    {new Date(a.fechaHora).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    {new Date(a.occurredAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  {a.montoVenta ? (
+                  {a.saleAmount ? (
                     <strong style={{ fontSize: '0.88rem', color: '#16a34a' }}>
-                      {formatCurrency(a.montoVenta)}
+                      {formatCurrency(a.saleAmount)}
                     </strong>
                   ) : (
                     <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Sin venta directa</span>
@@ -808,17 +808,17 @@ export const AdminDashboardPage = () => {
         </div>
         <div className="sellers-grid">
           {sellers.map((seller) => {
-            const name = seller.nombreApellido || seller.user?.nombreApellido || 'Sin nombre';
+            const name = seller.fullName || seller.user?.fullName || 'Sin nombre';
             const sellerUserId = seller.idUser || seller.user?.idUser;
-            const sellerOpps = filteredOpps.filter((o) => o.propietarioId === sellerUserId || o.vendedor === name);
-            const sellerCompanies = companies.filter((c) => !c.parentCompanyId && c.creadoPorId === sellerUserId).length;
+            const sellerOpps = filteredOpps.filter((o) => o.ownerId === sellerUserId || o.seller === name);
+            const sellerCompanies = companies.filter((c) => !c.parentCompanyId && c.createdById === sellerUserId).length;
             const sellerFinishedTasks = tasks.filter(
-              (t) => t.finalizadoPorId === sellerUserId && /finaliz|complet/i.test(String(t.estado || ''))
+              (t) => t.completedById === sellerUserId && /finaliz|complet/i.test(String(t.status || ''))
             ).length;
-            const sellerObj = objectives.find((o) => o.idUser === sellerUserId || o.vendedor === name);
+            const sellerObj = objectives.find((o) => o.idUser === sellerUserId || o.seller === name);
 
-            const progress = sellerObj && sellerObj.cantidadMeta > 0
-              ? Math.min(100, (sellerObj.cumplido / sellerObj.cantidadMeta) * 100)
+            const progress = sellerObj && sellerObj.targetAmount > 0
+              ? Math.min(100, (sellerObj.met / sellerObj.targetAmount) * 100)
               : 0;
 
             return (
@@ -839,7 +839,7 @@ export const AdminDashboardPage = () => {
                   <button
                     type="button"
                     className="seller-card__stat seller-card__stat--link"
-                    onClick={() => navigate('/admin/empresas', { state: { prefillSearch: name } })}
+                    onClick={() => navigate('/admin/companies', { state: { prefillSearch: name } })}
                     title="Ver las empresas donde es propietario del registro"
                   >
                     <span className="seller-card__stat-value">{sellerCompanies}</span>
@@ -848,7 +848,7 @@ export const AdminDashboardPage = () => {
                   <button
                     type="button"
                     className="seller-card__stat seller-card__stat--link"
-                    onClick={() => navigate('/admin/tareas')}
+                    onClick={() => navigate('/admin/tasks')}
                     title="Ver tareas"
                   >
                     <span className="seller-card__stat-value">{sellerFinishedTasks}</span>
@@ -858,7 +858,7 @@ export const AdminDashboardPage = () => {
                 {sellerObj && (
                   <div className="seller-card__objective">
                     <div className="seller-card__obj-header">
-                      <span className="seller-card__obj-label">{sellerObj.descripcion?.slice(0, 40)}...</span>
+                      <span className="seller-card__obj-label">{sellerObj.description?.slice(0, 40)}...</span>
                       <span className="seller-card__obj-pct">{progress.toFixed(0)}%</span>
                     </div>
                     <div className="seller-card__progress-track">

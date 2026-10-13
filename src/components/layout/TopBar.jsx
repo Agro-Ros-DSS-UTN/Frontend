@@ -45,8 +45,8 @@ export const TopBar = ({ title, subtitle }) => {
     return () => window.removeEventListener('keydown', handleSlash);
   }, []);
 
-  const initials = currentUser?.nombreApellido
-    ? currentUser.nombreApellido.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+  const initials = currentUser?.fullName
+    ? currentUser.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
     : 'AD';
 
   return (
@@ -78,7 +78,7 @@ export const TopBar = ({ title, subtitle }) => {
           type="button"
           className="topbar__icon-btn"
           title="Configuración"
-          onClick={() => navigate('/admin/perfil')}
+          onClick={() => navigate('/admin/profile')}
         >
           <Settings size={18} />
         </button>
@@ -98,7 +98,7 @@ export const TopBar = ({ title, subtitle }) => {
                 initials
               )}
             </div>
-            <span className="topbar__user-name">{currentUser?.nombreApellido || 'Admin Creado'}</span>
+            <span className="topbar__user-name">{currentUser?.fullName || 'Admin Creado'}</span>
             <ChevronDown size={14} className={`topbar__chevron ${showUserMenu ? 'topbar__chevron--open' : ''}`} />
           </button>
 
@@ -106,8 +106,8 @@ export const TopBar = ({ title, subtitle }) => {
             <UserProfileSidebar
               className="topbar__dropdown"
               user={{
-                name: currentUser?.nombreApellido || 'Admin Creado',
-                email: currentUser?.direccionMail || 'admin.nuevo@agroquimicarosario.com.ar',
+                name: currentUser?.fullName || 'Admin Creado',
+                email: currentUser?.email || 'admin.nuevo@agroquimicarosario.com.ar',
                 avatarUrl: profileImage || null,
                 initials,
               }}

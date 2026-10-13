@@ -95,7 +95,7 @@ export const drawParagraph = (page, fonts, value, spec) => {
   const text = safeText(font, value).trim();
   if (!text) return;
   // El alto disponible es fijo: con letra más chica entran más líneas
-  const altoDisponible = spec.maxLines * spec.lineHeight;
+  const availableHeight = spec.maxLines * spec.lineHeight;
   let size = spec.size;
   let lineHeight = spec.lineHeight;
   let maxLines = spec.maxLines;
@@ -103,7 +103,7 @@ export const drawParagraph = (page, fonts, value, spec) => {
   while (lines.length > maxLines && size > 6.5) {
     size -= 0.5;
     lineHeight = size * (spec.lineHeight / spec.size);
-    maxLines = Math.floor(altoDisponible / lineHeight);
+    maxLines = Math.floor(availableHeight / lineHeight);
     lines = wrapText(font, text, size, spec.maxWidth);
   }
   if (lines.length > maxLines) {
@@ -154,8 +154,8 @@ export const drawImageInBox = async (pdf, page, dataUrl, box) => {
 export const drawTableRows = (page, fonts, rows, layout) => {
   const font = fonts.regular;
   const minSize = 6.5; // más chico que esto ya no se lee impreso
-  const visibles = rows.slice(0, layout.rowTops.length);
-  visibles.forEach((row, i) => {
+  const visible = rows.slice(0, layout.rowTops.length);
+  visible.forEach((row, i) => {
     const top = layout.rowTops[i];
     const centerY = top - layout.rowHeight / 2;
     layout.columns.forEach((col) => {
@@ -174,21 +174,21 @@ export const drawTableRows = (page, fonts, rows, layout) => {
       }
       // 2) si no entra, dos renglones dentro de la celda
       const lines = wrapText(font, text, minSize, width);
-      const dos = lines.length > 2 ? [lines[0], `${lines.slice(1).join(' ')}`] : lines;
+      const two = lines.length > 2 ? [lines[0], `${lines.slice(1).join(' ')}`] : lines;
       const lh = minSize + 1.5;
-      dos.forEach((line, k) => {
+      two.forEach((line, k) => {
         const y = centerY + (k === 0 ? lh / 2 : -lh / 2) - minSize * 0.35;
         drawField(page, fonts, line, { x, y, size: minSize, maxWidth: width, align });
       });
     });
   });
-  return Math.max(0, rows.length - visibles.length);
+  return Math.max(0, rows.length - visible.length);
 };
 
 // "2026-10-09" -> { dia: '09', mes: '10', anio: '2026' }
 export const splitDate = (value) => {
   const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? { anio: m[1], mes: m[2], dia: m[3] } : null;
+  return m ? { year: m[1], month: m[2], day: m[3] } : null;
 };
 
 export const toBlobUrl = async (pdf) => {

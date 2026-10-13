@@ -51,25 +51,25 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
   const [tasks, setTasks] = useState([]);
   const [deals, setDeals] = useState([]);
   const overlayHandlers = useOverlayClose(onClose);
-  const nombre = contact.nombreApellido || 'Contacto';
+  const contactName = contact.fullName || 'Contacto';
 
   useEffect(() => {
     let alive = true;
-    const name = nombre.toLowerCase().trim();
+    const name = contactName.toLowerCase().trim();
     Promise.allSettled([tasksApi.getAll(), fetchOpportunities()]).then(([tRes, oRes]) => {
       if (!alive) return;
       if (tRes.status === 'fulfilled') {
         const list = Array.isArray(tRes.value) ? tRes.value : tRes.value?.data || [];
         // En la v2 el contacto de una tarea queda en sus notas ("Contacto: …").
-        setTasks(list.filter((t) => name && (t.notas || '').toLowerCase().includes(`contacto: ${name}`)));
+        setTasks(list.filter((t) => name && (t.notes || '').toLowerCase().includes(`contacto: ${name}`)));
       }
       if (oRes.status === 'fulfilled') {
         const list = Array.isArray(oRes.value) ? oRes.value : [];
         setDeals(
           list.filter(
             (o) =>
-              (o.contactoId && o.contactoId === contact.id) ||
-              (o.contactoNombre || '').toLowerCase().trim() === name
+              (o.contactId && o.contactId === contact.id) ||
+              (o.contactName || '').toLowerCase().trim() === name
           )
         );
       }
@@ -77,7 +77,7 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
     return () => {
       alive = false;
     };
-  }, [contact, nombre]);
+  }, [contact, contactName]);
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
@@ -88,24 +88,24 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
   const rows = useMemo(() => {
     const taskRows = tasks.map((t) => ({
       key: `t-${t.id}`,
-      detalle: t.titulo || t.descripcion || 'Tarea',
-      categoria: 'Tarea',
-      estado: /finaliz|complet/i.test(t.estado || '') ? 'Finalizada' : 'Pendiente',
-      fecha: t.fechaVencimiento,
+      details: t.title || t.description || 'Tarea',
+      category: 'Tarea',
+      status: /finaliz|complet/i.test(t.status || '') ? 'Finalizada' : 'Pendiente',
+      date: t.dueDate,
     }));
     const dealRows = deals.map((o) => ({
       key: `o-${o.id}`,
-      detalle: o.titulo || o.nombreNegocio || 'Oportunidad',
-      categoria: 'Oportunidad',
-      estado: o.estado || 'Prospecto',
-      fecha: o.fechaUltimaActualizacion || o.fechaInicio,
+      details: o.title || o.dealName || 'Oportunidad',
+      category: 'Oportunidad',
+      status: o.status || 'Prospecto',
+      date: o.lastActivityAt || o.startDate,
     }));
-    return [...taskRows, ...dealRows].sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+    return [...taskRows, ...dealRows].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   }, [tasks, deals]);
 
-  const telefono = contact.telefono || (Array.isArray(contact.telefonos) ? contact.telefonos[0] : null);
-  const empresa = companyName || contact.empresa || contact.ClientCompany?.nombreEmpresa;
-  const localidad = contact.localidad || contact.Locality?.nomLocalidad;
+  const phone = contact.phone || (Array.isArray(contact.phones) ? contact.phones[0] : null);
+  const company = companyName || contact.company || contact.ClientCompany?.companyName;
+  const locality = contact.locality || contact.Locality?.localityName;
 
   return (
     <div className="cs-overlay" {...overlayHandlers}>
@@ -113,7 +113,7 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
         className="cs-card"
         role="dialog"
         aria-modal="true"
-        aria-label={`Resumen de ${nombre}`}
+        aria-label={`Resumen de ${contactName}`}
         initial="hidden"
         animate="visible"
         variants={containerVariants}
@@ -123,7 +123,7 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
             <div className="cs-breadcrumbs">
               <span>Contactos</span>
               <span className="cs-breadcrumbs__sep">/</span>
-              <span className="cs-breadcrumbs__current">{nombre}</span>
+              <span className="cs-breadcrumbs__current">{contactName}</span>
             </div>
             <div className="cs-header__actions">
               {onEdit && (
@@ -140,29 +140,29 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
 
         <div className="cs-body">
           <motion.h1 variants={itemVariants} className="cs-title">
-            {nombre}
+            {contactName}
           </motion.h1>
 
           <motion.div variants={itemVariants} className="cs-meta-grid">
             <MetaItem icon={Tag} label="Tipo de contacto">
-              {contact.tipoClient ? <span className="cs-tag">{contact.tipoClient}</span> : '—'}
+              {contact.clientType ? <span className="cs-tag">{contact.clientType}</span> : '—'}
             </MetaItem>
             <MetaItem icon={Hash} label="Documento">
-              <span className="cs-nowrap">{contact.numDoc || '—'}</span>
+              <span className="cs-nowrap">{contact.docNumber || '—'}</span>
             </MetaItem>
-            <MetaItem icon={Building2} label="Empresa">{empresa || '—'}</MetaItem>
+            <MetaItem icon={Building2} label="Empresa">{company || '—'}</MetaItem>
             <MetaItem icon={Mail} label="Correo">
-              {isRealValue(contact.direccionMail) ? contact.direccionMail : '—'}
+              {isRealValue(contact.email) ? contact.email : '—'}
             </MetaItem>
-            <MetaItem icon={Phone} label="Teléfono">{isRealValue(telefono) ? telefono : '—'}</MetaItem>
-            <MetaItem icon={MapPin} label="Localidad">{localidad || '—'}</MetaItem>
-            <MetaItem icon={Calendar} label="Fecha de registro">{formatDate(contact.fechaAgregado)}</MetaItem>
-            {isRealValue(contact.nota) && (
+            <MetaItem icon={Phone} label="Teléfono">{isRealValue(phone) ? phone : '—'}</MetaItem>
+            <MetaItem icon={MapPin} label="Localidad">{locality || '—'}</MetaItem>
+            <MetaItem icon={Calendar} label="Fecha de registro">{formatDate(contact.addedAt)}</MetaItem>
+            {isRealValue(contact.note) && (
               <div className="cs-meta cs-meta--wide">
                 <FileText size={18} className="cs-meta__icon" />
                 <div className="cs-min0">
                   <p className="cs-meta__label">Nota</p>
-                  <p className="cs-meta__desc">{contact.nota}</p>
+                  <p className="cs-meta__desc">{contact.note}</p>
                 </div>
               </div>
             )}
@@ -189,12 +189,12 @@ export const ContactSummary = ({ contact, companyName, onClose, onEdit }) => {
                     {rows.map((r, i) => (
                       <motion.tr key={r.key} variants={itemVariants}>
                         <td className="cs-table__no">{i + 1}</td>
-                        <td className="cs-table__detail">{r.detalle}</td>
-                        <td>{r.categoria}</td>
+                        <td className="cs-table__detail">{r.details}</td>
+                        <td>{r.category}</td>
                         <td>
-                          <span className={`cs-status ${r.estado === 'Pendiente' ? 'cs-status--pending' : ''}`}>{r.estado}</span>
+                          <span className={`cs-status ${r.status === 'Pendiente' ? 'cs-status--pending' : ''}`}>{r.status}</span>
                         </td>
-                        <td className="cs-table__right cs-nowrap">{formatDate(r.fecha)}</td>
+                        <td className="cs-table__right cs-nowrap">{formatDate(r.date)}</td>
                       </motion.tr>
                     ))}
                   </tbody>

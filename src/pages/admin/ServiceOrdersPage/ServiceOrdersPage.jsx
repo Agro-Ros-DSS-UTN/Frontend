@@ -26,7 +26,7 @@ import {
 import {
   WORK_TYPES,
   ORDER_STATUSES,
-  limpiarCacheLocalOrdenes,
+  clearLocalOrdersCache,
 } from '../../../data/serviceOrdersData';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
@@ -36,7 +36,7 @@ import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/Form
 import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
 import { ServiceOrderSummary } from '../../../components/serviceOrders/ServiceOrderSummary';
 import { PdfPreviewModal } from '../../../components/serviceOrders/pdf/PdfPreviewModal';
-import { generarOrdenServicioPdf, generarEvaluacionServicioPdf } from '../../../components/serviceOrders/pdf/serviceOrderPdfs';
+import { generateServiceOrderPdf, generateServiceEvaluationPdf } from '../../../components/serviceOrders/pdf/serviceOrderPdfs';
 import { SignaturePad } from '../../../components/ui/SignaturePad/SignaturePad';
 import { MultiImageUpload } from '../../../components/ui/MultiImageUpload/MultiImageUpload';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
@@ -44,47 +44,47 @@ import { useAuth } from '../../../context/AuthContext';
 import { ToggleSection } from '../../../components/ui/ToggleSection/ToggleSection';
 import { draftKey, loadDraft, saveDraft, clearDraft } from '../../../utils/formDrafts';
 import './ServiceOrdersPage.css';
-import { notificar } from '../../../hooks/useNotificaciones';
+import { notify } from '../../../hooks/useNotifications';
 
-const LUGARES_TOMA_MUESTRA = ['Superficie', 'Medio', 'Fondo', 'Boca de carga', 'Ducto de descarga'];
+const SAMPLING_POINTS = ['Superficie', 'Medio', 'Fondo', 'Boca de carga', 'Ducto de descarga'];
 
 // Referencias del dorso de la planilla "Evaluación de Servicio"
-const EVAL_ESTADOS_CEREAL = [
+const EVAL_GRAIN_CONDITIONS = [
   { value: 'GP', label: 'GP · Grano picado' },
   { value: 'SP', label: 'SP · Sin picado' },
 ];
-const EVAL_RESULTADOS_MUESTRA = [
+const EVAL_SAMPLE_RESULTS = [
   { value: 'IM', label: 'IM · Insectos muertos' },
   { value: 'AIV', label: 'AIV · Alta infestación vivos' },
   { value: 'MIV', label: 'MIV · Mediana infestación vivos' },
   { value: 'BIV', label: 'BIV · Baja infestación vivos' },
   { value: 'SI', label: 'SI · No se observan insectos' },
 ];
-const RESULTADOS_CON_VIVOS = ['AIV', 'MIV', 'BIV'];
+const RESULTS_WITH_LIVE_INSECTS = ['AIV', 'MIV', 'BIV'];
 
-const RECOMENDACION_POR_DEFECTO =
+const DEFAULT_RECOMMENDATION =
   'Se recomienda prender los aireadores y proceder al retiro del cereal luego de las 96 hs de la liberación del servicio.';
 
 const EVAL_COLUMNS = [
-  { key: 'tipoInstalacion', label: 'Tipo instalación', list: 'so-tipos-instalacion', width: 130 },
-  { key: 'numero', label: 'Nº', width: 64 },
-  { key: 'capacidadTn', label: 'Capacidad (tn)', width: 96, inputMode: 'decimal' },
-  { key: 'grano', label: 'Grano tratado', list: 'so-granos', width: 120 },
-  { key: 'cantidadTn', label: 'Cantidad (tn)', width: 96, inputMode: 'decimal' },
-  { key: 'estadoCereal', label: 'Estado cereal', group: true, options: EVAL_ESTADOS_CEREAL, required: true, width: 110 },
-  { key: 'lugarToma', label: 'Lugar toma muestra', group: true, list: 'so-lugares-toma-muestra', required: true, width: 140 },
-  { key: 'resultado', label: 'Resultado', group: true, options: EVAL_RESULTADOS_MUESTRA, required: true, width: 130 },
+  { key: 'facilityType', label: 'Tipo instalación', list: 'so-tipos-instalacion', width: 130 },
+  { key: 'number', label: 'Nº', width: 64 },
+  { key: 'capacityTn', label: 'Capacidad (tn)', width: 96, inputMode: 'decimal' },
+  { key: 'grain', label: 'Grano tratado', list: 'so-granos', width: 120 },
+  { key: 'quantityTn', label: 'Cantidad (tn)', width: 96, inputMode: 'decimal' },
+  { key: 'grainCondition', label: 'Estado cereal', group: true, options: EVAL_GRAIN_CONDITIONS, required: true, width: 110 },
+  { key: 'samplingPoint', label: 'Lugar toma muestra', group: true, list: 'so-lugares-toma-muestra', required: true, width: 140 },
+  { key: 'result', label: 'Resultado', group: true, options: EVAL_SAMPLE_RESULTS, required: true, width: 130 },
 ];
 
 const emptyEvalRow = () => ({
-  tipoInstalacion: '',
-  numero: '',
-  capacidadTn: '',
-  grano: '',
-  cantidadTn: '',
-  estadoCereal: '',
-  lugarToma: '',
-  resultado: '',
+  facilityType: '',
+  number: '',
+  capacityTn: '',
+  grain: '',
+  quantityTn: '',
+  grainCondition: '',
+  samplingPoint: '',
+  result: '',
 });
 
 const rowHasData = (row) => Object.values(row || {}).some((v) => String(v ?? '').trim() !== '');
@@ -92,14 +92,14 @@ const rowHasData = (row) => Object.values(row || {}).some((v) => String(v ?? '')
 // Las instalaciones de la orden se copian a la evaluación: solo falta completar el estado de la muestra.
 const evalRowsFromOrder = (orderRows = []) => {
   const rows = orderRows
-    .filter((r) => r && (r.tipoInstalacion || r.numero || r.grano || r.capacidadTn || r.cantidadTn))
+    .filter((r) => r && (r.facilityType || r.number || r.grain || r.capacityTn || r.quantityTn))
     .map((r) => ({
       ...emptyEvalRow(),
-      tipoInstalacion: r.tipoInstalacion || '',
-      numero: r.numero || '',
-      capacidadTn: r.capacidadTn || '',
-      grano: r.grano || '',
-      cantidadTn: r.cantidadTn || '',
+      facilityType: r.facilityType || '',
+      number: r.number || '',
+      capacityTn: r.capacityTn || '',
+      grain: r.grain || '',
+      quantityTn: r.quantityTn || '',
     }));
   return rows.length > 0 ? rows : [emptyEvalRow()];
 };
@@ -115,93 +115,93 @@ const parseJsonArray = (value) => {
 };
 
 const emptyEvalForm = (orderRows) => ({
-  fechaEvaluacion: '',
-  detalle: evalRowsFromOrder(orderRows),
+  evaluationDate: '',
+  details: evalRowsFromOrder(orderRows),
   ppmPH3: '',
-  satisfaccionCliente: '',
-  comentarioCliente: '',
-  observaciones: '',
-  recomendaciones: RECOMENDACION_POR_DEFECTO,
-  fotos: [],
-  firmaCliente: null,
-  firmaTecnico: null,
+  customerSatisfaction: '',
+  customerComment: '',
+  notes: '',
+  recommendations: DEFAULT_RECOMMENDATION,
+  photos: [],
+  customerSignature: null,
+  technicianSignature: null,
 });
 
 // Arma lo que se envía al backend. Los campos generales (estado del cereal, lugar
 // de toma y resultado) se derivan de la planilla para el listado y los indicadores.
 const buildEvalPayload = (form) => {
-  const detalle = (form.detalle || []).filter(rowHasData);
-  const conVivos = detalle.some((r) => RESULTADOS_CON_VIVOS.includes(r.resultado));
+  const details = (form.details || []).filter(rowHasData);
+  const withLiveInsects = details.some((r) => RESULTS_WITH_LIVE_INSECTS.includes(r.result));
   return {
     ...form,
-    detalle,
-    estadoCereal: detalle[0]?.estadoCereal || null,
-    lugarToma: detalle[0]?.lugarToma || null,
-    resultado: conVivos ? 'Con insectos vivos' : 'Sin insectos vivos',
+    details,
+    grainCondition: details[0]?.grainCondition || null,
+    samplingPoint: details[0]?.samplingPoint || null,
+    result: withLiveInsects ? 'Con insectos vivos' : 'Sin insectos vivos',
   };
 };
 
-const emptyDetalleRow = () => ({
-  tipoInstalacion: '',
-  numero: '',
-  capacidadTn: '',
-  grano: '',
-  cantidadTn: '',
-  estadoCereal: '',
-  estadoInstalaciones: '',
-  estadoInfestacion: '',
-  producto: '',
-  dosis: ''
+const emptyDetailRow = () => ({
+  facilityType: '',
+  number: '',
+  capacityTn: '',
+  grain: '',
+  quantityTn: '',
+  grainCondition: '',
+  facilityCondition: '',
+  infestationLevel: '',
+  product: '',
+  dose: ''
 });
 
-const DETALLE_COLUMNS = [
-  { key: 'tipoInstalacion', label: 'Tipo instalación', list: 'so-tipos-instalacion', width: 130 },
-  { key: 'numero', label: 'Nº', width: 64 },
-  { key: 'capacidadTn', label: 'Capacidad (tn)', width: 96, inputMode: 'decimal' },
-  { key: 'grano', label: 'Grano a tratar', list: 'so-granos', width: 120 },
-  { key: 'cantidadTn', label: 'Cantidad (tn)', width: 96, inputMode: 'decimal' },
-  { key: 'estadoCereal', label: 'Cereal', group: 'Estado', width: 78 },
-  { key: 'estadoInstalaciones', label: 'Instalaciones', group: 'Estado', width: 96 },
-  { key: 'estadoInfestacion', label: 'Infestación', group: 'Estado', width: 90 },
-  { key: 'producto', label: 'Producto a utilizar', list: 'so-productos', width: 180 },
-  { key: 'dosis', label: 'Dosis', width: 120 }
+const DETAIL_COLUMNS = [
+  { key: 'facilityType', label: 'Tipo instalación', list: 'so-tipos-instalacion', width: 130 },
+  { key: 'number', label: 'Nº', width: 64 },
+  { key: 'capacityTn', label: 'Capacidad (tn)', width: 96, inputMode: 'decimal' },
+  { key: 'grain', label: 'Grano a tratar', list: 'so-granos', width: 120 },
+  { key: 'quantityTn', label: 'Cantidad (tn)', width: 96, inputMode: 'decimal' },
+  { key: 'grainCondition', label: 'Cereal', group: 'Estado', width: 78 },
+  { key: 'facilityCondition', label: 'Instalaciones', group: 'Estado', width: 96 },
+  { key: 'infestationLevel', label: 'Infestación', group: 'Estado', width: 90 },
+  { key: 'product', label: 'Producto a utilizar', list: 'so-productos', width: 180 },
+  { key: 'dose', label: 'Dosis', width: 120 }
 ];
 
 const isRealAddress = (v) => Boolean(v) && !/^sin direcci[oó]n$/i.test(String(v).trim());
 
-const buildEmptyOrderForm = (numeroOrden = '') => ({
-  numeroOrden,
-  fecha: new Date().toISOString().split('T')[0],
-  clienteId: '',
-  clienteNombre: '',
-  centroId: '',
-  centroNombre: '',
-  plantaId: '',
-  plantaNombre: '',
+const buildEmptyOrderForm = (orderNumber = '') => ({
+  orderNumber,
+  date: new Date().toISOString().split('T')[0],
+  customerCode: '',
+  customerName: '',
+  centerCode: '',
+  centerName: '',
+  plantCode: '',
+  plantName: '',
   silo: '',
-  direccion: '',
-  localidad: '',
-  provincia: 'Santa Fe',
-  tipoTrabajo: WORK_TYPES[0],
-  tipoTrabajoOtro: '',
-  estado: 'Programada',
-  tecnicoAplicador: '',
-  observacionesOrden: '',
-  recomendaciones: '',
-  firmaTecnico: null,
-  firmaCliente: null,
-  imagenOrdenOriginal: null,
-  productosAplicados: [emptyDetalleRow()]
+  address: '',
+  locality: '',
+  province: 'Santa Fe',
+  workType: WORK_TYPES[0],
+  otherWorkType: '',
+  status: 'Programada',
+  technicianName: '',
+  orderNotes: '',
+  recommendations: '',
+  technicianSignature: null,
+  customerSignature: null,
+  originalOrderImage: null,
+  appliedProducts: [emptyDetailRow()]
 });
 
 const validateEvalForm = (form) => {
   const errors = {};
-  if (!form.fechaEvaluacion) errors.fechaEvaluacion = 'Seleccioná la fecha de evaluación.';
-  const rows = (form.detalle || []).filter(rowHasData);
+  if (!form.evaluationDate) errors.evaluationDate = 'Seleccioná la fecha de evaluación.';
+  const rows = (form.details || []).filter(rowHasData);
   if (rows.length === 0) {
-    errors.detalle = 'Cargá al menos una fila en el detalle del servicio.';
-  } else if (rows.some((r) => !r.estadoCereal || !String(r.lugarToma || '').trim() || !r.resultado)) {
-    errors.detalle = 'Completá estado del cereal, lugar de toma y resultado en cada fila cargada.';
+    errors.details = 'Cargá al menos una fila en el detalle del servicio.';
+  } else if (rows.some((r) => !r.grainCondition || !String(r.samplingPoint || '').trim() || !r.result)) {
+    errors.details = 'Completá estado del cereal, lugar de toma y resultado en cada fila cargada.';
   }
   return errors;
 };
@@ -237,18 +237,18 @@ export const ServiceOrdersPage = () => {
   }, [editMenuOrderId]);
   // Vista previa del PDF a imprimir: { tipo: 'orden' | 'evaluacion', order }
   const [pdfPreview, setPdfPreview] = useState(null);
-  const openPdfPreview = (tipo, order) => {
-    if (tipo === 'evaluacion' && !order?.evaluacion) {
-      notificar.advertencia('No se puede imprimir la evaluación', 'Esta orden todavía no tiene evaluación. Cargala con «Cargar evaluación» y después imprimila.');
+  const openPdfPreview = (type, order) => {
+    if (type === 'evaluation' && !order?.evaluation) {
+      notify.warning('No se puede imprimir la evaluación', 'Esta orden todavía no tiene evaluación. Cargala con «Cargar evaluación» y después imprimila.');
       return;
     }
-    setPdfPreview({ tipo, order });
+    setPdfPreview({ type, order });
   };
   const closePdfPreview = useCallback(() => setPdfPreview(null), []);
   const pdfGenerator = useMemo(() => {
     if (!pdfPreview) return null;
-    const { tipo, order } = pdfPreview;
-    return () => (tipo === 'orden' ? generarOrdenServicioPdf(order) : generarEvaluacionServicioPdf(order));
+    const { type, order } = pdfPreview;
+    return () => (type === 'order' ? generateServiceOrderPdf(order) : generateServiceEvaluationPdf(order));
   }, [pdfPreview]);
   const orderModalOverlayHandlers = useOverlayClose(() => setShowOrderDrawer(false));
 
@@ -276,14 +276,14 @@ export const ServiceOrdersPage = () => {
     } catch (err) {
       console.warn('No se pudieron obtener las órdenes de servicio:', err);
       setOrders([]);
-      notificar.error('No se pudieron cargar las órdenes de servicio', err);
+      notify.error('No se pudieron cargar las órdenes de servicio', err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    limpiarCacheLocalOrdenes();
+    clearLocalOrdersCache();
     loadOrders();
   }, []);
 
@@ -313,21 +313,21 @@ export const ServiceOrdersPage = () => {
     if (draft?.orderForm) {
       // Un borrador guardado con una versión anterior del formulario puede no tener
       // todos los campos actuales: se completa con la forma vigente para no romper la página.
-      const draftRows = Array.isArray(draft.orderForm.productosAplicados) ? draft.orderForm.productosAplicados : [];
+      const draftRows = Array.isArray(draft.orderForm.appliedProducts) ? draft.orderForm.appliedProducts : [];
       setOrderForm({
         ...buildEmptyOrderForm(),
         ...draft.orderForm,
-        productosAplicados: draftRows.length > 0 ? draftRows : [emptyDetalleRow()],
+        appliedProducts: draftRows.length > 0 ? draftRows : [emptyDetailRow()],
       });
       setIncludeEval(Boolean(draft.includeEval));
       const draftEval = draft.evalForm || {};
       setEvalForm({
         ...emptyEvalForm(draftRows),
         ...draftEval,
-        detalle: Array.isArray(draftEval.detalle) && draftEval.detalle.length > 0
-          ? draftEval.detalle.map((r) => ({ ...emptyEvalRow(), ...r }))
+        details: Array.isArray(draftEval.details) && draftEval.details.length > 0
+          ? draftEval.details.map((r) => ({ ...emptyEvalRow(), ...r }))
           : evalRowsFromOrder(draftRows),
-        fotos: Array.isArray(draftEval.fotos) ? draftEval.fotos : [],
+        photos: Array.isArray(draftEval.photos) ? draftEval.photos : [],
       });
       draftBaselineRef.current = null;
     } else {
@@ -356,9 +356,9 @@ export const ServiceOrdersPage = () => {
     if (!ok) {
       // Las fotos y firmas pueden no entrar en el storage: se guarda el resto.
       saveDraft(orderDraftKey, {
-        orderForm: { ...orderForm, firmaTecnico: null, firmaCliente: null, imagenOrdenOriginal: null },
+        orderForm: { ...orderForm, technicianSignature: null, customerSignature: null, originalOrderImage: null },
         includeEval,
-        evalForm: { ...evalForm, fotos: [], firmaCliente: null, firmaTecnico: null },
+        evalForm: { ...evalForm, photos: [], customerSignature: null, technicianSignature: null },
       });
     }
   }, [orderForm, includeEval, evalForm, showOrderDrawer, editingOrderId, orderDraftKey]);
@@ -369,33 +369,33 @@ export const ServiceOrdersPage = () => {
     setOrderErrors({});
     setEvalErrors({});
     setIncludeEval(false);
-    setEvalForm(emptyEvalForm(order.productosAplicados));
-    const tipoEnCatalogo = WORK_TYPES.includes(order.tipoTrabajo);
+    setEvalForm(emptyEvalForm(order.appliedProducts));
+    const catalogType = WORK_TYPES.includes(order.workType);
     setOrderForm({
-      numeroOrden: order.numeroOrden,
-      fecha: order.fecha,
-      clienteId: order.clienteId,
-      empresaId: order.empresaId || null,
-      clienteNombre: order.clienteNombre,
-      centroId: order.centroId,
-      centroNombre: order.centroNombre,
-      plantaId: order.plantaId,
-      plantaNombre: order.plantaNombre,
+      orderNumber: order.orderNumber,
+      date: order.date,
+      customerCode: order.customerCode,
+      companyId: order.companyId || null,
+      customerName: order.customerName,
+      centerCode: order.centerCode,
+      centerName: order.centerName,
+      plantCode: order.plantCode,
+      plantName: order.plantName,
       silo: order.silo || '',
-      direccion: order.direccion,
-      localidad: order.localidad,
-      provincia: order.provincia,
-      tipoTrabajo: tipoEnCatalogo ? order.tipoTrabajo : 'Otro',
-      tipoTrabajoOtro: tipoEnCatalogo ? '' : order.tipoTrabajo || '',
-      estado: order.estado,
-      tecnicoAplicador: order.tecnicoAplicador || '',
-      observacionesOrden: order.observacionesOrden || '',
-      recomendaciones: order.recomendaciones || '',
-      firmaTecnico: order.firmaTecnico || null,
-      firmaCliente: order.firmaCliente || null,
-      imagenOrdenOriginal: order.imagenOrdenOriginal || null,
-      productosAplicados: order.productosAplicados && order.productosAplicados.length > 0
-        ? [...order.productosAplicados]
+      address: order.address,
+      locality: order.locality,
+      province: order.province,
+      workType: catalogType ? order.workType : 'Otro',
+      otherWorkType: catalogType ? '' : order.workType || '',
+      status: order.status,
+      technicianName: order.technicianName || '',
+      orderNotes: order.orderNotes || '',
+      recommendations: order.recommendations || '',
+      technicianSignature: order.technicianSignature || null,
+      customerSignature: order.customerSignature || null,
+      originalOrderImage: order.originalOrderImage || null,
+      appliedProducts: order.appliedProducts && order.appliedProducts.length > 0
+        ? [...order.appliedProducts]
         : []
     });
     setShowOrderDrawer(true);
@@ -410,41 +410,41 @@ export const ServiceOrdersPage = () => {
   const handleAddProductRow = () => {
     setOrderForm(prev => ({
       ...prev,
-      productosAplicados: [...prev.productosAplicados, emptyDetalleRow()]
+      appliedProducts: [...prev.appliedProducts, emptyDetailRow()]
     }));
   };
 
   const handleRemoveProductRow = (index) => {
     setOrderForm(prev => ({
       ...prev,
-      productosAplicados: prev.productosAplicados.filter((_, i) => i !== index)
+      appliedProducts: prev.appliedProducts.filter((_, i) => i !== index)
     }));
   };
 
   const handleProductChange = (index, field, value) => {
     setOrderForm(prev => {
-      const updated = [...prev.productosAplicados];
+      const updated = [...prev.appliedProducts];
       updated[index] = { ...updated[index], [field]: value };
-      return { ...prev, productosAplicados: updated };
+      return { ...prev, appliedProducts: updated };
     });
   };
 
   // Planilla de la evaluación de servicio
   const handleEvalRowChange = (index, field, value) => {
     setEvalForm((prev) => {
-      const detalle = [...prev.detalle];
-      detalle[index] = { ...detalle[index], [field]: value };
-      return { ...prev, detalle };
+      const details = [...prev.details];
+      details[index] = { ...details[index], [field]: value };
+      return { ...prev, details };
     });
-    if (evalErrors.detalle) setEvalErrors((prev) => ({ ...prev, detalle: '' }));
+    if (evalErrors.details) setEvalErrors((prev) => ({ ...prev, details: '' }));
   };
 
   const handleAddEvalRow = () => {
-    setEvalForm((prev) => ({ ...prev, detalle: [...prev.detalle, emptyEvalRow()] }));
+    setEvalForm((prev) => ({ ...prev, details: [...prev.details, emptyEvalRow()] }));
   };
 
   const handleRemoveEvalRow = (index) => {
-    setEvalForm((prev) => ({ ...prev, detalle: prev.detalle.filter((_, i) => i !== index) }));
+    setEvalForm((prev) => ({ ...prev, details: prev.details.filter((_, i) => i !== index) }));
   };
 
   // Al tildar "cargar la evaluación", si la planilla está vacía se traen las instalaciones de la orden
@@ -452,7 +452,7 @@ export const ServiceOrdersPage = () => {
     setIncludeEval(checked);
     if (checked) {
       setEvalForm((prev) =>
-        prev.detalle.some(rowHasData) ? prev : { ...prev, detalle: evalRowsFromOrder(orderForm.productosAplicados) }
+        prev.details.some(rowHasData) ? prev : { ...prev, details: evalRowsFromOrder(orderForm.appliedProducts) }
       );
     }
   };
@@ -462,19 +462,19 @@ export const ServiceOrdersPage = () => {
     e.preventDefault();
 
     const errors = {};
-    if (!orderForm.clienteNombre?.trim()) errors.clienteNombre = 'Elegí el cliente.';
-    if (orderForm.tipoTrabajo === 'Otro' && !orderForm.tipoTrabajoOtro?.trim()) {
-      errors.tipoTrabajoOtro = 'Escribí qué tipo de trabajo es.';
+    if (!orderForm.customerName?.trim()) errors.customerName = 'Elegí el cliente.';
+    if (orderForm.workType === 'Otro' && !orderForm.otherWorkType?.trim()) {
+      errors.otherWorkType = 'Escribí qué tipo de trabajo es.';
     }
     const evErrors = includeEval ? validateEvalForm(evalForm) : {};
     setOrderErrors(errors);
     setEvalErrors(evErrors);
     if (Object.keys(errors).length > 0 || Object.keys(evErrors).length > 0) return;
 
-    const { tipoTrabajoOtro, ...rest } = orderForm;
+    const { otherWorkType, ...rest } = orderForm;
     const payload = {
       ...rest,
-      tipoTrabajo: orderForm.tipoTrabajo === 'Otro' ? tipoTrabajoOtro.trim() : orderForm.tipoTrabajo,
+      workType: orderForm.workType === 'Otro' ? otherWorkType.trim() : orderForm.workType,
     };
 
     let savedOrder = null;
@@ -490,30 +490,30 @@ export const ServiceOrdersPage = () => {
       }
     } catch (err) {
       console.error('Error al guardar la orden de servicio:', err);
-      notificar.error('No se pudo guardar la orden de servicio', err);
+      notify.error('No se pudo guardar la orden de servicio', err);
       return; // el formulario queda abierto para reintentar
     }
 
     // Evaluación de servicio cargada en el mismo formulario
-    let evalFallo = false;
+    let evalFailed = false;
     if (includeEval && savedOrder?.id) {
       try {
         const withEval = await serviceOrdersApi.saveEvaluation(savedOrder.id, buildEvalPayload(evalForm));
         if (withEval) setOrders(prev => prev.map(o => (o.id === savedOrder.id ? withEval : o)));
       } catch (err) {
         console.error('La orden se guardó, pero falló la evaluación:', err);
-        evalFallo = true;
-        notificar.advertencia(
+        evalFailed = true;
+        notify.warning(
           'La orden se guardó, pero no la evaluación',
           'Podés cargarla después desde el lápiz de la orden.'
         );
       }
     }
 
-    if (!evalFallo) {
-      notificar.exito(
+    if (!evalFailed) {
+      notify.success(
         editingOrderId ? 'Orden de servicio actualizada' : 'Orden de servicio registrada',
-        `N.º ${savedOrder?.numeroOrden || payload.numeroOrden}${includeEval ? ' · con evaluación' : ''}`
+        `N.º ${savedOrder?.orderNumber || payload.orderNumber}${includeEval ? ' · con evaluación' : ''}`
       );
     }
     if (!editingOrderId) clearDraft(orderDraftKey);
@@ -524,26 +524,26 @@ export const ServiceOrdersPage = () => {
   const handleOpenEvalDrawer = (order) => {
     setEvalTargetOrder(order);
     setEvalErrors({});
-    const ev = order.evaluacion;
+    const ev = order.evaluation;
     if (ev) {
-      const detalleGuardado = parseJsonArray(ev.detalle);
+      const savedDetail = parseJsonArray(ev.details);
       setEvalForm({
-        fechaEvaluacion: ev.fechaEvaluacion ? String(ev.fechaEvaluacion).slice(0, 10) : '',
+        evaluationDate: ev.evaluationDate ? String(ev.evaluationDate).slice(0, 10) : '',
         // Evaluaciones viejas (sin planilla): se arma con las instalaciones de la orden
-        detalle: detalleGuardado.length > 0
-          ? detalleGuardado.map((r) => ({ ...emptyEvalRow(), ...r }))
-          : evalRowsFromOrder(order.productosAplicados),
+        details: savedDetail.length > 0
+          ? savedDetail.map((r) => ({ ...emptyEvalRow(), ...r }))
+          : evalRowsFromOrder(order.appliedProducts),
         ppmPH3: ev.ppmPH3 ?? '',
-        satisfaccionCliente: ev.satisfaccionCliente ? String(ev.satisfaccionCliente) : '',
-        comentarioCliente: ev.comentarioCliente || '',
-        observaciones: ev.observaciones || '',
-        recomendaciones: ev.recomendaciones || '',
-        fotos: parseJsonArray(ev.fotos),
-        firmaCliente: ev.firmaCliente || null,
-        firmaTecnico: ev.firmaTecnico || null,
+        customerSatisfaction: ev.customerSatisfaction ? String(ev.customerSatisfaction) : '',
+        customerComment: ev.customerComment || '',
+        notes: ev.notes || '',
+        recommendations: ev.recommendations || '',
+        photos: parseJsonArray(ev.photos),
+        customerSignature: ev.customerSignature || null,
+        technicianSignature: ev.technicianSignature || null,
       });
     } else {
-      setEvalForm(emptyEvalForm(order.productosAplicados));
+      setEvalForm(emptyEvalForm(order.appliedProducts));
     }
     setShowEvalDrawer(true);
   };
@@ -568,16 +568,16 @@ export const ServiceOrdersPage = () => {
         if (o.id !== evalTargetOrder.id) return o;
         return savedOrderFromApi || {
           ...o,
-          estado: o.estado === 'Programada' || o.estado === 'En Ejecución' ? 'Completada' : o.estado,
-          evaluacion: evaluationPayload,
+          status: o.status === 'Programada' || o.status === 'En Ejecución' ? 'Completada' : o.status,
+          evaluation: evaluationPayload,
         };
       }));
-      notificar.exito('Evaluación de servicio guardada', `Orden N.º ${evalTargetOrder.numeroOrden}`);
+      notify.success('Evaluación de servicio guardada', `Orden N.º ${evalTargetOrder.orderNumber}`);
       setShowEvalDrawer(false);
       setEvalTargetOrder(null);
     } catch (err) {
       console.error('Error al guardar evaluación:', err);
-      notificar.error('No se pudo guardar la evaluación de servicio', err);
+      notify.error('No se pudo guardar la evaluación de servicio', err);
     }
   };
 
@@ -585,9 +585,9 @@ export const ServiceOrdersPage = () => {
   const handleDeleteOrder = async (orderId, num) => {
     if (!window.confirm(`¿Estás seguro de eliminar la Orden de Servicio "${num}"?`)) return;
     try {
-      await notificar.operacion(serviceOrdersApi.delete(orderId), {
-        cargando: `Eliminando la orden ${num}…`,
-        exito: 'Orden de servicio eliminada',
+      await notify.operation(serviceOrdersApi.delete(orderId), {
+        loading: `Eliminando la orden ${num}…`,
+        success: 'Orden de servicio eliminada',
         error: 'No se pudo eliminar la orden de servicio',
       });
       setOrders(prev => prev.filter(o => o.id !== orderId));
@@ -599,26 +599,26 @@ export const ServiceOrdersPage = () => {
   // Export CSV
   const handleExportCSV = () => {
     if (orders.length === 0) {
-      notificar.info('No hay órdenes para exportar');
+      notify.info('No hay órdenes para exportar');
       return;
     }
     const headers = ['Nro Orden', 'Fecha', 'Cliente', 'Centro', 'Planta', 'Silo', 'Direccion', 'Localidad', 'Provincia', 'Tipo Trabajo', 'Estado', 'Tecnico', 'Fecha Evaluacion', 'Resultado Evaluacion', 'Estado Cereal'];
     const rows = orders.map(o => [
-      o.numeroOrden,
-      o.fecha,
-      o.clienteNombre,
-      o.centroNombre,
-      o.plantaNombre,
+      o.orderNumber,
+      o.date,
+      o.customerName,
+      o.centerName,
+      o.plantName,
       o.silo || '',
-      o.direccion || '',
-      o.localidad,
-      o.provincia,
-      o.tipoTrabajo,
-      o.estado,
-      o.tecnicoAplicador || '',
-      o.evaluacion?.fechaEvaluacion ? String(o.evaluacion.fechaEvaluacion).slice(0, 10) : '',
-      o.evaluacion?.resultado || 'Sin evaluar',
-      o.evaluacion?.estadoCereal || ''
+      o.address || '',
+      o.locality,
+      o.province,
+      o.workType,
+      o.status,
+      o.technicianName || '',
+      o.evaluation?.evaluationDate ? String(o.evaluation.evaluationDate).slice(0, 10) : '',
+      o.evaluation?.result || 'Sin evaluar',
+      o.evaluation?.grainCondition || ''
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,﻿' +
@@ -638,30 +638,30 @@ export const ServiceOrdersPage = () => {
     let result = [...orders];
 
     // Quick tab filter
-    if (activeTab === 'ejecucion') {
-      result = result.filter(o => o.estado === 'En Ejecución');
-    } else if (activeTab === 'completadas') {
-      result = result.filter(o => o.estado === 'Completada');
+    if (activeTab === 'execution') {
+      result = result.filter(o => o.status === 'En Ejecución');
+    } else if (activeTab === 'completed') {
+      result = result.filter(o => o.status === 'Completada');
     } else if (activeTab === 'sin-evaluar') {
-      result = result.filter(o => !o.evaluacion);
+      result = result.filter(o => !o.evaluation);
     }
 
     // Work type filter
     if (workTypeFilter !== 'all') {
-      result = result.filter(o => o.tipoTrabajo === workTypeFilter);
+      result = result.filter(o => o.workType === workTypeFilter);
     }
 
     // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(o =>
-        o.numeroOrden.toLowerCase().includes(q) ||
-        o.clienteNombre.toLowerCase().includes(q) ||
-        o.centroNombre?.toLowerCase().includes(q) ||
-        o.plantaNombre.toLowerCase().includes(q) ||
-        o.localidad.toLowerCase().includes(q) ||
-        o.tipoTrabajo.toLowerCase().includes(q) ||
-        o.tecnicoAplicador?.toLowerCase().includes(q)
+        o.orderNumber.toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q) ||
+        o.centerName?.toLowerCase().includes(q) ||
+        o.plantName.toLowerCase().includes(q) ||
+        o.locality.toLowerCase().includes(q) ||
+        o.workType.toLowerCase().includes(q) ||
+        o.technicianName?.toLowerCase().includes(q)
       );
     }
 
@@ -671,20 +671,20 @@ export const ServiceOrdersPage = () => {
   // KPIs
   const kpis = useMemo(() => {
     const total = orders.length;
-    const enEjecucion = orders.filter(o => o.estado === 'En Ejecución').length;
-    const completadas = orders.filter(o => o.estado === 'Completada').length;
-    const evaluadas = orders.filter(o => o.evaluacion && o.evaluacion.resultado);
-    const sinInsectos = evaluadas.filter(o => o.evaluacion.resultado === 'Sin insectos vivos').length;
-    const pctSinInsectos = evaluadas.length > 0 ? Math.round((sinInsectos / evaluadas.length) * 100) : 0;
+    const inExecution = orders.filter(o => o.status === 'En Ejecución').length;
+    const completed = orders.filter(o => o.status === 'Completada').length;
+    const evaluated = orders.filter(o => o.evaluation && o.evaluation.result);
+    const withoutInsects = evaluated.filter(o => o.evaluation.result === 'Sin insectos vivos').length;
+    const pctWithoutInsects = evaluated.length > 0 ? Math.round((withoutInsects / evaluated.length) * 100) : 0;
 
-    return { total, enEjecucion, completadas, totalEvaluadas: evaluadas.length, pctSinInsectos };
+    return { total, inExecution, completed, totalEvaluated: evaluated.length, pctWithoutInsects };
   }, [orders]);
 
   // Formulario de la evaluación, igual a la planilla en papel. `orden` aporta los
   // datos del encabezado (se completan solos) y las instalaciones para copiar.
-  const renderEvalFields = (orden = {}) => {
-    const faltaEnFila = (row, col) =>
-      Boolean(evalErrors.detalle) && col.required && rowHasData(row) && !String(row[col.key] || '').trim();
+  const renderEvalFields = (order = {}) => {
+    const missingInRow = (row, col) =>
+      Boolean(evalErrors.details) && col.required && rowHasData(row) && !String(row[col.key] || '').trim();
 
     return (
       <>
@@ -692,30 +692,30 @@ export const ServiceOrdersPage = () => {
           <div className="so-form-grid so-form-grid--4">
             <FormInput
               label="Fecha de Evaluación"
-              name="fechaEvaluacion"
+              name="evaluationDate"
               type="date"
-              value={evalForm.fechaEvaluacion}
+              value={evalForm.evaluationDate}
               onChange={(e) => {
-                setEvalForm({ ...evalForm, fechaEvaluacion: e.target.value });
-                if (evalErrors.fechaEvaluacion) setEvalErrors((prev) => ({ ...prev, fechaEvaluacion: '' }));
+                setEvalForm({ ...evalForm, evaluationDate: e.target.value });
+                if (evalErrors.evaluationDate) setEvalErrors((prev) => ({ ...prev, evaluationDate: '' }));
               }}
               required
-              error={evalErrors.fechaEvaluacion}
+              error={evalErrors.evaluationDate}
             />
-            <FormInput label="Cliente" name="evalCliente" value={orden.clienteNombre || ''} readOnly placeholder="Se completa con la orden" />
-            <FormInput label="Localidad" name="evalLocalidad" value={orden.localidad || ''} readOnly placeholder="—" />
-            <FormInput label="Orden de Servicio" name="evalOrden" value={orden.numeroOrden || ''} readOnly placeholder="—" />
+            <FormInput label="Cliente" name="evalCustomer" value={order.customerName || ''} readOnly placeholder="Se completa con la orden" />
+            <FormInput label="Localidad" name="evalLocality" value={order.locality || ''} readOnly placeholder="—" />
+            <FormInput label="Orden de Servicio" name="evalOrder" value={order.orderNumber || ''} readOnly placeholder="—" />
           </div>
         </section>
 
         <section className="so-form-section">
           <div className="so-form-section__head">
             <h3 className="so-form-section__title">Detalle del servicio</h3>
-            {(orden.productosAplicados || []).some(rowHasData) && (
+            {(order.appliedProducts || []).some(rowHasData) && (
               <button
                 type="button"
                 className="so-sheet__link"
-                onClick={() => setEvalForm((prev) => ({ ...prev, detalle: evalRowsFromOrder(orden.productosAplicados) }))}
+                onClick={() => setEvalForm((prev) => ({ ...prev, details: evalRowsFromOrder(order.appliedProducts) }))}
                 title="Reemplaza la planilla por las instalaciones cargadas en la orden"
               >
                 Traer instalaciones de la orden
@@ -741,10 +741,10 @@ export const ServiceOrdersPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {evalForm.detalle.map((row, idx) => (
+                {evalForm.details.map((row, idx) => (
                   <tr key={idx}>
                     {EVAL_COLUMNS.map((col) => {
-                      const cellClass = `so-sheet__input ${faltaEnFila(row, col) ? 'so-sheet__input--error' : ''}`;
+                      const cellClass = `so-sheet__input ${missingInRow(row, col) ? 'so-sheet__input--error' : ''}`;
                       const label = `${col.label}, fila ${idx + 1}`;
                       return (
                         <td key={col.key}>
@@ -775,7 +775,7 @@ export const ServiceOrdersPage = () => {
                       );
                     })}
                     <td className="so-sheet__actions">
-                      {evalForm.detalle.length > 1 && (
+                      {evalForm.details.length > 1 && (
                         <button
                           type="button"
                           className="so-sheet__remove"
@@ -792,7 +792,7 @@ export const ServiceOrdersPage = () => {
               </tbody>
             </table>
           </div>
-          {evalErrors.detalle && <span className="form-input-error">{evalErrors.detalle}</span>}
+          {evalErrors.details && <span className="form-input-error">{evalErrors.details}</span>}
           <button type="button" className="so-sheet__add" onClick={handleAddEvalRow}>
             <Plus size={14} /> Agregar fila
           </button>
@@ -817,9 +817,9 @@ export const ServiceOrdersPage = () => {
             />
             <FormSelect
               label="Satisfacción del cliente"
-              name="satisfaccionCliente"
-              value={evalForm.satisfaccionCliente}
-              onChange={(e) => setEvalForm({ ...evalForm, satisfaccionCliente: e.target.value })}
+              name="customerSatisfaction"
+              value={evalForm.customerSatisfaction}
+              onChange={(e) => setEvalForm({ ...evalForm, customerSatisfaction: e.target.value })}
               options={[
                 { value: '', label: 'Sin calificar' },
                 { value: '5', label: '5 — Muy satisfecho' },
@@ -832,25 +832,25 @@ export const ServiceOrdersPage = () => {
           </div>
           <FormInput
             label="Comentario del cliente"
-            name="comentarioCliente"
-            value={evalForm.comentarioCliente}
-            onChange={(e) => setEvalForm({ ...evalForm, comentarioCliente: e.target.value })}
+            name="customerComment"
+            value={evalForm.customerComment}
+            onChange={(e) => setEvalForm({ ...evalForm, customerComment: e.target.value })}
             placeholder="Lo que dijo el cliente sobre el servicio (opcional)"
           />
           <div className="so-form-grid so-form-grid--2">
             <FormTextarea
               label="Observaciones"
-              name="observaciones"
-              value={evalForm.observaciones}
-              onChange={(e) => setEvalForm({ ...evalForm, observaciones: e.target.value })}
+              name="notes"
+              value={evalForm.notes}
+              onChange={(e) => setEvalForm({ ...evalForm, notes: e.target.value })}
               placeholder="Condiciones del muestreo, hallazgos relevantes..."
               rows={3}
             />
             <FormTextarea
               label="Recomendaciones especiales para el Cliente"
-              name="recomendaciones"
-              value={evalForm.recomendaciones}
-              onChange={(e) => setEvalForm({ ...evalForm, recomendaciones: e.target.value })}
+              name="recommendations"
+              value={evalForm.recommendations}
+              onChange={(e) => setEvalForm({ ...evalForm, recommendations: e.target.value })}
               rows={3}
             />
           </div>
@@ -859,8 +859,8 @@ export const ServiceOrdersPage = () => {
         <section className="so-form-section">
           <MultiImageUpload
             label="Fotos"
-            value={evalForm.fotos}
-            onChange={(fotos) => setEvalForm({ ...evalForm, fotos })}
+            value={evalForm.photos}
+            onChange={(photos) => setEvalForm({ ...evalForm, photos })}
             maxFiles={6}
           />
         </section>
@@ -870,13 +870,13 @@ export const ServiceOrdersPage = () => {
           <div className="so-form-grid so-form-grid--2">
             <SignaturePad
               label="Firma del Técnico"
-              value={evalForm.firmaTecnico}
-              onChange={(firmaTecnico) => setEvalForm({ ...evalForm, firmaTecnico })}
+              value={evalForm.technicianSignature}
+              onChange={(technicianSignature) => setEvalForm({ ...evalForm, technicianSignature })}
             />
             <SignaturePad
               label="Firma del Cliente"
-              value={evalForm.firmaCliente}
-              onChange={(firmaCliente) => setEvalForm({ ...evalForm, firmaCliente })}
+              value={evalForm.customerSignature}
+              onChange={(customerSignature) => setEvalForm({ ...evalForm, customerSignature })}
             />
           </div>
         </section>
@@ -897,13 +897,13 @@ export const ServiceOrdersPage = () => {
         {['Fosfuro de Aluminio (Pastillas)', 'Fosfuro de Magnesio', 'Deltametrina', 'Pirimifós metil'].map((v) => <option key={v} value={v} />)}
       </datalist>
       <datalist id="so-lugares-toma-muestra">
-        {LUGARES_TOMA_MUESTRA.map((v) => <option key={v} value={v} />)}
+        {SAMPLING_POINTS.map((v) => <option key={v} value={v} />)}
       </datalist>
     </>
   );
 
-  const selectedWorkType = orderForm.tipoTrabajo;
-  const canAttachEval = !editingOrderId || !orders.find((o) => o.id === editingOrderId)?.evaluacion;
+  const selectedWorkType = orderForm.workType;
+  const canAttachEval = !editingOrderId || !orders.find((o) => o.id === editingOrderId)?.evaluation;
 
   return (
     <div className="so-page">
@@ -948,7 +948,7 @@ export const ServiceOrdersPage = () => {
           </div>
           <div className="so-kpi-info">
             <span className="so-kpi-label">EN EJECUCIÓN</span>
-            <div className="so-kpi-value">{kpis.enEjecucion} <span className="so-kpi-sub">activas</span></div>
+            <div className="so-kpi-value">{kpis.inExecution} <span className="so-kpi-sub">activas</span></div>
           </div>
         </div>
 
@@ -958,7 +958,7 @@ export const ServiceOrdersPage = () => {
           </div>
           <div className="so-kpi-info">
             <span className="so-kpi-label">COMPLETADAS</span>
-            <div className="so-kpi-value">{kpis.completadas} <span className="so-kpi-sub">finalizadas</span></div>
+            <div className="so-kpi-value">{kpis.completed} <span className="so-kpi-sub">finalizadas</span></div>
           </div>
         </div>
 
@@ -968,7 +968,7 @@ export const ServiceOrdersPage = () => {
           </div>
           <div className="so-kpi-info">
             <span className="so-kpi-label">SIN INSECTOS VIVOS</span>
-            <div className="so-kpi-value">{kpis.pctSinInsectos}% <span className="so-kpi-sub">({kpis.totalEvaluadas} evaluadas)</span></div>
+            <div className="so-kpi-value">{kpis.pctWithoutInsects}% <span className="so-kpi-sub">({kpis.totalEvaluated} evaluadas)</span></div>
           </div>
         </div>
       </div>
@@ -1002,9 +1002,9 @@ export const ServiceOrdersPage = () => {
             onChange={setActiveTab}
             items={[
               { value: 'all', label: 'Todas', count: orders.length },
-              { value: 'ejecucion', label: 'En Ejecución', count: orders.filter(o => o.estado === 'En Ejecución').length },
-              { value: 'completadas', label: 'Completadas', count: orders.filter(o => o.estado === 'Completada').length },
-              { value: 'sin-evaluar', label: 'Por Evaluar', count: orders.filter(o => !o.evaluacion).length },
+              { value: 'execution', label: 'En Ejecución', count: orders.filter(o => o.status === 'En Ejecución').length },
+              { value: 'completed', label: 'Completadas', count: orders.filter(o => o.status === 'Completada').length },
+              { value: 'sin-evaluar', label: 'Por Evaluar', count: orders.filter(o => !o.evaluation).length },
             ]}
           />
 
@@ -1051,7 +1051,7 @@ export const ServiceOrdersPage = () => {
               </thead>
               <tbody>
                 {filteredOrders.map((order) => {
-                  const statusInfo = ORDER_STATUSES.find(s => s.key === order.estado) || {
+                  const statusInfo = ORDER_STATUSES.find(s => s.key === order.status) || {
                     color: '#64748b',
                     bg: '#f1f5f9'
                   };
@@ -1066,32 +1066,32 @@ export const ServiceOrdersPage = () => {
                           onClick={() => setSummaryOrder(order)}
                           title="Ver resumen de la orden y su evaluación"
                         >
-                          {order.numeroOrden}
+                          {order.orderNumber}
                         </button>
                       </td>
 
                       {/* Fecha */}
                       <td className="so-text-date">
-                        {order.fecha}
+                        {order.date}
                       </td>
 
                       {/* Cliente */}
                       <td>
                         <div className="so-client-cell">
                           <button type="button" className="so-client-name so-order-link" onClick={() => setSummaryOrder(order)}>
-                            {order.clienteNombre}
+                            {order.customerName}
                           </button>
-                          <span className="so-client-sub">{order.centroNombre}</span>
+                          <span className="so-client-sub">{order.centerName}</span>
                         </div>
                       </td>
 
                       {/* Planta & Localidad */}
                       <td>
                         <div className="so-plant-cell">
-                          <span className="so-plant-name">{order.direccion || '—'}</span>
-                          {(order.localidad || order.provincia) && (
+                          <span className="so-plant-name">{order.address || '—'}</span>
+                          {(order.locality || order.province) && (
                             <span className="so-plant-loc">
-                              <MapPin size={11} /> {[order.localidad, order.provincia].filter(Boolean).join(', ')}
+                              <MapPin size={11} /> {[order.locality, order.province].filter(Boolean).join(', ')}
                             </span>
                           )}
                         </div>
@@ -1099,19 +1099,19 @@ export const ServiceOrdersPage = () => {
 
                       {/* Tipo de Trabajo */}
                       <td>
-                        <span className="so-work-badge">{order.tipoTrabajo}</span>
+                        <span className="so-work-badge">{order.workType}</span>
                       </td>
 
                       {/* Estado */}
                       <td>
-                        <span className={`crm-status-pill ${/complet/i.test(order.estado || '') ? 'crm-status-pill--ok' : ''}`}>
-                          {order.estado}
+                        <span className={`crm-status-pill ${/complet/i.test(order.status || '') ? 'crm-status-pill--ok' : ''}`}>
+                          {order.status}
                         </span>
                       </td>
 
                       {/* Evaluación de Servicio */}
                       <td>
-                        {order.evaluacion ? (
+                        {order.evaluation ? (
                           <div
                             className="so-eval-box"
                             onClick={() => handleOpenEvalDrawer(order)}
@@ -1119,10 +1119,10 @@ export const ServiceOrdersPage = () => {
                             title="Hacé click para ver o editar la evaluación de servicio"
                           >
                             <span className="so-eval-resultado-text">
-                              {order.evaluacion.resultado || 'Sin resultado'}
+                              {order.evaluation.result || 'Sin resultado'}
                             </span>
                             <span className="so-eval-meta">
-                              Cereal {order.evaluacion.estadoCereal || '—'} · {order.evaluacion.fechaEvaluacion ? String(order.evaluacion.fechaEvaluacion).slice(0, 10) : 'sin fecha'}
+                              Cereal {order.evaluation.grainCondition || '—'} · {order.evaluation.evaluationDate ? String(order.evaluation.evaluationDate).slice(0, 10) : 'sin fecha'}
                             </span>
                           </div>
                         ) : (
@@ -1145,19 +1145,19 @@ export const ServiceOrdersPage = () => {
                             type="button"
                             className="so-action-icon-btn so-action-icon-btn--print"
                             title="Imprimir orden de servicio"
-                            aria-label={`Imprimir orden de servicio ${order.numeroOrden}`}
-                            onClick={() => openPdfPreview('orden', order)}
+                            aria-label={`Imprimir orden de servicio ${order.orderNumber}`}
+                            onClick={() => openPdfPreview('order', order)}
                           >
                             <Printer size={15} />
                           </button>
                           <button
                             type="button"
-                            className={`so-action-icon-btn so-action-icon-btn--print ${order.evaluacion ? '' : 'is-disabled'}`}
-                            title={order.evaluacion ? 'Imprimir evaluación de servicio' : 'Sin evaluación: primero hay que cargarla'}
-                            aria-label={`Imprimir evaluación de servicio ${order.numeroOrden}`}
+                            className={`so-action-icon-btn so-action-icon-btn--print ${order.evaluation ? '' : 'is-disabled'}`}
+                            title={order.evaluation ? 'Imprimir evaluación de servicio' : 'Sin evaluación: primero hay que cargarla'}
+                            aria-label={`Imprimir evaluación de servicio ${order.orderNumber}`}
                             /* Sin "disabled": así el click avisa por qué no se puede, en vez de no hacer nada */
-                            aria-disabled={!order.evaluacion}
-                            onClick={() => openPdfPreview('evaluacion', order)}
+                            aria-disabled={!order.evaluation}
+                            onClick={() => openPdfPreview('evaluation', order)}
                           >
                             <ClipboardCheck size={15} />
                           </button>
@@ -1193,7 +1193,7 @@ export const ServiceOrdersPage = () => {
                                     handleOpenEvalDrawer(order);
                                   }}
                                 >
-                                  {order.evaluacion ? 'Editar evaluación de servicio' : 'Cargar evaluación de servicio'}
+                                  {order.evaluation ? 'Editar evaluación de servicio' : 'Cargar evaluación de servicio'}
                                 </button>
                               </div>
                             )}
@@ -1203,7 +1203,7 @@ export const ServiceOrdersPage = () => {
                             type="button"
                             className="so-action-icon-btn so-action-icon-btn--delete"
                             title="Eliminar Orden"
-                            onClick={() => handleDeleteOrder(order.id, order.numeroOrden)}
+                            onClick={() => handleDeleteOrder(order.id, order.orderNumber)}
                           >
                             <Trash2 size={15} />
                           </button>
@@ -1238,31 +1238,31 @@ export const ServiceOrdersPage = () => {
                   <div className="so-form-grid so-form-grid--4">
                     <FormInput
                       label="N.º de Orden de Servicio"
-                      name="numeroOrden"
-                      value={orderForm.numeroOrden}
-                      onChange={(e) => setOrderField('numeroOrden', e.target.value)}
+                      name="orderNumber"
+                      value={orderForm.orderNumber}
+                      onChange={(e) => setOrderField('orderNumber', e.target.value)}
                       required
                     />
                     <FormInput
                       label="Fecha de Ejecución"
-                      name="fecha"
+                      name="date"
                       type="date"
-                      value={orderForm.fecha}
-                      onChange={(e) => setOrderField('fecha', e.target.value)}
+                      value={orderForm.date}
+                      onChange={(e) => setOrderField('date', e.target.value)}
                       required
                     />
                     <FormSelect
                       label="Estado de la Orden"
-                      name="estado"
-                      value={orderForm.estado}
-                      onChange={(e) => setOrderField('estado', e.target.value)}
+                      name="status"
+                      value={orderForm.status}
+                      onChange={(e) => setOrderField('status', e.target.value)}
                       options={ORDER_STATUSES.map(s => ({ value: s.key, label: s.label }))}
                     />
                     <FormSelect
                       label="Tipo de Trabajo"
-                      name="tipoTrabajo"
+                      name="workType"
                       value={selectedWorkType}
-                      onChange={(e) => setOrderField('tipoTrabajo', e.target.value)}
+                      onChange={(e) => setOrderField('workType', e.target.value)}
                       options={WORK_TYPES.map(w => ({ value: w, label: w }))}
                     />
                   </div>
@@ -1270,15 +1270,15 @@ export const ServiceOrdersPage = () => {
                   {selectedWorkType === 'Otro' && (
                     <FormInput
                       label="¿Qué tipo de trabajo?"
-                      name="tipoTrabajoOtro"
-                      value={orderForm.tipoTrabajoOtro}
+                      name="otherWorkType"
+                      value={orderForm.otherWorkType}
                       onChange={(e) => {
-                        setOrderField('tipoTrabajoOtro', e.target.value);
-                        if (orderErrors.tipoTrabajoOtro) setOrderErrors((prev) => ({ ...prev, tipoTrabajoOtro: '' }));
+                        setOrderField('otherWorkType', e.target.value);
+                        if (orderErrors.otherWorkType) setOrderErrors((prev) => ({ ...prev, otherWorkType: '' }));
                       }}
                       placeholder="Ej: Tratamiento de bodega de barco"
                       required
-                      error={orderErrors.tipoTrabajoOtro}
+                      error={orderErrors.otherWorkType}
                     />
                   )}
                 </section>
@@ -1288,34 +1288,34 @@ export const ServiceOrdersPage = () => {
                   <div className="so-form-grid so-form-grid--2">
                     <CompanyAutocomplete
                       label="Cliente"
-                      name="clienteNombre"
-                      value={orderForm.clienteNombre}
-                      onChange={(nombre, item) =>
+                      name="customerName"
+                      value={orderForm.customerName}
+                      onChange={(name, item) =>
                         setOrderForm(prev => ({
                           ...prev,
-                          clienteNombre: nombre,
-                          clienteId: item?.id ? String(item.id) : '',
+                          customerName: name,
+                          customerCode: item?.id ? String(item.id) : '',
                           // Vínculo real con la empresa (para el tablero de servicios del cliente)
-                          empresaId: item?.id || null,
+                          companyId: item?.id || null,
                           // Dirección, localidad y provincia salen de la empresa elegida
-                          direccion: item && isRealAddress(item.direccion) ? item.direccion : '',
-                          localidad: item?.loc || '',
-                          provincia: item?.provincia || '',
+                          address: item && isRealAddress(item.address) ? item.address : '',
+                          locality: item?.loc || '',
+                          province: item?.province || '',
                         }))
                       }
                       required
-                      error={orderErrors.clienteNombre}
+                      error={orderErrors.customerName}
                     />
                     <TechnicianAutocomplete
-                      value={orderForm.tecnicoAplicador}
-                      onChange={(v) => setOrderField('tecnicoAplicador', v)}
+                      value={orderForm.technicianName}
+                      onChange={(v) => setOrderField('technicianName', v)}
                     />
                   </div>
 
                   <div className="so-form-grid so-form-grid--3">
-                    <FormInput label="Dirección" name="direccion" value={orderForm.direccion || ''} readOnly placeholder="Se completa al elegir el cliente" />
-                    <FormInput label="Localidad" name="localidad" value={orderForm.localidad || ''} readOnly placeholder="—" />
-                    <FormInput label="Provincia" name="provincia" value={orderForm.provincia || ''} readOnly placeholder="—" />
+                    <FormInput label="Dirección" name="address" value={orderForm.address || ''} readOnly placeholder="Se completa al elegir el cliente" />
+                    <FormInput label="Localidad" name="locality" value={orderForm.locality || ''} readOnly placeholder="—" />
+                    <FormInput label="Provincia" name="province" value={orderForm.province || ''} readOnly placeholder="—" />
                   </div>
                 </section>
 
@@ -1326,25 +1326,25 @@ export const ServiceOrdersPage = () => {
                     <table className="so-sheet">
                       <thead>
                         <tr>
-                          {DETALLE_COLUMNS.filter((c) => !c.group).slice(0, 5).map((col) => (
+                          {DETAIL_COLUMNS.filter((c) => !c.group).slice(0, 5).map((col) => (
                             <th key={col.key} rowSpan={2} style={{ minWidth: col.width }}>{col.label}</th>
                           ))}
                           <th colSpan={3}>Estado</th>
-                          {DETALLE_COLUMNS.filter((c) => !c.group).slice(5).map((col) => (
+                          {DETAIL_COLUMNS.filter((c) => !c.group).slice(5).map((col) => (
                             <th key={col.key} rowSpan={2} style={{ minWidth: col.width }}>{col.label}</th>
                           ))}
                           <th rowSpan={2} aria-label="Acciones" />
                         </tr>
                         <tr>
-                          {DETALLE_COLUMNS.filter((c) => c.group).map((col) => (
+                          {DETAIL_COLUMNS.filter((c) => c.group).map((col) => (
                             <th key={col.key} style={{ minWidth: col.width }}>{col.label}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {orderForm.productosAplicados.map((row, idx) => (
+                        {orderForm.appliedProducts.map((row, idx) => (
                           <tr key={idx}>
-                            {DETALLE_COLUMNS.map((col) => (
+                            {DETAIL_COLUMNS.map((col) => (
                               <td key={col.key}>
                                 <input
                                   type="text"
@@ -1358,7 +1358,7 @@ export const ServiceOrdersPage = () => {
                               </td>
                             ))}
                             <td className="so-sheet__actions">
-                              {orderForm.productosAplicados.length > 1 && (
+                              {orderForm.appliedProducts.length > 1 && (
                                 <button
                                   type="button"
                                   className="so-sheet__remove"
@@ -1385,17 +1385,17 @@ export const ServiceOrdersPage = () => {
                   <div className="so-form-grid so-form-grid--2">
                     <FormTextarea
                       label="Observaciones"
-                      name="observacionesOrden"
-                      value={orderForm.observacionesOrden}
-                      onChange={(e) => setOrderField('observacionesOrden', e.target.value)}
+                      name="orderNotes"
+                      value={orderForm.orderNotes}
+                      onChange={(e) => setOrderField('orderNotes', e.target.value)}
                       placeholder="Detalles sobre hermeticidad, instalaciones a tratar o indicaciones previas..."
                       rows={3}
                     />
                     <FormTextarea
                       label="Recomendaciones especiales para el Cliente"
-                      name="recomendaciones"
-                      value={orderForm.recomendaciones}
-                      onChange={(e) => setOrderField('recomendaciones', e.target.value)}
+                      name="recommendations"
+                      value={orderForm.recommendations}
+                      onChange={(e) => setOrderField('recommendations', e.target.value)}
                       placeholder="Ej: Prender aireadores y retirar el cereal luego de 96 hs de liberado el servicio..."
                       rows={3}
                     />
@@ -1406,9 +1406,9 @@ export const ServiceOrdersPage = () => {
                 <section className="so-form-section">
                   <ImageUpload
                     label="Imagen de la orden de servicio original"
-                    value={orderForm.imagenOrdenOriginal}
-                    onChange={(url) => setOrderField('imagenOrdenOriginal', url)}
-                    onRemove={() => setOrderField('imagenOrdenOriginal', null)}
+                    value={orderForm.originalOrderImage}
+                    onChange={(url) => setOrderField('originalOrderImage', url)}
+                    onRemove={() => setOrderField('originalOrderImage', null)}
                     maxSizeMB={5}
                   />
                 </section>
@@ -1419,13 +1419,13 @@ export const ServiceOrdersPage = () => {
                   <div className="so-form-grid so-form-grid--2">
                     <SignaturePad
                       label="Firma del Técnico / Aplicador"
-                      value={orderForm.firmaTecnico}
-                      onChange={(firmaTecnico) => setOrderField('firmaTecnico', firmaTecnico)}
+                      value={orderForm.technicianSignature}
+                      onChange={(technicianSignature) => setOrderField('technicianSignature', technicianSignature)}
                     />
                     <SignaturePad
                       label="Firma del Cliente"
-                      value={orderForm.firmaCliente}
-                      onChange={(firmaCliente) => setOrderField('firmaCliente', firmaCliente)}
+                      value={orderForm.customerSignature}
+                      onChange={(customerSignature) => setOrderField('customerSignature', customerSignature)}
                     />
                   </div>
                 </section>
@@ -1463,7 +1463,7 @@ export const ServiceOrdersPage = () => {
         <div className="so-form-overlay" {...evalModalOverlayHandlers}>
           <div className="so-form-modal" role="dialog" aria-modal="true" aria-labelledby="so-eval-title">
             <header className="so-form-modal__header">
-              <h2 id="so-eval-title">Evaluación de Servicio · {evalTargetOrder.numeroOrden}</h2>
+              <h2 id="so-eval-title">Evaluación de Servicio · {evalTargetOrder.orderNumber}</h2>
               <button type="button" className="so-form-modal__close" onClick={() => setShowEvalDrawer(false)} aria-label="Cerrar">
                 <X size={20} />
               </button>
@@ -1490,10 +1490,10 @@ export const ServiceOrdersPage = () => {
       {/* Impresión: los datos se estampan sobre las plantillas PDF originales */}
       {pdfPreview && pdfGenerator && (
         <PdfPreviewModal
-          titulo={pdfPreview.tipo === 'orden' ? 'Orden de Servicio' : 'Evaluación de Servicio'}
-          subtitulo={`N.º ${pdfPreview.order.numeroOrden} · ${pdfPreview.order.clienteNombre || ''}`}
-          nombreArchivo={`${pdfPreview.tipo === 'orden' ? 'Orden' : 'Evaluacion'}_de_Servicio_${pdfPreview.order.numeroOrden}.pdf`}
-          generar={pdfGenerator}
+          title={pdfPreview.type === 'order' ? 'Orden de Servicio' : 'Evaluación de Servicio'}
+          subtitle={`N.º ${pdfPreview.order.orderNumber} · ${pdfPreview.order.customerName || ''}`}
+          fileName={`${pdfPreview.type === 'order' ? 'Orden' : 'Evaluacion'}_de_Servicio_${pdfPreview.order.orderNumber}.pdf`}
+          generate={pdfGenerator}
           onClose={closePdfPreview}
         />
       )}
@@ -1515,12 +1515,12 @@ export const ServiceOrdersPage = () => {
           onPrintOrder={() => {
             const order = summaryOrder;
             setSummaryOrder(null);
-            openPdfPreview('orden', order);
+            openPdfPreview('order', order);
           }}
           onPrintEval={() => {
             const order = summaryOrder;
             setSummaryOrder(null);
-            openPdfPreview('evaluacion', order);
+            openPdfPreview('evaluation', order);
           }}
         />
       )}

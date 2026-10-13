@@ -28,12 +28,12 @@ import {
   deleteUser as apiDeleteUser,
 } from '../../../data/api';
 import { authApi } from '../../../api/auth.api';
-import { LocalidadSelect } from '../../../components/ui/LocalidadSelect/LocalidadSelect';
+import { LocalitySelect } from '../../../components/ui/LocalitySelect/LocalitySelect';
 import { useAuth } from '../../../context/AuthContext';
 import { FormInput, FormSelect } from '../../../components/ui/FormInput/FormInput';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
-import { notificar, mensajeDeError } from '../../../hooks/useNotificaciones';
+import { notify, errorMessage } from '../../../hooks/useNotifications';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import './UsersPage.css';
 
@@ -46,10 +46,10 @@ const TABS = [
 const MAX_PASSWORD_LENGTH = 64;
 
 const COLUMNS = [
-  { key: 'nombreApellido', label: 'Usuario', sortable: true },
-  { key: 'direccionMail', label: 'Correo electrónico', sortable: true },
+  { key: 'fullName', label: 'Usuario', sortable: true },
+  { key: 'email', label: 'Correo electrónico', sortable: true },
   { key: 'role', label: 'Rol', sortable: true },
-  { key: 'accountStatement', label: 'Estado', sortable: true },
+  { key: 'accountStatus', label: 'Estado', sortable: true },
 ];
 
 const PAGE_SIZE = 10;
@@ -61,7 +61,7 @@ export const UsersPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('nombreApellido');
+  const [sortBy, setSortBy] = useState('fullName');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
@@ -83,29 +83,29 @@ export const UsersPage = () => {
   // Form State & Errors
   const [form, setForm] = useState({
     idUser: '',
-    nombreApellido: '',
-    direccionMail: '',
+    fullName: '',
+    email: '',
     password: '',
     role: 'vendedor',
-    accountStatement: 'Activo',
+    accountStatus: 'Activo',
   });
   const [errors, setErrors] = useState({});
-  const [zona, setZona] = useState([]);
-  const [zonaSel, setZonaSel] = useState(null);
-  const [guardandoZona, setGuardandoZona] = useState(false);
+  const [zone, setZone] = useState([]);
+  const [selectedZone, setSelectedZone] = useState(null);
+  const [savingZone, setSavingZone] = useState(false);
 
-  const guardarZona = async (nueva) => {
-    setGuardandoZona(true);
+  const saveZone = async (newZone) => {
+    setSavingZone(true);
     try {
-      const res = await authApi.updateZona(form.idUser, nueva.map((l) => l.id));
-      const actual = Array.isArray(res?.data) ? res.data : nueva;
-      setZona(actual);
-      setUsers((prev) => prev.map((u) => (u.idUser === form.idUser ? { ...u, zona: actual } : u)));
-      notificar.exito('Zona actualizada');
+      const res = await authApi.updateZone(form.idUser, newZone.map((l) => l.id));
+      const actual = Array.isArray(res?.data) ? res.data : newZone;
+      setZone(actual);
+      setUsers((prev) => prev.map((u) => (u.idUser === form.idUser ? { ...u, zone: actual } : u)));
+      notify.success('Zona actualizada');
     } catch (err) {
-      notificar.error('No se pudo actualizar la zona', err);
+      notify.error('No se pudo actualizar la zona', err);
     } finally {
-      setGuardandoZona(false);
+      setSavingZone(false);
     }
   };
 
@@ -117,7 +117,7 @@ export const UsersPage = () => {
     } catch (err) {
       console.warn('Error al cargar usuarios:', err);
       setUsers([]);
-      notificar.error('No se pudieron cargar los usuarios', err);
+      notify.error('No se pudieron cargar los usuarios', err);
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export const UsersPage = () => {
     e.stopPropagation();
     navigator.clipboard.writeText(id);
     setCopiedId(id);
-    notificar.info(`ID @${id} copiado al portapapeles`);
+    notify.info(`ID @${id} copiado al portapapeles`);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -150,18 +150,18 @@ export const UsersPage = () => {
 
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
-      const normRole = getNormalizedRole(u.role || u.rol);
+      const normRole = getNormalizedRole(u.role);
       if (activeTab !== 'all' && normRole !== activeTab) return false;
 
-      const isActivo = String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo';
-      if (statusFilter === 'activo' && !isActivo) return false;
-      if (statusFilter === 'inactivo' && isActivo) return false;
+      const isActive = String(u.accountStatus || 'Activo') === 'Activo';
+      if (statusFilter === 'active' && !isActive) return false;
+      if (statusFilter === 'inactive' && isActive) return false;
 
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        const name = (u.nombreApellido || '').toLowerCase();
+        const name = (u.fullName || '').toLowerCase();
         const id = (u.idUser || u.id || '').toLowerCase();
-        const mail = (u.direccionMail || u.email || '').toLowerCase();
+        const mail = (u.email || '').toLowerCase();
         return name.includes(q) || id.includes(q) || mail.includes(q);
       }
       return true;
@@ -218,11 +218,11 @@ export const UsersPage = () => {
   const handleOpenCreateModal = () => {
     setForm({
       idUser: '',
-      nombreApellido: '',
-      direccionMail: '',
+      fullName: '',
+      email: '',
       password: '',
       role: 'vendedor',
-      accountStatement: 'Activo',
+      accountStatus: 'Activo',
     });
     setErrors({});
     setModalMode('create');
@@ -237,14 +237,14 @@ export const UsersPage = () => {
     if (e) e.stopPropagation();
     setForm({
       idUser: u.idUser || u.id || '',
-      nombreApellido: u.nombreApellido || '',
-      direccionMail: u.direccionMail || u.email || '',
+      fullName: u.fullName || '',
+      email: u.email || '',
       password: '',
       role: getNormalizedRole(u.role),
-      accountStatement: u.accountStatement || 'Activo',
+      accountStatus: u.accountStatus || 'Activo',
     });
     // Zona del vendedor: localidades donde trabaja (se guarda aparte, al instante).
-    setZona(Array.isArray(u.zona) ? u.zona : []);
+    setZone(Array.isArray(u.zone) ? u.zone : []);
     setErrors({});
     setModalMode('edit');
     setShowPassword(false);
@@ -301,7 +301,7 @@ export const UsersPage = () => {
 
     const newErrors = {};
     if (!form.idUser?.trim()) newErrors.idUser = 'Ingresá el ID único de usuario.';
-    if (!form.nombreApellido?.trim()) newErrors.nombreApellido = 'El nombre y apellido es obligatorio.';
+    if (!form.fullName?.trim()) newErrors.fullName = 'El nombre y apellido es obligatorio.';
     if (modalMode === 'create' && !form.password) newErrors.password = 'La contraseña es obligatoria para nuevos usuarios.';
     if (form.password && passwordScore < 4) newErrors.password = 'La contraseña no cumple todos los requisitos de seguridad.';
 
@@ -321,12 +321,12 @@ export const UsersPage = () => {
 
     const payload = {
       idUser: form.idUser.trim(),
-      nombreApellido: form.nombreApellido.trim(),
-      direccionMail: form.direccionMail ? form.direccionMail.trim() : null,
+      fullName: form.fullName.trim(),
+      email: form.email ? form.email.trim() : null,
       password: form.password ? form.password : undefined,
-      ...(isChangingExistingPassword ? { passwordAdmin: adminReauthPassword, passwordActual: adminReauthPassword } : {}),
+      ...(isChangingExistingPassword ? { adminPassword: adminReauthPassword, currentPassword: adminReauthPassword } : {}),
       role: form.role,
-      accountStatement: form.accountStatement,
+      accountStatus: form.accountStatus,
     };
 
     setSubmitting(true);
@@ -336,25 +336,25 @@ export const UsersPage = () => {
         const newUser = created;
         if (!newUser?.idUser) throw new Error('El servidor no confirmó el alta del usuario.');
         setUsers(prev => [newUser, ...prev]);
-        notificar.exito('Usuario creado', `@${newUser.idUser || payload.idUser} ya puede ingresar al sistema.`);
+        notify.success('Usuario creado', `@${newUser.idUser || payload.idUser} ya puede ingresar al sistema.`);
       } else {
         const updated = await apiUpdateUser(form.idUser, payload);
         setUsers(prev =>
           prev.map(u => ((u.idUser || u.id) === form.idUser ? { ...u, ...(updated || {}) } : u))
         );
-        notificar.exito('Cambios guardados', `Se actualizó el usuario @${form.idUser}.`);
+        notify.success('Cambios guardados', `Se actualizó el usuario @${form.idUser}.`);
       }
       handleCloseModal();
     } catch (err) {
       console.warn('Error al guardar usuario:', err);
       // No se agrega una fila local sin persistir: eso era lo que provocaba
       // usuarios "fantasma" duplicados en pantalla ante cada reintento fallido.
-      const msg = mensajeDeError(err, 'Verificá que el ID no esté en uso.');
-      const campos = err?.response?.data?.fields || {};
-      if (campos.passwordAdmin || campos.passwordActual) setReauthError(msg);
-      else if (campos.password) setErrors({ password: msg });
+      const msg = errorMessage(err, 'Verificá que el ID no esté en uso.');
+      const fields = err?.response?.data?.fields || {};
+      if (fields.adminPassword || fields.currentPassword) setReauthError(msg);
+      else if (fields.password) setErrors({ password: msg });
       else setErrors({ idUser: msg });
-      notificar.error('No se pudo guardar el usuario', msg);
+      notify.error('No se pudo guardar el usuario', msg);
     } finally {
       setSubmitting(false);
     }
@@ -365,9 +365,9 @@ export const UsersPage = () => {
     if (!window.confirm(`¿Estás seguro de eliminar el usuario @${id}?`)) return;
 
     try {
-      await notificar.operacion(apiDeleteUser(id), {
-        cargando: `Eliminando @${id}…`,
-        exito: `Usuario @${id} eliminado`,
+      await notify.operation(apiDeleteUser(id), {
+        loading: `Eliminando @${id}…`,
+        success: `Usuario @${id} eliminado`,
         error: 'No se pudo eliminar el usuario',
       });
       // Solo se saca de la tabla si la base confirmó el borrado
@@ -381,10 +381,10 @@ export const UsersPage = () => {
     const headers = ['ID Usuario', 'Nombre y Apellido', 'Email', 'Rol', 'Estado'];
     const rows = filteredUsers.map(u => [
       `"${u.idUser || u.id || ''}"`,
-      `"${(u.nombreApellido || '').replace(/"/g, '""')}"`,
-      `"${u.direccionMail || u.email || ''}"`,
-      `"${getNormalizedRole(u.role || u.rol)}"`,
-      `"${u.accountStatement || u.estado || 'Activo'}"`,
+      `"${(u.fullName || '').replace(/"/g, '""')}"`,
+      `"${u.email || ''}"`,
+      `"${getNormalizedRole(u.role)}"`,
+      `"${u.accountStatus || u.status || 'Activo'}"`,
     ]);
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
@@ -441,7 +441,7 @@ export const UsersPage = () => {
               label: tab.label,
               count: tab.key === 'all'
                 ? users.length
-                : users.filter((u) => getNormalizedRole(u.role || u.rol) === tab.key).length,
+                : users.filter((u) => getNormalizedRole(u.role) === tab.key).length,
             }))}
           />
 
@@ -453,8 +453,8 @@ export const UsersPage = () => {
               aria-label="Estado de cuenta"
             >
               <option value="all">Todos los estados</option>
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo</option>
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
             </select>
           </div>
         </div>
@@ -510,8 +510,8 @@ export const UsersPage = () => {
               ) : (
                 paginatedUsers.map((u) => {
                   const userId = u.idUser || u.id;
-                  const normRole = getNormalizedRole(u.role || u.rol);
-                  const isUserActive = String(u.estadoCuenta || u.accountStatement || 'Activo') === 'Activo';
+                  const normRole = getNormalizedRole(u.role);
+                  const isUserActive = String(u.accountStatus || 'Activo') === 'Activo';
 
                   return (
                     <tr key={userId} className="users-table__row">
@@ -525,22 +525,22 @@ export const UsersPage = () => {
                       <td>
                         <div className="users-table__name-cell">
                           <div className={`users-table__avatar ${normRole === 'vendedor' ? 'users-table__avatar--vendedor' : ''}`}>
-                            {getInitials(u.nombreApellido)}
+                            {getInitials(u.fullName)}
                           </div>
                           <div>
-                            <span className="users-table__name">{u.nombreApellido || 'Sin nombre'}</span>
+                            <span className="users-table__name">{u.fullName || 'Sin nombre'}</span>
                             <span className="users-table__id-sub">@{userId}</span>
                           </div>
                         </div>
                       </td>
                       <td>
-                        {u.direccionMail ? (
+                        {u.email ? (
                           <a
-                            href={`mailto:${u.direccionMail}`}
+                            href={`mailto:${u.email}`}
                             className="users-table__email"
                             onClick={e => e.stopPropagation()}
                           >
-                            {u.direccionMail}
+                            {u.email}
                             <ExternalLink size={12} />
                           </a>
                         ) : (
@@ -652,19 +652,19 @@ export const UsersPage = () => {
 
           <FormInput
             label="Nombre y Apellido"
-            name="nombreApellido"
-            value={form.nombreApellido}
+            name="fullName"
+            value={form.fullName}
             onChange={handleFormChange}
             placeholder="Ej: Manuel Fernández"
             required
-            error={errors.nombreApellido}
+            error={errors.fullName}
           />
 
           <FormInput
             label="Correo Electrónico"
-            name="direccionMail"
+            name="email"
             type="email"
-            value={form.direccionMail}
+            value={form.email}
             onChange={handleFormChange}
             placeholder="ejemplo@agroros.com.ar"
           />
@@ -751,22 +751,22 @@ export const UsersPage = () => {
             <div className="users-zona">
               <span className="form-input-label">Zona de trabajo (localidades)</span>
               <div className="users-zona__chips">
-                {zona.length === 0 && <span className="users-zona__empty">Sin localidades asignadas.</span>}
-                {zona.map((l) => (
+                {zone.length === 0 && <span className="users-zona__empty">Sin localidades asignadas.</span>}
+                {zone.map((l) => (
                   <span key={l.id} className="users-zona__chip">
-                    {l.nombre}{l.provincia ? ` · ${l.provincia}` : ''}
-                    <button type="button" aria-label={`Quitar ${l.nombre}`} disabled={guardandoZona} onClick={() => guardarZona(zona.filter((x) => x.id !== l.id))}>×</button>
+                    {l.name}{l.province ? ` · ${l.province}` : ''}
+                    <button type="button" aria-label={`Quitar ${l.name}`} disabled={savingZone} onClick={() => saveZone(zone.filter((x) => x.id !== l.id))}>×</button>
                   </span>
                 ))}
               </div>
-              <LocalidadSelect
+              <LocalitySelect
                 label="Agregar localidad"
-                value={zonaSel}
+                value={selectedZone}
                 onChange={(l) => {
-                  setZonaSel(l);
-                  if (l?.id && !zona.some((x) => x.id === l.id)) {
-                    guardarZona([...zona, l]);
-                    setZonaSel(null);
+                  setSelectedZone(l);
+                  if (l?.id && !zone.some((x) => x.id === l.id)) {
+                    saveZone([...zone, l]);
+                    setSelectedZone(null);
                   }
                 }}
               />
@@ -775,8 +775,8 @@ export const UsersPage = () => {
 
           <FormSelect
             label="Estado de la Cuenta"
-            name="accountStatement"
-            value={form.accountStatement}
+            name="accountStatus"
+            value={form.accountStatus}
             onChange={handleFormChange}
             options={[
               { value: 'Activo', label: 'Activo' },

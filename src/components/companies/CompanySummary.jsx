@@ -18,7 +18,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { tasksApi } from '../../api/operations.api';
-import { tipoContactoLabel } from '../../data/catalogos';
+import { contactTypeLabel } from '../../data/catalogs';
 import { CompanyServiceDashboard } from './CompanyServiceDashboard';
 import { useOverlayClose } from '../../hooks/useOverlayClose';
 import './CompanySummary.css';
@@ -42,7 +42,7 @@ const formatDate = (value) => {
 
 const isRealValue = (v) => v && !/^sin (dirección|especificar)$/i.test(String(v).trim()) && v !== '-';
 
-const NIVEL_LABEL = {
+const LEVEL_LABEL = {
   madre: 'Empresa madre',
   region: 'Regional',
   subsede: 'Subsede',
@@ -69,8 +69,8 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
       .then((res) => {
         if (!alive) return;
         const list = Array.isArray(res) ? res : res?.data || [];
-        const name = (company.razonSocial || company.nombreEmpresa || '').toLowerCase().trim();
-        setTasks(list.filter((t) => t.empresaId === company.id || (t.empresa || '').toLowerCase().trim() === name));
+        const name = (company.legalName || company.companyName || '').toLowerCase().trim();
+        setTasks(list.filter((t) => t.companyId === company.id || (t.company || '').toLowerCase().trim() === name));
       })
       .catch((err) => console.error('No se pudieron cargar las tareas de la empresa:', err));
     return () => {
@@ -87,32 +87,32 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
   const rows = useMemo(() => {
     const taskRows = tasks.map((t) => ({
       key: `t-${t.id}`,
-      detalle: t.titulo || t.descripcion || 'Tarea',
-      categoria: 'Tarea',
-      estado: /finaliz|complet/i.test(t.estado || '') ? 'Finalizada' : 'Pendiente',
-      fecha: t.fechaVencimiento,
+      details: t.title || t.description || 'Tarea',
+      category: 'Tarea',
+      status: /finaliz|complet/i.test(t.status || '') ? 'Finalizada' : 'Pendiente',
+      date: t.dueDate,
     }));
     const activityRows = activities.map((a) => ({
-      key: `a-${a.idFormulario || a.id}`,
-      detalle: a.descripcion || tipoContactoLabel(a.tipoContacto) || 'Actividad',
-      categoria: tipoContactoLabel(a.tipoContacto) || 'Actividad',
-      estado: 'Registrada',
-      fecha: a.fechaHora,
+      key: `a-${a.formId || a.id}`,
+      details: a.description || contactTypeLabel(a.contactType) || 'Actividad',
+      category: contactTypeLabel(a.contactType) || 'Actividad',
+      status: 'Registrada',
+      date: a.occurredAt,
     }));
     const dealRows = opportunities.map((o) => ({
       key: `o-${o.id}`,
-      detalle: o.titulo || o.nombreNegocio || 'Oportunidad',
-      categoria: 'Oportunidad',
-      estado: o.estado || 'Prospecto',
-      fecha: o.fechaUltimaActualizacion || o.fechaInicio,
+      details: o.title || o.dealName || 'Oportunidad',
+      category: 'Oportunidad',
+      status: o.status || 'Prospecto',
+      date: o.lastActivityAt || o.startDate,
     }));
     return [...taskRows, ...activityRows, ...dealRows].sort(
-      (a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0)
+      (a, b) => new Date(b.date || 0) - new Date(a.date || 0)
     );
   }, [tasks, activities, opportunities]);
 
-  const localidad = company.Locality?.nomLocalidad || company.localidad;
-  const tags = [company.tipoEmpresa, NIVEL_LABEL[company.nivel || company.nivelEmpresa]].filter(Boolean);
+  const locality = company.Locality?.localityName || company.locality;
+  const tags = [company.companyType, LEVEL_LABEL[company.level || company.companyLevel]].filter(Boolean);
 
   return (
     <div className="cs-overlay" {...overlayHandlers}>
@@ -120,7 +120,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
         className="cs-card"
         role="dialog"
         aria-modal="true"
-        aria-label={`Resumen de ${company.nombreEmpresa}`}
+        aria-label={`Resumen de ${company.companyName}`}
         initial="hidden"
         animate="visible"
         variants={containerVariants}
@@ -130,7 +130,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
             <div className="cs-breadcrumbs">
               <span>Empresas</span>
               <span className="cs-breadcrumbs__sep">/</span>
-              <span className="cs-breadcrumbs__current">{company.nombreEmpresa}</span>
+              <span className="cs-breadcrumbs__current">{company.companyName}</span>
             </div>
             <div className="cs-header__actions">
               {onEdit && (
@@ -147,7 +147,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
 
         <div className="cs-body">
           <motion.h1 variants={itemVariants} className="cs-title">
-            {company.nombreEmpresa}
+            {company.companyName}
           </motion.h1>
 
           <motion.div variants={itemVariants} className="cs-meta-grid">
@@ -159,33 +159,33 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
             <MetaItem icon={Hash} label="CUIT">
               <span className="cs-nowrap">{company.cuit || '—'}</span>
             </MetaItem>
-            <MetaItem icon={MapPin} label="Localidad">{localidad || '—'}</MetaItem>
+            <MetaItem icon={MapPin} label="Localidad">{locality || '—'}</MetaItem>
             <MetaItem icon={Navigation} label="Dirección">
-              {isRealValue(company.direccionEmpresa) ? company.direccionEmpresa : '—'}
+              {isRealValue(company.companyAddress) ? company.companyAddress : '—'}
             </MetaItem>
             <MetaItem icon={UserCircle2} label="Propietario del registro">
-              {company.creadoPorNombre || '—'}
+              {company.createdByName || '—'}
             </MetaItem>
             <MetaItem icon={Truck} label="Proveedor actual">
-              {isRealValue(company.proveedorActual) ? company.proveedorActual : '—'}
+              {isRealValue(company.currentSupplier) ? company.currentSupplier : '—'}
             </MetaItem>
             <MetaItem icon={Ruler} label="Superficie">
-              {company.superficieHa ? `${Number(company.superficieHa).toLocaleString('es-AR')} ha` : '—'}
+              {company.areaHa ? `${Number(company.areaHa).toLocaleString('es-AR')} ha` : '—'}
             </MetaItem>
-            <MetaItem icon={Calendar} label="Fecha de registro">{formatDate(company.fechaRegistro)}</MetaItem>
-            {company.descEmpresa && (
+            <MetaItem icon={Calendar} label="Fecha de registro">{formatDate(company.createdAt)}</MetaItem>
+            {company.companyDescription && (
               <div className="cs-meta cs-meta--wide">
                 <FileText size={18} className="cs-meta__icon" />
                 <div className="cs-min0">
                   <p className="cs-meta__label">Descripción</p>
-                  <p className="cs-meta__desc">{company.descEmpresa}</p>
+                  <p className="cs-meta__desc">{company.companyDescription}</p>
                 </div>
               </div>
             )}
           </motion.div>
 
           <motion.section variants={itemVariants} className="cs-section">
-            <CompanyServiceDashboard empresaId={company.id} empresaNombre={company.razonSocial || company.nombreEmpresa} />
+            <CompanyServiceDashboard companyId={company.id} companyName={company.legalName || company.companyName} />
           </motion.section>
 
           <motion.section variants={itemVariants} className="cs-section">
@@ -196,18 +196,18 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
             {contacts.length > 0 ? (
               <div className="cs-contacts">
                 {contacts.map((c) => {
-                  const nombre = c.nombreApellido || `${c.nombre || ''} ${c.apellido || ''}`.trim() || 'Contacto';
-                  const email = c.direccionMail || c.email;
-                  const tel = c.telefono || (Array.isArray(c.telefonos) ? c.telefonos[0] : c.telefonos);
+                  const name = c.fullName || `${c.name || ''} ${c.surname || ''}`.trim() || 'Contacto';
+                  const email = c.email;
+                  const phone = c.phone || (Array.isArray(c.phones) ? c.phones[0] : c.phones);
                   return (
                     <div key={c.id} className="cs-contact">
-                      <span className="cs-avatar">{nombre.charAt(0).toUpperCase()}</span>
+                      <span className="cs-avatar">{name.charAt(0).toUpperCase()}</span>
                       <div className="cs-min0">
-                        <p className="cs-contact__name">{nombre}</p>
+                        <p className="cs-contact__name">{name}</p>
                         <p className="cs-contact__sub">
                           {isRealValue(email) && <span><Mail size={11} /> {email}</span>}
-                          {tel && <span><Phone size={11} /> {tel}</span>}
-                          {!isRealValue(email) && !tel && <span>{c.tipoClient || 'Sin datos de contacto'}</span>}
+                          {phone && <span><Phone size={11} /> {phone}</span>}
+                          {!isRealValue(email) && !phone && <span>{c.clientType || 'Sin datos de contacto'}</span>}
                         </p>
                       </div>
                     </div>
@@ -240,12 +240,12 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
                     {rows.map((r, i) => (
                       <motion.tr key={r.key} variants={itemVariants}>
                         <td className="cs-table__no">{i + 1}</td>
-                        <td className="cs-table__detail">{r.detalle}</td>
-                        <td>{r.categoria}</td>
+                        <td className="cs-table__detail">{r.details}</td>
+                        <td>{r.category}</td>
                         <td>
-                          <span className={`cs-status ${r.estado === 'Pendiente' ? 'cs-status--pending' : ''}`}>{r.estado}</span>
+                          <span className={`cs-status ${r.status === 'Pendiente' ? 'cs-status--pending' : ''}`}>{r.status}</span>
                         </td>
-                        <td className="cs-table__right cs-nowrap">{formatDate(r.fecha)}</td>
+                        <td className="cs-table__right cs-nowrap">{formatDate(r.date)}</td>
                       </motion.tr>
                     ))}
                   </tbody>

@@ -3,7 +3,10 @@
 // sessionStorage (igual que la sesión del usuario), así que duran mientras
 // la sesión esté abierta y se borran al cerrar sesión.
 
-const PREFIX = 'agroros_draft__';
+// Prefijo nuevo desde el cambio de nombres de los campos: los borradores
+// anteriores (agroros_draft__) ya no coinciden con los formularios y se descartan.
+const PREFIX = 'agroros_form_draft__';
+const LEGACY_PREFIX = 'agroros_draft__';
 
 export const draftKey = (formName, userId) => `${PREFIX}${formName}__${userId || 'anon'}`;
 
@@ -37,7 +40,7 @@ export const clearDraft = (key) => {
 export const clearAllDrafts = () => {
   try {
     Object.keys(sessionStorage)
-      .filter((k) => k.startsWith(PREFIX))
+      .filter((k) => k.startsWith(PREFIX) || k.startsWith(LEGACY_PREFIX))
       .forEach((k) => sessionStorage.removeItem(k));
   } catch (_) {
     /* sin acceso al storage: no hay nada que limpiar */

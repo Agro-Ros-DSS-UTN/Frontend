@@ -22,6 +22,6 @@ export const ORDER_STATUSES = [
 ];
 
 // Borra la copia local que dejaban las versiones anteriores.
-export const limpiarCacheLocalOrdenes = () => {
+export const clearLocalOrdersCache = () => {
   try { localStorage.removeItem('agroros_service_orders_db'); } catch { /* sin storage */ }
 };

@@ -1,7 +1,7 @@
 ﻿import { useState, useRef, useCallback } from 'react';
 import { ImagePlus, Upload, Trash2, X, Check } from 'lucide-react';
 import './ImageUpload.css';
-import { notificar } from '../../../hooks/useNotificaciones';
+import { notify } from '../../../hooks/useNotifications';
 
 /**
  * ImageUpload — Componente moderno y compacto de subida de imágenes
@@ -22,7 +22,7 @@ export const ImageUpload = ({
     if (!file) return;
 
     if (file.size > maxSizeMB * 1024 * 1024) {
-      notificar.advertencia('Imagen demasiado grande', `El tamaño máximo permitido es ${maxSizeMB}MB.`);
+      notify.warning('Imagen demasiado grande', `El tamaño máximo permitido es ${maxSizeMB}MB.`);
       return;
     }
 

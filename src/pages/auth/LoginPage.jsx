@@ -46,9 +46,9 @@ export const LoginPage = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const data = await authApi.login(userId.trim(), password, { mantenerSesion: keepSession });
+      const data = await authApi.login(userId.trim(), password, { rememberMe: keepSession });
       const authenticatedUser = { ...(data.user || {}), token: data.token };
-      const userRole = String(authenticatedUser.role || authenticatedUser.rol || '').toLowerCase();
+      const userRole = String(authenticatedUser.role || '').toLowerCase();
 
       if (!data.token || !(userRole.includes('admin') || userRole.includes('vendedor'))) {
         setError('El servidor no devolvió una sesión válida.');
@@ -58,7 +58,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
       // El gestor de contraseñas del navegador (no la app) ofrece guardarla, cifrada.
       if (window.PasswordCredential && navigator.credentials) {
         try {
-          const cred = new window.PasswordCredential({ id: userId.trim(), password, name: authenticatedUser.nombreApellido || userId });
+          const cred = new window.PasswordCredential({ id: userId.trim(), password, name: authenticatedUser.fullName || userId });
           navigator.credentials.store(cred).catch(() => {});
         } catch { /* navegador sin soporte */ }
       }

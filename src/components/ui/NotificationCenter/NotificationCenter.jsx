@@ -53,20 +53,20 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
       try {
         const res = await notificationsApi.getAll();
         const base = variant === 'admin' ? '/admin' : '/seller';
-        const rutas = {
-          tarea: `${base}/tareas`,
-          objetivo: variant === 'admin' ? '/admin/objetivos' : '/seller/dashboard',
-          hoja_ruta: variant === 'admin' ? '/admin/rutas' : '/seller/hoja-de-ruta',
+        const routes = {
+          tarea: `${base}/tasks`,
+          objetivo: variant === 'admin' ? '/admin/objectives' : '/seller/dashboard',
+          hoja_ruta: variant === 'admin' ? '/admin/roadmaps' : '/seller/roadmap',
         };
-        (res?.data || []).filter((n) => !n.leida).forEach((n) => {
+        (res?.data || []).filter((n) => !n.isRead).forEach((n) => {
           out.push({
             id: `srv-${n.id}`,
             serverId: n.id,
-            icon: n.entidad === 'objetivo' ? Target : n.entidad === 'hoja_ruta' ? MapPin : ClipboardList,
+            icon: n.entity === 'objetivo' ? Target : n.entity === 'hoja_ruta' ? MapPin : ClipboardList,
             accent: 'blue',
-            title: n.tipo === 'tarea_finalizada' ? 'Tarea finalizada' : n.entidad === 'objetivo' ? 'Nuevo objetivo' : n.entidad === 'hoja_ruta' ? 'Nueva hoja de ruta' : 'Nueva tarea asignada',
-            message: n.mensaje,
-            path: rutas[n.entidad] || base,
+            title: n.type === 'tarea_finalizada' ? 'Tarea finalizada' : n.entity === 'objetivo' ? 'Nuevo objetivo' : n.entity === 'hoja_ruta' ? 'Nueva hoja de ruta' : 'Nueva tarea asignada',
+            message: n.message,
+            path: routes[n.entity] || base,
           });
         });
       } catch {
@@ -97,8 +97,8 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             icon: MapPin,
             accent: 'blue',
             title: 'Nueva hoja de ruta',
-            message: `${r.asignado?.nombreApellido || 'Un usuario'} tiene una ruta asignada: ${r.nombreZona || 'Zona comercial'}`,
-            path: '/admin/rutas',
+            message: `${r.assigned?.fullName || 'Un usuario'} tiene una ruta asignada: ${r.zoneName || 'Zona comercial'}`,
+            path: '/admin/roadmaps',
           });
         });
 
@@ -109,65 +109,65 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             icon: Target,
             accent: 'teal',
             title: 'Nuevo objetivo asignado',
-            message: `${o.vendedor?.nombreApellido || 'Un vendedor'} · ${o.descripcion || o.tipoObjetivo || 'Objetivo semanal'}`,
-            path: '/admin/objetivos',
+            message: `${o.seller?.fullName || 'Un vendedor'} · ${o.description || o.objectiveType || 'Objetivo semanal'}`,
+            path: '/admin/objectives',
           });
         });
 
         const orders = pick(ordersRes);
-        const withAlertEval = orders.filter((o) => ['Con insectos vivos', 'Refumigación'].includes(o.evaluacion?.resultado));
-        diffNew(`${scope}__evals-alerta`, withAlertEval, (o) => o.evaluacion.id).forEach((o) => {
+        const withAlertEval = orders.filter((o) => ['Con insectos vivos', 'Refumigación'].includes(o.evaluation?.result));
+        diffNew(`${scope}__evals-alerta`, withAlertEval, (o) => o.evaluation.id).forEach((o) => {
           out.push({
-            id: `eval-${o.evaluacion.id}`,
+            id: `eval-${o.evaluation.id}`,
             icon: AlertTriangle,
             accent: 'danger',
             title: 'Evaluación requiere seguimiento',
-            message: `${o.numeroOrden} (${o.clienteNombre}) — resultado: ${o.evaluacion.resultado}`,
-            path: '/admin/ordenes-servicio',
+            message: `${o.orderNumber} (${o.customerName}) — resultado: ${o.evaluation.result}`,
+            path: '/admin/service-orders',
           });
         });
 
-        const completedOrders = orders.filter((o) => o.estado === 'Completada');
+        const completedOrders = orders.filter((o) => o.status === 'Completada');
         diffNew(`${scope}__ordenes-completadas`, completedOrders, (o) => o.id).forEach((o) => {
           out.push({
             id: `orden-${o.id}`,
             icon: FileCheck2,
             accent: 'teal',
             title: 'Orden de servicio completada',
-            message: `${o.numeroOrden} — ${o.clienteNombre} — pendiente de revisión`,
-            path: '/admin/ordenes-servicio',
+            message: `${o.orderNumber} — ${o.customerName} — pendiente de revisión`,
+            path: '/admin/service-orders',
           });
         });
 
         const promos = pick(promoRes);
         const expiringPromos = promos.filter((p) => {
-          const d = daysLeft(p.fechaFin);
+          const d = daysLeft(p.endDate);
           return d !== null && d >= 0 && d <= 7;
         });
         diffNew(`${scope}__promos-venciendo`, expiringPromos, (p) => p.id).forEach((p) => {
-          const d = daysLeft(p.fechaFin);
+          const d = daysLeft(p.endDate);
           out.push({
             id: `promo-${p.id}`,
             icon: Sparkles,
             accent: 'amber',
             title: 'Promoción por vencer',
-            message: `"${p.nombre}" vence en ${d} ${d === 1 ? 'día' : 'días'}`,
-            path: '/admin/campañas',
+            message: `"${p.name}" vence en ${d} ${d === 1 ? 'día' : 'días'}`,
+            path: '/admin/campaigns',
           });
         });
 
         const activities = pick(actRes);
         const recentActivities = [...activities]
-          .sort((a, b) => new Date(b.fechaHora || 0) - new Date(a.fechaHora || 0))
+          .sort((a, b) => new Date(b.occurredAt || 0) - new Date(a.occurredAt || 0))
           .slice(0, 15);
-        diffNew(`${scope}__actividades`, recentActivities, (a) => a.idFormulario || a.id).forEach((a) => {
+        diffNew(`${scope}__actividades`, recentActivities, (a) => a.formId || a.id).forEach((a) => {
           out.push({
-            id: `act-${a.idFormulario || a.id}`,
+            id: `act-${a.formId || a.id}`,
             icon: Activity,
             accent: 'green',
             title: 'Actividad registrada en campo',
-            message: `${a.autorNombre || 'Un vendedor'} — ${a.empresa || a.tipoContacto || 'Visita'}`,
-            path: '/admin/actividades',
+            message: `${a.authorName || 'Un vendedor'} — ${a.company || a.contactType || 'Visita'}`,
+            path: '/admin/activities',
           });
         });
 
@@ -178,13 +178,13 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             icon: UserPlus,
             accent: 'blue',
             title: 'Nuevo usuario del sistema',
-            message: `${u.nombreApellido || u.idUser} (${(u.role || u.rol || '').toLowerCase().includes('admin') ? 'Administrador' : 'Vendedor'})`,
-            path: '/admin/usuarios',
+            message: `${u.fullName || u.idUser} (${(u.role || '').toLowerCase().includes('admin') ? 'Administrador' : 'Vendedor'})`,
+            path: '/admin/users',
           });
         });
 
         const tasks = pick(tasksRes);
-        const overdue = tasks.filter((t) => t.estado === 'Pendiente' && t.fechaVencimiento && t.fechaVencimiento < new Date().toISOString().slice(0, 10));
+        const overdue = tasks.filter((t) => t.status === 'Pendiente' && t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10));
         if (overdue.length > 0) {
           out.push({
             id: 'tareas-vencidas-equipo',
@@ -192,7 +192,7 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             accent: 'amber',
             title: 'Tareas vencidas del equipo',
             message: `${overdue.length} ${overdue.length === 1 ? 'tarea vencida' : 'tareas vencidas'} sin completar`,
-            path: '/admin/tareas',
+            path: '/admin/tasks',
           });
         }
       } else {
@@ -201,7 +201,7 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
           sellerUserId ? roadmapsApi.getBySeller(sellerUserId) : Promise.resolve([]),
           sellerUserId ? objectivesApi.getBySeller(sellerUserId) : Promise.resolve([]),
           promotionsApi.getAll(),
-          tasksApi.getAll({ rol: 'vendedor' }),
+          tasksApi.getAll({ role: 'vendedor' }),
         ]);
         const pick = (r) => {
           if (r.status !== 'fulfilled') return [];
@@ -217,8 +217,8 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             icon: MapPin,
             accent: 'blue',
             title: 'Se te asignó una hoja de ruta',
-            message: `${r.nombreZona || 'Zona comercial'} · ${r.fechaRuta || ''}`,
-            path: '/seller/hoja-de-ruta',
+            message: `${r.zoneName || 'Zona comercial'} · ${r.roadmapDate || ''}`,
+            path: '/seller/roadmap',
           });
         });
 
@@ -229,7 +229,7 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             icon: Target,
             accent: 'teal',
             title: 'Nuevo objetivo asignado',
-            message: o.descripcion || `Objetivo de ${o.tipoObjetivo || 'ventas'} — Semana ${o.periodoSemana || ''}`,
+            message: o.description || `Objetivo de ${o.objectiveType || 'ventas'} — Semana ${o.weekPeriod || ''}`,
             path: '/seller/dashboard',
           });
         });
@@ -241,13 +241,13 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             icon: Sparkles,
             accent: 'amber',
             title: 'Nueva promoción disponible',
-            message: p.nombre || 'Promoción comercial',
-            path: '/seller/promociones',
+            message: p.name || 'Promoción comercial',
+            path: '/seller/promotions',
           });
         });
 
         const tasks = pick(tasksRes);
-        const pending = tasks.filter((t) => t.estado === 'Pendiente');
+        const pending = tasks.filter((t) => t.status === 'Pendiente');
         if (pending.length > 0) {
           out.push({
             id: 'mis-tareas-pendientes',
@@ -255,7 +255,7 @@ export const NotificationCenter = ({ variant = 'admin' }) => {
             accent: 'amber',
             title: 'Tenés tareas pendientes',
             message: `${pending.length} ${pending.length === 1 ? 'tarea' : 'tareas'} por gestionar`,
-            path: '/seller/tareas',
+            path: '/seller/tasks',
           });
         }
       }

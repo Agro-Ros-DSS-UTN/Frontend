@@ -18,19 +18,26 @@ export const useAuth = () => {
   return context;
 };
 
+// Sesiones guardadas antes del cambio de nombres (campos en español): se
+// traducen al leerlas, así nadie tiene que volver a iniciar sesión.
+const LEGACY_USER_KEYS = {
+  nombreApellido: 'fullName', telefono: 'phone', estadoCuenta: 'accountStatus', fechaIngreso: 'hireDate',
+  antiguedad: 'seniority', ultimoAcceso: 'lastLoginAt', zona: 'zone', rol: 'role', direccionMail: 'email',
+};
+
 // Helper to normalize user object from backend
 const normalizeUser = (user) => {
   if (!user) return null;
-  const rawRole = user.role || user.rol || user.tipoUsuario || '';
-  let role = String(rawRole).trim().toLowerCase();
+  const u = { ...user };
+  for (const [oldKey, newKey] of Object.entries(LEGACY_USER_KEYS)) {
+    if (u[oldKey] !== undefined && u[newKey] === undefined) u[newKey] = u[oldKey];
+    delete u[oldKey];
+  }
+  let role = String(u.role || u.userType || '').trim().toLowerCase();
   if (role === 'administrador') {
     role = 'admin';
   }
-  return {
-    ...user,
-    role,
-    rol: role,
-  };
+  return { ...u, role };
 };
 
 export const AuthProvider = ({ children }) => {
@@ -196,7 +203,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAuthenticated = !!currentUser;
-  const userRole = (currentUser?.role || currentUser?.rol || '').toLowerCase();
+  const userRole = (currentUser?.role || '').toLowerCase();
   const isAdmin = userRole === 'admin';
   const isSeller = userRole === 'vendedor';
 

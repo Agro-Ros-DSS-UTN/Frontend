@@ -25,20 +25,20 @@ import { useSidebarResize } from './useSidebarResize';
 import './Sidebar.css';
 
 const adminNavItems = [
-  { path: '/admin/inicio',        icon: Home,            label: 'Inicio', dividerAfter: true },
+  { path: '/admin/home',        icon: Home,            label: 'Inicio', dividerAfter: true },
   { path: '/admin/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/admin/usuarios',      icon: UserCog,         label: 'Usuarios' },
-  { path: '/admin/contactos',     icon: Users,           label: 'Contactos' },
-  { path: '/admin/empresas',      icon: Building2,       label: 'Empresas' },
-  { path: '/admin/negocios',      icon: Handshake,       label: 'Oportunidades' },
-  { path: '/admin/tareas',           icon: CheckSquare,     label: 'Tareas' },
-  { path: '/admin/ordenes-servicio', icon: FileCheck2,       label: 'Orden/Evaluación de Servicio' },
-  { path: '/admin/empleados',     icon: HardHat,         label: 'Empleados' },
-  { path: '/admin/productos',     icon: Package,         label: 'Productos' },
-  { path: '/admin/objetivos',     icon: Target,          label: 'Objetivos' },
-  { path: '/admin/rutas',         icon: MapPin,          label: 'Hojas de Ruta' },
-  { path: '/admin/campañas',      icon: Megaphone,       label: 'Promociones' },
-  { path: '/admin/actividades',   icon: ClipboardList,   label: 'Actividades' },
+  { path: '/admin/users',      icon: UserCog,         label: 'Usuarios' },
+  { path: '/admin/contacts',     icon: Users,           label: 'Contactos' },
+  { path: '/admin/companies',      icon: Building2,       label: 'Empresas' },
+  { path: '/admin/deals',      icon: Handshake,       label: 'Oportunidades' },
+  { path: '/admin/tasks',           icon: CheckSquare,     label: 'Tareas' },
+  { path: '/admin/service-orders', icon: FileCheck2,       label: 'Orden/Evaluación de Servicio' },
+  { path: '/admin/employees',     icon: HardHat,         label: 'Empleados' },
+  { path: '/admin/products',     icon: Package,         label: 'Productos' },
+  { path: '/admin/objectives',     icon: Target,          label: 'Objetivos' },
+  { path: '/admin/roadmaps',         icon: MapPin,          label: 'Hojas de Ruta' },
+  { path: '/admin/campaigns',      icon: Megaphone,       label: 'Promociones' },
+  { path: '/admin/activities',   icon: ClipboardList,   label: 'Actividades' },
 ];
 
 export const Sidebar = () => {
