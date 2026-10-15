@@ -72,7 +72,11 @@
 .roadmaps-btn--outline:hover {
   background: var(--gray-50);
   border-color: var(--color-primary);
-}
+}
+
+
+
+
 
 /* ── KPI Cards ── */
 .roadmaps-kpis {
@@ -270,6 +274,13 @@
 
 .leaflet-map-pin:hover {
   transform: scale(1.15);
+}
+
+/* Centro de la localidad, no el lugar de la empresa: pin hueco y punteado. */
+.leaflet-map-pin.is-approx {
+  opacity: 0.8;
+  border-style: dashed;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6), 0 3px 10px rgba(0, 0, 0, 0.25);
 }
 
 .leaflet-map-pin.pulse {

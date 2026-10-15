@@ -14,6 +14,7 @@ const TILES_URL = import.meta.env.VITE_MAP_TILES_URL || 'https://tile.openstreet
 const TILES_ATTRIBUTION = import.meta.env.VITE_MAP_TILES_ATTRIBUTION
   || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const ROUTING_URL = import.meta.env.VITE_ROUTING_URL || 'https://router.project-osrm.org/route/v1/driving';
+const GEOCODER_URL = import.meta.env.VITE_GEOCODER_URL || 'https://nominatim.openstreetmap.org';
 
 export const addBaseLayer = (map) => L.tileLayer(TILES_URL, {
   attribution: TILES_ATTRIBUTION,
@@ -59,4 +60,33 @@ export const drawRoute = (map, coords, { color = '#1a7d6b', weight = 4 } = {}) =
   });
 
   return straight;
+};
+
+// Precisión de un resultado de Nominatim: casa (número exacto), calle o solo la zona/localidad.
+const precisionOf = (r) => {
+  const t = r.addresstype || r.type;
+  if (r.address?.house_number || ['house', 'building', 'amenity', 'shop', 'office', 'industrial', 'farm', 'craft'].includes(t)) return 'casa';
+  if (['road', 'street', 'highway'].includes(t) || r.class === 'highway') return 'calle';
+  return 'localidad';
+};
+
+/**
+ * Busca una dirección en OpenStreetMap (Nominatim). Se llama solo cuando la persona aprieta
+ * "Buscar en el mapa" (una consulta por clic, como pide la política de uso de Nominatim).
+ * Devuelve { lat, lon, label, precision } o null.
+ */
+export const geocodeAddress = async (query) => {
+  const url = `${GEOCODER_URL}/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=ar&accept-language=es&q=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(`El servicio de mapas respondió ${res.status}`);
+  const [r] = await res.json();
+  if (!r) return null;
+  return { lat: Number(r.lat), lon: Number(r.lon), label: r.display_name, precision: precisionOf(r) };
+};
+
+/** Distancia aproximada en km entre dos puntos [lat, lon]. */
+export const distanceKm = ([a, b], [c, d]) => {
+  const rad = Math.PI / 180;
+  const x = Math.sin(((c - a) * rad) / 2) ** 2 + Math.cos(a * rad) * Math.cos(c * rad) * Math.sin(((d - b) * rad) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x));
 };

@@ -124,6 +124,8 @@ export const RoadmapsPage = () => {
               locality: p.locality || '',
               // Sin coordenadas reales la parada no se dibuja (no se inventa una ubicación).
               coords: p.latitude !== null && p.latitude !== undefined && p.longitude !== null && p.longitude !== undefined ? [Number(p.latitude), Number(p.longitude)] : null,
+              // Centro de la localidad (la empresa todavía no tiene su punto): se dibuja distinto.
+              approximate: Boolean(p.approximateCoordinates),
               service: p.notes || 'Visita comercial',
               contact: '',
               estimatedTime: p.estimatedTime || '',
@@ -226,7 +228,7 @@ export const RoadmapsPage = () => {
         const customIcon = L.divIcon({
           className: 'leaflet-custom-marker-wrapper',
           html: `
-            <div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''}" style="background-color: ${safeColor(markerBg)};">
+            <div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''} ${stop.approximate ? 'is-approx' : ''}" style="background-color: ${safeColor(markerBg)};" title="${stop.approximate ? 'Ubicación aproximada (centro de la localidad)' : ''}">
               <span>${escapeHtml(stop.order)}</span>
             </div>
           `,
@@ -251,6 +253,7 @@ export const RoadmapsPage = () => {
             <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
               ${escapeHtml([stop.address, stop.locality].filter(Boolean).join(', '))}
             </div>
+            ${stop.approximate ? `<div style="font-size: 11px; color: #92400e; background: #fffbeb; border-radius: 4px; padding: 3px 6px; margin-bottom: 6px;">Ubicación aproximada: centro de ${escapeHtml(stop.locality || 'la localidad')}. Cargá el punto en la ficha de la empresa.</div>` : ''}
             <div style="font-size: 11px; color: #334155; margin-bottom: 4px;">
               <strong>Detalle:</strong> ${escapeHtml(stop.service)}
             </div>

@@ -36,7 +36,10 @@ export const LocalitySelect = ({ label = 'Localidad', value, onChange, required 
   };
 
   const choose = (l) => {
-    onChange({ id: l.id, name: l.name, province: l.province?.name || null, postalCode: l.postalCode || null });
+    onChange({
+      id: l.id, name: l.name, province: l.province?.name || null, postalCode: l.postalCode || null,
+      latitude: l.latitude ?? null, longitude: l.longitude ?? null,
+    });
     setText(l.name);
     setOpen(false);
   };

@@ -1,0 +1,95 @@
+/* ═══ Punto de la empresa en el mapa ═══ */
+.clp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clp__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.clp__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+}
+
+.clp__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.clp__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--color-primary, #1a7d6b);
+  background: var(--color-primary, #1a7d6b);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clp__btn:disabled { opacity: 0.6; cursor: wait; }
+
+.clp__btn--ghost {
+  background: #ffffff;
+  border-color: var(--gray-200, #e2e8f0);
+  color: var(--gray-600, #475569);
+}
+
+.clp__map {
+  height: 220px;
+  border-radius: var(--radius-lg, 8px);
+  border: 1px solid var(--gray-200, #e2e8f0);
+  overflow: hidden;
+  cursor: crosshair;
+  z-index: 0;
+}
+
+.clp__status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--gray-500, #64748b);
+}
+
+.clp__status.is-set { color: var(--color-primary, #1a7d6b); }
+
+.clp__msg {
+  margin: 0;
+  padding: 6px 9px;
+  border-radius: var(--radius-md, 6px);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.clp__msg--ok { background: #ecfdf5; color: #065f46; }
+.clp__msg--warn { background: #fffbeb; color: #92400e; }
+.clp__msg--error { background: #fef2f2; color: #991b1b; }
+
+.clp-pin-wrapper { background: transparent !important; border: none !important; }
+
+.clp-pin {
+  width: 26px;
+  height: 26px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--color-primary, #1a7d6b);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  cursor: grab;
+}

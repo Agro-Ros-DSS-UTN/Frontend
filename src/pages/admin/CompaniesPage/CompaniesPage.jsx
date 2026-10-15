@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import { LocalitySelect } from '../../../components/ui/LocalitySelect/LocalitySelect';
+import { CompanyLocationPicker } from '../../../components/companies/CompanyLocationPicker';
 import { useAuth } from '../../../context/AuthContext';
 import {
   Search,
@@ -191,6 +192,8 @@ export const CompaniesPage = () => {
     locality: '',
     localityId: null,
     selectedLocality: null,
+    latitude: null,
+    longitude: null,
     areaHa: '',
     currentSupplier: '',
     companyDescription: '',
@@ -219,7 +222,12 @@ export const CompaniesPage = () => {
       companyAddress: company.companyAddress || '',
       locality: company.locality || '',
       localityId: company.localityId || null,
-      selectedLocality: company.localityDetails ? { id: company.localityDetails.id, name: company.localityDetails.name, province: company.localityDetails.province } : null,
+      selectedLocality: company.localityDetails ? {
+        id: company.localityDetails.id, name: company.localityDetails.name, province: company.localityDetails.province,
+        latitude: company.localityDetails.latitude ?? null, longitude: company.localityDetails.longitude ?? null,
+      } : null,
+      latitude: company.latitude ?? null,
+      longitude: company.longitude ?? null,
       areaHa: company.areaHa || '',
       currentSupplier: company.currentSupplier || '',
       companyDescription: company.companyDescription || '',
@@ -494,6 +502,8 @@ export const CompaniesPage = () => {
         companyAddress: form.companyAddress,
         locality: form.localityId ? undefined : form.locality,
         localityId: form.localityId || undefined,
+        latitude: form.latitude,
+        longitude: form.longitude,
         areaHa: form.areaHa === '' ? null : Number(form.areaHa),
         currentSupplier: form.currentSupplier,
         companyDescription: form.companyDescription,
@@ -527,6 +537,8 @@ export const CompaniesPage = () => {
       companyAddress: form.companyAddress || undefined,
       locality: form.localityId ? undefined : form.locality,
       localityId: form.localityId || undefined,
+      latitude: form.latitude ?? undefined,
+      longitude: form.longitude ?? undefined,
       areaHa: form.areaHa === '' ? null : Number(form.areaHa),
       currentSupplier: form.currentSupplier,
       companyDescription: form.companyDescription,
@@ -993,10 +1005,24 @@ export const CompaniesPage = () => {
                 <div className="comp-field" style={{ flex: 1 }}>
                   <LocalitySelect
                     value={form.selectedLocality}
-                    onChange={(l) => setForm(prev => ({ ...prev, selectedLocality: l, localityId: l?.id || null, locality: l?.name || '' }))}
+                    onChange={(l) => setForm(prev => ({
+                      ...prev, selectedLocality: l, localityId: l?.id || null, locality: l?.name || '',
+                      // Otra localidad: el punto anterior ya no corresponde.
+                      ...((l?.id || null) !== (prev.localityId || null) ? { latitude: null, longitude: null } : {}),
+                    }))}
                   />
                 </div>
               </div>
+
+              {/* Punto exacto para las hojas de ruta */}
+              {!(hasRegions && !editingCompany) && (
+                <CompanyLocationPicker
+                  address={form.companyAddress}
+                  locality={form.selectedLocality}
+                  value={form.latitude != null && form.longitude != null ? { lat: Number(form.latitude), lon: Number(form.longitude) } : null}
+                  onChange={(p) => setForm(prev => ({ ...prev, latitude: p ? Number(p.lat.toFixed(7)) : null, longitude: p ? Number(p.lon.toFixed(7)) : null }))}
+                />
+              )}
 
               {/* Superficie Ha & Proveedor Actual */}
               <div className="comp-field-row">

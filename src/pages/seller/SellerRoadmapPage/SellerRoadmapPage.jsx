@@ -224,7 +224,7 @@ export const SellerRoadmapPage = () => {
 
       const customIcon = L.divIcon({
         className: 'leaflet-custom-marker-wrapper',
-        html: `<div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''}" style="background-color: ${safeColor(markerBg)};"><span>${escapeHtml(stop.order)}</span></div>`,
+        html: `<div class="leaflet-map-pin ${isCurrent ? 'pulse' : ''} ${stop.approximateCoords ? 'is-approx' : ''}" style="background-color: ${safeColor(markerBg)};" title="${stop.approximateCoords ? 'Ubicación aproximada (centro de la localidad)' : ''}"><span>${escapeHtml(stop.order)}</span></div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
         popupAnchor: [0, -16],
@@ -238,6 +238,7 @@ export const SellerRoadmapPage = () => {
           <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #16a34a; margin-bottom: 2px;">Parada #${escapeHtml(stop.order)}</div>
           <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">${escapeHtml(stop.customer)}</div>
           <div style="font-size: 11px; color: #64748b; margin-bottom: 4px;">${escapeHtml([stop.address, stop.locality].filter(Boolean).join(', '))}</div>
+          ${stop.approximateCoords ? `<div style="font-size: 11px; color: #92400e; background: #fffbeb; border-radius: 4px; padding: 3px 6px; margin-bottom: 4px;">Ubicación aproximada: centro de ${escapeHtml(stop.locality || 'la localidad')}.</div>` : ''}
           <div style="font-size: 11px; color: #334155;"><strong>Servicio:</strong> ${escapeHtml(stop.service)}</div>
         </div>
       `);
