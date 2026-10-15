@@ -78,8 +78,8 @@ export const RoadmapsPage = () => {
         placeName: '',
         address: '',
         locality: '',
-        latitude: -32.85,
-        longitude: -61.45,
+        latitude: '', // vacío: el servidor usa la ubicación de la empresa elegida
+        longitude: '',
         estimatedTime: '09:00',
         notes: ''
       }
@@ -359,8 +359,8 @@ export const RoadmapsPage = () => {
             placeName: '',
             address: '',
             locality: '',
-            latitude: -33.00 - (prev.stops.length * 0.05),
-            longitude: -61.20 - (prev.stops.length * 0.05),
+            latitude: '', // vacío: el servidor usa la ubicación de la empresa elegida
+            longitude: '',
             estimatedTime: '10:00',
             notes: ''
           }
@@ -454,8 +454,8 @@ export const RoadmapsPage = () => {
             placeName: '',
             address: '',
             locality: '',
-            latitude: -32.85,
-            longitude: -61.45,
+            latitude: '', // vacío: el servidor usa la ubicación de la empresa elegida
+            longitude: '',
             estimatedTime: '09:00',
             notes: ''
           }
