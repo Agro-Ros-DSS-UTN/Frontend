@@ -24,6 +24,7 @@ import {
   Trash2
 } from 'lucide-react';
 import L from 'leaflet';
+import { addBaseLayer, drawRoute } from '../../../utils/mapLayers';
 import 'leaflet/dist/leaflet.css';
 import { useAuth } from '../../../context/AuthContext';
 import { roadmapsApi } from '../../../api/operations.api';
@@ -210,11 +211,7 @@ export const SellerRoadmapPage = () => {
 
     const map = L.map(containerEl, { zoomControl: true, scrollWheelZoom: true }).setView([-32.95, -60.66], 11);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; CARTO | CRM AgroRos',
-      maxZoom: 19,
-      subdomains: 'abcd',
-    }).addTo(map);
+    addBaseLayer(map);
 
     const markers = [];
     const polylineCoords = [];
@@ -248,9 +245,7 @@ export const SellerRoadmapPage = () => {
       marker.on('click', () => setSelectedStop(stop));
     });
 
-    if (polylineCoords.length > 0) {
-      L.polyline(polylineCoords, { color: '#16a34a', weight: 4, opacity: 0.85, dashArray: '8, 8' }).addTo(map);
-    }
+    drawRoute(map, polylineCoords, { color: '#16a34a', weight: 4 });
     if (markers.length > 0) {
       const group = L.featureGroup(markers);
       map.fitBounds(group.getBounds().pad(0.2));

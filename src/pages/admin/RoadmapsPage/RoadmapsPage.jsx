@@ -30,6 +30,7 @@ import {
   FileText
 } from 'lucide-react';
 import L from 'leaflet';
+import { addBaseLayer, drawRoute } from '../../../utils/mapLayers';
 import 'leaflet/dist/leaflet.css';
 import { roadmapsApi } from '../../../api/operations.api';
 import { authApi } from '../../../api/auth.api';
@@ -206,11 +207,7 @@ export const RoadmapsPage = () => {
       zoomControl: true,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://carto.com/">CARTO</a> | CRM AgroRos',
-      maxZoom: 19,
-      subdomains: 'abcd',
-    }).addTo(map);
+    addBaseLayer(map);
 
     const allMarkers = [];
 
@@ -270,12 +267,8 @@ export const RoadmapsPage = () => {
         });
       });
 
-      L.polyline(polylineCoords, {
-        color: route.color || '#1a7d6b',
-        weight: 3.5,
-        opacity: 0.85,
-        dashArray: '7, 7',
-      }).addTo(map);
+      // Recorrido del vendedor por calles (o en línea punteada si el ruteo no responde).
+      drawRoute(map, polylineCoords, { color: route.color || '#1a7d6b', weight: 4 });
     });
 
     if (allMarkers.length > 0) {
