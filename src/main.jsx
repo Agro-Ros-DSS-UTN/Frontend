@@ -4,6 +4,7 @@ import App from './App';
 import { ToastProvider } from './components/ui/Toast/Toast';
 import { ErrorBoundary } from './components/ui/ErrorBoundary/ErrorBoundary';
 import './styles/global.css';
+import './styles/density.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -38,7 +38,10 @@ export const SignaturePad = ({ label, required = false, error = '', value, onCha
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const src = e.touches && e.touches.length > 0 ? e.touches[0] : e;
-    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+    // El canvas puede verse escalado (zoom general de la interfaz): se pasa a sus coordenadas internas.
+    const sx = rect.width ? canvas.width / rect.width : 1;
+    const sy = rect.height ? canvas.height / rect.height : 1;
+    return { x: (src.clientX - rect.left) * sx, y: (src.clientY - rect.top) * sy };
   };
 
   const handleStart = (e) => {

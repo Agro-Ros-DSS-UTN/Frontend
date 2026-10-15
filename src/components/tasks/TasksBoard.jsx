@@ -26,6 +26,8 @@ import { ContactAutocomplete } from '../ui/ContactAutocomplete/ContactAutocomple
 import { FilterTabs } from '../ui/FilterTabs/FilterTabs';
 import './TasksBoard.css';
 import { notify } from '../../hooks/useNotifications';
+import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
+import { checkName, LIMITS } from '../../utils/validators';
 
 const TYPE_OPTIONS = [
   { value: 'llamada', label: 'Llamada' },
@@ -273,6 +275,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
 
     const newErrors = {};
     if (!form.title?.trim()) newErrors.title = 'El título de la tarea es obligatorio.';
+    else if (checkName(form.title, { label: 'El título', ...LIMITS.title })) newErrors.title = checkName(form.title, { label: 'El título', ...LIMITS.title });
     if (!form.dueDate) newErrors.dueDate = 'Seleccioná la fecha límite.';
     if (variant === 'admin' && selectedAssignees.length === 0) {
       newErrors.assignees = 'Asociá al menos un usuario a la tarea.';
@@ -469,6 +472,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            <SearchClearButton value={searchQuery} onClear={() => setSearchQuery('')} />
           </div>
           <FilterTabs
             ariaLabel="Filtrar tareas"

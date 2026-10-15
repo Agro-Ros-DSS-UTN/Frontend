@@ -234,16 +234,7 @@
   font-family: var(--font-sans);
   color: var(--text-primary);
   width: 100%;
-}
-
-.search-clear-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-}
+}
 
 .deals-filters-row {
   display: flex;

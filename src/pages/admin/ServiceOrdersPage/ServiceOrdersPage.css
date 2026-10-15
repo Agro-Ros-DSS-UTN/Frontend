@@ -116,7 +116,7 @@
 /* ── Tarjetas KPIs Superiores (Grid Horizontal de 4) ── */
 .so-kpis-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-4, 16px);
 }
 
@@ -260,20 +260,6 @@
 
 .so-search input::placeholder {
   color: var(--text-muted, #94a3b8);
-}
-
-.so-search-clear {
-  border: none;
-  background: transparent;
-  color: var(--text-muted, #94a3b8);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  padding: 2px;
-}
-
-.so-search-clear:hover {
-  color: var(--text-primary, #0f172a);
 }
 
 .so-select-filter {
@@ -576,29 +562,15 @@
   margin: 0 0 8px;
 }
 
-
 @keyframes soFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-
-
-
-
 @keyframes soScaleIn {
   from { opacity: 0; transform: scale(0.96) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
-
-
-
-
-
-
-
-
-
 
 .so-form-card {
   background: #ffffff !important;
@@ -690,10 +662,6 @@
 .so-textarea {
   resize: vertical !important;
 }
-
-
-
-
 
 /* ═══════════════════════════════════════════════════════════════════
    SlideDrawer Styles for Service Orders & Evaluations (Matching Image 1)
@@ -787,37 +755,6 @@ button.btn-rounded-secondary:hover {
   position: relative;
 }
 
-.so-edit-menu {
-  position: absolute;
-  right: calc(100% + 6px);
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 50;
-  min-width: 230px;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
-}
-
-.so-edit-menu button {
-  padding: 9px 12px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-}
-.so-edit-menu button:hover {
-  background: #f1f5f9;
-}
-
 /* ── Formulario de orden: modal ancho ── */
 .so-form-overlay {
   position: fixed;
@@ -826,13 +763,13 @@ button.btn-rounded-secondary:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2vh 16px;
+  padding: calc(2vh / var(--ui-zoom, 1)) 16px;
   background: rgba(15, 23, 42, 0.45);
 }
 
 .so-form-modal {
   width: min(1240px, 100%);
-  height: 96vh;
+  height: calc(96vh / var(--ui-zoom, 1));
   display: flex;
   flex-direction: column;
   background: #ffffff;
@@ -1066,3 +1003,76 @@ select.so-sheet__input {
   border-color: var(--border-light, #e2e8f0);
   background: #ffffff;
 }
+
+/* Campo de satisfacción y su comentario en la misma fila */
+.so-form-grid__span-2 { grid-column: span 2; }
+.so-combo-field { cursor: pointer; }
+@media (max-width: 900px) { .so-form-grid__span-2 { grid-column: auto; } }
+
+/* Menú del lápiz: el mismo panel animado de la campanita y la ayuda,
+   dibujado por encima de la tabla para que no lo recorte el scroll. */
+.so-edit-menu-portal {
+  z-index: 1500;
+}
+
+.so-edit-panel {
+  width: 260px;
+  padding: 6px;
+}
+
+.so-edit-panel__header {
+  padding: 8px 10px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.so-edit-panel__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.so-edit-panel__item svg { color: #1a7d6b; flex-shrink: 0; }
+.so-edit-panel__item:hover,
+.so-edit-panel__item:focus-visible { background: #f1f5f9; outline: none; }
+
+/* Estado de la orden: se cambia desde la tabla con el panel animado */
+.so-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.so-status-btn:hover { filter: brightness(0.97); box-shadow: 0 0 0 2px rgba(26, 125, 107, 0.12); }
+.so-status-btn:disabled { cursor: progress; opacity: 0.7; }
+
+.so-status-panel { width: 220px; }
+
+.so-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.so-edit-panel__item.is-current { font-weight: 700; }
+.so-status-check { margin-left: auto; color: #1a7d6b; }

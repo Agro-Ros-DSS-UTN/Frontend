@@ -27,9 +27,11 @@ import { CONTACT_TYPES } from '../../../data/catalogs';
 import { fetchClients, fetchClientCompanies, createClient, updateClient, deleteClient } from '../../../data/api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import { notify } from '../../../hooks/useNotifications';
+import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { ContactSummary } from '../../../components/contacts/ContactSummary';
 import './ContactsPage.css';
+import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 
 const COLUMNS = [
   { key: 'fullName', label: 'Nombre',           sortable: true },
@@ -114,6 +116,33 @@ export const ContactsPage = () => {
   };
 
   // Form state: { numDoc, nombreApellido, direccionMail, tipoClient, codigoPostal, clientCompanyId }
+  const validateContactForm = (f, { editing }) => {
+    const errs = {};
+    const name = f.fullName.trim();
+    if (name.length < 3) errs.fullName = 'Ingresá nombre y apellido (mínimo 3 letras).';
+    else if (!/^[\p{L}][\p{L} .'-]*$/u.test(name)) errs.fullName = 'Usá solo letras y espacios.';
+
+    if (!editing) {
+      const dni = f.docNumber.replace(/[.\s-]/g, '');
+      if (!/^\d+$/.test(dni)) errs.docNumber = 'El DNI lleva solo números.';
+      else if (dni.length < 7 || dni.length > 8) errs.docNumber = 'El DNI tiene 7 u 8 números.';
+    }
+
+    const email = f.email.trim();
+    if (email.length < 6) errs.email = 'Ingresá un correo (mínimo 6 caracteres).';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) errs.email = 'El correo tiene que tener la forma nombre@dominio.com.';
+
+    const phoneDigits = f.phone.replace(/\D/g, '');
+    if (f.phone.trim() && (phoneDigits.length < 8 || phoneDigits.length > 15)) {
+      errs.phone = 'El teléfono tiene que tener entre 8 y 15 números (con característica).';
+    } else if (f.phone.trim() && /[^\d\s()+-]/.test(f.phone)) {
+      errs.phone = 'Usá solo números, espacios, guiones, paréntesis o +.';
+    }
+
+    if (f.company.trim() && !f.clientCompanyId) errs.company = 'Elegí una empresa de la lista (o dala de alta desde ahí).';
+    return errs;
+  };
+
   const emptyContactForm = {
     docNumber: '',
     fullName: '',
@@ -121,13 +150,21 @@ export const ContactsPage = () => {
     clientType: 'Productor',
     phone: '',
     clientCompanyId: '',
+    company: '',
     note: '',
   };
   const [form, setForm] = useState(emptyContactForm);
+  const [formErrors, setFormErrors] = useState({});
+  // Cambia un campo y borra su error
+  const setField = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (formErrors[field]) setFormErrors((prev) => ({ ...prev, [field]: '' }));
+  };
 
   const openCreateModal = () => {
     setEditingClient(null);
     setForm(emptyContactForm);
+    setFormErrors({});
     setShowModal(true);
   };
 
@@ -140,8 +177,10 @@ export const ContactsPage = () => {
       clientType: client.clientType || 'Productor',
       phone: client.phone || (Array.isArray(client.phones) ? (client.phones[0] || '') : ''),
       clientCompanyId: client.clientCompanyId || '',
+      company: companies.find((c) => c.id === client.clientCompanyId)?.companyName || client.company || '',
       note: client.note || '',
     });
+    setFormErrors({});
     setShowModal(true);
   };
 
@@ -225,9 +264,12 @@ export const ContactsPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const errs = validateContactForm(form, { editing: Boolean(editingClient) });
+    setFormErrors(errs);
+    if (Object.values(errs).some(Boolean)) return;
     const payload = {
-      nationalId: form.docNumber.trim() || null,
-      fullName: form.fullName,
+      nationalId: form.docNumber.replace(/[.\s-]/g, '') || null,
+      fullName: form.fullName.trim().replace(/\s+/g, ' '),
       email: form.email.trim() || null,
       jobTitle: form.clientType,
       companyId: form.clientCompanyId ? Number(form.clientCompanyId) : null,
@@ -336,6 +378,7 @@ export const ContactsPage = () => {
                 setCurrentPage(1);
               }}
             />
+            <SearchClearButton value={searchQuery} onClear={() => { setSearchQuery(''); setCurrentPage(1); }} />
           </div>
 
           <FilterTabs
@@ -528,39 +571,43 @@ export const ContactsPage = () => {
         <div className="contact-modal-overlay" {...contactModalOverlayHandlers}>
           <div className="contact-modal" onClick={e => e.stopPropagation()}>
             <div className="contact-modal__header">
-              <h2>{editingClient ? 'Editar Contacto' : 'Registrar Nuevo Contacto / Cliente'}</h2>
+              <h2>{editingClient ? 'Editar Contacto' : 'Registrar Nuevo Contacto'}</h2>
               <button className="contact-modal__close" onClick={() => { setShowModal(false); setEditingClient(null); }}>
                 <X size={20} />
               </button>
             </div>
 
-            <form className="contact-modal__form" onSubmit={handleSubmit}>
+            <form className="contact-modal__form" onSubmit={handleSubmit} noValidate>
               {/* Nombre y Apellido */}
               <div className="contact-field">
-                <label><User size={14} /> Nombre y Apellido / Razón Social *</label>
+                <label><User size={14} /> Nombre y Apellido *</label>
                 <input
                   type="text"
-                  className="contact-input"
+                  className={`contact-input ${formErrors.fullName ? 'is-invalid' : ''}`}
                   placeholder="Ej: Roberto Aguilar"
                   value={form.fullName}
-                  onChange={(e) => setForm(prev => ({ ...prev, fullName: e.target.value }))}
-                  required
+                  onChange={(e) => setField('fullName', e.target.value)}
+                  minLength={3}
+                  maxLength={150}
                 />
+                {formErrors.fullName && <span className="contact-field__error">{formErrors.fullName}</span>}
               </div>
 
-              {/* DNI / CUIT */}
+              {/* DNI */}
               <div className="contact-field">
-                <label><FileText size={14} /> DNI / CUIT *</label>
+                <label><FileText size={14} /> DNI *</label>
                 <input
                   type="text"
-                  className="contact-input"
-                  placeholder="Ej: 20-27845631-4"
+                  inputMode="numeric"
+                  className={`contact-input ${formErrors.docNumber ? 'is-invalid' : ''}`}
+                  placeholder="Ej: 27845631"
                   value={form.docNumber}
-                  onChange={(e) => setForm(prev => ({ ...prev, docNumber: e.target.value }))}
+                  onChange={(e) => setField('docNumber', e.target.value)}
+                  maxLength={10}
                   disabled={!!editingClient}
                   title={editingClient ? 'El documento no se puede modificar una vez creado el contacto' : undefined}
-                  required
                 />
+                {formErrors.docNumber && <span className="contact-field__error">{formErrors.docNumber}</span>}
               </div>
 
               {/* Email */}
@@ -568,12 +615,13 @@ export const ContactsPage = () => {
                 <label><Mail size={14} /> Correo Electrónico *</label>
                 <input
                   type="email"
-                  className="contact-input"
+                  className={`contact-input ${formErrors.email ? 'is-invalid' : ''}`}
                   placeholder="cliente@dominio.com.ar"
                   value={form.email}
-                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
-                  required
+                  onChange={(e) => setField('email', e.target.value)}
+                  maxLength={150}
                 />
+                {formErrors.email && <span className="contact-field__error">{formErrors.email}</span>}
               </div>
 
               {/* Tipo de Cliente */}
@@ -595,34 +643,29 @@ export const ContactsPage = () => {
               <div className="contact-field">
                 <label><Phone size={14} /> Teléfono Principal</label>
                 <input
-                  type="text"
-                  className="contact-input"
+                  type="tel"
+                  className={`contact-input ${formErrors.phone ? 'is-invalid' : ''}`}
                   placeholder="+54 341 456-7890"
                   value={form.phone}
-                  onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) => setField('phone', e.target.value)}
+                  maxLength={25}
                 />
+                {formErrors.phone && <span className="contact-field__error">{formErrors.phone}</span>}
               </div>
 
-              {/* Empresa Cliente Vinculada (Relación 1:N) */}
-              <div className="contact-field">
-                <label><Building2 size={14} /> Empresa Cliente Vinculada</label>
-                <select
-                  className="contact-select"
-                  value={form.clientCompanyId || ''}
-                  onChange={(e) => {
-                    const selComp = companies.find(c => c.id === Number(e.target.value));
-                    setForm(prev => ({
-                      ...prev,
-                      clientCompanyId: e.target.value ? Number(e.target.value) : null,
-                      company: selComp ? (selComp.legalName || selComp.companyName) : '',
-                    }));
+              {/* Empresa del cliente: buscador conectado a las empresas cargadas */}
+              <div className="contact-field contact-field--company">
+                <CompanyAutocomplete
+                  label="Empresa Cliente"
+                  name="company"
+                  value={form.company}
+                  placeholder="Escribí para buscar la empresa del cliente..."
+                  onChange={(name, hit) => {
+                    setForm((prev) => ({ ...prev, company: name, clientCompanyId: hit?.id || '' }));
+                    if (formErrors.company) setFormErrors((prev) => ({ ...prev, company: '' }));
                   }}
-                >
-                  <option value="">Ninguna / Productor Directo</option>
-                  {companies.map(c => (
-                    <option key={c.id} value={c.id}>{c.companyName} ({c.locality || 'Santa Fe'})</option>
-                  ))}
-                </select>
+                  error={formErrors.company}
+                />
               </div>
 
               {/* Notas */}
@@ -638,9 +681,19 @@ export const ContactsPage = () => {
               </div>
 
               {/* Acciones */}
-              <div className="contact-modal__actions">
-                <button type="submit" className="contact-btn-primary">{editingClient ? 'Guardar Cambios' : 'Registrar Contacto'}</button>
-                <button type="button" className="contact-btn-outline" onClick={() => { setShowModal(false); setEditingClient(null); }}>Cancelar</button>
+              {/* Mismos botones que el resto de los formularios (Usuarios, Empleados…) */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                <button type="submit" className="btn-rounded-primary" style={{ flex: 1, padding: '12px', justifyContent: 'center' }}>
+                  {editingClient ? 'Guardar Cambios' : 'Registrar Contacto'}
+                </button>
+                <button
+                  type="button"
+                  className="roadmaps-btn roadmaps-btn--outline"
+                  style={{ padding: '12px 18px' }}
+                  onClick={() => { setShowModal(false); setEditingClient(null); }}
+                >
+                  Cancelar
+                </button>
               </div>
             </form>
           </div>

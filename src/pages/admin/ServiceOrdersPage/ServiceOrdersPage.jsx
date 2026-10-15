@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import {
   FileCheck2,
   Pencil,
@@ -20,7 +21,8 @@ import {
   Trash2,
   Layers,
   ShieldCheck,
-  Award,
+  ChevronDown,
+  Check,
   CheckSquare,
 } from 'lucide-react';
 import {
@@ -30,10 +32,14 @@ import {
 } from '../../../data/serviceOrdersData';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
+import { fetchClientCompanies } from '../../../data/api';
+import { ComboBox } from '../../../components/ui/ComboBox/ComboBox';
 import { TechnicianAutocomplete } from '../../../components/ui/TechnicianAutocomplete/TechnicianAutocomplete';
-import { ImageUpload } from '../../../components/ui/ImageUpload/ImageUpload';
 import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/FormInput/FormInput';
 import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
+import { EvaluationSummary } from '../../../components/serviceOrders/EvaluationSummary';
+import { evaluationCode } from '../../../components/serviceOrders/evaluationCode';
+import { AnimatedPanel, AnimatedPanelItem } from '../../../components/ui/AnimatedPanel/AnimatedPanel';
 import { ServiceOrderSummary } from '../../../components/serviceOrders/ServiceOrderSummary';
 import { PdfPreviewModal } from '../../../components/serviceOrders/pdf/PdfPreviewModal';
 import { generateServiceOrderPdf, generateServiceEvaluationPdf } from '../../../components/serviceOrders/pdf/serviceOrderPdfs';
@@ -45,8 +51,13 @@ import { ToggleSection } from '../../../components/ui/ToggleSection/ToggleSectio
 import { draftKey, loadDraft, saveDraft, clearDraft } from '../../../utils/formDrafts';
 import './ServiceOrdersPage.css';
 import { notify } from '../../../hooks/useNotifications';
+import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
+import { checkText } from '../../../utils/validators';
 
 const SAMPLING_POINTS = ['Superficie', 'Medio', 'Fondo', 'Boca de carga', 'Ducto de descarga'];
+const FACILITY_TYPES = ['Silo', 'Celda', 'Galpón', 'Silo bolsa', 'Bodega', 'Planta'];
+const GRAINS = ['Trigo', 'Maíz', 'Soja', 'Girasol', 'Sorgo', 'Cebada', 'Arroz'];
+const PRODUCTS = ['Fosfuro de Aluminio (Pastillas)', 'Fosfuro de Magnesio', 'Deltametrina', 'Pirimifós metil'];
 
 // Referencias del dorso de la planilla "Evaluación de Servicio"
 const EVAL_GRAIN_CONDITIONS = [
@@ -66,13 +77,13 @@ const DEFAULT_RECOMMENDATION =
   'Se recomienda prender los aireadores y proceder al retiro del cereal luego de las 96 hs de la liberación del servicio.';
 
 const EVAL_COLUMNS = [
-  { key: 'facilityType', label: 'Tipo instalación', list: 'so-tipos-instalacion', width: 130 },
+  { key: 'facilityType', label: 'Tipo instalación', options: FACILITY_TYPES, width: 130 },
   { key: 'number', label: 'Nº', width: 64 },
   { key: 'capacityTn', label: 'Capacidad (tn)', width: 96, inputMode: 'decimal' },
-  { key: 'grain', label: 'Grano tratado', list: 'so-granos', width: 120 },
+  { key: 'grain', label: 'Grano tratado', options: GRAINS, width: 120 },
   { key: 'quantityTn', label: 'Cantidad (tn)', width: 96, inputMode: 'decimal' },
   { key: 'grainCondition', label: 'Estado cereal', group: true, options: EVAL_GRAIN_CONDITIONS, required: true, width: 110 },
-  { key: 'samplingPoint', label: 'Lugar toma muestra', group: true, list: 'so-lugares-toma-muestra', required: true, width: 140 },
+  { key: 'samplingPoint', label: 'Lugar toma muestra', group: true, options: SAMPLING_POINTS, required: true, width: 140 },
   { key: 'result', label: 'Resultado', group: true, options: EVAL_SAMPLE_RESULTS, required: true, width: 130 },
 ];
 
@@ -155,15 +166,15 @@ const emptyDetailRow = () => ({
 });
 
 const DETAIL_COLUMNS = [
-  { key: 'facilityType', label: 'Tipo instalación', list: 'so-tipos-instalacion', width: 130 },
+  { key: 'facilityType', label: 'Tipo instalación', options: FACILITY_TYPES, width: 130 },
   { key: 'number', label: 'Nº', width: 64 },
   { key: 'capacityTn', label: 'Capacidad (tn)', width: 96, inputMode: 'decimal' },
-  { key: 'grain', label: 'Grano a tratar', list: 'so-granos', width: 120 },
+  { key: 'grain', label: 'Grano a tratar', options: GRAINS, width: 120 },
   { key: 'quantityTn', label: 'Cantidad (tn)', width: 96, inputMode: 'decimal' },
   { key: 'grainCondition', label: 'Cereal', group: 'Estado', width: 78 },
   { key: 'facilityCondition', label: 'Instalaciones', group: 'Estado', width: 96 },
   { key: 'infestationLevel', label: 'Infestación', group: 'Estado', width: 90 },
-  { key: 'product', label: 'Producto a utilizar', list: 'so-productos', width: 180 },
+  { key: 'product', label: 'Producto a utilizar', options: PRODUCTS, width: 180 },
   { key: 'dose', label: 'Dosis', width: 120 }
 ];
 
@@ -181,7 +192,7 @@ const buildEmptyOrderForm = (orderNumber = '') => ({
   silo: '',
   address: '',
   locality: '',
-  province: 'Santa Fe',
+  province: '',
   workType: WORK_TYPES[0],
   otherWorkType: '',
   status: 'Programada',
@@ -226,23 +237,138 @@ export const ServiceOrdersPage = () => {
   const [evalTargetOrder, setEvalTargetOrder] = useState(null);
   const [summaryOrder, setSummaryOrder] = useState(null);
   const [editMenuOrderId, setEditMenuOrderId] = useState(null);
+  const [editMenuPos, setEditMenuPos] = useState(null);
+  const [summaryEvaluation, setSummaryEvaluation] = useState(null);
+  const [statusMenu, setStatusMenu] = useState(null); // { orderId, pos }
+  const [changingStatusId, setChangingStatusId] = useState(null);
+
+  // Posición fija debajo (o arriba) de un botón, en coordenadas del documento con zoom.
+  const menuPositionFor = (button, height = 190) => {
+    const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+    const r = button.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - r.bottom;
+    return {
+      left: r.left / z,
+      top: spaceBelow > height ? (r.bottom + 6) / z : undefined,
+      bottom: spaceBelow > height ? undefined : (window.innerHeight - r.top + 6) / z,
+    };
+  };
+
+  const toggleStatusMenu = (order, button) => {
+    if (statusMenu?.orderId === order.id) {
+      setStatusMenu(null);
+      return;
+    }
+    setEditMenuOrderId(null);
+    setStatusMenu({ orderId: order.id, pos: menuPositionFor(button) });
+  };
+
+  const handleChangeStatus = async (order, status) => {
+    setStatusMenu(null);
+    if (status === order.status) return;
+    setChangingStatusId(order.id);
+    try {
+      const updated = await serviceOrdersApi.update(order.id, { status });
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, ...(updated || {}), status } : o)));
+      notify.success('Estado actualizado', `${order.orderNumber}: ${status}`);
+    } catch (err) {
+      console.error('Error al cambiar el estado de la orden:', err);
+      notify.error('No se pudo cambiar el estado', err);
+    } finally {
+      setChangingStatusId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!statusMenu) return undefined;
+    const close = (e) => {
+      if (!e.target.closest('.so-status-menu-wrap')) setStatusMenu(null);
+    };
+    const closeNow = () => setStatusMenu(null);
+    const onKey = (e) => e.key === 'Escape' && closeNow();
+    document.addEventListener('mousedown', close);
+    window.addEventListener('scroll', closeNow, true);
+    window.addEventListener('resize', closeNow);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', closeNow, true);
+      window.removeEventListener('resize', closeNow);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [statusMenu]);
+  // El menú se dibuja en un portal (por encima de la tabla, que tiene scroll):
+  // se ubica debajo del lápiz, alineado a su borde derecho.
+  const toggleEditMenu = (order, button) => {
+    if (editMenuOrderId === order.id) {
+      setEditMenuOrderId(null);
+      return;
+    }
+    const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+    const r = button.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - r.bottom;
+    setEditMenuPos({
+      right: (window.innerWidth - r.right) / z,
+      top: spaceBelow > 150 ? (r.bottom + 6) / z : undefined,
+      bottom: spaceBelow > 150 ? undefined : (window.innerHeight - r.top + 6) / z,
+    });
+    setEditMenuOrderId(order.id);
+  };
 
   useEffect(() => {
     if (editMenuOrderId === null) return undefined;
     const close = (e) => {
       if (!e.target.closest('.so-edit-menu-wrap')) setEditMenuOrderId(null);
     };
+    const closeNow = () => setEditMenuOrderId(null);
+    const onKey = (e) => e.key === 'Escape' && closeNow();
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    window.addEventListener('scroll', closeNow, true);
+    window.addEventListener('resize', closeNow);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', closeNow, true);
+      window.removeEventListener('resize', closeNow);
+      window.removeEventListener('keydown', onKey);
+    };
   }, [editMenuOrderId]);
   // Vista previa del PDF a imprimir: { tipo: 'orden' | 'evaluacion', order }
   const [pdfPreview, setPdfPreview] = useState(null);
+  // Provincia de cada empresa, para completar "localidad, provincia" en órdenes que no la guardaron
+  const [companyProvinces, setCompanyProvinces] = useState({ byId: {}, byName: {} });
+  useEffect(() => {
+    fetchClientCompanies()
+      .then((list) => {
+        const byId = {};
+        const byName = {};
+        (Array.isArray(list) ? list : []).forEach((c) => {
+          const province = c.province || c.Locality?.Province?.provinceName || '';
+          if (!province) return;
+          byId[c.id] = province;
+          byName[String(c.companyName || c.legalName || '').toLowerCase().trim()] = province;
+        });
+        setCompanyProvinces({ byId, byName });
+      })
+      .catch(() => {});
+  }, []);
+  const withProvince = useCallback((order) => {
+    if (!order || order.province) return order;
+    const province = companyProvinces.byId[order.companyId]
+      || companyProvinces.byName[String(order.customerName || '').toLowerCase().trim()] || '';
+    return province ? { ...order, province } : order;
+  }, [companyProvinces]);
+  const localityLabel = (order) => {
+    const o = withProvince(order) || {};
+    return [o.locality, o.province].filter(Boolean).join(', ');
+  };
+
   const openPdfPreview = (type, order) => {
     if (type === 'evaluation' && !order?.evaluation) {
       notify.warning('No se puede imprimir la evaluación', 'Esta orden todavía no tiene evaluación. Cargala con «Cargar evaluación» y después imprimila.');
       return;
     }
-    setPdfPreview({ type, order });
+    setPdfPreview({ type, order: withProvince(order) });
   };
   const closePdfPreview = useCallback(() => setPdfPreview(null), []);
   const pdfGenerator = useMemo(() => {
@@ -465,6 +591,8 @@ export const ServiceOrdersPage = () => {
     if (!orderForm.customerName?.trim()) errors.customerName = 'Elegí el cliente.';
     if (orderForm.workType === 'Otro' && !orderForm.otherWorkType?.trim()) {
       errors.otherWorkType = 'Escribí qué tipo de trabajo es.';
+    } else if (orderForm.workType === 'Otro' && checkText(orderForm.otherWorkType, { label: 'El tipo de trabajo', min: 3, max: 100 })) {
+      errors.otherWorkType = checkText(orderForm.otherWorkType, { label: 'El tipo de trabajo', min: 3, max: 100 });
     }
     const evErrors = includeEval ? validateEvalForm(evalForm) : {};
     setOrderErrors(errors);
@@ -703,7 +831,7 @@ export const ServiceOrdersPage = () => {
               error={evalErrors.evaluationDate}
             />
             <FormInput label="Cliente" name="evalCustomer" value={order.customerName || ''} readOnly placeholder="Se completa con la orden" />
-            <FormInput label="Localidad" name="evalLocality" value={order.locality || ''} readOnly placeholder="—" />
+            <FormInput label="Localidad" name="evalLocality" value={localityLabel(order)} readOnly placeholder="—" />
             <FormInput label="Orden de Servicio" name="evalOrder" value={order.orderNumber || ''} readOnly placeholder="—" />
           </div>
         </section>
@@ -749,24 +877,21 @@ export const ServiceOrdersPage = () => {
                       return (
                         <td key={col.key}>
                           {col.options ? (
-                            <select
-                              className={cellClass}
+                            <ComboBox
+                              inputClassName={cellClass}
                               value={row[col.key] || ''}
-                              aria-label={label}
-                              onChange={(e) => handleEvalRowChange(idx, col.key, e.target.value)}
-                            >
-                              <option value="">—</option>
-                              {col.options.map((o) => (
-                                <option key={o.value} value={o.value}>{o.label}</option>
-                              ))}
-                            </select>
+                              options={col.options}
+                              ariaLabel={label}
+                              maxLength={100}
+                              onChange={(v) => handleEvalRowChange(idx, col.key, v)}
+                            />
                           ) : (
                             <input
                               type="text"
                               className={cellClass}
                               value={row[col.key] || ''}
-                              list={col.list}
                               inputMode={col.inputMode}
+                              maxLength={60}
                               aria-label={label}
                               onChange={(e) => handleEvalRowChange(idx, col.key, e.target.value)}
                             />
@@ -815,28 +940,40 @@ export const ServiceOrdersPage = () => {
               onChange={(e) => setEvalForm({ ...evalForm, ppmPH3: e.target.value })}
               placeholder="Ej: 300"
             />
-            <FormSelect
-              label="Satisfacción del cliente"
-              name="customerSatisfaction"
-              value={evalForm.customerSatisfaction}
-              onChange={(e) => setEvalForm({ ...evalForm, customerSatisfaction: e.target.value })}
-              options={[
-                { value: '', label: 'Sin calificar' },
-                { value: '5', label: '5 — Muy satisfecho' },
-                { value: '4', label: '4 — Satisfecho' },
-                { value: '3', label: '3 — Neutral' },
-                { value: '2', label: '2 — Insatisfecho' },
-                { value: '1', label: '1 — Muy insatisfecho' },
-              ]}
-            />
+            <div className="form-input-field">
+              <label className="form-input-label" htmlFor="customerSatisfaction">Satisfacción del cliente</label>
+              <ComboBox
+                id="customerSatisfaction"
+                inputClassName="form-input-control so-combo-field"
+                value={evalForm.customerSatisfaction}
+                freeText={false}
+                emptyLabel="Sin calificar"
+                placeholder="Sin calificar"
+                options={[
+                  { value: '5', label: '5 — Muy satisfecho' },
+                  { value: '4', label: '4 — Satisfecho' },
+                  { value: '3', label: '3 — Neutral' },
+                  { value: '2', label: '2 — Insatisfecho' },
+                  { value: '1', label: '1 — Muy insatisfecho' },
+                ]}
+                extraAction={{
+                  label: 'Escribir un comentario sobre la satisfacción…',
+                  onSelect: () => setTimeout(() => document.getElementById('customerComment')?.focus(), 0),
+                }}
+                onChange={(v) => setEvalForm((prev) => ({ ...prev, customerSatisfaction: v }))}
+              />
+            </div>
+            <div className="so-form-grid__span-2">
+              <FormInput
+                label="Comentario sobre la satisfacción"
+                name="customerComment"
+                value={evalForm.customerComment}
+                onChange={(e) => setEvalForm({ ...evalForm, customerComment: e.target.value })}
+                placeholder="Lo que dijo el cliente sobre el servicio"
+                maxLength={500}
+              />
+            </div>
           </div>
-          <FormInput
-            label="Comentario del cliente"
-            name="customerComment"
-            value={evalForm.customerComment}
-            onChange={(e) => setEvalForm({ ...evalForm, customerComment: e.target.value })}
-            placeholder="Lo que dijo el cliente sobre el servicio (opcional)"
-          />
           <div className="so-form-grid so-form-grid--2">
             <FormTextarea
               label="Observaciones"
@@ -883,24 +1020,6 @@ export const ServiceOrdersPage = () => {
       </>
     );
   };
-
-  // Sugerencias de las planillas (compartidas por la orden y la evaluación)
-  const renderSheetDatalists = () => (
-    <>
-      <datalist id="so-tipos-instalacion">
-        {['Silo', 'Celda', 'Galpón', 'Silo bolsa', 'Bodega', 'Planta'].map((v) => <option key={v} value={v} />)}
-      </datalist>
-      <datalist id="so-granos">
-        {['Trigo', 'Maíz', 'Soja', 'Girasol', 'Sorgo', 'Cebada', 'Arroz'].map((v) => <option key={v} value={v} />)}
-      </datalist>
-      <datalist id="so-productos">
-        {['Fosfuro de Aluminio (Pastillas)', 'Fosfuro de Magnesio', 'Deltametrina', 'Pirimifós metil'].map((v) => <option key={v} value={v} />)}
-      </datalist>
-      <datalist id="so-lugares-toma-muestra">
-        {SAMPLING_POINTS.map((v) => <option key={v} value={v} />)}
-      </datalist>
-    </>
-  );
 
   const selectedWorkType = orderForm.workType;
   const canAttachEval = !editingOrderId || !orders.find((o) => o.id === editingOrderId)?.evaluation;
@@ -962,15 +1081,6 @@ export const ServiceOrdersPage = () => {
           </div>
         </div>
 
-        <div className="so-kpi-card">
-          <div className="so-kpi-icon so-kpi-icon--amber">
-            <Award size={22} />
-          </div>
-          <div className="so-kpi-info">
-            <span className="so-kpi-label">SIN INSECTOS VIVOS</span>
-            <div className="so-kpi-value">{kpis.pctWithoutInsects}% <span className="so-kpi-sub">({kpis.totalEvaluated} evaluadas)</span></div>
-          </div>
-        </div>
       </div>
 
       {/* ── Tarjeta Contenedora Principal: Pestañas, Búsqueda y Tabla ── */}
@@ -985,15 +1095,7 @@ export const ServiceOrdersPage = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            {searchQuery && (
-              <button
-                type="button"
-                className="so-search-clear"
-                onClick={() => setSearchQuery('')}
-              >
-                <X size={14} />
-              </button>
-            )}
+            <SearchClearButton value={searchQuery} onClear={() => setSearchQuery('')} />
           </div>
 
           <FilterTabs
@@ -1078,9 +1180,7 @@ export const ServiceOrdersPage = () => {
                       {/* Cliente */}
                       <td>
                         <div className="so-client-cell">
-                          <button type="button" className="so-client-name so-order-link" onClick={() => setSummaryOrder(order)}>
-                            {order.customerName}
-                          </button>
+                          <span className="so-client-name">{order.customerName}</span>
                           <span className="so-client-sub">{order.centerName}</span>
                         </div>
                       </td>
@@ -1104,25 +1204,34 @@ export const ServiceOrdersPage = () => {
 
                       {/* Estado */}
                       <td>
-                        <span className={`crm-status-pill ${/complet/i.test(order.status || '') ? 'crm-status-pill--ok' : ''}`}>
-                          {order.status}
-                        </span>
+                        <button
+                          type="button"
+                          className={`crm-status-pill so-status-btn ${/complet/i.test(order.status || '') ? 'crm-status-pill--ok' : ''}`}
+                          onClick={(e) => toggleStatusMenu(order, e.currentTarget)}
+                          aria-haspopup="menu"
+                          aria-expanded={statusMenu?.orderId === order.id}
+                          title="Cambiar el estado de la orden"
+                          disabled={changingStatusId === order.id}
+                        >
+                          {changingStatusId === order.id ? 'Guardando…' : order.status}
+                          <ChevronDown size={12} />
+                        </button>
                       </td>
 
                       {/* Evaluación de Servicio */}
                       <td>
                         {order.evaluation ? (
-                          <div
-                            className="so-eval-box"
-                            onClick={() => handleOpenEvalDrawer(order)}
-                            style={{ cursor: 'pointer' }}
-                            title="Hacé click para ver o editar la evaluación de servicio"
-                          >
-                            <span className="so-eval-resultado-text">
-                              {order.evaluation.result || 'Sin resultado'}
-                            </span>
+                          <div className="so-eval-box">
+                            <button
+                              type="button"
+                              className="so-order-link"
+                              onClick={() => setSummaryEvaluation(order)}
+                              title="Ver resumen de la evaluación de servicio"
+                            >
+                              {evaluationCode(order)}
+                            </button>
                             <span className="so-eval-meta">
-                              Cereal {order.evaluation.grainCondition || '—'} · {order.evaluation.evaluationDate ? String(order.evaluation.evaluationDate).slice(0, 10) : 'sin fecha'}
+                              {order.evaluation.evaluationDate ? String(order.evaluation.evaluationDate).slice(0, 10) : 'sin fecha'}
                             </span>
                           </div>
                         ) : (
@@ -1169,34 +1278,10 @@ export const ServiceOrdersPage = () => {
                               title="Editar"
                               aria-haspopup="menu"
                               aria-expanded={editMenuOrderId === order.id}
-                              onClick={() => setEditMenuOrderId(editMenuOrderId === order.id ? null : order.id)}
+                              onClick={(e) => toggleEditMenu(order, e.currentTarget)}
                             >
                               <Pencil size={15} />
                             </button>
-                            {editMenuOrderId === order.id && (
-                              <div className="so-edit-menu" role="menu">
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  onClick={() => {
-                                    setEditMenuOrderId(null);
-                                    handleOpenEditDrawer(order);
-                                  }}
-                                >
-                                  Editar orden de servicio
-                                </button>
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  onClick={() => {
-                                    setEditMenuOrderId(null);
-                                    handleOpenEvalDrawer(order);
-                                  }}
-                                >
-                                  {order.evaluation ? 'Editar evaluación de servicio' : 'Cargar evaluación de servicio'}
-                                </button>
-                              </div>
-                            )}
                           </div>
 
                           <button
@@ -1225,7 +1310,7 @@ export const ServiceOrdersPage = () => {
         <div className="so-form-overlay" {...orderModalOverlayHandlers}>
           <div className="so-form-modal" role="dialog" aria-modal="true" aria-labelledby="so-form-title">
             <header className="so-form-modal__header">
-              <h2 id="so-form-title">{editingOrderId ? 'Editar Orden de Servicio' : 'Nueva Orden de Servicio'}</h2>
+              <h2 id="so-form-title">{editingOrderId ? 'Editar Orden / Evaluación de Servicio' : 'Nueva Orden / Evaluación de Servicio'}</h2>
               <button type="button" className="so-form-modal__close" onClick={() => setShowOrderDrawer(false)} aria-label="Cerrar">
                 <X size={20} />
               </button>
@@ -1346,15 +1431,26 @@ export const ServiceOrdersPage = () => {
                           <tr key={idx}>
                             {DETAIL_COLUMNS.map((col) => (
                               <td key={col.key}>
-                                <input
-                                  type="text"
-                                  className="so-sheet__input"
-                                  value={row[col.key] || ''}
-                                  list={col.list}
-                                  inputMode={col.inputMode}
-                                  aria-label={`${col.group ? `Estado ${col.label.toLowerCase()}` : col.label}, fila ${idx + 1}`}
-                                  onChange={(e) => handleProductChange(idx, col.key, e.target.value)}
-                                />
+                                {col.options ? (
+                                  <ComboBox
+                                    inputClassName="so-sheet__input"
+                                    value={row[col.key] || ''}
+                                    options={col.options}
+                                    maxLength={100}
+                                    ariaLabel={`${col.label}, fila ${idx + 1}`}
+                                    onChange={(v) => handleProductChange(idx, col.key, v)}
+                                  />
+                                ) : (
+                                  <input
+                                    type="text"
+                                    className="so-sheet__input"
+                                    value={row[col.key] || ''}
+                                    inputMode={col.inputMode}
+                                    maxLength={60}
+                                    aria-label={`${col.group ? `Estado ${col.label.toLowerCase()}` : col.label}, fila ${idx + 1}`}
+                                    onChange={(e) => handleProductChange(idx, col.key, e.target.value)}
+                                  />
+                                )}
                               </td>
                             ))}
                             <td className="so-sheet__actions">
@@ -1404,12 +1500,12 @@ export const ServiceOrdersPage = () => {
 
                 {/* Imagen de la orden en papel */}
                 <section className="so-form-section">
-                  <ImageUpload
+                  {/* Mismo cargador chico que las fotos de la evaluación (una sola imagen) */}
+                  <MultiImageUpload
                     label="Imagen de la orden de servicio original"
-                    value={orderForm.originalOrderImage}
-                    onChange={(url) => setOrderField('originalOrderImage', url)}
-                    onRemove={() => setOrderField('originalOrderImage', null)}
-                    maxSizeMB={5}
+                    value={orderForm.originalOrderImage ? [orderForm.originalOrderImage] : []}
+                    onChange={(imgs) => setOrderField('originalOrderImage', imgs[imgs.length - 1] || null)}
+                    maxFiles={1}
                   />
                 </section>
 
@@ -1485,7 +1581,6 @@ export const ServiceOrdersPage = () => {
         </div>
       )}
 
-      {renderSheetDatalists()}
 
       {/* Impresión: los datos se estampan sobre las plantillas PDF originales */}
       {pdfPreview && pdfGenerator && (
@@ -1498,9 +1593,90 @@ export const ServiceOrdersPage = () => {
         />
       )}
 
+      {editMenuOrderId !== null && editMenuPos && (() => {
+        const order = orders.find((o) => o.id === editMenuOrderId);
+        if (!order) return null;
+        return createPortal(
+          <div className="so-edit-menu-wrap so-edit-menu-portal" style={{ position: 'fixed', ...editMenuPos }}>
+            <AnimatedPanel className="so-edit-panel" role="menu">
+              <AnimatedPanelItem className="so-edit-panel__header">Editar {order.orderNumber}</AnimatedPanelItem>
+              <AnimatedPanelItem
+                as="button"
+                type="button"
+                role="menuitem"
+                className="so-edit-panel__item"
+                onClick={() => { setEditMenuOrderId(null); handleOpenEditDrawer(order); }}
+              >
+                <FileCheck2 size={15} /> Editar orden de servicio
+              </AnimatedPanelItem>
+              <AnimatedPanelItem
+                as="button"
+                type="button"
+                role="menuitem"
+                className="so-edit-panel__item"
+                onClick={() => { setEditMenuOrderId(null); handleOpenEvalDrawer(order); }}
+              >
+                <ShieldCheck size={15} /> {order.evaluation ? 'Editar evaluación de servicio' : 'Cargar evaluación de servicio'}
+              </AnimatedPanelItem>
+            </AnimatedPanel>
+          </div>,
+          document.body
+        );
+      })()}
+
+      {statusMenu && (() => {
+        const order = orders.find((o) => o.id === statusMenu.orderId);
+        if (!order) return null;
+        return createPortal(
+          <div className="so-status-menu-wrap so-edit-menu-portal" style={{ position: 'fixed', ...statusMenu.pos }}>
+            <AnimatedPanel className="so-edit-panel so-status-panel" role="menu">
+              <AnimatedPanelItem className="so-edit-panel__header">Estado de {order.orderNumber}</AnimatedPanelItem>
+              {ORDER_STATUSES.map((st) => (
+                <AnimatedPanelItem
+                  key={st.key}
+                  as="button"
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={order.status === st.key}
+                  className={`so-edit-panel__item ${order.status === st.key ? 'is-current' : ''}`}
+                  onClick={() => handleChangeStatus(order, st.key)}
+                >
+                  <span className="so-status-dot" style={{ background: st.color }} />
+                  {st.label}
+                  {order.status === st.key && <Check size={14} className="so-status-check" />}
+                </AnimatedPanelItem>
+              ))}
+            </AnimatedPanel>
+          </div>,
+          document.body
+        );
+      })()}
+
+      {summaryEvaluation && (
+        <EvaluationSummary
+          order={withProvince(orders.find((o) => o.id === summaryEvaluation.id) || summaryEvaluation)}
+          onClose={() => setSummaryEvaluation(null)}
+          onEdit={() => {
+            const order = summaryEvaluation;
+            setSummaryEvaluation(null);
+            handleOpenEvalDrawer(order);
+          }}
+          onPrint={() => {
+            const order = summaryEvaluation;
+            setSummaryEvaluation(null);
+            openPdfPreview('evaluation', order);
+          }}
+          onOpenOrder={() => {
+            const order = summaryEvaluation;
+            setSummaryEvaluation(null);
+            setSummaryOrder(order);
+          }}
+        />
+      )}
+
       {summaryOrder && (
         <ServiceOrderSummary
-          order={summaryOrder}
+          order={withProvince(summaryOrder)}
           onClose={() => setSummaryOrder(null)}
           onEditOrder={() => {
             const order = summaryOrder;

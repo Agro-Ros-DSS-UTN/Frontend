@@ -32,6 +32,7 @@ import { ProductDetailDrawer } from './ProductDetailDrawer';
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import './ProductsPage.css';
+import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 
 export const ProductsPage = () => {
   // ── 1. Declaración agrupada de todos los estados del componente ──
@@ -425,6 +426,7 @@ export const ProductsPage = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            <SearchClearButton value={searchQuery} onClear={() => setSearchQuery('')} />
           </div>
 
           <FilterTabs

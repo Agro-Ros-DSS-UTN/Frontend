@@ -1,4 +1,5 @@
 ﻿import { PRODUCT_CATEGORIES, BILLING_FREQUENCIES } from '../../../data/catalogs';
+import { checkName, checkText, checkPositiveNumber } from '../../../utils/validators';
 
 /**
  * Estado inicial del formulario de producto.
@@ -36,12 +37,23 @@ export const validateProductForm = (form) => {
   const errors = {};
   if (!form.name?.trim()) {
     errors.name = 'El nombre del producto es obligatorio.';
+  } else {
+    const msg = checkName(form.name, { label: 'El nombre', min: 2, max: 150 });
+    if (msg) errors.name = msg;
   }
   if (!form.ref?.trim()) {
     errors.ref = 'El SKU o referencia es obligatorio.';
+  } else {
+    const msg = checkText(form.ref, { label: 'El SKU', min: 2, max: 50 });
+    if (msg) errors.ref = msg;
   }
   if (!form.unitPrice && form.unitPrice !== 0) {
     errors.unitPrice = 'Ingresá el precio unitario del producto.';
+  } else {
+    const msg = checkPositiveNumber(form.unitPrice, { label: 'El precio' });
+    if (msg) errors.unitPrice = msg;
   }
+  const descMsg = checkText(form.description, { label: 'La descripción', max: 2000 });
+  if (descMsg) errors.description = descMsg;
   return errors;
 };

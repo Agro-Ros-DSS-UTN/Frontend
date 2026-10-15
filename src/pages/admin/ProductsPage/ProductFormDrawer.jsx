@@ -121,6 +121,8 @@ export const ProductFormDrawer = ({
           onChange={handleChange}
           placeholder="Ej: Herbicida no selectivo para barbecho químico previo a siembra directa de soja/maíz."
           rows={3}
+          maxLength={2000}
+          error={errors.description}
         />
 
         {/* Componente Moderno y Compacto de Subida de Imagen */}

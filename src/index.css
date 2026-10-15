@@ -94,8 +94,8 @@ p {
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
+  width: calc(100vw / var(--ui-zoom, 1)) !important;
+  height: calc(100vh / var(--ui-zoom, 1)) !important;
   background: rgba(15, 23, 42, 0.75) !important;
   backdrop-filter: blur(6px) !important;
   -webkit-backdrop-filter: blur(6px) !important;

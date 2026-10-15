@@ -38,6 +38,8 @@ import '../../../components/tasks/TasksBoard.css';
 import '../../../components/companies/CompanySummary.css';
 import './OpportunitiesPage.css';
 import { notify } from '../../../hooks/useNotifications';
+import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
+import { checkName, checkText, LIMITS } from '../../../utils/validators';
 
 // Ciclo de vida de la Oportunidad (5 estados). "bg/text" para las píldoras.
 const DEAL_STAGES = OPPORTUNITY_STATUSES.map((e) => ({ key: e.key, label: e.label, color: e.color, bg: e.color, text: '#ffffff', help: e.help }));
@@ -351,9 +353,11 @@ export const OpportunitiesPage = () => {
     e.preventDefault();
     const newErrors = {};
     if (!form.dealName?.trim()) newErrors.dealName = 'Poné un título para la oportunidad.';
+    else if (checkName(form.dealName, { label: 'El título', ...LIMITS.title })) newErrors.dealName = checkName(form.dealName, { label: 'El título', ...LIMITS.title });
     if (!form.clientCompanyId) newErrors.company = 'Elegí la empresa de la lista.';
     if (isAdmin && !form.ownerId) newErrors.ownerId = 'Elegí el responsable.';
     if (form.stageKey === 'Perdida' && !form.lossReason?.trim()) newErrors.lossReason = 'Indicá por qué se perdió.';
+    else if (checkText(form.lossReason, { label: 'El motivo', min: 3, max: 500 })) newErrors.lossReason = checkText(form.lossReason, { label: 'El motivo', min: 3, max: 500 });
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
       return;
@@ -459,11 +463,7 @@ export const OpportunitiesPage = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            {searchQuery && (
-              <button className="search-clear-btn" onClick={() => setSearchQuery('')}>
-                <X size={13} />
-              </button>
-            )}
+            <SearchClearButton value={searchQuery} onClear={() => setSearchQuery('')} />
           </div>
           <FilterTabs
             ariaLabel="Filtrar oportunidades"

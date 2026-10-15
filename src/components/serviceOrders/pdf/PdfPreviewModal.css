@@ -13,7 +13,7 @@
   display: flex;
   flex-direction: column;
   width: min(1000px, 100%);
-  height: min(94vh, 1200px);
+  height: min(calc(94vh / var(--ui-zoom, 1)), 1200px);
   border-radius: 14px;
   overflow: hidden;
   background: #ffffff;
@@ -112,7 +112,7 @@
 
 @media (max-width: 640px) {
   .pdf-preview-overlay { padding: 0; }
-  .pdf-preview { height: 100vh; border-radius: 0; }
+  .pdf-preview { height: calc(100vh / var(--ui-zoom, 1)); border-radius: 0; }
 }
 
 /* Imprimir y descargar están en la barra del visor de PDF: el botón propio solo

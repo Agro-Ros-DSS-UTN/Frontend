@@ -4,7 +4,7 @@
 
 .sidebar {
   width: var(--sidebar-width, 260px);
-  height: 100vh;
+  height: calc(100vh / var(--ui-zoom, 1));
   background-color: var(--sidebar-bg, #1c1c1c);
   display: flex;
   flex-direction: column;

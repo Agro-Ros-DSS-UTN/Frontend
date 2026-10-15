@@ -466,7 +466,7 @@
 .act-board__lightbox-inner {
   position: relative;
   max-width: 800px;
-  max-height: 80vh;
+  max-height: calc(80vh / var(--ui-zoom, 1));
 }
 
 .act-board__lightbox-inner img {

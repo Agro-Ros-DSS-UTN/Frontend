@@ -24,28 +24,35 @@ import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../.
 import '../UsersPage/UsersPage.css';
 import './EmployeesPage.css';
 import { notify } from '../../../hooks/useNotifications';
-import { EMPLOYEE_ROLES } from '../../../data/catalogs';
+import { ComboBox } from '../../../components/ui/ComboBox/ComboBox';
+import { LIMITS, checkDni, checkEmail, checkPersonName, checkPhone, checkText, collectErrors, normalizeDni } from '../../../utils/validators';
+import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const roleLabel = (role) => (EMPLOYEE_ROLES.find((r) => r.value === role)?.label || role || '—').replace(' (ejecuta órdenes)', '');
-
-// Sugerencias para el puesto; se puede escribir cualquier otro.
+// Sugerencias para el puesto; se puede escribir cualquier otro. El rol interno se
+// deduce del puesto (en el backend): el Técnico Aplicador y el Jefe de Operaciones
+// pueden figurar y firmar en una orden de servicio.
 const JOB_TITLE_SUGGESTIONS = [
   'Técnico Aplicador',
+  'Jefe de Operaciones',
   'Operario',
   'Ayudante',
   'Supervisor de Campo',
   'Chofer',
   'Encargado de Depósito',
+  'Administrativo',
+  'Vendedor',
 ];
+
+const isApplicator = (jobTitle = '') => /t[eé]cnic|aplicador|fumig/i.test(jobTitle);
+const canSignOrders = (jobTitle = '') => isApplicator(jobTitle) || /jefe de operaci|supervis/i.test(jobTitle);
 
 const PAGE_SIZE = 10;
 
 const COLUMNS = [
   { key: 'fullName', label: 'Empleado', sortable: true },
   { key: 'licenseNumber', label: 'Matrícula', sortable: true },
-  { key: 'role', label: 'Rol', sortable: true },
   { key: 'jobTitle', label: 'Puesto', sortable: true },
   { key: 'contact', label: 'Teléfono / Email', sortable: false },
   { key: 'hireDate', label: 'Ingreso', sortable: true },
@@ -56,7 +63,6 @@ const emptyForm = () => ({
   fullName: '',
   nationalId: '',
   licenseNumber: '',
-  role: 'tecnico',
   jobTitle: '',
   phone: '',
   email: '',
@@ -81,14 +87,17 @@ const formatDate = (value) => {
   return isNaN(d) ? value : d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const validate = (form) => {
-  const errors = {};
-  if (!form.fullName.trim()) errors.fullName = 'El nombre y apellido es obligatorio.';
-  if (!form.nationalId.trim()) errors.nationalId = 'El DNI es obligatorio.';
-  if (form.role === 'tecnico' && !form.licenseNumber.trim()) errors.licenseNumber = 'La matrícula es obligatoria para los técnicos aplicadores.';
-  if (!form.jobTitle.trim()) errors.jobTitle = 'El puesto es obligatorio.';
-  return errors;
-};
+const validate = (form) => collectErrors({
+  fullName: checkPersonName(form.fullName, { label: 'El nombre y apellido' }),
+  nationalId: checkDni(form.nationalId),
+  licenseNumber: isApplicator(form.jobTitle) && !form.licenseNumber.trim()
+    ? 'La matrícula es obligatoria para los técnicos aplicadores.'
+    : checkText(form.licenseNumber, { label: 'La matrícula', min: 2, max: 50 }),
+  jobTitle: checkText(form.jobTitle, { label: 'El puesto', required: true, ...LIMITS.jobTitle }),
+  phone: checkPhone(form.phone),
+  email: checkEmail(form.email),
+  notes: checkText(form.notes, { label: 'Las observaciones', max: 1000 }),
+});
 
 export const EmployeesPage = () => {
   const [employees, setEmployees] = useState([]);
@@ -122,7 +131,7 @@ export const EmployeesPage = () => {
   }, []);
 
   const active = employees.filter((e) => e.active !== false).length;
-  const applicators = employees.filter((e) => ['tecnico', 'supervisor'].includes(e.role) && e.active !== false).length;
+  const applicators = employees.filter((e) => canSignOrders(e.jobTitle) && e.active !== false).length;
 
   const filtered = useMemo(() => {
     let result = employees;
@@ -176,7 +185,6 @@ export const EmployeesPage = () => {
       fullName: emp.fullName || '',
       nationalId: emp.nationalId || '',
       licenseNumber: emp.licenseNumber || '',
-      role: emp.role || 'ayudante',
       jobTitle: emp.jobTitle || '',
       phone: emp.phone || '',
       email: emp.email || '',
@@ -206,8 +214,8 @@ export const EmployeesPage = () => {
     try {
       const payload = {
         ...form,
-        fullName: form.fullName.trim(),
-        nationalId: form.nationalId.trim(),
+        fullName: form.fullName.trim().replace(/\s+/g, ' '),
+        nationalId: normalizeDni(form.nationalId),
         licenseNumber: form.licenseNumber.trim(),
         jobTitle: form.jobTitle.trim(),
       };
@@ -312,6 +320,7 @@ export const EmployeesPage = () => {
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             />
+            <SearchClearButton value={searchQuery} onClear={() => { setSearchQuery(''); setCurrentPage(1); }} />
           </div>
 
           <FilterTabs
@@ -386,13 +395,11 @@ export const EmployeesPage = () => {
                       </td>
                       <td>{emp.licenseNumber || <span style={{ color: '#94a3b8' }}>-</span>}</td>
                       <td>
-                        <span className={`users-table__role-pill ${['tecnico', 'supervisor'].includes(emp.role) ? 'users-table__role-pill--admin' : 'users-table__role-pill--vendedor'}`}>
-                          {roleLabel(emp.role)}
-                        </span>
-                      </td>
-                      <td>
                         {emp.jobTitle ? (
-                          <span className="users-table__role-pill users-table__role-pill--vendedor">
+                          <span
+                            className={`users-table__role-pill ${canSignOrders(emp.jobTitle) ? 'users-table__role-pill--admin' : 'users-table__role-pill--vendedor'}`}
+                            title={canSignOrders(emp.jobTitle) ? 'Puede figurar y firmar en las órdenes de servicio' : undefined}
+                          >
                             <HardHat size={12} />
                             {emp.jobTitle}
                           </span>
@@ -510,44 +517,42 @@ export const EmployeesPage = () => {
             value={form.fullName}
             onChange={handleChange}
             placeholder="Ej: Juan Carlos Pereyra"
+            maxLength={100}
             required
             error={errors.fullName}
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <FormInput label="DNI" name="nationalId" value={form.nationalId} onChange={handleChange} placeholder="24.891.432" required error={errors.nationalId} />
-            <FormInput label="Matrícula" name="licenseNumber" value={form.licenseNumber} onChange={handleChange} placeholder="Mat. 4812" required={form.role === 'tecnico'} error={errors.licenseNumber} />
+            <FormInput label="DNI" name="nationalId" value={form.nationalId} onChange={handleChange} placeholder="24891432" inputMode="numeric" maxLength={10} required error={errors.nationalId} />
+            <FormInput label="Matrícula" name="licenseNumber" value={form.licenseNumber} onChange={handleChange} placeholder="Mat. 4812" maxLength={50} required={isApplicator(form.jobTitle)} error={errors.licenseNumber} />
           </div>
 
-          <FormSelect
-            label="Rol"
-            name="role"
-            value={form.role}
-            onChange={handleChange}
-            options={EMPLOYEE_ROLES}
-          />
-          <p className="emp-rol-help">Solo los empleados con rol <strong>Técnico</strong> pueden asignarse a una orden de servicio.</p>
-
-          <FormInput
-            label="Puesto"
-            name="jobTitle"
-            value={form.jobTitle}
-            onChange={handleChange}
-            placeholder="Elegí uno de la lista o escribí otro puesto"
-            list="emp-puestos"
-            autoComplete="off"
-            required
-            error={errors.jobTitle}
-          />
-          <datalist id="emp-puestos">
-            {JOB_TITLE_SUGGESTIONS.map((p) => (
-              <option key={p} value={p} />
-            ))}
-          </datalist>
+          <div className="form-input-field">
+            <label className="form-input-label" htmlFor="jobTitle">
+              Puesto <span className="form-input-required">*</span>
+            </label>
+            <div className={`form-input-wrapper ${errors.jobTitle ? 'form-input-wrapper--error' : ''}`}>
+              <ComboBox
+                id="jobTitle"
+                name="jobTitle"
+                inputClassName="form-input-control"
+                value={form.jobTitle}
+                options={JOB_TITLE_SUGGESTIONS}
+                placeholder="Elegí uno de la lista o escribí otro puesto"
+                maxLength={100}
+                customLabel="Escribir otro puesto…"
+                onChange={(v) => {
+                  setForm((prev) => ({ ...prev, jobTitle: v }));
+                  if (errors.jobTitle) setErrors((prev) => ({ ...prev, jobTitle: '' }));
+                }}
+              />
+            </div>
+            {errors.jobTitle && <span className="form-input-error">{errors.jobTitle}</span>}
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <FormInput label="Teléfono" name="phone" value={form.phone} onChange={handleChange} placeholder="+54 341 555-0123" />
-            <FormInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="empleado@correo.com" />
+            <FormInput label="Teléfono" name="phone" type="tel" value={form.phone} onChange={handleChange} placeholder="+54 341 555-0123" maxLength={25} error={errors.phone} />
+            <FormInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="empleado@correo.com" maxLength={150} error={errors.email} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'end' }}>

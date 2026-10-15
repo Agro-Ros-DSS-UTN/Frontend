@@ -19,7 +19,7 @@ async function loadPeople() {
         key: `emp-${e.id}`,
         value: e.fullName,
         name: e.fullName,
-        details: ['Técnico', e.licenseNumber && `Mat. ${e.licenseNumber}`].filter(Boolean).join(' · '),
+        details: [e.jobTitle || 'Técnico', e.licenseNumber && `Mat. ${e.licenseNumber}`].filter(Boolean).join(' · '),
       }));
   } catch (err) {
     console.warn('No se pudo cargar el listado de técnicos:', err?.message);

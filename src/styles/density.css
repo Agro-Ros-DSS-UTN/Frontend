@@ -1,0 +1,81 @@
+/* ═══════════════════════════════════════════════════════════════
+   Densidad estándar de las pantallas del CRM
+   Objetivo: que las tablas entren completas en una pantalla común
+   (1366 px o más) sin tener que usar la barra horizontal.
+   Aplica a todas las tablas de listado; las planillas editables de
+   las órdenes de servicio (.so-sheet) tienen su propio estilo.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Zoom general de la interfaz: en pantallas de escritorio todo se ve al 90 %,
+   como el zoom del navegador, para que entren las tablas completas.
+   Las alturas en vh de toda la app se dividen por --ui-zoom para seguir
+   ocupando la pantalla entera. */
+:root {
+  --ui-zoom: 1;
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --ui-zoom: 0.9;
+  }
+}
+
+html {
+  zoom: var(--ui-zoom);
+}
+
+.admin-layout__content {
+  padding: 20px;
+}
+
+@media (min-width: 1700px) {
+  .admin-layout__content {
+    padding: 24px 28px;
+  }
+}
+
+.admin-layout__content table:not(.so-sheet) th {
+  padding: 9px 10px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.admin-layout__content table:not(.so-sheet) td {
+  padding: 9px 10px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.admin-layout__content table:not(.so-sheet) th:first-child,
+.admin-layout__content table:not(.so-sheet) td:first-child {
+  padding-left: 14px;
+}
+
+.admin-layout__content table:not(.so-sheet) th:last-child,
+.admin-layout__content table:not(.so-sheet) td:last-child {
+  padding-right: 14px;
+}
+
+/* Columnas de texto largo: se cortan en dos líneas en lugar de ensanchar la tabla */
+.admin-layout__content .companies-table__address {
+  min-width: 150px;
+  max-width: 220px;
+}
+
+/* Pantallas medianas (notebooks): un punto menos de letra en los datos */
+@media (max-width: 1440px) {
+  .admin-layout__content table:not(.so-sheet) td {
+    font-size: 12.5px;
+  }
+
+  .admin-layout__content table:not(.so-sheet) th,
+  .admin-layout__content table:not(.so-sheet) td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* Nombre y descripción de la empresa: la descripción se corta antes */
+.admin-layout__content .companies-table__desc {
+  max-width: 240px;
+}

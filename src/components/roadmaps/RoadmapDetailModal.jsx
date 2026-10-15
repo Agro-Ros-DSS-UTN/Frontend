@@ -1,112 +1,167 @@
-import { X, Compass, MapPin, Clock, CheckCircle2, Route as RouteIcon, User, CalendarDays } from 'lucide-react';
+import { useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { X, Compass, MapPin, User, CalendarDays, Route as RouteIcon, Flag, FileText, ListChecks } from 'lucide-react';
 import { useOverlayClose } from '../../hooks/useOverlayClose';
+import '../companies/CompanySummary.css';
+import '../serviceOrders/ServiceOrderSummary.css';
 import './RoadmapDetailModal.css';
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+
+const itemVariants = {
+  hidden: { y: 16, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110, damping: 16 } },
+};
+
+const MetaItem = ({ icon: Icon, label, children, wide = false }) => (
+  <div className={`cs-meta ${wide ? 'cs-meta--wide' : ''}`}>
+    <Icon size={18} className="cs-meta__icon" />
+    <div className="cs-min0">
+      <p className="cs-meta__label">{label}</p>
+      <div className="cs-meta__value">{children}</div>
+    </div>
+  </div>
+);
+
+const stopStatus = (status) => {
+  const st = String(status || 'Pendiente');
+  if (/complet/i.test(st)) return { label: 'Completada', ok: true };
+  if (/camino/i.test(st)) return { label: 'En camino', ok: false };
+  return { label: 'Pendiente', ok: false };
+};
+
 /**
- * RoadmapDetailModal — vista completa y estética de una hoja de ruta.
- * Compartido por el portal Admin y el portal Vendedor.
+ * Resumen de una hoja de ruta, con el mismo formato que el resumen de una orden
+ * de servicio (tarjeta con encabezado, datos y tabla). Compartido por el portal
+ * Admin y el portal Vendedor.
  *
  * Props:
- *  - route: objeto ruta normalizado ({ zona, vendedor, fecha, totalKm, totalVisitas,
- *           visitasCompletadas, observaciones, paradas: [{orden, cliente, direccion,
- *           localidad, horaEstimada, servicio, estado}] })
+ *  - route: ruta normalizada ({ zone, seller, date, totalKm, totalVisits,
+ *           completedVisits, notes, stops: [{ order, customer, address,
+ *           locality, estimatedTime, service, status }] })
  *  - googleMapsUrl: string
  *  - onClose: () => void
  */
 export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
   const overlayHandlers = useOverlayClose(onClose);
 
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   if (!route) return null;
 
-  const total = route.totalVisits || route.stops?.length || 0;
+  const stops = route.stops || [];
+  const total = route.totalVisits || stops.length || 0;
   const done = route.completedVisits || 0;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const hasMaps = googleMapsUrl && googleMapsUrl !== '#';
 
   return (
-    <div className="rdm-overlay" {...overlayHandlers}>
-      <div className="rdm">
-        <div className="rdm__header">
-          <h2>Detalle de Hoja de Ruta</h2>
-          <button type="button" className="rdm__close" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="rdm__body">
-          {/* Hero */}
-          <div className="rdm__hero">
-            <span className="rdm__tag">Zona de recorrido asignada</span>
-            <h3 className="rdm__zone">{route.zone || 'Recorrido comercial'}</h3>
-
-            <div className="rdm__meta">
-              <span><User size={13} /> {route.seller || 'Vendedor'}</span>
-              <span><CalendarDays size={13} /> {route.date || 'Sin fecha'}</span>
-              <span><RouteIcon size={13} /> {route.totalKm || 0} km estimados</span>
-              <span><MapPin size={13} /> {total} paradas</span>
+    <div className="cs-overlay" {...overlayHandlers}>
+      <motion.div
+        className="cs-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Hoja de ruta ${route.zone || ''}`}
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+      >
+        <header className="cs-header">
+          <motion.div variants={itemVariants} className="cs-header__row">
+            <div className="cs-breadcrumbs">
+              <span>Hojas de Ruta</span>
+              <span className="cs-breadcrumbs__sep">/</span>
+              <span className="cs-breadcrumbs__current">{route.zone || 'Recorrido comercial'}</span>
             </div>
+            <div className="cs-header__actions">
+              {hasMaps && (
+                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="cs-ghost-btn" title="Abrir itinerario en Google Maps">
+                  <Compass size={16} />
+                </a>
+              )}
+              <button type="button" className="cs-ghost-btn" onClick={onClose} title="Cerrar">
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        </header>
 
-            <div className="rdm__progress">
-              <div className="rdm__progress-top">
-                <span>Progreso de visitas</span>
+        <div className="cs-body">
+          <motion.div variants={itemVariants}>
+            <p className="sos-number">Hoja de ruta</p>
+            <h1 className="cs-title">{route.zone || 'Recorrido comercial'}</h1>
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="cs-meta-grid">
+            <MetaItem icon={User} label="Vendedor">{route.seller || '—'}</MetaItem>
+            <MetaItem icon={CalendarDays} label="Fecha">{route.date || 'Sin fecha'}</MetaItem>
+            <MetaItem icon={RouteIcon} label="Km estimados">{route.totalKm || 0} km</MetaItem>
+            <MetaItem icon={MapPin} label="Paradas">{total}</MetaItem>
+            <MetaItem icon={Flag} label="Progreso de visitas" wide>
+              <div className="rdm-progress">
+                <div className="rdm-progress__bar">
+                  <div className="rdm-progress__fill" style={{ width: `${pct}%` }} />
+                </div>
                 <strong>{done} / {total} ({pct}%)</strong>
               </div>
-              <div className="rdm__bar">
-                <div className="rdm__bar-fill" style={{ width: `${pct}%` }} />
+            </MetaItem>
+            {route.notes && (
+              <MetaItem icon={FileText} label="Notas del recorrido" wide>
+                <span className="cs-meta__desc">{route.notes}</span>
+              </MetaItem>
+            )}
+          </motion.div>
+
+          <motion.section variants={itemVariants} className="cs-section">
+            <h3 className="cs-section__title">
+              <ListChecks size={18} className="cs-meta__icon" /> Paradas programadas
+              <span className="cs-count">{stops.length}</span>
+            </h3>
+            {stops.length > 0 ? (
+              <div className="cs-table-wrap">
+                <table className="cs-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Empresa</th>
+                      <th>Dirección</th>
+                      <th>Hora</th>
+                      <th>Motivo</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stops.map((stop, idx) => {
+                      const st = stopStatus(stop.status);
+                      return (
+                        <tr key={stop.id || idx}>
+                          <td>{stop.order || idx + 1}</td>
+                          <td className="cs-table__detail">{stop.customer || 'Parada'}</td>
+                          <td>{[stop.address, stop.locality].filter(Boolean).join(', ') || '—'}</td>
+                          <td>{stop.estimatedTime ? `${stop.estimatedTime} hs` : '—'}</td>
+                          <td>{stop.service || '—'}</td>
+                          <td>
+                            <span className={`crm-status-pill ${st.ok ? 'crm-status-pill--ok' : ''}`}>{st.label}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          </div>
-
-          {route.notes && (
-            <div className="rdm__notes">
-              <span className="rdm__notes-label">Notas del recorrido</span>
-              <p>{route.notes}</p>
-            </div>
-          )}
-
-          {/* Timeline de paradas */}
-          <div className="rdm__stops">
-            <span className="rdm__stops-label">Paradas programadas ({route.stops?.length || 0})</span>
-            <div className="rdm__timeline">
-              {(route.stops || []).map((stop, idx) => {
-                const st = String(stop.status || 'Pendiente');
-                const isDone = /complet/i.test(st);
-                const isOnWay = /camino/i.test(st);
-                return (
-                  <div key={stop.id || idx} className="rdm__stop">
-                    <div className={`rdm__stop-node ${isDone ? 'is-done' : isOnWay ? 'is-onway' : ''}`}>
-                      {isDone ? <CheckCircle2 size={15} /> : (stop.order || idx + 1)}
-                    </div>
-                    <div className="rdm__stop-body">
-                      <div className="rdm__stop-top">
-                        <span className="rdm__stop-client">{stop.customer || 'Parada'}</span>
-                        <span className="rdm__stop-time"><Clock size={12} /> {stop.estimatedTime || '—'} hs</span>
-                      </div>
-                      <div className="rdm__stop-addr">
-                        <MapPin size={12} /> {stop.address}{stop.locality ? `, ${stop.locality}` : ''}
-                      </div>
-                      {stop.service && <div className="rdm__stop-service">{stop.service}</div>}
-                    </div>
-                    <span className={`rdm__stop-badge ${isDone ? 'is-done' : isOnWay ? 'is-onway' : ''}`}>
-                      {isDone ? 'Completada' : isOnWay ? 'En camino' : 'Pendiente'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+            ) : (
+              <p className="cs-empty">Esta hoja de ruta todavía no tiene paradas.</p>
+            )}
+          </motion.section>
         </div>
-
-        <div className="rdm__footer">
-          {googleMapsUrl && googleMapsUrl !== '#' && (
-            <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="rdm__btn rdm__btn--primary">
-              <Compass size={16} /> Abrir itinerario en Google Maps
-            </a>
-          )}
-          <button type="button" className="rdm__btn rdm__btn--ghost" onClick={onClose}>
-            Cerrar
-          </button>
-        </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

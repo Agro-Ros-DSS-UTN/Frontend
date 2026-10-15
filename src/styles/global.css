@@ -105,6 +105,14 @@ button:focus {
   transform: translateY(-1px);
 }
 
+/* Variante sin fondo (acciones dentro de una tarjeta, por ejemplo "Agregar sede") */
+.crm-btn-export.crm-btn-export--transparent {
+  padding: 7px 16px;
+  background-color: transparent;
+  box-shadow: none;
+  font-size: 13px;
+}
+
 .crm-page-header-actions {
   display: flex;
   align-items: center;
@@ -119,8 +127,8 @@ button:focus {
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
+  width: calc(100vw / var(--ui-zoom, 1)) !important;
+  height: calc(100vh / var(--ui-zoom, 1)) !important;
   background: rgba(15, 23, 42, 0.75) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
@@ -260,8 +268,8 @@ button:focus {
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
+  width: calc(100vw / var(--ui-zoom, 1)) !important;
+  height: calc(100vh / var(--ui-zoom, 1)) !important;
   background: rgba(15, 23, 42, 0.92) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;

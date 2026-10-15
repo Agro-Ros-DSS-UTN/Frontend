@@ -1,8 +1,8 @@
 /* LoginPage.css - Agroquímica Rosario CRM */
 .login-container {
   display: flex;
-  width: 100vw;
-  height: 100vh;
+  width: calc(100vw / var(--ui-zoom, 1));
+  height: calc(100vh / var(--ui-zoom, 1));
   overflow: hidden;
   background-color: #ffffff;
 }

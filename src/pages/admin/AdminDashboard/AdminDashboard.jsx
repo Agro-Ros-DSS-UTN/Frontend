@@ -463,7 +463,7 @@ export const AdminDashboardPage = () => {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '60vh',
+          height: 'calc(60vh / var(--ui-zoom, 1))',
           gap: '1rem',
           color: '#64748b',
         }}

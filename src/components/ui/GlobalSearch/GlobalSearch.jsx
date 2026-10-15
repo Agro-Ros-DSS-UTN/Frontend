@@ -18,6 +18,7 @@ import { tasksApi } from '../../../api/operations.api';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { CompanyTreeModal } from '../../companies/CompanyTreeModal';
 import './GlobalSearch.css';
+import { SearchClearButton } from '../SearchClearButton/SearchClearButton';
 
 const norm = (v) => String(v || '').toLowerCase();
 
@@ -181,6 +182,7 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
             value={query}
             onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
           />
+          <SearchClearButton value={query} onClear={() => { setQuery(''); setSelectedIndex(0); }} />
           <button type="button" className="gsearch-close" onClick={onClose} aria-label="Cerrar búsqueda">
             <X size={16} />
           </button>

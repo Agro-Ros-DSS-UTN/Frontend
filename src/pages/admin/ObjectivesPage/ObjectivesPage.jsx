@@ -9,6 +9,7 @@ import { FormInput, FormSelect, FormTextarea } from '../../../components/ui/Form
 import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../../../components/ui/PageHeaderActions/PageHeaderActions';
 import { notify } from '../../../hooks/useNotifications';
 import './ObjectivesPage.css';
+import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 
 // CUU02 — Asignar un objetivo a un vendedor para un período (semana o mes).
 const pad = (n) => String(n).padStart(2, '0');
@@ -56,7 +57,7 @@ const Checklist = ({ icon: Icon, label, items, selected, onToggle, search = fals
     <div className="obj-check">
       <p className="obj-check__label"><Icon size={14} aria-hidden="true" /> {label} <span>{selected.length ? `${selected.length} elegidos` : 'opcional'}</span></p>
       {search && items.length > 8 && (
-        <div className="obj-check__search"><Search size={14} aria-hidden="true" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" /></div>
+        <div className="obj-check__search"><Search size={14} aria-hidden="true" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" /><SearchClearButton value={q} onClear={() => setQ('')} /></div>
       )}
       <div className="obj-check__list">
         {items.length === 0 && <p className="obj-check__empty">{empty}</p>}

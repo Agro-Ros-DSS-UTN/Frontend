@@ -35,6 +35,8 @@ import { notify } from '../../hooks/useNotifications';
 import { fetchOpportunities } from '../../data/api';
 import { OPPORTUNITY_STATUSES, ACTIVITY_CONTACT_TYPES, contactTypeLabel } from '../../data/catalogs';
 import { enqueue, sendPending, isNetworkError, newUuid, onQueueChange, pending, rejected, discardRejected } from '../../utils/offlineQueue';
+import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
+import { checkText } from '../../utils/validators';
 
 const CONTACT_ICONS = { visita: MapPin, llamada: Phone, whatsapp: MessageSquare, email: Mail, reunion: Building2 };
 const CONTACT_TYPE_OPTIONS = ACTIVITY_CONTACT_TYPES.map((t) => ({ value: t.value, label: t.label, icon: CONTACT_ICONS[t.value] }));
@@ -334,6 +336,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
       newErrors.date = 'La actividad registra algo que ya pasó. Para algo pendiente, creá una tarea.';
     }
     if (!form.description?.trim()) newErrors.description = 'La descripción de la actividad es obligatoria.';
+    else if (checkText(form.description, { label: 'La descripción', min: 5, max: 2000 })) newErrors.description = checkText(form.description, { label: 'La descripción', min: 5, max: 2000 });
     if (!editingActivity) {
       if (!form.companyId) newErrors.company = 'Elegí la empresa de la lista (o registrala con "Nueva empresa").';
       else if (form.opportunityId === NEW && !form.newOpportunityTitle.trim()) newErrors.opportunity = 'Poné un título para la nueva oportunidad.';
@@ -546,6 +549,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            <SearchClearButton value={searchQuery} onClear={() => setSearchQuery('')} />
           </div>
           <FilterTabs
             ariaLabel="Filtrar actividades por tipo"

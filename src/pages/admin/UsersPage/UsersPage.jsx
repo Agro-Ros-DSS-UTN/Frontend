@@ -36,6 +36,8 @@ import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../.
 import { notify, errorMessage } from '../../../hooks/useNotifications';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import './UsersPage.css';
+import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
+import { checkPersonName, checkEmail } from '../../../utils/validators';
 
 const TABS = [
   { key: 'all', label: 'Todos los usuarios' },
@@ -301,7 +303,11 @@ export const UsersPage = () => {
 
     const newErrors = {};
     if (!form.idUser?.trim()) newErrors.idUser = 'Ingresá el ID único de usuario.';
-    if (!form.fullName?.trim()) newErrors.fullName = 'El nombre y apellido es obligatorio.';
+    else if (!/^[A-Za-z0-9._-]{3,30}$/.test(form.idUser.trim())) newErrors.idUser = 'El ID tiene de 3 a 30 caracteres: letras, números, punto, guion o guion bajo (sin espacios).';
+    const fullNameError = checkPersonName(form.fullName, { label: 'El nombre y apellido' });
+    if (fullNameError) newErrors.fullName = fullNameError;
+    const emailError = checkEmail(form.email);
+    if (emailError) newErrors.email = emailError;
     if (modalMode === 'create' && !form.password) newErrors.password = 'La contraseña es obligatoria para nuevos usuarios.';
     if (form.password && passwordScore < 4) newErrors.password = 'La contraseña no cumple todos los requisitos de seguridad.';
 
@@ -430,6 +436,7 @@ export const UsersPage = () => {
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             />
+            <SearchClearButton value={searchQuery} onClear={() => { setSearchQuery(''); setCurrentPage(1); }} />
           </div>
 
           <FilterTabs
@@ -667,6 +674,8 @@ export const UsersPage = () => {
             value={form.email}
             onChange={handleFormChange}
             placeholder="ejemplo@agroros.com.ar"
+            maxLength={150}
+            error={errors.email}
           />
 
           <div className="form-input-field">
@@ -742,8 +751,8 @@ export const UsersPage = () => {
             value={form.role}
             onChange={handleFormChange}
             options={[
-              { value: 'vendedor', label: 'Vendedor (Portal Comercial)' },
-              { value: 'admin', label: 'Administrador (Control Total)' },
+              { value: 'vendedor', label: 'Vendedor' },
+              { value: 'admin', label: 'Administrador' },
             ]}
           />
 

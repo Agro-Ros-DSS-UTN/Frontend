@@ -54,7 +54,6 @@
 }
 
 .ctree-stats svg { color: var(--color-primary, #1a7d6b); }
-.ctree-stats .is-warn svg { color: var(--color-warning, #d97706); }
 
 /* ── Empresa madre ── */
 .ctree-root {
@@ -87,14 +86,6 @@
   color: var(--gray-900, #0f172a);
 }
 
-.ctree-kicker {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--gray-400, #94a3b8);
-}
-
 .ctree-contacts {
   display: flex;
   flex-wrap: wrap;
@@ -119,10 +110,9 @@
   align-items: center;
   gap: 5px;
   max-width: 180px;
-  padding: 3px 9px;
-  border-radius: var(--radius-full, 9999px);
-  background: var(--color-success-bg, #dcfce7);
-  color: #166534;
+  padding: 3px 0;
+  background: transparent;
+  color: var(--gray-700, #334155);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -141,8 +131,7 @@
 }
 
 .ctree-manager--more {
-  background: var(--gray-100, #f1f5f9);
-  color: var(--gray-600, #475569);
+  color: var(--gray-500, #64748b);
 }
 
 .ctree-note {
@@ -150,16 +139,7 @@
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--gray-600, #475569);
-  display: -webkit-box;
-  -webkit-line-clamp: var(--lines, 2);
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  position: relative;
-}
-
-.ctree-note.is-open {
-  display: block;
-  -webkit-line-clamp: unset;
+  overflow-wrap: anywhere;
 }
 
 .ctree-note__more {
@@ -228,15 +208,12 @@
 .ctree-region {
   background: #ffffff;
   border: 1px solid var(--gray-200, #e2e8f0);
-  border-left: 3px solid var(--color-primary, #1a7d6b);
   border-radius: var(--radius-xl, 12px);
   overflow: hidden;
 }
 
 .ctree-region--loose {
-  border-left-color: var(--gray-300, #cbd5e1);
   border-style: dashed;
-  border-left-style: solid;
 }
 
 .ctree-region__header {
@@ -279,8 +256,8 @@
 .ctree-count {
   padding: 2px 8px;
   border-radius: var(--radius-full, 9999px);
-  background: var(--color-primary-50, #ecfdf5);
-  color: var(--color-primary, #1a7d6b);
+  background: var(--gray-100, #f1f5f9);
+  color: var(--gray-600, #475569);
   font-size: 11.5px;
   font-weight: 700;
   white-space: nowrap;
@@ -361,33 +338,12 @@
 }
 
 .ctree-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   margin: 0 12px 12px 38px;
-  padding: 6px 12px;
   align-self: flex-start;
-  border: 1px dashed var(--gray-300, #cbd5e1);
-  border-radius: var(--radius-md, 6px);
-  background: transparent;
-  color: var(--gray-500, #64748b);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.ctree-add:hover {
-  border-color: var(--color-primary, #1a7d6b);
-  color: var(--color-primary, #1a7d6b);
-  background: var(--color-primary-50, #ecfdf5);
 }
 
 .ctree-add--region {
   margin: 2px 0 0;
-  padding: 10px;
-  justify-content: center;
-  align-self: stretch;
-  background: #ffffff;
 }
 
 /* ── Formularios ── */

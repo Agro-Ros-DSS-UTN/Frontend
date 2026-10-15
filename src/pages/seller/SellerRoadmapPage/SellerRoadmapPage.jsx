@@ -641,7 +641,7 @@ export const SellerRoadmapPage = () => {
       {/* ── Modal Fullscreen de Mapa ── */}
       {isMapFullscreen && (
         <div className="roadmaps-modal-overlay" style={{ zIndex: 9999999, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', padding: '24px', justifyContent: 'center', alignItems: 'center' }}>
-          <div style={{ background: '#ffffff', width: '92vw', height: '88vh', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+          <div style={{ background: '#ffffff', width: 'calc(92vw / var(--ui-zoom, 1))', height: 'calc(88vh / var(--ui-zoom, 1))', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #e2e8f0' }}>
               <h3 style={{ margin: 0, fontWeight: 800, color: '#0f172a' }}>Mapa de Rutas Territoriales — {route?.zone}</h3>
               <button className="roadmaps-btn roadmaps-btn--outline" onClick={() => setIsMapFullscreen(false)}>

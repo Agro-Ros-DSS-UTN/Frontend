@@ -16,8 +16,8 @@
 }
 
 .slide-drawer-panel {
-  height: 100vh;
-  max-height: 100vh;
+  height: calc(100vh / var(--ui-zoom, 1));
+  max-height: calc(100vh / var(--ui-zoom, 1));
   background: #ffffff;
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
   display: flex;

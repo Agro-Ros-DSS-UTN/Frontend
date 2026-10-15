@@ -41,6 +41,7 @@ import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
 import { MAX_ROADMAP_STOPS } from '../../../utils/timeOptions';
 import './RoadmapsPage.css';
 import { notify } from '../../../hooks/useNotifications';
+import { checkName } from '../../../utils/validators';
 
 // Base de datos de ejemplo amplia de empresas y localidades agrícolas
 
@@ -409,6 +410,11 @@ export const RoadmapsPage = () => {
   // Submit Roadmap Creation
   const handleCreateRoadmapSubmit = async (e) => {
     e.preventDefault();
+    const zoneError = checkName(formData.zoneName, { label: 'El nombre de la zona', min: 3, max: 100 });
+    if (zoneError) {
+      notify.warning('Revisá el nombre de la zona', zoneError);
+      return;
+    }
     try {
       setLoading(true);
       const selectedSeller = sellersList.find(s => String(s.idUser || s.id) === String(formData.sellerId)) || sellersList[0];
@@ -961,6 +967,7 @@ export const RoadmapsPage = () => {
                   placeholder="Ej: Zona Sur - Casilda / Córdoba Capital"
                   value={formData.zoneName}
                   onChange={e => setFormData({ ...formData, zoneName: e.target.value })}
+                  maxLength={100}
                   required
                 />
               </div>

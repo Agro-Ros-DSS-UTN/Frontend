@@ -18,6 +18,8 @@ import { SlideDrawer } from '../ui/SlideDrawer/SlideDrawer';
 import { LoadingState } from '../ui/LoadingState/LoadingState';
 import './PromotionsBoard.css';
 import { notify } from '../../hooks/useNotifications';
+import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
+import { checkName, checkText } from '../../utils/validators';
 
 const ACCENTS = [
   { value: '#1a7d6b', label: 'Verde AgroRos' },
@@ -147,7 +149,9 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     e.preventDefault();
     const newErrors = {};
     if (!form.name.trim()) newErrors.name = 'El nombre de la promoción es obligatorio.';
+    else if (checkName(form.name, { label: 'El nombre', min: 3, max: 100 })) newErrors.name = checkName(form.name, { label: 'El nombre', min: 3, max: 100 });
     if (!form.description.trim()) newErrors.description = 'Describí el beneficio de la promoción.';
+    else if (checkText(form.description, { label: 'La descripción', min: 10, max: 1000 })) newErrors.description = checkText(form.description, { label: 'La descripción', min: 10, max: 1000 });
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
       return;
@@ -271,6 +275,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <SearchClearButton value={search} onClear={() => setSearch('')} />
         </div>
       </div>
 

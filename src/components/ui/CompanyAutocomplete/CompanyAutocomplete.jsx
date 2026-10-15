@@ -3,6 +3,7 @@ import { Building2, X, Plus, ArrowLeft } from 'lucide-react';
 import { companiesApi } from '../../../api/companies.api';
 import { notify } from '../../../hooks/useNotifications';
 import { LocalitySelect } from '../LocalitySelect/LocalitySelect';
+import { ComboBox } from '../ComboBox/ComboBox';
 import './CompanyAutocomplete.css';
 
 const COMPANY_TYPE_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
@@ -331,20 +332,15 @@ export const CompanyAutocomplete = ({
             {newCompanyForm.isRegional && (
               <div className="company-ac__create-field">
                 <label>Ingrese el nombre de la empresa principal *</label>
-                <input
-                  type="text"
-                  list={`${name}-empresas-principales`}
+                <ComboBox
                   value={newCompanyForm.headOfficeCompany}
-                  onChange={(e) => setNewCompanyForm((p) => ({ ...p, headOfficeCompany: e.target.value }))}
+                  options={normalized.filter((c) => c.level !== 'region' && c.level !== 'subsede').map((c) => c.companyName)}
+                  showCustom={false}
                   placeholder="Ej: AFA SCL"
+                  ariaLabel="Empresa principal"
+                  maxLength={150}
+                  onChange={(v) => setNewCompanyForm((p) => ({ ...p, headOfficeCompany: v }))}
                 />
-                <datalist id={`${name}-empresas-principales`}>
-                  {normalized
-                    .filter((c) => c.level !== 'region' && c.level !== 'subsede')
-                    .map((c) => (
-                      <option key={c.id} value={c.companyName} />
-                    ))}
-                </datalist>
               </div>
             )}
 

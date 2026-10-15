@@ -36,7 +36,7 @@ export const SlideDrawer = ({
     <div className="slide-drawer-overlay" {...overlayCloseHandlers}>
       <div
         className="slide-drawer-panel"
-        style={{ width, maxWidth: '95vw' }}
+        style={{ width, maxWidth: 'calc(95vw / var(--ui-zoom, 1))' }}
       >
         <div className="slide-drawer-header">
           <h2 className="slide-drawer-title">{title}</h2>

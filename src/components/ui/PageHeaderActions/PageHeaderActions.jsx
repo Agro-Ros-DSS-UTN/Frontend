@@ -12,8 +12,8 @@ export const PrimaryActionButton = ({ icon: Icon, children, iconSize = 16, ...re
   </button>
 );
 
-export const ExportActionButton = ({ icon: Icon, children, iconSize = 15, ...rest }) => (
-  <button type="button" className="crm-btn-export" {...rest}>
+export const ExportActionButton = ({ icon: Icon, children, iconSize = 15, className = '', ...rest }) => (
+  <button type="button" className={`crm-btn-export ${className}`.trim()} {...rest}>
     {Icon && <Icon size={iconSize} />}
     <span>{children}</span>
   </button>

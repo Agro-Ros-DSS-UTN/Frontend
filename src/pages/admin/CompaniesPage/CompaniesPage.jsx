@@ -53,6 +53,8 @@ import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
 import { CompanyTreeModal } from '../../../components/companies/CompanyTreeModal';
 import { CompanySummary } from '../../../components/companies/CompanySummary';
 import './CompaniesPage.css';
+import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
+import { checkName, checkCuit } from '../../../utils/validators';
 
 const COMPANY_TYPE_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
 
@@ -471,6 +473,17 @@ export const CompaniesPage = () => {
       notify.warning('Faltan datos', 'La razón social y el CUIT son obligatorios.');
       return;
     }
+    const nameError = checkName(form.companyName, { label: 'La razón social', min: 2, max: 150 });
+    if (nameError) {
+      notify.warning('Revisá la razón social', nameError);
+      return;
+    }
+    const cuitChanged = !editingCompany || String(editingCompany.cuit || '').replace(/\D/g, '') !== form.cuit.replace(/\D/g, '');
+    const cuitError = cuitChanged ? checkCuit(form.cuit, { required: true }) : '';
+    if (cuitError) {
+      notify.warning('Revisá el CUIT', cuitError);
+      return;
+    }
 
     // ── Modo edición: actualiza la empresa existente ──
     if (editingCompany) {
@@ -689,6 +702,7 @@ export const CompaniesPage = () => {
                 setCurrentPage(1);
               }}
             />
+            <SearchClearButton value={searchQuery} onClear={() => { setSearchQuery(''); setCurrentPage(1); }} />
           </div>
 
           <FilterTabs
