@@ -1,8 +1,8 @@
 /* LoadingState — estado de carga contra la base de datos (tema claro) */
 
 .loading-state {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 64px 24px;
   text-align: center;
@@ -17,8 +17,8 @@
 .loading-state__spinner {
   width: 42px;
   height: 42px;
-  border: 3.5px solid #e2e8f0;
-  border-top-color: #1a7d6b;
+  border: 3.5px solid var(--border-light);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: loadingStateSpin 0.7s linear infinite;
 }
@@ -32,13 +32,13 @@
 .loading-state__title {
   font-size: 1.1rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   margin: 0;
 }
 
 .loading-state__message {
   font-size: 0.86rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
   max-width: 420px;
 }

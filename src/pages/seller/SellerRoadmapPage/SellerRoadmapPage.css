@@ -67,7 +67,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 
 .map-title-row {
@@ -97,7 +97,7 @@
   flex: 1;
   width: 100%;
   min-height: 480px;
-  background: #f8fafc;
+  background: var(--bg-subtle);
 }
 
 /* ── Stops List ── */
@@ -118,13 +118,13 @@
   justify-content: space-between;
   gap: 10px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .stops-list-title {
   font-size: 1rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   margin: 0;
 }
 
@@ -149,14 +149,14 @@
 
 .seller-stop-card {
   position: relative;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: 14px;
   padding: 14px 16px 12px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   cursor: pointer;
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
@@ -173,13 +173,13 @@
 }
 
 .seller-stop-card:hover {
-  border-color: #1a7d6b;
+  border-color: var(--color-primary);
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   transform: translateY(-1px);
 }
 
 .seller-stop-card.selected {
-  border-color: #1a7d6b;
+  border-color: var(--color-primary);
   background: #f0fdf4;
 }
 
@@ -206,8 +206,8 @@
   justify-content: center;
   font-size: 12px;
   font-weight: 800;
-  color: #ffffff;
-  background: #1a7d6b;
+  color: var(--text-inverse);
+  background: var(--color-primary);
   border: none;
   cursor: pointer;
   flex-shrink: 0;
@@ -240,7 +240,7 @@
 .stop-card-client {
   font-size: 0.95rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .stop-card-time {
@@ -258,16 +258,16 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .stop-card-service {
   font-size: 12px;
-  color: #475569;
-  background: #f8fafc;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
   padding: 6px 10px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   margin-top: 4px;
   line-height: 1.4;
 }
@@ -281,8 +281,8 @@
   letter-spacing: 0.3px;
   padding: 3px 8px;
   border-radius: 9999px;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .stop-card-badge.completada {
@@ -296,8 +296,8 @@
 }
 
 .stop-card-badge.pendiente {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--bg-hover);
+  color: var(--text-muted);
 }
 
 .stop-card-footer {
@@ -328,7 +328,7 @@
   padding: 0 8px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
-  background: #ffffff;
+  background: var(--bg-card);
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
@@ -404,7 +404,7 @@
 }
 
 .seller-roadmap-history-item:hover {
-  border-color: #1a7d6b;
+  border-color: var(--color-primary);
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 
@@ -416,7 +416,7 @@
 
 .seller-roadmap-history-zona {
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   font-size: 0.92rem;
 }
 
@@ -445,7 +445,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.8rem;
-  color: #0f172a;
+  color: var(--text-strong);
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
   padding: 8px 12px;

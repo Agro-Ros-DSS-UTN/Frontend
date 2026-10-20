@@ -70,7 +70,7 @@
   gap: var(--space-2, 8px);
   padding: 9px 18px;
   background-color: var(--color-primary, #1a7d6b);
-  color: #ffffff;
+  color: var(--text-inverse);
   border: none;
   border-radius: var(--radius-md, 6px);
   font-size: var(--text-sm, 14px);
@@ -224,7 +224,7 @@
   border-bottom: 1px solid var(--border-light, #e2e8f0);
   gap: var(--space-3, 12px);
   flex-wrap: wrap;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 
 .so-search {
@@ -385,7 +385,7 @@
 .so-plant-silo {
   font-size: 11.5px;
   font-weight: 600;
-  color: #1a7d6b;
+  color: var(--color-primary-text);
   margin-top: 1px;
 }
 
@@ -443,7 +443,7 @@
 
 .so-eval-meta {
   font-size: 10.5px;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-weight: 600;
 }
 
@@ -456,7 +456,7 @@
   border-radius: 20px;
   border: 1px solid #334155;
   background: transparent;
-  color: #0f172a;
+  color: var(--text-strong);
   font-family: inherit;
   font-size: 11px;
   font-weight: 700;
@@ -468,7 +468,7 @@
 .so-btn-eval-pending:hover {
   background: #0f172a;
   border-color: #0f172a;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .so-btn-eval-pending:focus-visible {
@@ -491,7 +491,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-light, #e2e8f0);
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: var(--radius-sm, 6px);
   color: var(--text-muted, #64748b);
   cursor: pointer;
@@ -573,8 +573,8 @@
 }
 
 .so-form-card {
-  background: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-light) !important;
   border-radius: 12px !important;
   padding: 16px 18px !important;
   display: flex !important;
@@ -588,7 +588,7 @@
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.4px !important;
-  color: #1a7d6b !important;
+  color: var(--color-primary-text) !important;
   display: flex !important;
   align-items: center !important;
   gap: 6px !important;
@@ -615,7 +615,7 @@
 .so-form-field label {
   font-size: 12.5px !important;
   font-weight: 600 !important;
-  color: #334155 !important;
+  color: var(--gray-700) !important;
   display: flex !important;
   align-items: center !important;
   gap: 5px !important;
@@ -625,12 +625,12 @@
 .so-select,
 .so-textarea {
   padding: 9px 12px !important;
-  border: 1px solid #cbd5e1 !important;
+  border: 1px solid var(--border-default) !important;
   border-radius: 6px !important;
   font-size: 13.5px !important;
   font-family: inherit !important;
-  color: #0f172a !important;
-  background: #ffffff !important;
+  color: var(--text-strong) !important;
+  background: var(--bg-card) !important;
   outline: none !important;
   width: 100% !important;
   box-sizing: border-box !important;
@@ -640,22 +640,22 @@
 .so-input:focus,
 .so-select:focus,
 .so-textarea:focus {
-  border-color: #1a7d6b !important;
+  border-color: var(--color-primary) !important;
   box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.14) !important;
 }
 
 .so-input-highlight {
   font-family: var(--font-mono, monospace) !important;
   font-weight: 700 !important;
-  color: #1a7d6b !important;
+  color: var(--color-primary-text) !important;
   background: #f0fdf4 !important;
   border-color: #86efac !important;
 }
 
 .so-input-readonly {
-  background: #f8fafc !important;
-  color: #64748b !important;
-  border-color: #e2e8f0 !important;
+  background: var(--bg-subtle) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border-light) !important;
   cursor: not-allowed !important;
 }
 
@@ -678,7 +678,7 @@ button.btn-rounded-primary {
   justify-content: center !important;
   gap: 8px !important;
   background: var(--color-primary, #1a7d6b) !important;
-  color: #ffffff !important;
+  color: var(--text-inverse) !important;
   border: none !important;
   cursor: pointer !important;
   transition: all 150ms ease !important;
@@ -699,7 +699,7 @@ button.btn-rounded-secondary {
   align-items: center !important;
   justify-content: center !important;
   gap: 8px !important;
-  background: #ffffff !important;
+  background: var(--bg-card) !important;
   color: var(--text-primary, #0f172a) !important;
   border: 1px solid var(--border-medium, #cbd5e1) !important;
   cursor: pointer !important;
@@ -721,7 +721,7 @@ button.btn-rounded-secondary:hover {
   padding: 0;
   font: inherit;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-strong);
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
@@ -743,7 +743,7 @@ button.btn-rounded-secondary:hover {
   display: block;
   font-size: 12.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-strong);
   white-space: nowrap;
 }
 
@@ -772,7 +772,7 @@ button.btn-rounded-secondary:hover {
   height: calc(96vh / var(--ui-zoom, 1));
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 14px;
   box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
   overflow: hidden;
@@ -784,14 +784,14 @@ button.btn-rounded-secondary:hover {
   justify-content: space-between;
   gap: 12px;
   padding: 18px 28px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .so-form-modal__header h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .so-form-modal__close {
@@ -803,10 +803,10 @@ button.btn-rounded-secondary:hover {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #475569;
+  color: var(--text-secondary);
   cursor: pointer;
 }
-.so-form-modal__close:hover { background: #f1f5f9; color: #0f172a; }
+.so-form-modal__close:hover { background: var(--bg-hover); color: var(--text-strong); }
 
 .so-form-modal__form {
   flex: 1;
@@ -830,8 +830,8 @@ button.btn-rounded-secondary:hover {
   justify-content: flex-end;
   gap: 12px;
   padding: 14px 28px;
-  border-top: 1px solid #e2e8f0;
-  background: #ffffff;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-card);
 }
 
 .so-form-modal__footer .btn-rounded-primary { padding: 12px 24px; }
@@ -847,7 +847,7 @@ button.btn-rounded-secondary:hover {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .so-form-grid {
@@ -859,15 +859,15 @@ button.btn-rounded-secondary:hover {
 .so-form-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 .so-form-modal input[readonly] {
-  background: #f8fafc;
-  color: #334155;
+  background: var(--bg-subtle);
+  color: var(--gray-700);
   cursor: default;
 }
 
 /* Planilla "Detalle del servicio" */
 .so-sheet-wrap {
   overflow-x: auto;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
 }
 
@@ -879,18 +879,18 @@ button.btn-rounded-secondary:hover {
 
 .so-sheet th {
   padding: 8px 6px;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-default);
   font-size: 11.5px;
   font-weight: 700;
-  color: #334155;
+  color: var(--gray-700);
   text-align: center;
   white-space: nowrap;
 }
 
 .so-sheet td {
   padding: 0;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
 }
 
 .so-sheet__input {
@@ -900,12 +900,12 @@ button.btn-rounded-secondary:hover {
   border: none;
   background: transparent;
   font: inherit;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 .so-sheet__input:focus {
   outline: 2px solid #1a7d6b;
   outline-offset: -2px;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 
 .so-sheet__actions {
@@ -922,7 +922,7 @@ button.btn-rounded-secondary:hover {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
 }
 .so-sheet__remove:hover { background: #fef2f2; color: #ef4444; }
@@ -933,15 +933,15 @@ button.btn-rounded-secondary:hover {
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #ffffff;
-  color: #334155;
+  background: var(--bg-card);
+  color: var(--gray-700);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
-.so-sheet__add:hover { background: #f8fafc; }
+.so-sheet__add:hover { background: var(--bg-subtle); }
 
 /* Celdas tipo lista (estado del cereal, resultado) */
 select.so-sheet__input {
@@ -967,7 +967,7 @@ select.so-sheet__input {
   padding: 0;
   border: none;
   background: none;
-  color: #1a7d6b;
+  color: var(--color-primary-text);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -980,7 +980,7 @@ select.so-sheet__input {
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 @media (max-width: 900px) {
@@ -1001,7 +1001,7 @@ select.so-sheet__input {
 .so-action-icon-btn:disabled:hover {
   color: var(--text-muted, #64748b);
   border-color: var(--border-light, #e2e8f0);
-  background: #ffffff;
+  background: var(--bg-card);
 }
 
 /* Campo de satisfacción y su comentario en la misma fila */
@@ -1026,7 +1026,7 @@ select.so-sheet__input {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .so-edit-panel__item {
@@ -1038,7 +1038,7 @@ select.so-sheet__input {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #0f172a;
+  color: var(--text-strong);
   font: inherit;
   font-size: 13.5px;
   font-weight: 500;
@@ -1046,9 +1046,9 @@ select.so-sheet__input {
   cursor: pointer;
 }
 
-.so-edit-panel__item svg { color: #1a7d6b; flex-shrink: 0; }
+.so-edit-panel__item svg { color: var(--color-primary-text); flex-shrink: 0; }
 .so-edit-panel__item:hover,
-.so-edit-panel__item:focus-visible { background: #f1f5f9; outline: none; }
+.so-edit-panel__item:focus-visible { background: var(--bg-hover); outline: none; }
 
 /* Estado de la orden: se cambia desde la tabla con el panel animado */
 .so-status-btn {
@@ -1075,4 +1075,4 @@ select.so-sheet__input {
 }
 
 .so-edit-panel__item.is-current { font-weight: 700; }
-.so-status-check { margin-left: auto; color: #1a7d6b; }
+.so-status-check { margin-left: auto; color: var(--color-primary-text); }

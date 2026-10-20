@@ -25,14 +25,14 @@
 .act-board__title {
   font-size: 24px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   margin: 0;
   letter-spacing: -0.5px;
 }
 
 .act-board__subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
   max-width: 640px;
 }
@@ -43,7 +43,7 @@
   gap: 8px;
   padding: 12px 22px;
   background: #16a34a;
-  color: #ffffff;
+  color: var(--text-inverse);
   border: none;
   border-radius: 10px;
   font-size: 14px;
@@ -71,10 +71,10 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #ffffff;
+  background: var(--bg-card);
   padding: 18px 20px;
   border-radius: 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -97,21 +97,21 @@
 .act-board__stat-label {
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted);
   display: block;
 }
 
 .act-board__stat-value {
   font-size: 20px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   display: block;
   margin: 2px 0;
 }
 
 .act-board__stat-sub {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   display: block;
 }
 
@@ -120,10 +120,10 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: #ffffff;
+  background: var(--bg-card);
   padding: 16px 20px;
   border-radius: 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
@@ -131,15 +131,15 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
   border-radius: 10px;
   padding: 10px 14px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .act-board__search:focus-within {
-  background: #ffffff;
+  background: var(--bg-card);
   border-color: #16a34a;
   box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
 }
@@ -150,7 +150,7 @@
   width: 100%;
   outline: none;
   font-size: 13px;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .act-board__filters {
@@ -171,9 +171,9 @@
 .act-board__chip {
   padding: 6px 14px;
   border-radius: 9999px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #64748b;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -181,13 +181,13 @@
 }
 
 .act-board__chip:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--bg-hover);
+  color: var(--text-strong);
 }
 
 .act-board__chip.active {
   background: #16a34a;
-  color: #ffffff;
+  color: var(--text-inverse);
   border-color: #16a34a;
   box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
 }
@@ -198,9 +198,9 @@
   gap: 6px;
   padding: 6px 12px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #475569;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -208,8 +208,8 @@
 }
 
 .act-board__att-pill:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
+  border-color: var(--border-default);
+  background: var(--bg-subtle);
 }
 
 .act-board__att-pill.active {
@@ -228,15 +228,15 @@
 .act-board__empty {
   text-align: center;
   padding: 48px 20px;
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 16px;
-  border: 1px dashed #cbd5e1;
-  color: #64748b;
+  border: 1px dashed var(--border-default);
+  color: var(--text-muted);
 }
 
 .act-board__card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 20px 24px;
   display: flex;
@@ -248,7 +248,7 @@
 
 .act-board__card:hover {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-  border-color: #cbd5e1;
+  border-color: var(--border-default);
 }
 
 .act-board__card-header {
@@ -281,13 +281,13 @@
 .act-board__card-author {
   font-size: 16px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   margin: 0;
 }
 
 .act-board__card-sub {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .act-board__card-right {
@@ -313,7 +313,7 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
@@ -337,7 +337,7 @@
 
 .act-board__card-desc {
   font-size: 14px;
-  color: #334155;
+  color: var(--gray-700);
   line-height: 1.6;
   margin: 0;
 }
@@ -346,7 +346,7 @@
   position: relative;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   cursor: pointer;
   max-width: 240px;
   transition: transform 0.2s ease;
@@ -371,7 +371,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  color: #ffffff;
+  color: var(--text-inverse);
   font-size: 11px;
   font-weight: 700;
   opacity: 0;
@@ -406,7 +406,7 @@
   gap: 1rem;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px dashed #e2e8f0;
+  border-top: 1px dashed var(--border-light);
 }
 
 .act-board__task-head {
@@ -419,7 +419,7 @@
 .act-board__task-number {
   font-size: 0.82rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .act-board__task-remove {
@@ -441,13 +441,13 @@
   gap: 10px;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px dashed #e2e8f0;
+  border-top: 1px dashed var(--border-light);
 }
 
 .act-board__task-add label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--gray-700);
   cursor: pointer;
 }
 
@@ -480,7 +480,7 @@
   position: absolute;
   top: -14px;
   right: -14px;
-  background: #ffffff;
+  background: var(--bg-card);
   border: none;
   border-radius: 50%;
   width: 32px;
@@ -506,14 +506,14 @@
   gap: 6px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--gray-700);
   white-space: nowrap;
 }
 
 .act-table__desc {
   max-width: 360px;
   font-size: 0.85rem;
-  color: #334155;
+  color: var(--gray-700);
   line-height: 1.45;
 }
 
@@ -523,19 +523,19 @@
   align-items: center;
   gap: 6px;
   padding: 0 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
-  background: #ffffff;
-  color: #64748b;
+  background: var(--bg-card);
+  color: var(--text-muted);
   cursor: pointer;
   transition: all 150ms ease;
 }
-.act-table__attach-btn:hover { color: #0f172a; border-color: #cbd5e1; background: #f8fafc; }
+.act-table__attach-btn:hover { color: var(--text-strong); border-color: var(--border-default); background: var(--bg-subtle); }
 
 .act-table__chevron--open { transform: rotate(180deg); }
 
 .act-table__detail-row td {
-  background: #f8fafc;
+  background: var(--bg-subtle);
 }
 
 .act-table__attachments {
@@ -569,11 +569,11 @@
   flex-direction: column;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: 10px;
-  background: #f8fafc;
+  background: var(--bg-subtle);
 }
-.act-board__readonly p { margin: 4px 0 0; font-size: 0.9rem; color: #0f172a; }
+.act-board__readonly p { margin: 4px 0 0; font-size: 0.9rem; color: var(--text-strong); }
 .act-board__queue {
   display: flex;
   align-items: center;
@@ -590,7 +590,7 @@
 }
 .act-board__queue button {
   border: 1px solid #f59e0b;
-  background: #fff;
+  background: var(--bg-card);
   color: #92400e;
   border-radius: 8px;
   padding: 6px 12px;

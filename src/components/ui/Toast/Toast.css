@@ -34,11 +34,11 @@
   height: var(--toast-calc-height);
   width: 100%;
   user-select: none;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   background-color: color-mix(in srgb, #ffffff, #000000 calc(1% * max(0, var(--toast-index, 0))));
   background-clip: padding-box;
-  color: #0f172a;
+  color: var(--text-strong);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05), 0 1px 0 rgba(0, 0, 0, 0.04);
   font-family: inherit;
   transition:
@@ -91,7 +91,7 @@
 /* Pila expandida (hover / foco) */
 .crm-toast[data-expanded] {
   height: var(--toast-height);
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--toast-calc-offset-y));
 }
 
@@ -147,12 +147,12 @@
   pointer-events: none;
 }
 
-.crm-toast[data-type='success'] .crm-toast__icon { color: #1a7d6b; }
+.crm-toast[data-type='success'] .crm-toast__icon { color: var(--color-primary-text); }
 .crm-toast[data-type='error'] .crm-toast__icon { color: #dc2626; }
 .crm-toast[data-type='warning'] .crm-toast__icon { color: #d97706; }
 .crm-toast[data-type='info'] .crm-toast__icon { color: #2563eb; }
 .crm-toast[data-type='loading'] .crm-toast__icon {
-  color: #64748b;
+  color: var(--text-muted);
   opacity: 0.8;
   animation: crm-toast-spin 0.9s linear infinite;
 }
@@ -173,14 +173,14 @@
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.25rem;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .crm-toast__description {
   margin: 0;
   font-size: 0.8125rem;
   line-height: 1.2rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .crm-toast__description:empty { display: none; }
@@ -188,14 +188,14 @@
 .crm-toast__action {
   flex-shrink: 0;
   padding: 4px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--bg-card);
+  color: var(--text-strong);
   font-family: inherit;
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
 }
 
-.crm-toast__action:hover { background: #f8fafc; }
+.crm-toast__action:hover { background: var(--bg-subtle); }

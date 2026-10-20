@@ -7,7 +7,7 @@
   scrollbar-width: none;
   padding: 2px;
   border-radius: 8px;
-  background: #f1f5f9;
+  background: var(--bg-hover);
   color: rgba(100, 116, 139, 0.85);
   flex-shrink: 0;
 }
@@ -37,7 +37,7 @@
 }
 
 .crm-tabs__trigger:hover {
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .crm-tabs__trigger:focus-visible {
@@ -45,8 +45,8 @@
 }
 
 .crm-tabs__trigger[data-state='active'] {
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--bg-card);
+  color: var(--text-strong);
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
@@ -59,14 +59,14 @@
   padding: 0 6px;
   border-radius: 999px;
   background: #e2e8f0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.7rem;
   font-weight: 600;
 }
 
 .crm-tabs__trigger[data-state='active'] .crm-tabs__badge {
   background: #e6f4f1;
-  color: #1a7d6b;
+  color: var(--color-primary-text);
 }
 
 /* Fila única: buscador y pestañas a la izquierda (en ese orden), filtros restantes a la derecha */
@@ -95,10 +95,10 @@
 .crm-filter-select {
   height: 36px;
   padding: 0 32px 0 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
-  background-color: #ffffff;
-  color: #334155;
+  background-color: var(--bg-card);
+  color: var(--gray-700);
   font-family: inherit;
   font-size: 0.85rem;
   font-weight: 500;
@@ -107,6 +107,6 @@
 
 .crm-filter-select:focus {
   outline: none;
-  border-color: #1a7d6b;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.12);
 }

@@ -20,15 +20,15 @@
   height: 22px;
   border: none;
   border-radius: 9999px;
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--bg-hover);
+  color: var(--text-muted);
   cursor: pointer;
   transition: background-color 120ms ease, color 120ms ease;
 }
 
 .company-ac__clear:hover {
   background: #e2e8f0;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .company-ac__dropdown {
@@ -37,8 +37,8 @@
   left: 0;
   right: 0;
   top: calc(100% + 6px);
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
   overflow: hidden;
@@ -71,7 +71,7 @@
   height: 28px;
   border-radius: 8px;
   background: #e6f4f1;
-  color: #1a7d6b;
+  color: var(--color-primary-text);
   flex-shrink: 0;
 }
 
@@ -83,7 +83,7 @@
 
 .company-ac__item-info strong {
   font-size: 0.86rem;
-  color: #0f172a;
+  color: var(--text-strong);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -91,13 +91,13 @@
 
 .company-ac__item-info span {
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .company-ac__empty {
   padding: 12px;
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -109,8 +109,8 @@
   width: 100%;
   padding: 10px 12px;
   border: none;
-  border-top: 1px solid #f1f5f9;
-  background: #f8fafc;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
   color: #16a34a;
   font-size: 0.8rem;
   font-weight: 700;
@@ -136,7 +136,7 @@
   gap: 6px;
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
@@ -164,18 +164,18 @@
 .company-ac__create-field label {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .company-ac__create-field input,
 .company-ac__create-field select {
   padding: 8px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   font-size: 0.82rem;
   font-family: inherit;
-  color: #0f172a;
-  background: #ffffff;
+  color: var(--text-strong);
+  background: var(--bg-card);
 }
 
 .company-ac__create-field input:focus,
@@ -204,7 +204,7 @@
   border: none;
   border-radius: 9999px;
   background: #16a34a;
-  color: #ffffff;
+  color: var(--text-inverse);
   font-weight: 700;
   font-size: 0.85rem;
   cursor: pointer;
@@ -228,11 +228,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 8px 6px 12px;
-  background: #ffffff;
-  border-bottom: 1px solid #f1f5f9;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -246,12 +246,12 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
 }
 .company-ac__dropdown-close:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--bg-hover);
+  color: var(--text-strong);
 }
 
 .company-ac__create-check {
@@ -260,7 +260,7 @@
   gap: 8px;
   font-size: 12.5px;
   font-weight: 600;
-  color: #334155;
+  color: var(--gray-700);
   cursor: pointer;
 }
 

@@ -18,7 +18,7 @@
 .slide-drawer-panel {
   height: calc(100vh / var(--ui-zoom, 1));
   max-height: calc(100vh / var(--ui-zoom, 1));
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
@@ -36,21 +36,21 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-light);
   flex-shrink: 0;
 }
 
 .slide-drawer-title {
   font-size: 1.15rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   margin: 0;
 }
 
 .slide-drawer-close {
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
   border-radius: 6px;
@@ -58,7 +58,7 @@
 }
 
 .slide-drawer-close:hover {
-  background: #f1f5f9;
+  background: var(--bg-hover);
 }
 
 .slide-drawer-body {

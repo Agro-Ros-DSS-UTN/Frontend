@@ -9,7 +9,7 @@
 .form-input-label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--gray-700);
 }
 
 .form-input-required {
@@ -20,14 +20,14 @@
 .form-input-wrapper {
   display: flex;
   align-items: center;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--bg-card);
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .form-input-wrapper:focus-within {
-  border-color: #1a7d6b;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.1);
 }
 
@@ -41,7 +41,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 0 0 12px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .form-input-control {
@@ -51,7 +51,7 @@
   border-radius: 8px;
   font-size: 0.88rem;
   font-family: inherit;
-  color: #0f172a;
+  color: var(--text-strong);
   background: transparent;
   outline: none;
 }
@@ -59,13 +59,13 @@
 /* When no wrapper, standalone textarea/select with its own border */
 textarea.form-input-control,
 select.form-input-control {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-default);
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 textarea.form-input-control:focus,
 select.form-input-control:focus {
-  border-color: #1a7d6b;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.1);
 }
 

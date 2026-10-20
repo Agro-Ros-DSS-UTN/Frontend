@@ -16,16 +16,16 @@
   min-height: 120px;
   max-height: 130px;
   padding: 14px;
-  border: 2px dashed #cbd5e1;
+  border: 2px dashed var(--border-default);
   border-radius: 12px;
-  background: #f8fafc;
+  background: var(--bg-subtle);
   cursor: pointer;
   transition: all 200ms ease;
   text-align: center;
 }
 
 .image-upload-dropzone:hover {
-  border-color: #1a7d6b;
+  border-color: var(--color-primary);
   background: #f0fdf4;
 }
 
@@ -39,17 +39,17 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--text-muted);
   transition: color 200ms ease;
 }
 
 .image-upload-dropzone:hover .image-upload-icon-circle {
-  color: #1a7d6b;
+  color: var(--color-primary-text);
 }
 
 .image-upload-text {
@@ -61,13 +61,13 @@
 .image-upload-title {
   font-size: 0.84rem;
   font-weight: 700;
-  color: #334155;
+  color: var(--gray-700);
   margin: 0;
 }
 
 .image-upload-sub {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
 }
 
@@ -84,7 +84,7 @@
   height: 140px;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   background: #0f172a;
 }
 
@@ -134,13 +134,13 @@
 }
 
 .image-upload-btn-action.replace {
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--bg-card);
+  color: var(--text-strong);
 }
 
 .image-upload-btn-action.delete {
   background: #ef4444;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .image-upload-footer {
@@ -148,11 +148,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 4px 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .image-upload-filename {
@@ -165,7 +165,7 @@
 .image-upload-btn-close {
   background: none;
   border: none;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 2px;
   display: flex;
@@ -173,5 +173,5 @@
 }
 
 .image-upload-btn-close:hover {
-  color: #0f172a;
+  color: var(--text-strong);
 }

@@ -14,7 +14,7 @@
 }
 
 .gsearch-modal {
-  background: #ffffff;
+  background: var(--bg-card);
   width: 100%;
   max-width: 620px;
   max-height: calc(70vh / var(--ui-zoom, 1));
@@ -95,7 +95,7 @@
   padding: 5px 12px;
   border-radius: var(--radius-full, 9999px);
   border: 1px solid var(--border-default, #cbd5e1);
-  background: #ffffff;
+  background: var(--bg-card);
   color: var(--text-secondary, #475569);
   font-size: 12px;
   font-weight: 600;
@@ -226,7 +226,7 @@
 
 .gsearch-inspect-btn:hover {
   background: #7c3aed;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .gsearch-footer {

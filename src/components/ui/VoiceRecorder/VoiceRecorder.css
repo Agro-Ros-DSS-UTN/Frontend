@@ -37,15 +37,15 @@
   justify-content: center;
   border: none;
   border-radius: 50%;
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--bg-hover);
+  color: var(--gray-700);
   cursor: pointer;
   transition: background 150ms ease, color 150ms ease;
 }
 
 .voice-recorder-icon-btn:hover {
   background: #e2e8f0;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .voice-recorder-active-bar {
@@ -92,7 +92,7 @@
 .rec-timer {
   font-size: 0.85rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   font-family: monospace;
 }
 
@@ -143,7 +143,7 @@
   height: 34px;
   border-radius: 50%;
   background: #16a34a;
-  color: #ffffff;
+  color: var(--text-inverse);
   border: none;
   display: flex;
   align-items: center;
@@ -197,7 +197,7 @@
 .voice-player__timer {
   font-size: 0.72rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted);
   font-family: monospace;
 }
 
@@ -227,7 +227,7 @@
 .voice-player__remove-btn {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
   border-radius: 6px;

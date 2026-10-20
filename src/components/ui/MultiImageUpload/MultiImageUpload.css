@@ -12,7 +12,7 @@
   aspect-ratio: 1 / 1;
   border-radius: 10px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
 }
 
 .multi-image-upload__thumb img {
@@ -31,7 +31,7 @@
   border-radius: 9999px;
   border: none;
   background: rgba(15, 23, 42, 0.65);
-  color: #ffffff;
+  color: var(--text-inverse);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -50,9 +50,9 @@
   gap: 3px;
   aspect-ratio: 1 / 1;
   border-radius: 10px;
-  border: 1.5px dashed #cbd5e1;
-  background: #f8fafc;
-  color: #64748b;
+  border: 1.5px dashed var(--border-default);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -60,7 +60,7 @@
 }
 
 .multi-image-upload__add:hover {
-  border-color: #1a7d6b;
-  color: #1a7d6b;
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
   background: #f0fdf4;
 }

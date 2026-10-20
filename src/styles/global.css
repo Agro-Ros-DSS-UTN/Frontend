@@ -1,10 +1,9 @@
-﻿/* Global CSS Reset and Theme for AgroRos CRM */
+﻿/* Estilos base del CRM AgroRos: reset, tipografía, foco y movimiento.
+   Los valores salen de design-tokens.css. */
 @import './design-tokens.css';
 @import '../components/ui/FormInput/FormInput.css';
 @import '../components/ui/DataTable/DataTable.css';
 @import '../components/ui/SlideDrawer/SlideDrawer.css';
-
-
 
 * {
   box-sizing: border-box;
@@ -12,46 +11,104 @@
   padding: 0;
 }
 
+/* html queda en el tamaño del navegador (1rem = 16 px); el texto de la app va en body. */
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body, html, #root {
   width: 100%;
   height: 100%;
-  font-family: var(--font-sans);
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
   background-color: var(--bg-page);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-size: var(--text-base);
-  line-height: 1.5;
+  text-rendering: optimizeLegibility;
 }
 
-/* Remove default link styles */
+/* Los controles de formulario heredan la tipografía de la app */
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* Títulos: Barlow Semi Condensed */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-strong);
+  letter-spacing: 0;
+}
+
+/* Datos: números del mismo ancho para que las columnas se alineen */
+table, .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
 a {
   color: inherit;
   text-decoration: none;
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
+img, svg, video, canvas {
+  max-width: 100%;
 }
 
-/* â”€â”€ REMOVE ugly focus outlines/rectangles globally â”€â”€ */
-*:focus {
-  outline: none;
+/* ── Foco de teclado visible en toda la app ──
+   Solo con teclado (:focus-visible); con mouse o dedo no aparece. Tiene prioridad
+   sobre los "outline: none" que quedaron en estilos de cada pantalla. */
+:focus-visible {
+  outline: var(--focus-outline) !important;
+  outline-offset: var(--focus-offset) !important;
 }
 
-input:focus,
-textarea:focus,
-select:focus,
-button:focus {
-  outline: none;
-  box-shadow: none;
+/* Sobre el menú azul el anillo verde no se ve: se usa uno claro */
+.sidebar :focus-visible,
+.topbar :focus-visible {
+  outline-color: var(--sidebar-focus) !important;
 }
 
-/* Selection color */
+/* Texto solo para lectores de pantalla */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 ::selection {
-  background-color: var(--color-primary-100);
-  color: var(--color-primary-800);
+  background-color: var(--color-primary-200);
+  color: var(--color-primary-900);
+}
+
+/* ── Movimiento reducido: sin animaciones ni transiciones ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /* ── Botones de acción de encabezado, unificados en toda la app
@@ -62,7 +119,7 @@ button:focus {
   gap: 8px;
   padding: 10px 22px;
   background-color: var(--color-primary, #1a7d6b);
-  color: #ffffff;
+  color: var(--text-inverse);
   border: none;
   border-radius: 9999px;
   font-size: var(--text-sm, 0.875rem);
@@ -85,7 +142,7 @@ button:focus {
   align-items: center;
   gap: 8px;
   padding: 10px 22px;
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   color: var(--text-secondary, #475569);
   border: 1px solid var(--border-medium, #e2e8f0);
   border-radius: 9999px;
@@ -147,7 +204,7 @@ button:focus {
 }
 
 .logout-modal-card {
-  background: #ffffff !important;
+  background: var(--bg-card) !important;
   width: 100% !important;
   max-width: 440px !important;
   border-radius: 20px !important;
@@ -184,9 +241,9 @@ button:focus {
 }
 
 .logout-modal-close {
-  background: #f8fafc !important;
-  border: 1px solid #e2e8f0 !important;
-  color: #64748b !important;
+  background: var(--bg-subtle) !important;
+  border: 1px solid var(--border-light) !important;
+  color: var(--text-muted) !important;
   width: 32px !important;
   height: 32px !important;
   border-radius: 50% !important;
@@ -198,20 +255,20 @@ button:focus {
 }
 
 .logout-modal-close:hover {
-  background: #f1f5f9 !important;
-  color: #0f172a !important;
+  background: var(--bg-hover) !important;
+  color: var(--text-strong) !important;
 }
 
 .logout-modal-body h3 {
   font-size: 1.25rem !important;
   font-weight: 700 !important;
-  color: #0f172a !important;
+  color: var(--text-strong) !important;
   margin: 0 0 8px 0 !important;
 }
 
 .logout-modal-body p {
   font-size: 0.9rem !important;
-  color: #64748b !important;
+  color: var(--text-muted) !important;
   line-height: 1.5 !important;
   margin: 0 0 24px 0 !important;
 }
@@ -228,16 +285,16 @@ button:focus {
   border-radius: 10px !important;
   font-size: 0.9rem !important;
   font-weight: 600 !important;
-  background: #f1f5f9 !important;
-  color: #475569 !important;
-  border: 1px solid #cbd5e1 !important;
+  background: var(--bg-hover) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-default) !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
 }
 
 .logout-btn-cancel:hover {
   background: #e2e8f0 !important;
-  color: #0f172a !important;
+  color: var(--text-strong) !important;
 }
 
 .logout-btn-confirm {
@@ -246,7 +303,7 @@ button:focus {
   font-size: 0.9rem !important;
   font-weight: 600 !important;
   background: #dc2626 !important;
-  color: #ffffff !important;
+  color: var(--text-inverse) !important;
   border: none !important;
   cursor: pointer !important;
   display: inline-flex !important;
@@ -283,7 +340,7 @@ button:focus {
 }
 
 .session-expired-card {
-  background: #ffffff !important;
+  background: var(--bg-card) !important;
   width: 100% !important;
   max-width: 420px !important;
   border-radius: 20px !important;
@@ -310,13 +367,13 @@ button:focus {
 .session-expired-card h1 {
   font-size: 1.6rem !important;
   font-weight: 800 !important;
-  color: #0f172a !important;
+  color: var(--text-strong) !important;
   margin: 0 0 10px 0 !important;
 }
 
 .session-expired-card p {
   font-size: 0.95rem !important;
-  color: #64748b !important;
+  color: var(--text-muted) !important;
   line-height: 1.5 !important;
   margin: 0 0 28px 0 !important;
 }
@@ -328,7 +385,7 @@ button:focus {
   font-size: 0.95rem !important;
   font-weight: 700 !important;
   background: #dc2626 !important;
-  color: #ffffff !important;
+  color: var(--text-inverse) !important;
   border: none !important;
   cursor: pointer !important;
   display: inline-flex !important;
@@ -370,7 +427,7 @@ button.activities-page__add-btn,
   justify-content: center !important;
   gap: 8px !important;
   background: var(--color-primary, #16a34a) !important;
-  color: #ffffff !important;
+  color: var(--text-inverse) !important;
   border: none !important;
   box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25) !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
@@ -412,7 +469,7 @@ button.roadmaps-btn--outline {
   align-items: center !important;
   justify-content: center !important;
   gap: 8px !important;
-  background: #ffffff !important;
+  background: var(--bg-card) !important;
   color: var(--text-primary, #0f172a) !important;
   border: 1px solid var(--border-default, #cbd5e1) !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
@@ -438,7 +495,7 @@ button.roadmaps-btn--outline:hover {
   border-radius: 9999px !important;
   padding: 4px 14px 4px 4px !important;
   border: 1px solid var(--border-default, #cbd5e1) !important;
-  background: #ffffff !important;
+  background: var(--bg-card) !important;
   transition: all 0.2s ease !important;
 }
 

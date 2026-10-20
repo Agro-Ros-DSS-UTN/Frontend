@@ -208,7 +208,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #ffffff;
+  background: var(--bg-card);
   z-index: 10;
 }
 
@@ -247,7 +247,7 @@
   flex: 1;
   width: 100%;
   min-height: 480px;
-  background: #f8fafc;
+  background: var(--bg-subtle);
 }
 
 /* Custom Marker */
@@ -260,7 +260,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  color: #ffffff;
+  color: var(--text-inverse);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -361,7 +361,7 @@
 }
 
 .roadmap-seller-tab .badge {
-  background: #ffffff;
+  background: var(--bg-card);
   padding: 1px 4px;
   border-radius: 4px;
   font-size: 10px;
@@ -419,11 +419,11 @@
   justify-content: center;
   font-size: 11px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .node-circle.completada {
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .timeline-content {
@@ -497,8 +497,8 @@
 }
 
 .roadmap-status-tag.pendiente {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--bg-hover);
+  color: var(--text-muted);
 }
 
 /* ── History Table Card ── */
@@ -573,7 +573,7 @@
   max-width: calc(95vw / var(--ui-zoom, 1));
   height: calc(100vh / var(--ui-zoom, 1));
   max-height: calc(100vh / var(--ui-zoom, 1));
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
@@ -588,7 +588,7 @@
   padding: 20px 24px;
   border-bottom: 1px solid var(--border-light);
   flex-shrink: 0;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 
 .roadmaps-modal__header h2 {
@@ -636,7 +636,7 @@
   font-family: var(--font-sans);
   color: var(--text-primary);
   outline: none;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 
 .roadmaps-input:focus,
@@ -659,7 +659,7 @@
   border-top: 1px solid var(--border-light);
   position: sticky;
   bottom: 0;
-  background: #ffffff;
+  background: var(--bg-card);
   z-index: 20;
   flex-shrink: 0;
 }
@@ -677,8 +677,8 @@
 
 /* ── Roadmaps Loading State Spinner Card ── */
 .roadmaps-loading-state-box {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 70px 24px;
   text-align: center;
@@ -694,8 +694,8 @@
 .r-spinner-icon {
   width: 42px;
   height: 42px;
-  border: 3.5px solid #e2e8f0;
-  border-top-color: #1a7d6b;
+  border: 3.5px solid var(--border-light);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: rSpin 0.7s linear infinite;
 }
@@ -707,13 +707,13 @@
 .roadmaps-loading-state-box h3 {
   font-size: 1.15rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   margin: 0;
 }
 
 .roadmaps-loading-state-box p {
   font-size: 0.88rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
 }
 /* ── Strip de vendedores en ruta (nombre + zona + progreso por cada uno) ── */
@@ -726,8 +726,8 @@
 
 .rv-card {
   text-align: left;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: 14px;
   padding: 14px 16px;
   cursor: pointer;
@@ -739,13 +739,13 @@
 }
 
 .rv-card:hover {
-  border-color: #1a7d6b;
+  border-color: var(--color-primary);
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
   transform: translateY(-1px);
 }
 
 .rv-card.is-active {
-  border-color: #1a7d6b;
+  border-color: var(--color-primary);
   background: #f0fdf4;
   box-shadow: 0 0 0 2px rgba(26, 125, 107, 0.25);
 }
@@ -770,7 +770,7 @@
 .rv-card__name {
   font-size: 0.92rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-strong);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -778,7 +778,7 @@
 
 .rv-card__zone {
   font-size: 0.76rem;
-  color: #64748b;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -800,5 +800,5 @@
 .rv-card__sub {
   font-size: 0.74rem;
   font-weight: 700;
-  color: #475569;
+  color: var(--text-secondary);
 }

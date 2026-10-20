@@ -19,7 +19,7 @@
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: var(--text-muted);
   pointer-events: none;
 }
 
@@ -32,8 +32,8 @@
   list-style: none;
   max-height: 240px;
   overflow-y: auto;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
   font-family: inherit;
@@ -46,23 +46,23 @@
   padding: 7px 10px;
   border-radius: 6px;
   font-size: 13px;
-  color: #0f172a;
+  color: var(--text-strong);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.crm-combo-item.is-active { background: #f1f5f9; }
+.crm-combo-item.is-active { background: var(--bg-hover); }
 .crm-combo-item.is-selected { font-weight: 600; }
 
-.crm-combo-item--empty { color: #64748b; }
+.crm-combo-item--empty { color: var(--text-muted); }
 
 .crm-combo-item--custom,
 .crm-combo-item--extra {
   margin-top: 2px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--border-subtle);
   border-radius: 0 0 6px 6px;
-  color: #1a7d6b;
+  color: var(--color-primary-text);
   font-weight: 600;
 }

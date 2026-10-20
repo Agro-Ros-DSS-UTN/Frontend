@@ -10,14 +10,14 @@
   border: none;
   border-radius: 9999px;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .crm-search-clear:hover,
 .crm-search-clear:focus-visible {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--bg-hover);
+  color: var(--text-strong);
   outline: none;
 }

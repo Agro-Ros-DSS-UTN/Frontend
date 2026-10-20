@@ -52,7 +52,7 @@
 }
 
 .users-page__add-btn:hover {
-  background-color: #156658;
+  background-color: var(--color-primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(26, 125, 107, 0.25);
 }
@@ -62,9 +62,9 @@
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   color: var(--text-secondary, #475569);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-md, 8px);
   font-size: var(--text-sm, 0.875rem);
   font-weight: 600;
@@ -82,8 +82,8 @@
 
 /* Card Container */
 .users-page__card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-xl, 12px);
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -97,27 +97,27 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-light);
   gap: 12px;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 
 .users-page__search {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 8px 12px;
   min-width: 260px;
   transition: all 150ms ease;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .users-page__search:focus-within {
   border-color: var(--color-primary, #1a7d6b);
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: 0 0 0 3px rgba(26, 125, 107, 0.1);
 }
 
@@ -126,12 +126,12 @@
   outline: none;
   background: transparent;
   font-size: 0.88rem;
-  color: #0f172a;
+  color: var(--text-strong);
   width: 100%;
 }
 
 .users-page__search input::placeholder {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 /* Table */
@@ -152,20 +152,20 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-subtle);
 }
 
 .users-table td {
   padding: 12px 16px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #0f172a;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-strong);
   vertical-align: middle;
 }
 
 .users-table__row:hover td {
-  background: #f8fafc;
+  background: var(--bg-subtle);
 }
 
 .users-table__checkbox-col {
@@ -191,7 +191,7 @@
 }
 
 .users-table__sortable:hover {
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .users-table__name-cell {
@@ -204,8 +204,8 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--bg-hover);
+  color: var(--gray-700);
   font-size: 11px;
   font-weight: 800;
   display: flex;
@@ -216,24 +216,24 @@
 }
 
 .users-table__avatar--vendedor {
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--bg-hover);
+  color: var(--gray-700);
 }
 
 .users-table__name {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-strong);
   display: block;
 }
 
 .users-table__id-sub {
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--text-muted);
   display: block;
 }
 
 .users-table__email {
-  color: #475569;
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -259,7 +259,7 @@
 .users-table__role-pill--admin,
 .users-table__role-pill--vendedor {
   background: transparent;
-  color: #0f172a;
+  color: var(--text-strong);
   border: 1px solid #334155;
 }
 
@@ -275,13 +275,13 @@
 
 /* Activo: mismo verde que el botón "Nuevo Usuario" */
 .users-table__status-pill--active {
-  background: #1a7d6b;
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--text-inverse);
 }
 
 .users-table__status-pill--inactive {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--bg-hover);
+  color: var(--text-muted);
 }
 
 .status-dot {
@@ -302,19 +302,19 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .users-table__action-btn:hover {
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--bg-subtle);
+  color: var(--text-strong);
 }
 
 .users-table__action-btn--danger:hover {
@@ -329,13 +329,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  border-top: 1px solid #e2e8f0;
-  background: #ffffff;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-card);
 }
 
 .users-page__pagination-info {
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .users-page__pagination-controls {
@@ -347,11 +347,11 @@
   min-width: 30px;
   height: 30px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
   font-size: 0.8rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -360,13 +360,13 @@
 }
 
 .users-page__page-btn:hover:not(:disabled) {
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--bg-subtle);
+  color: var(--text-strong);
 }
 
 .users-page__page-btn--active {
   background: var(--color-primary, #1a7d6b) !important;
-  color: #ffffff !important;
+  color: var(--text-inverse) !important;
   border-color: var(--color-primary, #1a7d6b) !important;
 }
 
@@ -376,8 +376,8 @@
 }
 
 
-.users-zona { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+.users-zona { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border-light); border-radius: 10px; background: var(--bg-subtle); }
 .users-zona__chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .users-zona__chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 0.8rem; }
 .users-zona__chip button { border: none; background: transparent; color: #166534; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 4px; }
-.users-zona__empty { font-size: 0.8rem; color: #94a3b8; }
+.users-zona__empty { font-size: 0.8rem; color: var(--text-muted); }

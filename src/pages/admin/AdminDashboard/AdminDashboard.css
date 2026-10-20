@@ -197,7 +197,7 @@
 }
 
 .exec-kpi-icon.blue { color: #0ea5e9; }
-.exec-kpi-icon.teal { color: #1a7d6b; }
+.exec-kpi-icon.teal { color: var(--color-primary-text); }
 .exec-kpi-icon.orange { color: #ea580c; }
 .exec-kpi-icon.green { color: #16a34a; }
 .exec-kpi-icon.purple { color: #8b5cf6; }
@@ -443,7 +443,7 @@
   cursor: pointer;
   font: inherit;
 }
-.seller-card__stat--link:hover { background: #f1f5f9; }
+.seller-card__stat--link:hover { background: var(--bg-hover); }
 .seller-card__stat--link:hover .seller-card__stat-label { color: #047857; text-decoration: underline; }
 
 .seller-card__stat-value {

@@ -25,7 +25,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-primary, #1a7d6b);
-  color: #ffffff;
+  color: var(--text-inverse);
   font-weight: 800;
   font-size: 15px;
   text-transform: uppercase;
