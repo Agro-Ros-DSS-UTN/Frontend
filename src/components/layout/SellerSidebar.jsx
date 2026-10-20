@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import { useSidebarResize } from './useSidebarResize';
+import { useIsMobile, useMobileNav } from './mobileNav';
 import './Sidebar.css';
 
 const sellerNavItems = [
@@ -28,6 +29,10 @@ const sellerNavItems = [
 
 export const SellerSidebar = () => {
   const { collapsed, toggleCollapsed, handleResizeStart } = useSidebarResize();
+  // En celular el menú es un panel completo (con textos) que se abre y se cierra.
+  const isMobile = useIsMobile();
+  const { open: mobileOpen, close: closeMobileNav } = useMobileNav();
+  const compact = collapsed && !isMobile;
   const { logout } = useAuth();
   const location = useLocation();
 
@@ -36,7 +41,11 @@ export const SellerSidebar = () => {
   };
 
   return (
-    <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
+    <aside
+      id="app-sidebar"
+      aria-label="Menú principal"
+      className={`sidebar ${compact ? 'sidebar--collapsed' : ''} ${mobileOpen ? 'sidebar--mobile-open' : ''}`}
+    >
       {/* Tirador para expandir/contraer arrastrando el borde (estilo Antigravity) */}
       <div
         className="sidebar__resize-handle"
@@ -57,7 +66,7 @@ export const SellerSidebar = () => {
           title="Recargar página de Agroquímica Rosario"
         >
           <img src={logoImg} alt="AgroRos" className="sidebar__logo-img" />
-          {!collapsed && (
+          {!compact && (
             <div className="sidebar__logo-text">
               <span className="sidebar__logo-title">Agroquímica Rosario</span>
               <span className="sidebar__logo-subtitle">CRM</span>
@@ -76,11 +85,13 @@ export const SellerSidebar = () => {
               <li key={item.path} className="sidebar__item">
                 <NavLink
                   to={item.path}
+                  onClick={closeMobileNav}
+                  aria-current={isActive ? 'page' : undefined}
                   className={`sidebar__link ${isActive ? 'sidebar__link--active' : ''}`}
                 >
-                  <Icon size={17} className="sidebar__link-icon" />
-                  {!collapsed && <span className="sidebar__link-label">{item.label}</span>}
-                  {collapsed && <span className="sidebar__nav-tooltip">{item.label}</span>}
+                  <Icon size={17} className="sidebar__link-icon" aria-hidden="true" />
+                  {!compact && <span className="sidebar__link-label">{item.label}</span>}
+                  {compact && <span className="sidebar__nav-tooltip">{item.label}</span>}
                 </NavLink>
               </li>
             );
@@ -121,8 +132,8 @@ export const SellerSidebar = () => {
             onClick={() => logout()}
           >
             <LogOut size={18} className="sidebar__link-icon" />
-            {!collapsed && <span className="sidebar__link-label">Cerrar sesión</span>}
-            {collapsed && <span className="sidebar__nav-tooltip">Cerrar sesión</span>}
+            {!compact && <span className="sidebar__link-label">Cerrar sesión</span>}
+            {compact && <span className="sidebar__nav-tooltip">Cerrar sesión</span>}
           </button>
         </div>
       </div>

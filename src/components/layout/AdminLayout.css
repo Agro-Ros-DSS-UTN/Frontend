@@ -35,3 +35,52 @@
   overflow-y: auto;
   background-color: var(--bg-page, #f8fafc);
 }
+
+/* El contenido puede achicarse sin empujar la página hacia los costados */
+.admin-layout__main,
+.admin-layout__content {
+  min-width: 0;
+}
+
+/* ═══ Celular (< 768 px): el menú es un panel que se abre encima ═══ */
+@media (max-width: 767px) {
+  .admin-layout {
+    overflow-x: clip;
+  }
+
+  .admin-layout__main,
+  .sidebar--collapsed + .admin-layout__main,
+  .sidebar--collapsed ~ .admin-layout__main,
+  .admin-layout:has(.sidebar--collapsed) .admin-layout__main {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .admin-layout .sidebar,
+  .admin-layout .sidebar.sidebar--collapsed {
+    width: min(84vw, 300px);
+    transform: translateX(-100%);
+    visibility: hidden;
+    z-index: var(--z-modal);
+    transition: transform var(--duration-base) var(--ease-out), visibility 0s linear var(--duration-base);
+  }
+
+  .admin-layout .sidebar.sidebar--mobile-open {
+    transform: none;
+    visibility: visible;
+    box-shadow: var(--shadow-xl);
+    transition: transform var(--duration-base) var(--ease-out), visibility 0s;
+  }
+
+  .admin-layout .sidebar__resize-handle,
+  .admin-layout .sidebar__collapse-row {
+    display: none;
+  }
+
+  .mobile-nav__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-modal) - 1);
+    background: var(--bg-overlay);
+  }
+}

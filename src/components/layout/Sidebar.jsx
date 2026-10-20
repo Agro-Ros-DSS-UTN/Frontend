@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import { useSidebarResize } from './useSidebarResize';
+import { useIsMobile, useMobileNav } from './mobileNav';
 import './Sidebar.css';
 
 const adminNavItems = [
@@ -43,6 +44,10 @@ const adminNavItems = [
 
 export const Sidebar = () => {
   const { collapsed, toggleCollapsed, handleResizeStart } = useSidebarResize();
+  // En celular el menú es un panel completo (con textos) que se abre y se cierra.
+  const isMobile = useIsMobile();
+  const { open: mobileOpen, close: closeMobileNav } = useMobileNav();
+  const compact = collapsed && !isMobile;
   const { logout } = useAuth();
   const location = useLocation();
 
@@ -51,7 +56,11 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
+    <aside
+      id="app-sidebar"
+      aria-label="Menú principal"
+      className={`sidebar ${compact ? 'sidebar--collapsed' : ''} ${mobileOpen ? 'sidebar--mobile-open' : ''}`}
+    >
       {/* Tirador para expandir/contraer arrastrando el borde (estilo Antigravity) */}
       <div
         className="sidebar__resize-handle"
@@ -72,7 +81,7 @@ export const Sidebar = () => {
           title="Recargar página de Agroquímica Rosario"
         >
           <img src={logoImg} alt="AgroRos" className="sidebar__logo-img" />
-          {!collapsed && (
+          {!compact && (
             <div className="sidebar__logo-text">
               <span className="sidebar__logo-title">Agroquímica Rosario</span>
               <span className="sidebar__logo-subtitle">CRM</span>
@@ -91,10 +100,12 @@ export const Sidebar = () => {
               <li key={item.path} className="sidebar__item">
                 <NavLink
                   to={item.path}
+                  onClick={closeMobileNav}
+                  aria-current={isActive ? 'page' : undefined}
                   className={`sidebar__link ${isActive ? 'sidebar__link--active' : ''}`}
                 >
-                  <Icon size={17} className="sidebar__link-icon" />
-                  {!collapsed && (
+                  <Icon size={17} className="sidebar__link-icon" aria-hidden="true" />
+                  {!compact && (
                     <div className="sidebar__link-text-group">
                       <span className="sidebar__link-label">{item.label}</span>
                       {item.badge && (
@@ -105,7 +116,7 @@ export const Sidebar = () => {
                       )}
                     </div>
                   )}
-                  {collapsed && (
+                  {compact && (
                     <span className="sidebar__nav-tooltip">
                       {item.label} {item.badge ? `(${item.badge})` : ''}
                     </span>
@@ -150,8 +161,8 @@ export const Sidebar = () => {
             onClick={() => logout()}
           >
             <LogOut size={18} className="sidebar__link-icon" />
-            {!collapsed && <span className="sidebar__link-label">Cerrar sesión</span>}
-            {collapsed && <span className="sidebar__nav-tooltip">Cerrar sesión</span>}
+            {!compact && <span className="sidebar__link-label">Cerrar sesión</span>}
+            {compact && <span className="sidebar__nav-tooltip">Cerrar sesión</span>}
           </button>
         </div>
       </div>

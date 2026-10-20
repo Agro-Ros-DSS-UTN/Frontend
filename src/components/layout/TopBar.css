@@ -362,3 +362,76 @@
   background: #fef2f2;
   color: #b91c1c;
 }
+/* ── Botón de menú: solo en celular ── */
+.topbar__menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-inverse);
+  cursor: pointer;
+}
+
+.topbar__menu-btn:hover {
+  background: var(--sidebar-bg-hover);
+}
+
+/* ═══ Encabezado en celular (< 768 px) ═══
+   Menú, buscador como ícono, campana, ayuda y avatar: todo entra en 360 px. */
+@media (max-width: 767px) {
+  .topbar {
+    gap: var(--space-1);
+    height: 56px;
+    padding: 0 var(--space-2);
+  }
+
+  .topbar__menu-btn {
+    display: inline-flex;
+  }
+
+  .topbar__title-group {
+    display: none;
+  }
+
+  .topbar__center {
+    flex: 1;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .topbar__search-container {
+    width: auto;
+  }
+
+  .topbar__search {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .topbar__search-input,
+  .topbar__search-kbd,
+  .topbar__user-name,
+  .topbar__chevron,
+  .topbar__quick-add-btn span {
+    display: none;
+  }
+
+  .topbar__right {
+    gap: 2px;
+  }
+
+  .topbar__quick-add-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+}

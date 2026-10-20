@@ -5,6 +5,7 @@ import {
   Search,
   Settings,
   ChevronDown,
+  Menu,
   Plus,
 } from 'lucide-react';
 import { GlobalSearch } from '../ui/GlobalSearch/GlobalSearch';
@@ -13,12 +14,14 @@ import { HelpCenter } from '../ui/HelpCenter/HelpCenter';
 import { AnimatedLogOutIcon } from '../ui/AnimatedLogOutIcon/AnimatedLogOutIcon';
 import { UserProfileSidebar } from '../ui/UserProfileSidebar/UserProfileSidebar';
 import { useHover } from '../../hooks/useHover';
+import { useMobileNav } from './mobileNav';
 import './TopBar.css';
 
 export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
   const { currentUser, logout, profileImage } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const { open: mobileNavOpen, toggle: toggleMobileNav } = useMobileNav();
   const [showSearch, setShowSearch] = useState(false);
   const menuRef = useRef(null);
   const [logoutHoverProps, isLogoutHovered] = useHover();
@@ -52,6 +55,16 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
   return (
     <header className="topbar">
       <div className="topbar__left">
+        <button
+          type="button"
+          className="topbar__menu-btn"
+          onClick={toggleMobileNav}
+          aria-label={mobileNavOpen ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={mobileNavOpen}
+          aria-controls="app-sidebar"
+        >
+          <Menu size={22} aria-hidden="true" />
+        </button>
         {title && (
           <div className="topbar__title-group">
             <h1 className="topbar__title">{title}</h1>
@@ -62,8 +75,8 @@ export const SellerTopBar = ({ title, subtitle, onQuickAddActivity }) => {
 
       <div className="topbar__center">
         <div className="topbar__search-container">
-          <button type="button" className="topbar__search" onClick={() => setShowSearch(true)}>
-            <Search size={16} className="topbar__search-icon" />
+          <button type="button" className="topbar__search" onClick={() => setShowSearch(true)} aria-label="Buscar">
+            <Search size={16} className="topbar__search-icon" aria-hidden="true" />
             <span className="topbar__search-input topbar__search-input--trigger">Buscar o preguntar...</span>
             <kbd className="topbar__search-kbd">/</kbd>
           </button>
