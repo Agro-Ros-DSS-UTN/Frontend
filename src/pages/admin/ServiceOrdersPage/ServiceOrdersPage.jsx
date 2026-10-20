@@ -127,6 +127,7 @@ const parseJsonArray = (value) => {
 };
 
 const emptyEvalForm = (orderRows) => ({
+  evaluationNumber: '',
   evaluationDate: '',
   details: evalRowsFromOrder(orderRows),
   ppmPH3: '',
@@ -208,6 +209,9 @@ const buildEmptyOrderForm = (orderNumber = '') => ({
 
 const validateEvalForm = (form) => {
   const errors = {};
+  const evaluationNumber = String(form.evaluationNumber || '').trim();
+  if (!evaluationNumber) errors.evaluationNumber = 'Ingresá el número de la evaluación.';
+  else if (evaluationNumber.length > 30) errors.evaluationNumber = 'Hasta 30 caracteres.';
   if (!form.evaluationDate) errors.evaluationDate = 'Seleccioná la fecha de evaluación.';
   const rows = (form.details || []).filter(rowHasData);
   if (rows.length === 0) {
@@ -657,6 +661,7 @@ export const ServiceOrdersPage = () => {
     if (ev) {
       const savedDetail = parseJsonArray(ev.details);
       setEvalForm({
+        evaluationNumber: ev.evaluationNumber || '',
         evaluationDate: ev.evaluationDate ? String(ev.evaluationDate).slice(0, 10) : '',
         // Evaluaciones viejas (sin planilla): se arma con las instalaciones de la orden
         details: savedDetail.length > 0
@@ -706,6 +711,10 @@ export const ServiceOrdersPage = () => {
       setEvalTargetOrder(null);
     } catch (err) {
       console.error('Error al guardar evaluación:', err);
+      // Número repetido u obligatorio: se marca el campo además del aviso.
+      if (err?.response?.data?.fields?.evaluationNumber) {
+        setEvalErrors((prev) => ({ ...prev, evaluationNumber: err.message }));
+      }
       notify.error('No se pudo guardar la evaluación de servicio', err);
     }
   };
@@ -818,7 +827,22 @@ export const ServiceOrdersPage = () => {
     return (
       <>
         <section className="so-form-section">
-          <div className="so-form-grid so-form-grid--4">
+          <div className="so-form-grid so-form-grid--3">
+            <FormInput
+              label="N.º de Evaluación"
+              name="evaluationNumber"
+              value={evalForm.evaluationNumber || ''}
+              onChange={(e) => {
+                setEvalForm({ ...evalForm, evaluationNumber: e.target.value });
+                if (evalErrors.evaluationNumber) setEvalErrors((prev) => ({ ...prev, evaluationNumber: '' }));
+              }}
+              maxLength={30}
+              autoComplete="off"
+              placeholder="El de la planilla"
+              required
+              error={evalErrors.evaluationNumber}
+            />
+            <FormInput label="Orden de Servicio" name="evalOrder" value={order.orderNumber || ''} readOnly placeholder="—" />
             <FormInput
               label="Fecha de Evaluación"
               name="evaluationDate"
@@ -831,9 +855,10 @@ export const ServiceOrdersPage = () => {
               required
               error={evalErrors.evaluationDate}
             />
+          </div>
+          <div className="so-form-grid so-form-grid--2">
             <FormInput label="Cliente" name="evalCustomer" value={order.customerName || ''} readOnly placeholder="Se completa con la orden" />
             <FormInput label="Localidad" name="evalLocality" value={localityLabel(order)} readOnly placeholder="—" />
-            <FormInput label="Orden de Servicio" name="evalOrder" value={order.orderNumber || ''} readOnly placeholder="—" />
           </div>
         </section>
 

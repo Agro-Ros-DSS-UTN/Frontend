@@ -121,7 +121,8 @@ export const generateServiceEvaluationPdf = async (order) => {
   const L = EVALUATION_LAYOUT;
   const { pdf, page, fonts } = await loadTemplate(templateUrl(L.template));
 
-  drawNumber(page, fonts, L, order.orderNumber);
+  // N.º de la planilla de evaluación (propio; el de la orden va en su campo).
+  drawNumber(page, fonts, L, ev.evaluationNumber || order.orderNumber);
   drawDate(page, fonts, L, ev.evaluationDate);
   drawField(page, fonts, order.customerName, L.customer);
   drawField(page, fonts, [order.locality, order.province].filter(Boolean).join(', '), L.locality);
@@ -153,6 +154,6 @@ export const generateServiceEvaluationPdf = async (order) => {
     technician: order.technicianName,
   });
 
-  pdf.setTitle(`Evaluación de Servicio ${order.orderNumber || ''}`.trim());
+  pdf.setTitle(`Evaluación de Servicio ${ev.evaluationNumber || order.orderNumber || ''}`.trim());
   return toBlobUrl(pdf);
 };

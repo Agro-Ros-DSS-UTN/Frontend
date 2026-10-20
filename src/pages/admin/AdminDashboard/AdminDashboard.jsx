@@ -16,9 +16,7 @@ import {
   Info,
   BarChart3,
   Calendar,
-  DollarSign,
   ClipboardList,
-  Layers,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -31,6 +29,7 @@ import { contactTypeLabel } from '../../../data/catalogs';
 import { activitiesApi, tasksApi } from '../../../api/operations.api';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { VoiceNotePlayer } from '../../../components/ui/VoiceRecorder/VoiceRecorder';
+import { CompanyServiceRecord } from './CompanyServiceRecord';
 import './AdminDashboard.css';
 
 /* ── Canvas Chart Helpers ── */
@@ -187,41 +186,6 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
   return <canvas ref={canvasRef} className="chart-canvas" style={{ width, height }} />;
 };
 
-/* ── Product Lines Horizontal Bar Chart ── */
-const ProductLinesChart = ({ data, width = '100%', height = 260 }) => {
-  const canvasRef = useCanvas((ctx, w, h) => {
-    if (!data || data.length === 0) return;
-    const padding = { top: 15, right: 60, bottom: 25, left: 130 };
-    const chartW = w - padding.left - padding.right;
-    const chartH = h - padding.top - padding.bottom;
-    const maxVal = Math.max(...data.map((d) => d.interactions), 1);
-    const itemH = chartH / data.length;
-    const barH = Math.min(16, itemH * 0.55);
-
-    data.forEach((d, i) => {
-      const cy = padding.top + i * itemH + itemH / 2;
-
-      ctx.fillStyle = '#334155';
-      ctx.font = '11px "Plus Jakarta Sans", Inter, sans-serif';
-      ctx.textAlign = 'right';
-      const label = d.productLine.length > 17 ? d.productLine.slice(0, 16) + '…' : d.productLine;
-      ctx.fillText(label, padding.left - 10, cy + 3);
-
-      const bWidth = (d.interactions / maxVal) * chartW;
-      ctx.beginPath();
-      ctx.roundRect(padding.left, cy - barH / 2, Math.max(bWidth, 4), barH, [4]);
-      ctx.fillStyle = d.color || '#1a7d6b';
-      ctx.fill();
-
-      ctx.fillStyle = '#64748b';
-      ctx.font = 'bold 11px "Plus Jakarta Sans", Inter, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`${d.interactions} (${d.pct}%)`, padding.left + Math.max(bWidth, 4) + 6, cy + 3);
-    });
-  }, [data]);
-
-  return <canvas ref={canvasRef} className="chart-canvas" style={{ width, height }} />;
-};
 
 /* ── Filter Dropdown Component ── */
 const FilterDropdown = ({ label, hint, icon: Icon, options, value, onChange }) => {
@@ -294,7 +258,6 @@ export const AdminDashboardPage = () => {
   const [sellers, setSellers] = useState([]);
   const [objectives, setObjectives] = useState([]);
   const [monthlySales, setMonthlySales] = useState([]);
-  const [productLines, setProductLines] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -315,7 +278,6 @@ export const AdminDashboardPage = () => {
         setSellers(data.sellers || []);
         setObjectives(data.objectives || []);
         setMonthlySales(data.monthlySales || []);
-        setProductLines(data.productLines || []);
 
         // Empresas (para "propietario del registro") y tareas (para "tareas concretadas")
         const [companiesRes, tasksRes, ordersRes] = await Promise.allSettled([fetchClientCompanies(), tasksApi.getAll(), serviceOrdersApi.getAll()]);
@@ -556,15 +518,6 @@ export const AdminDashboardPage = () => {
 
         <div className="exec-kpi-card">
           <div className="exec-kpi-header">
-            <DollarSign size={16} className="exec-kpi-icon teal" />
-            <span className="exec-kpi-title">Ventas totales ($)</span>
-          </div>
-          <div className="exec-kpi-value">{formatCurrency(historicalSalesTotal)}</div>
-          <span className="exec-kpi-foot">acumulado histórico</span>
-        </div>
-
-        <div className="exec-kpi-card">
-          <div className="exec-kpi-header">
             <Activity size={16} className="exec-kpi-icon orange" />
             <span className="exec-kpi-title">Interacciones</span>
           </div>
@@ -661,8 +614,13 @@ export const AdminDashboardPage = () => {
         </div>
       </div>
 
-      {/* Row 3: Ventas por Mes + Líneas de Producto */}
-      <div className="dashboard__grid">
+      {/* Row 3: Servicios cumplidos por cliente (respaldo para negociar con la empresa) */}
+      <div className="dashboard__row">
+        <CompanyServiceRecord companies={companies} />
+      </div>
+
+      {/* Row 3b: Ventas por Mes */}
+      <div className="dashboard__row">
         <div className="dashboard__chart-card">
           <div className="dashboard__chart-header">
             <div>
@@ -674,19 +632,6 @@ export const AdminDashboardPage = () => {
             </div>
           </div>
           <MonthlySalesChart data={monthlySales} height={260} />
-        </div>
-
-        <div className="dashboard__chart-card">
-          <div className="dashboard__chart-header">
-            <div>
-              <h3 className="dashboard__chart-title">
-                <Layers size={16} className="text-primary" />
-                Líneas de Producto y Servicios
-              </h3>
-              <p className="dashboard__chart-subtitle">Participación e interacciones por categoría</p>
-            </div>
-          </div>
-          <ProductLinesChart data={productLines} height={260} />
         </div>
       </div>
 

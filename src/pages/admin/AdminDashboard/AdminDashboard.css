@@ -164,7 +164,7 @@
 
 .dashboard__exec-kpis {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--space-3);
 }
 
@@ -525,4 +525,9 @@
   .dashboard__filters {
     flex-wrap: wrap;
   }
+}
+
+/* Filas de una sola tarjeta a todo el ancho */
+.dashboard__row {
+  min-width: 0;
 }
