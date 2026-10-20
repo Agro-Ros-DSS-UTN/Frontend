@@ -12,6 +12,57 @@ export const apiClient = axios.create({
   }
 });
 
+// ── Memoria de lecturas (GET) ──
+// Al volver a una pantalla dentro de los 2 minutos, sus datos salen de memoria al
+// instante en vez de pedirse otra vez al servidor. Cualquier alta, edición o baja
+// (POST/PUT/PATCH/DELETE) borra la memoria, así que después de guardar siempre se
+// ve lo nuevo. Lo que tiene que estar siempre al día no se guarda.
+// Para pedir algo sin memoria: apiClient.get(url, { cache: false }).
+const CACHE_TTL_MS = 2 * 60 * 1000;
+const CACHE_MAX = 150;
+const NO_CACHE = [/^\/?notifications/, /^\/?auth\//];
+const readCache = new Map();   // clave → { at, response } (respuesta sin procesar)
+const inFlight = new Map();    // clave → promesa (dos pantallas piden lo mismo a la vez)
+const networkAdapter = axios.getAdapter(axios.defaults.adapter);
+
+export const clearApiCache = () => {
+  readCache.clear();
+  inFlight.clear();
+};
+
+// Cada uso recibe su propia copia: los datos se vuelven a interpretar desde el
+// texto original, así una pantalla no modifica lo que ve otra.
+const copyOf = (response, config) => ({ ...response, config, headers: { ...response.headers } });
+
+apiClient.defaults.adapter = async (config) => {
+  const method = (config.method || 'get').toLowerCase();
+  if (method !== 'get') {
+    clearApiCache();
+    return networkAdapter(config);
+  }
+  const path = String(config.url || '');
+  if (config.cache === false || NO_CACHE.some((re) => re.test(path))) return networkAdapter(config);
+
+  const auth = config.headers?.Authorization || config.headers?.authorization || '';
+  const key = `${auth}|${apiClient.getUri(config)}`;
+  const hit = readCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return copyOf(hit.response, config);
+
+  if (!inFlight.has(key)) {
+    const request = networkAdapter(config)
+      .then((response) => {
+        if (response.status >= 200 && response.status < 300) {
+          if (readCache.size >= CACHE_MAX) readCache.delete(readCache.keys().next().value);
+          readCache.set(key, { at: Date.now(), response });
+        }
+        return response;
+      })
+      .finally(() => inFlight.delete(key));
+    inFlight.set(key, request);
+  }
+  return copyOf(await inFlight.get(key), config);
+};
+
 // Interceptor para inyectar token de autenticación si existe
 apiClient.interceptors.request.use((config) => {
   const savedUser = sessionStorage.getItem('agroros_user') || localStorage.getItem('agroros_user');

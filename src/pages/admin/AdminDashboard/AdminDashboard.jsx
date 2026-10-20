@@ -12,14 +12,12 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Activity,
-  Clock,
-  Filter,
   ChevronDown,
   Info,
   BarChart3,
   Calendar,
   DollarSign,
-  Award,
+  ClipboardList,
   Layers,
   CheckCircle2,
   AlertCircle,
@@ -31,6 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { getDashboardData, OPPORTUNITY_STATES, fetchClientCompanies } from '../../../data/api';
 import { contactTypeLabel } from '../../../data/catalogs';
 import { activitiesApi, tasksApi } from '../../../api/operations.api';
+import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { VoiceNotePlayer } from '../../../components/ui/VoiceRecorder/VoiceRecorder';
 import './AdminDashboard.css';
 
@@ -225,7 +224,7 @@ const ProductLinesChart = ({ data, width = '100%', height = 260 }) => {
 };
 
 /* ── Filter Dropdown Component ── */
-const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
+const FilterDropdown = ({ label, hint, icon: Icon, options, value, onChange }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -243,16 +242,19 @@ const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
         type="button"
         className={`dash-filter__btn ${value ? 'dash-filter__btn--active' : ''}`}
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        title={hint}
       >
-        <Icon size={14} />
-        <span>{value || label}</span>
-        <ChevronDown size={12} className={open ? 'rotate-180' : ''} />
+        <Icon size={14} aria-hidden="true" />
+        <span>{value ? `${label}: ${value}` : `${label}: todos`}</span>
+        <ChevronDown size={12} aria-hidden="true" className={`dash-filter__chevron ${open ? 'dash-filter__chevron--open' : ''}`} />
       </button>
       {open && (
-        <div className="dash-filter__menu">
+        <div className="dash-filter__dropdown">
           <button
             type="button"
-            className={`dash-filter__item ${!value ? 'selected' : ''}`}
+            aria-pressed={!value}
+            className={`dash-filter__option ${!value ? 'dash-filter__option--active' : ''}`}
             onClick={() => {
               onChange('');
               setOpen(false);
@@ -264,7 +266,8 @@ const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
             <button
               key={opt}
               type="button"
-              className={`dash-filter__item ${value === opt ? 'selected' : ''}`}
+              aria-pressed={value === opt}
+              className={`dash-filter__option ${value === opt ? 'dash-filter__option--active' : ''}`}
               onClick={() => {
                 onChange(opt);
                 setOpen(false);
@@ -297,7 +300,7 @@ export const AdminDashboardPage = () => {
   const [error, setError] = useState(null);
 
   const [filterOwner, setFilterOwner] = useState('');
-  const [filterPeriod, setFilterPeriod] = useState('');
+  const [serviceOrders, setServiceOrders] = useState([]);
 
   // 1. Cargar datos de la base de datos MySQL
   useEffect(() => {
@@ -315,8 +318,9 @@ export const AdminDashboardPage = () => {
         setProductLines(data.productLines || []);
 
         // Empresas (para "propietario del registro") y tareas (para "tareas concretadas")
-        const [companiesRes, tasksRes] = await Promise.allSettled([fetchClientCompanies(), tasksApi.getAll()]);
+        const [companiesRes, tasksRes, ordersRes] = await Promise.allSettled([fetchClientCompanies(), tasksApi.getAll(), serviceOrdersApi.getAll()]);
         if (companiesRes.status === 'fulfilled') setCompanies(companiesRes.value || []);
+        if (ordersRes.status === 'fulfilled') setServiceOrders(Array.isArray(ordersRes.value) ? ordersRes.value : []);
         if (tasksRes.status === 'fulfilled') {
           const rawTasks = tasksRes.value;
           setTasks(Array.isArray(rawTasks) ? rawTasks : rawTasks?.data || []);
@@ -370,8 +374,6 @@ export const AdminDashboardPage = () => {
   const ownerOptions = useMemo(() => [
     ...new Set(sellers.map((s) => s.fullName || s.user?.fullName).filter(Boolean)),
   ], [sellers]);
-
-  const periodOptions = ['Últimos 7 días', 'Últimos 30 días', 'Este trimestre', 'Año actual 2026'];
 
   const filteredOpps = useMemo(() => {
     let opps = opportunities;
@@ -430,29 +432,31 @@ export const AdminDashboardPage = () => {
     }));
   }, [filteredOpps]);
 
+  // Top 5: las empresas con más órdenes de servicio cargadas (sin contar las canceladas).
   const top5Clients = useMemo(() => {
-    const medals = ['🥇', '🥈', '🥉'];
-    return clients
-      .map((c) => {
-        const clientOpps = filteredOpps.filter((o) => o.companyId === c.id);
-        const totalSales = clientOpps.reduce((sum, o) => sum + (Number(o.billedVolume) || 0), 0);
-        const interactions = filteredActivities.filter((a) => a.companyId === c.id).length;
-
+    const byCompany = new Map();
+    serviceOrders
+      .filter((o) => o.companyId && o.status !== 'Cancelada')
+      .forEach((o) => byCompany.set(o.companyId, (byCompany.get(o.companyId) || 0) + 1));
+    const clientById = new Map(clients.map((c) => [c.id, c]));
+    return [...byCompany.entries()]
+      .map(([companyId, orders]) => {
+        const c = clientById.get(companyId) || serviceOrders.find((o) => o.companyId === companyId)?.company || {};
         return {
-          company: c.legalName || c.companyName,
+          companyId,
+          company: c.legalName || c.companyName || '—',
           type: c.companyType || 'Cliente',
-          sales: totalSales,
-          interactions,
+          orders,
+          interactions: filteredActivities.filter((a) => a.companyId === companyId).length,
           status: c.status || 'Activo',
           daysNoContact: c.daysWithoutContact || 0,
         };
       })
-      .sort((a, b) => b.sales - a.sales)
+      .sort((a, b) => b.orders - a.orders || a.company.localeCompare(b.company, 'es'))
       .slice(0, 5)
-      .map((item, idx) => ({ ...item, rank: idx + 1, medal: medals[idx] || `${idx + 1}º` }));
-  }, [clients, filteredOpps, filteredActivities]);
+      .map((item, idx) => ({ ...item, rank: idx + 1 }));
+  }, [clients, serviceOrders, filteredActivities]);
 
-  const activeFilters = [filterOwner, filterPeriod].filter(Boolean).length;
 
   if (loading) {
     return (
@@ -523,35 +527,18 @@ export const AdminDashboardPage = () => {
       {/* Filters Bar */}
       <div className="dashboard__filters">
         <div className="dashboard__filters-left">
-          <button type="button" className="dash-filter__btn dash-filter__btn--quick">
-            <Filter size={14} />
-            <span>Filtros rápidos</span>
-          </button>
           <FilterDropdown
-            label="Propietarios"
+            label="Vendedor"
+            hint="Muestra los indicadores, las oportunidades y las actividades de un solo vendedor"
             icon={Users}
             options={ownerOptions}
             value={filterOwner}
             onChange={setFilterOwner}
           />
-          <FilterDropdown
-            label="Período"
-            icon={Clock}
-            options={periodOptions}
-            value={filterPeriod}
-            onChange={setFilterPeriod}
-          />
         </div>
-        {activeFilters > 0 && (
-          <button
-            type="button"
-            className="dash-filter__clear"
-            onClick={() => {
-              setFilterOwner('');
-              setFilterPeriod('');
-            }}
-          >
-            Limpiar filtros ({activeFilters})
+        {filterOwner && (
+          <button type="button" className="dash-filter__clear" onClick={() => setFilterOwner('')}>
+            Ver todos los vendedores
           </button>
         )}
       </div>
@@ -618,10 +605,9 @@ export const AdminDashboardPage = () => {
         <div className="dashboard__card">
           <div className="dashboard__card-header">
             <div className="dashboard__card-title-group">
-              <Award size={18} className="text-amber" />
-              <h2 className="dashboard__card-title">Top 5 Clientes por Ventas</h2>
+              <ClipboardList size={18} className="text-primary" aria-hidden="true" />
+              <h2 className="dashboard__card-title">Top 5 clientes por órdenes de servicio</h2>
             </div>
-            <span className="dashboard__card-badge">Ranking Comercial</span>
           </div>
           <div className="top-clients-table-wrapper">
             <table className="top-clients-table">
@@ -630,7 +616,7 @@ export const AdminDashboardPage = () => {
                   <th>#</th>
                   <th>Empresa</th>
                   <th>Tipo</th>
-                  <th>Ventas ($)</th>
+                  <th>Órdenes</th>
                   <th>Interacciones</th>
                   <th>Estado</th>
                   <th>Sin Contacto</th>
@@ -640,16 +626,16 @@ export const AdminDashboardPage = () => {
                 {top5Clients.length === 0 ? (
                   <tr>
                     <td colSpan="7" style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>
-                      No hay suficientes datos registrados
+                      Todavía no hay órdenes de servicio cargadas.
                     </td>
                   </tr>
                 ) : (
                   top5Clients.map((c) => (
-                    <tr key={c.company}>
-                      <td className="rank-cell"><strong>{c.medal}</strong></td>
+                    <tr key={c.companyId}>
+                      <td className="rank-cell">{c.rank}º</td>
                       <td className="name-cell"><strong>{c.company}</strong></td>
                       <td><span className="client-type-tag">{c.type}</span></td>
-                      <td className="amount-cell"><strong>{formatCurrency(c.sales)}</strong></td>
+                      <td className="amount-cell"><strong>{c.orders}</strong></td>
                       <td>{c.interactions}</td>
                       <td><span className="client-status-badge">{c.status}</span></td>
                       <td className="text-muted">{c.daysNoContact} días</td>
@@ -709,7 +695,7 @@ export const AdminDashboardPage = () => {
         <div className="dashboard__card-header">
           <div className="dashboard__card-title-group">
             <Activity size={18} className="text-primary" />
-            <h2 className="dashboard__card-title">Registro de Últimas Actividades Comerciales (Sincronizado en Vivo)</h2>
+            <h2 className="dashboard__card-title">Últimas actividades comerciales</h2>
           </div>
           <span className="dashboard__card-badge">{activities.length} registradas</span>
         </div>
