@@ -53,6 +53,7 @@ import './ServiceOrdersPage.css';
 import { notify } from '../../../hooks/useNotifications';
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 import { checkText } from '../../../utils/validators';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 const SAMPLING_POINTS = ['Superficie', 'Medio', 'Fondo', 'Boca de carga', 'Ducto de descarga'];
 const FACILITY_TYPES = ['Silo', 'Celda', 'Galpón', 'Silo bolsa', 'Bodega', 'Planta'];
@@ -711,7 +712,7 @@ export const ServiceOrdersPage = () => {
 
   // Delete Order connected to Backend
   const handleDeleteOrder = async (orderId, num) => {
-    if (!window.confirm(`¿Estás seguro de eliminar la Orden de Servicio "${num}"?`)) return;
+    if (!await confirmAction(`¿Estás seguro de eliminar la Orden de Servicio "${num}"?`)) return;
     try {
       await notify.operation(serviceOrdersApi.delete(orderId), {
         loading: `Eliminando la orden ${num}…`,

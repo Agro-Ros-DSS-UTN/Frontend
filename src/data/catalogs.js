@@ -1,12 +1,14 @@
 // Catálogos fijos de la interfaz (los datos reales vienen siempre del backend).
 
 // Ciclo de vida de una Oportunidad (decisión D-2).
+// color = marcador fuerte (también para gráficos en canvas); bg/text = chip legible (AA).
+// Son los mismos valores que --status-* en design-tokens.css.
 export const OPPORTUNITY_STATUSES = [
-  { key: 'Prospecto', label: 'Prospecto', color: '#64748b', open: true, help: 'Cliente identificado, todavía sin contacto.' },
-  { key: 'Contactado', label: 'Contactado', color: '#0284c7', open: true, help: 'Ya hubo al menos una visita o llamada.' },
-  { key: 'Cotizado', label: 'Cotizado', color: '#c2410c', open: true, help: 'Se envió precio o propuesta.' },
-  { key: 'Ganada', label: 'Ganada', color: '#15803d', open: false, help: 'El cliente compró o contrató.' },
-  { key: 'Perdida', label: 'Perdida', color: '#dc2626', open: false, help: 'No se concretó (indicar el motivo).' },
+  { key: 'Prospecto', label: 'Prospecto', color: '#7a8799', bg: '#eceff3', text: '#3f4c5e', open: true, help: 'Cliente identificado, todavía sin contacto.' },
+  { key: 'Contactado', label: 'Contactado', color: '#1d6fc2', bg: '#e3eefa', text: '#0b5394', open: true, help: 'Ya hubo al menos una visita o llamada.' },
+  { key: 'Cotizado', label: 'Cotizado', color: '#c77a12', bg: '#fbf0dc', text: '#8a4b06', open: true, help: 'Se envió precio o propuesta.' },
+  { key: 'Ganada', label: 'Ganada', color: '#1f8a4c', bg: '#e2f3e8', text: '#14653a', open: false, help: 'El cliente compró o contrató.' },
+  { key: 'Perdida', label: 'Perdida', color: '#c8372d', bg: '#fbe7e5', text: '#a3231b', open: false, help: 'No se concretó (indicar el motivo).' },
 ];
 export const opportunityStatus = (key) => OPPORTUNITY_STATUSES.find((e) => e.key === key) || OPPORTUNITY_STATUSES[0];
 

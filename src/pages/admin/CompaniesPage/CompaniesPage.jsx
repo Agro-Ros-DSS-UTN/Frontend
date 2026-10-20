@@ -56,6 +56,7 @@ import { CompanySummary } from '../../../components/companies/CompanySummary';
 import './CompaniesPage.css';
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 import { checkName, checkCuit } from '../../../utils/validators';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 const COMPANY_TYPE_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
 
@@ -598,7 +599,7 @@ export const CompaniesPage = () => {
       regional && `${regional} regional${regional === 1 ? '' : 'es'}/subsede${regional === 1 ? '' : 's'} que quedarán sin empresa principal`,
     ].filter(Boolean);
     const notice = consequences.length ? `\n\nAtención, tiene:\n• ${consequences.join('\n• ')}` : '';
-    if (!window.confirm(`¿Dar de baja la empresa "${company.companyName}"? Deja de aparecer en las listas, pero su historial se conserva y la administración puede restaurarla.${notice}`)) return;
+    if (!await confirmAction(`¿Dar de baja la empresa "${company.companyName}"? Deja de aparecer en las listas, pero su historial se conserva y la administración puede restaurarla.${notice}`)) return;
 
     setDeletingId(company.id);
     try {
@@ -741,8 +742,8 @@ export const CompaniesPage = () => {
         {loading ? (
           <div style={{ padding: '20px' }}>
             <LoadingState
-              title="Conectando con la base de datos…"
-              message="Aguardá un instante mientras traemos las empresas registradas."
+              title="Cargando…"
+              message="Trayendo las empresas registradas."
             />
           </div>
         ) : (

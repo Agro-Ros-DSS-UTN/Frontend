@@ -43,6 +43,7 @@ import { MAX_ROADMAP_STOPS } from '../../../utils/timeOptions';
 import './RoadmapsPage.css';
 import { notify } from '../../../hooks/useNotifications';
 import { checkName } from '../../../utils/validators';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 // Base de datos de ejemplo amplia de empresas y localidades agrícolas
 
@@ -328,7 +329,7 @@ export const RoadmapsPage = () => {
 
   // Delete Roadmap Handler
   const handleDeleteRoadmap = async (routeId, routeZone) => {
-    if (!window.confirm(`¿Estás seguro de eliminar la hoja de ruta "${routeZone || 'seleccionada'}"?`)) {
+    if (!await confirmAction(`¿Estás seguro de eliminar la hoja de ruta "${routeZone || 'seleccionada'}"?`)) {
       return;
     }
     try {
@@ -523,8 +524,8 @@ export const RoadmapsPage = () => {
 
       {loading ? (
         <LoadingState
-          title="Conectando con la base de datos…"
-          message="Aguardá un instante mientras sincronizamos las hojas de ruta y sus paradas."
+          title="Cargando…"
+          message="Trayendo las hojas de ruta y sus paradas."
         />
       ) : activeTab === 'today' && (
         <>

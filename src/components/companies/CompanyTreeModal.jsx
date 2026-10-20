@@ -322,7 +322,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
 
         <div className="ctree__body">
           {loading ? (
-            <LoadingState title="Cargando estructura…" message="Trayendo regiones y sedes de la base de datos." />
+            <LoadingState title="Cargando estructura…" message="Trayendo regiones y sedes." />
           ) : error ? (
             <div className="ctree-empty">{error}</div>
           ) : (

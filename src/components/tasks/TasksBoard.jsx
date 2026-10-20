@@ -28,6 +28,7 @@ import './TasksBoard.css';
 import { notify } from '../../hooks/useNotifications';
 import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
 import { checkName, LIMITS } from '../../utils/validators';
+import { confirmAction } from '../ui/ConfirmDialog/ConfirmDialog';
 
 const TYPE_OPTIONS = [
   { value: 'llamada', label: 'Llamada' },
@@ -251,7 +252,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
   };
 
   const handleDeleteTask = async (taskId, title) => {
-    if (!window.confirm(`¿Eliminar la tarea "${title}"?`)) return;
+    if (!await confirmAction(`¿Eliminar la tarea "${title}"?`)) return;
     try {
       await notify.operation(tasksApi.delete(taskId), {
         loading: 'Eliminando tarea…',

@@ -37,6 +37,7 @@ import { OPPORTUNITY_STATUSES, ACTIVITY_CONTACT_TYPES, contactTypeLabel } from '
 import { enqueue, sendPending, isNetworkError, newUuid, onQueueChange, pending, rejected, discardRejected } from '../../utils/offlineQueue';
 import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
 import { checkText } from '../../utils/validators';
+import { confirmAction } from '../ui/ConfirmDialog/ConfirmDialog';
 
 const CONTACT_ICONS = { visita: MapPin, llamada: Phone, whatsapp: MessageSquare, email: Mail, reunion: Building2 };
 const CONTACT_TYPE_OPTIONS = ACTIVITY_CONTACT_TYPES.map((t) => ({ value: t.value, label: t.label, icon: CONTACT_ICONS[t.value] }));
@@ -430,7 +431,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   };
 
   const handleDeleteActivity = async (act) => {
-    const ok = window.confirm(
+    const ok = await confirmAction(
       '¿Eliminar esta actividad?\n\nSus tareas de seguimiento se conservan (quedan sin actividad de origen).'
     );
     if (!ok) return;
@@ -573,7 +574,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
 
         <div className="tasks-board__table-wrapper">
           {loading ? (
-            <LoadingState title="Conectando con la base de datos…" message="Cargando las actividades registradas." />
+            <LoadingState title="Cargando…" message="Cargando las actividades registradas." />
           ) : (
             <table className="tasks-board__table">
               <thead>

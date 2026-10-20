@@ -10,6 +10,7 @@ import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../.
 import { notify } from '../../../hooks/useNotifications';
 import './ObjectivesPage.css';
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 // CUU02 — Asignar un objetivo a un vendedor para un período (semana o mes).
 const pad = (n) => String(n).padStart(2, '0');
@@ -159,7 +160,7 @@ export const ObjectivesPage = () => {
     } catch (err) {
       if (err?.response?.status === 409 && !force) {
         // Ya hay un objetivo del mismo tipo en ese período: se pide confirmación.
-        if (window.confirm(`${err.response.data.message}\n\nAceptar: crearlo igual.  Cancelar: revisar.`)) return save(null, true);
+        if (await confirmAction(`${err.response.data.message}\n\nAceptar: crearlo igual.  Cancelar: revisar.`)) return save(null, true);
         return;
       }
       notify.error('No se pudo asignar el objetivo', err);
@@ -169,7 +170,7 @@ export const ObjectivesPage = () => {
   };
 
   const remove = async (obj) => {
-    if (!window.confirm(`¿Eliminar el objetivo "${obj.description}"?`)) return;
+    if (!await confirmAction(`¿Eliminar el objetivo "${obj.description}"?`)) return;
     try {
       await objectivesApi.delete(obj.id);
       setObjectives((prev) => prev.filter((o) => o.id !== obj.id));

@@ -129,8 +129,8 @@ export const SellerDashboardPage = () => {
     return (
       <div className="seller-dashboard">
         <LoadingState
-          title="Conectando con la base de datos…"
-          message="Traendo tu objetivo semanal, tu hoja de ruta y tus tareas asignadas."
+          title="Cargando…"
+          message="Trayendo tu objetivo semanal, tu hoja de ruta y tus tareas asignadas."
         />
       </div>
     );

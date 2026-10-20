@@ -1,0 +1,263 @@
+/* ═══════════════════════════════════════════════════════════════
+   Componentes compartidos: botones, chips de estado, tablas, vacíos,
+   carga y diálogo de confirmación. Valores de design-tokens.css.
+
+   Los botones de cada pantalla tenían su propia clase (unas 25). Para que
+   todos se vean igual sin tocar el JSX, se agrupan acá con `html body :is(…)`,
+   que pesa más que la regla de cada pantalla. Para botones nuevos usar
+   .btn + .btn--primary | --secondary | --ghost | --danger | --icon.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Botón base ── */
+.btn,
+html body :is(.crm-btn-primary, .crm-btn-export, .btn-rounded-primary, .roadmaps-btn, .cs-ghost-btn, .ctree-btn,
+  .tasks-board__submit-btn, .tasks-board__cancel-btn, .logout-btn-cancel, .logout-btn-confirm, .session-expired-btn,
+  .promo-card__btn, .seller-roadmap-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 38px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: none;
+  transform: none;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+/* ── Primario: verde de marca (uno por vista) ── */
+.btn--primary,
+html body :is(.crm-btn-primary, .btn-rounded-primary, .roadmaps-btn--primary, .ctree-btn--primary,
+  .tasks-board__submit-btn, .logout-btn-confirm, .session-expired-btn) {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--text-inverse);
+}
+.btn--primary:hover,
+html body :is(.crm-btn-primary, .btn-rounded-primary, .roadmaps-btn--primary, .ctree-btn--primary,
+  .tasks-board__submit-btn, .logout-btn-confirm, .session-expired-btn):hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  color: var(--text-inverse);
+  transform: none;
+  box-shadow: none;
+}
+.btn--primary:active,
+html body :is(.crm-btn-primary, .btn-rounded-primary, .roadmaps-btn--primary, .tasks-board__submit-btn):active {
+  background-color: var(--color-primary-active);
+}
+
+/* ── Secundario: borde, fondo blanco ── */
+.btn--secondary,
+html body :is(.crm-btn-export, .roadmaps-btn--outline, .tasks-board__cancel-btn, .logout-btn-cancel, .ctree-btn--ghost, .cs-ghost-btn) {
+  background-color: var(--bg-card);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.btn--secondary:hover,
+html body :is(.crm-btn-export, .roadmaps-btn--outline, .tasks-board__cancel-btn, .logout-btn-cancel, .ctree-btn--ghost, .cs-ghost-btn):hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-control);
+  color: var(--text-strong);
+  transform: none;
+  box-shadow: none;
+}
+
+/* El botón "transparente" de exportar en encabezados sobre fondo de color */
+html body .crm-btn-export.crm-btn-export--transparent {
+  background-color: transparent;
+}
+
+/* ── Fantasma: solo texto ── */
+.btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--color-primary-text);
+}
+.btn--ghost:hover { background-color: var(--color-primary-50); }
+
+/* ── Peligro ── */
+.btn--danger {
+  background-color: var(--bg-card);
+  border-color: var(--color-danger);
+  color: var(--color-danger-text);
+}
+.btn--danger:hover { background-color: var(--color-danger-bg); }
+.btn--danger-solid {
+  background-color: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--text-inverse);
+}
+.btn--danger-solid:hover { background-color: var(--color-danger-text); border-color: var(--color-danger-text); }
+
+/* ── Deshabilitado / cargando ── */
+.btn:disabled,
+html body :is(.crm-btn-primary, .crm-btn-export, .btn-rounded-primary, .roadmaps-btn, .tasks-board__submit-btn,
+  .tasks-board__cancel-btn, .ctree-btn, .cs-ghost-btn, .promo-card__btn):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Botones de ícono (acciones de fila) ── */
+.btn--icon,
+html body :is(.tasks-board__icon-btn, .tasks-board__delete-btn, .users-table__action-btn, .companies-table__action-btn,
+  .so-action-icon-btn, .stop-action-btn, .promo-card__del) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.btn--icon:hover,
+html body :is(.tasks-board__icon-btn, .users-table__action-btn, .companies-table__action-btn, .so-action-icon-btn, .stop-action-btn):hover {
+  background-color: var(--bg-hover);
+  color: var(--text-strong);
+}
+html body :is(.tasks-board__delete-btn, .users-table__action-btn--danger, .promo-card__del):hover {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+/* En celular, objetivos de toque de al menos 40 px */
+@media (max-width: 767px) {
+  .btn,
+  html body :is(.crm-btn-primary, .crm-btn-export, .btn-rounded-primary, .roadmaps-btn, .tasks-board__submit-btn, .tasks-board__cancel-btn) {
+    min-height: 42px;
+  }
+  .btn--icon,
+  html body :is(.tasks-board__icon-btn, .tasks-board__delete-btn, .users-table__action-btn, .companies-table__action-btn, .so-action-icon-btn, .stop-action-btn) {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* ═════════════ Chip de estado ═════════════
+   Fondo claro, texto oscuro (AA) y un marcador cuadrado del color fuerte,
+   como el cartel de un lote. Igual en oportunidades, tareas, rutas y órdenes.
+   Uso: <span class="status-chip" style="--chip-bg:…; --chip-text:…; --chip-mark:…">Ganada</span>
+   o con data-status (ver abajo). */
+.status-chip,
+html body .deal-stage-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 6px;
+  border-radius: var(--radius-full);
+  background: var(--chip-bg, var(--status-prospecto-bg)) !important;
+  color: var(--chip-text, var(--status-prospecto-text)) !important;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.status-chip::before,
+html body .deal-stage-pill::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--chip-mark, var(--status-prospecto));
+  flex-shrink: 0;
+}
+.status-chip[data-status='Prospecto']  { --chip-bg: var(--status-prospecto-bg);  --chip-text: var(--status-prospecto-text);  --chip-mark: var(--status-prospecto); }
+.status-chip[data-status='Contactado'] { --chip-bg: var(--status-contactado-bg); --chip-text: var(--status-contactado-text); --chip-mark: var(--status-contactado); }
+.status-chip[data-status='Cotizado']   { --chip-bg: var(--status-cotizado-bg);   --chip-text: var(--status-cotizado-text);   --chip-mark: var(--status-cotizado); }
+.status-chip[data-status='Ganada']     { --chip-bg: var(--status-ganada-bg);     --chip-text: var(--status-ganada-text);     --chip-mark: var(--status-ganada); }
+.status-chip[data-status='Perdida']    { --chip-bg: var(--status-perdida-bg);    --chip-text: var(--status-perdida-text);    --chip-mark: var(--status-perdida); }
+
+/* ═════════════ Tablas ═════════════
+   Contenedores de tabla: scroll horizontal ordenado (sin desbordar la página)
+   y primera columna fija en celular. */
+html body :is(.tasks-board__table-wrapper, .companies-page__table-wrapper, .contacts-page__table-wrapper,
+  .users-page__table-wrapper, .deals-table-container, .top-clients-table-wrapper, .so-table-wrapper, .roadmaps-table-wrapper,
+  .cs-table-wrap, .csd-table-wrap) {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-layout__content table:not(.so-sheet) tbody tr {
+  transition: background-color var(--transition-fast);
+}
+.admin-layout__content table:not(.so-sheet) tbody tr:hover {
+  background-color: var(--bg-hover);
+}
+
+/* ═════════════ Estado vacío ═════════════ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+.empty-state__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+.empty-state__text { max-width: 46ch; }
+.empty-state .btn { margin-top: var(--space-2); }
+
+/* ═════════════ Diálogo de confirmación ═════════════ */
+.confirm-dialog__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--bg-overlay);
+}
+.confirm-dialog {
+  width: min(440px, 100%);
+  padding: var(--space-6);
+  border-radius: var(--radius-panel);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-xl);
+}
+.confirm-dialog__title {
+  font-size: var(--text-xl);
+  margin-bottom: var(--space-2);
+}
+.confirm-dialog__message {
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+@media (max-width: 480px) {
+  .confirm-dialog__actions { flex-direction: column-reverse; }
+  .confirm-dialog__actions .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .confirm-dialog { animation: confirm-in var(--duration-base) var(--ease-out); }
+  @keyframes confirm-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}

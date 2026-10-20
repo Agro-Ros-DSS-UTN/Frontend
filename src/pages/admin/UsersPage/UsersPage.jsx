@@ -38,6 +38,7 @@ import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import './UsersPage.css';
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 import { checkPersonName, checkEmail } from '../../../utils/validators';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 const TABS = [
   { key: 'all', label: 'Todos los usuarios' },
@@ -368,7 +369,7 @@ export const UsersPage = () => {
 
   const handleDeleteUser = async (id, e) => {
     if (e) e.stopPropagation();
-    if (!window.confirm(`¿Estás seguro de eliminar el usuario @${id}?`)) return;
+    if (!await confirmAction(`¿Estás seguro de eliminar el usuario @${id}?`)) return;
 
     try {
       await notify.operation(apiDeleteUser(id), {
@@ -505,7 +506,7 @@ export const UsersPage = () => {
               {loading ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                    Cargando usuarios desde MySQL...
+                    Cargando usuarios…
                   </td>
                 </tr>
               ) : paginatedUsers.length === 0 ? (

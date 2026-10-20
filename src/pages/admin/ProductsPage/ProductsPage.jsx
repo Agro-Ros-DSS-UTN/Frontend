@@ -33,6 +33,7 @@ import { PageHeaderActions, PrimaryActionButton, ExportActionButton } from '../.
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import './ProductsPage.css';
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 export const ProductsPage = () => {
   // ── 1. Declaración agrupada de todos los estados del componente ──
@@ -381,8 +382,8 @@ export const ProductsPage = () => {
           <button
             type="button"
             className="table-action-btn delete"
-            onClick={(e) => {
-              if (window.confirm(`¿Eliminar "${row.name}" de la base de datos?`)) {
+            onClick={async (e) => {
+              if (await confirmAction(`¿Eliminar "${row.name}" de la base de datos?`)) {
                 deleteProduct(row.id, e);
               }
             }}
@@ -477,7 +478,7 @@ export const ProductsPage = () => {
         {loading ? (
           <div className="roadmaps-loading-state-box" style={{ margin: '30px 20px' }}>
             <div className="r-spinner-icon" />
-            <h3>Conectando con la base de datos...</h3>
+            <h3>Cargando…</h3>
             <p>Por favor aguardá un instante mientras cargamos los productos de la base de datos.</p>
           </div>
         ) : (

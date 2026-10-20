@@ -1,26 +1,26 @@
-/* LoadingState — estado de carga contra la base de datos (tema claro) */
+/* LoadingState — aviso de carga mientras llegan los datos.
+   Liviano: sin tarjeta con sombra, para que la espera no tape la pantalla. */
 
 .loading-state {
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: 16px;
-  padding: 64px 24px;
-  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-4);
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-panel);
 }
 
 .loading-state__spinner {
-  width: 42px;
-  height: 42px;
-  border: 3.5px solid var(--border-light);
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border-light);
   border-top-color: var(--color-primary);
   border-radius: 50%;
-  animation: loadingStateSpin 0.7s linear infinite;
+  animation: loadingStateSpin 0.8s linear infinite;
 }
 
 @keyframes loadingStateSpin {
@@ -29,16 +29,26 @@
   }
 }
 
+/* Con movimiento reducido el anillo queda quieto (el texto ya avisa que carga) */
+@media (prefers-reduced-motion: reduce) {
+  .loading-state__spinner {
+    animation: none;
+    border-top-color: var(--border-light);
+    border-color: var(--color-primary-200);
+  }
+}
+
 .loading-state__title {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--text-strong);
   margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
 }
 
 .loading-state__message {
-  font-size: 0.86rem;
-  color: var(--text-muted);
   margin: 0;
-  max-width: 420px;
+  max-width: 46ch;
+  font-size: var(--text-base);
+  color: var(--text-muted);
 }

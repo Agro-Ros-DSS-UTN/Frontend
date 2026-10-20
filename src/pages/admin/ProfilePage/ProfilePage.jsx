@@ -20,6 +20,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../../hooks/useNotifications';
 import './ProfilePage.css';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 const TABS = [
   { key: 'profile', label: 'Perfil' },
@@ -180,9 +181,9 @@ export const ProfilePage = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleRemoveImage = (e) => {
+  const handleRemoveImage = async (e) => {
     e.stopPropagation();
-    if (window.confirm('¿Querés eliminar tu foto de perfil?')) {
+    if (await confirmAction('¿Querés eliminar tu foto de perfil?')) {
       updateProfileImage(null);
     }
   };

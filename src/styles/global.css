@@ -4,6 +4,7 @@
 @import '../components/ui/FormInput/FormInput.css';
 @import '../components/ui/DataTable/DataTable.css';
 @import '../components/ui/SlideDrawer/SlideDrawer.css';
+@import './components.css';
 
 * {
   box-sizing: border-box;

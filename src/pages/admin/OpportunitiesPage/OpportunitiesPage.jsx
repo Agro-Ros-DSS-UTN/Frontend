@@ -40,9 +40,10 @@ import './OpportunitiesPage.css';
 import { notify } from '../../../hooks/useNotifications';
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 import { checkName, checkText, LIMITS } from '../../../utils/validators';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 // Ciclo de vida de la Oportunidad (5 estados). "bg/text" para las píldoras.
-const DEAL_STAGES = OPPORTUNITY_STATUSES.map((e) => ({ key: e.key, label: e.label, color: e.color, bg: e.color, text: '#ffffff', help: e.help }));
+const DEAL_STAGES = OPPORTUNITY_STATUSES.map((e) => ({ key: e.key, label: e.label, color: e.color, bg: e.bg, text: e.text, help: e.help }));
 const OPEN_STATUSES = OPPORTUNITY_STATUSES.filter((e) => e.open).map((e) => e.key);
 
 const POTENTIAL_OPTIONS = [
@@ -299,7 +300,7 @@ export const OpportunitiesPage = () => {
   };
 
   const handleDeleteDeal = async (deal) => {
-    if (!window.confirm(`¿Dar de baja la oportunidad "${deal.dealName}"? Sus actividades se conservan.`)) return;
+    if (!await confirmAction(`¿Dar de baja la oportunidad "${deal.dealName}"? Sus actividades se conservan.`)) return;
     try {
       await deleteOpportunity(deal.id);
       setDeals((prev) => prev.filter((d) => d.id !== deal.id));
@@ -491,7 +492,7 @@ export const OpportunitiesPage = () => {
 
         {loading ? (
           <div style={{ padding: '20px' }}>
-            <LoadingState title="Conectando con la base de datos…" message="Aguardá un instante mientras traemos las oportunidades." />
+            <LoadingState title="Cargando…" message="Trayendo las oportunidades." />
           </div>
         ) : viewMode === 'table' ? (
           <div className="deals-table-container">
@@ -544,7 +545,7 @@ export const OpportunitiesPage = () => {
                           </div>
                         </td>
                         <td>
-                          <span className="deal-stage-pill" style={{ backgroundColor: stage.bg, color: stage.text || '#fff' }}>
+                          <span className="deal-stage-pill" style={{ '--chip-bg': stage.bg, '--chip-text': stage.text, '--chip-mark': stage.color }}>
                             {stage.label}
                           </span>
                         </td>

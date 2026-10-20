@@ -32,6 +32,7 @@ import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { ContactSummary } from '../../../components/contacts/ContactSummary';
 import './ContactsPage.css';
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 const COLUMNS = [
   { key: 'fullName', label: 'Nombre',           sortable: true },
@@ -102,7 +103,7 @@ export const ContactsPage = () => {
 
   const handleDelete = async (client) => {
     const id = client?.id;
-    if (!id || !window.confirm('¿Dar de baja este contacto? Deja de aparecer en las listas; su historial se conserva.')) return;
+    if (!id || !await confirmAction('¿Dar de baja este contacto? Deja de aparecer en las listas; su historial se conserva.')) return;
     try {
       await notify.operation(deleteClient(id), {
         loading: 'Dando de baja el contacto…',
@@ -405,8 +406,8 @@ export const ContactsPage = () => {
         {loading ? (
           <div style={{ padding: '20px' }}>
             <LoadingState
-              title="Conectando con la base de datos…"
-              message="Aguardá un instante mientras traemos los contactos registrados."
+              title="Cargando…"
+              message="Trayendo los contactos registrados."
             />
           </div>
         ) : (

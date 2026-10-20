@@ -27,6 +27,7 @@ import { notify } from '../../../hooks/useNotifications';
 import { ComboBox } from '../../../components/ui/ComboBox/ComboBox';
 import { LIMITS, checkDni, checkEmail, checkPersonName, checkPhone, checkText, collectErrors, normalizeDni } from '../../../utils/validators';
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -260,7 +261,7 @@ export const EmployeesPage = () => {
   };
 
   const handleDelete = async (emp) => {
-    if (!window.confirm(`¿Eliminar al empleado "${emp.fullName}"?`)) return;
+    if (!await confirmAction(`¿Eliminar al empleado "${emp.fullName}"?`)) return;
     try {
       await notify.operation(employeesApi.delete(emp.id), {
         loading: `Eliminando a ${emp.fullName}…`,

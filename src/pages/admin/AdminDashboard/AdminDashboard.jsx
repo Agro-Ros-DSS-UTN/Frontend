@@ -473,7 +473,7 @@ export const AdminDashboardPage = () => {
         }}
       >
         <Loader2 className="animate-spin" size={36} color="#1a7d6b" />
-        <p>Cargando información desde la base de datos...</p>
+        <p>Cargando el tablero…</p>
       </div>
     );
   }

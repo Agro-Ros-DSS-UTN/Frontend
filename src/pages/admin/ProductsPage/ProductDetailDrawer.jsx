@@ -11,6 +11,7 @@
   Sparkles,
 } from 'lucide-react';
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 export const ProductDetailDrawer = ({
   product,
@@ -156,8 +157,8 @@ export const ProductDetailDrawer = ({
             type="button"
             className="roadmaps-btn roadmaps-btn--outline"
             style={{ padding: '10px 14px', borderRadius: '8px', color: '#ef4444', borderColor: '#fca5a5' }}
-            onClick={() => {
-              if (window.confirm(`¿Estás seguro de eliminar "${product.name}"?`)) {
+            onClick={async () => {
+              if (await confirmAction(`¿Estás seguro de eliminar "${product.name}"?`)) {
                 onDelete(product.id);
               }
             }}

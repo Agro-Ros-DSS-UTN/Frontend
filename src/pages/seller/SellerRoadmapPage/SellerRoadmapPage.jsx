@@ -40,6 +40,7 @@ import { useOverlayClose } from '../../../hooks/useOverlayClose';
 import { TIME_OPTIONS, MAX_ROADMAP_STOPS } from '../../../utils/timeOptions';
 import '../../admin/RoadmapsPage/RoadmapsPage.css';
 import './SellerRoadmapPage.css';
+import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 const formatRoadmap = (r, idx = 0) => ({
   id: r.id,
@@ -307,7 +308,7 @@ export const SellerRoadmapPage = () => {
 
   const handleEndRoute = async () => {
     if (!route?.id || acting) return;
-    if (!window.confirm('¿Finalizar la hoja de ruta? No vas a poder agregar más paradas después.')) return;
+    if (!await confirmAction('¿Finalizar la hoja de ruta? No vas a poder agregar más paradas después.')) return;
     setActing(true);
     try {
       await roadmapsApi.end(route.id);
@@ -407,7 +408,7 @@ export const SellerRoadmapPage = () => {
 
   const handleDeleteRoadmap = async (routeId, zone) => {
     if (!routeId) return;
-    if (!window.confirm(`¿Eliminar la hoja de ruta "${zone || 'seleccionada'}"? Esta acción no se puede deshacer.`)) return;
+    if (!await confirmAction(`¿Eliminar la hoja de ruta "${zone || 'seleccionada'}"? Esta acción no se puede deshacer.`)) return;
     setActing(true);
     try {
       await roadmapsApi.delete(routeId);
@@ -453,7 +454,7 @@ export const SellerRoadmapPage = () => {
       </div>
 
       {loading ? (
-        <LoadingState title="Conectando con la base de datos…" message="Aguardá un instante mientras sincronizamos tu hoja de ruta." />
+        <LoadingState title="Cargando…" message="Trayendo tu hoja de ruta." />
       ) : activeTab === 'history' ? (
         <div className="seller-roadmap-history">
           {pastRoutes.length === 0 ? (

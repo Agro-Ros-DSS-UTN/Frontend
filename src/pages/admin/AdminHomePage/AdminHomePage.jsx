@@ -213,7 +213,7 @@ export const AdminHomePage = () => {
     return (
       <div className="admin-home">
         <LoadingState
-          title="Conectando con la base de datos…"
+          title="Cargando…"
           message="Trayendo tareas, hojas de ruta y objetivos de todo el equipo."
         />
       </div>

@@ -20,6 +20,7 @@ import './PromotionsBoard.css';
 import { notify } from '../../hooks/useNotifications';
 import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
 import { checkName, checkText } from '../../utils/validators';
+import { confirmAction } from '../ui/ConfirmDialog/ConfirmDialog';
 
 const ACCENTS = [
   { value: '#1a7d6b', label: 'Verde AgroRos' },
@@ -184,7 +185,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
   };
 
   const handleDelete = async (p) => {
-    if (!window.confirm(`¿Eliminar la promoción "${p.name}"?`)) return;
+    if (!await confirmAction(`¿Eliminar la promoción "${p.name}"?`)) return;
     try {
       await notify.operation(promotionsApi.delete(p.id), {
         loading: 'Eliminando promoción…',
@@ -281,8 +282,8 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
 
       {loading ? (
         <LoadingState
-          title="Conectando con la base de datos…"
-          message="Aguardá un instante mientras traemos las promociones vigentes."
+          title="Cargando…"
+          message="Trayendo las promociones vigentes."
         />
       ) : filtered.length === 0 ? (
         <div className="promo-board__empty">

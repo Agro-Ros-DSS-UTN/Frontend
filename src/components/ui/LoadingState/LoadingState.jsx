@@ -1,15 +1,15 @@
 import './LoadingState.css';
 
 /**
- * LoadingState — cartel de carga estándar mientras se consulta la base de datos.
+ * LoadingState — aviso de carga estándar mientras llegan los datos.
  * Reemplaza el uso de datos mock que "parpadean" antes de los reales.
  */
 export const LoadingState = ({
-  title = 'Conectando con la base de datos…',
-  message = 'Aguardá un instante mientras traemos la información real.',
+  title = 'Cargando…',
+  message = null,
 }) => (
-  <div className="loading-state">
-    <div className="loading-state__spinner" />
+  <div className="loading-state" role="status" aria-live="polite">
+    <div className="loading-state__spinner" aria-hidden="true" />
     <h3 className="loading-state__title">{title}</h3>
     {message && <p className="loading-state__message">{message}</p>}
   </div>
