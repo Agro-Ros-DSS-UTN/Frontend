@@ -41,7 +41,7 @@
   font-weight: 700;
 }
 
-.text-green { color: #16a34a; }
+.text-green { color: var(--color-primary-text); }
 
 /* ── Grid: Map + Stops ── */
 .seller-roadmap-grid {
@@ -131,9 +131,9 @@
 .seller-stops-progress {
   font-size: 11px;
   font-weight: 700;
-  color: #15803d;
-  background: #dcfce7;
-  border: 1px solid #bbf7d0;
+  color: var(--color-primary-text);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-200);
   padding: 4px 10px;
   border-radius: 9999px;
 }
@@ -180,12 +180,12 @@
 
 .seller-stop-card.selected {
   border-color: var(--color-primary);
-  background: #f0fdf4;
+  background: var(--color-primary-50);
 }
 
 .seller-stop-card.selected::before,
 .seller-stop-card.is-done::before {
-  background: #16a34a;
+  background: var(--color-primary);
 }
 
 .seller-stop-card.is-done {
@@ -218,7 +218,7 @@
   transform: scale(1.08);
 }
 
-.stop-circle.completada { background: #16a34a; }
+.stop-circle.completada { background: var(--color-primary); }
 .stop-circle.en-camino { background: #0284c7; }
 .stop-circle.pendiente { background: #64748b; }
 
@@ -248,7 +248,7 @@
   align-items: center;
   gap: 3px;
   font-size: 11px;
-  color: #16a34a;
+  color: var(--color-primary-text);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -277,8 +277,8 @@
   margin-top: 6px;
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 3px 8px;
   border-radius: 9999px;
   background: var(--bg-hover);
@@ -286,13 +286,13 @@
 }
 
 .stop-card-badge.completada {
-  background: #f0fdf4;
-  color: #15803d;
+  background: var(--color-primary-50);
+  color: var(--color-primary-text);
 }
 
 .stop-card-badge.en-camino {
-  background: #eff6ff;
-  color: #0284c7;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
 
 .stop-card-badge.pendiente {
@@ -337,12 +337,12 @@
 }
 
 .stop-action-btn.waze {
-  color: #0284c7;
+  color: var(--color-info-text);
   padding: 0 7px;
 }
 
 .stop-action-btn.waze:hover {
-  background: #e0f2fe;
+  background: var(--color-info-bg);
 }
 
 .stop-action-btn.whatsapp {
@@ -431,9 +431,9 @@
   gap: 5px;
   font-size: 11px;
   font-weight: 700;
-  color: #15803d;
-  background: #dcfce7;
-  border: 1px solid #bbf7d0;
+  color: var(--color-primary-text);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-200);
   padding: 5px 10px;
   border-radius: 9999px;
   white-space: nowrap;
@@ -446,8 +446,8 @@
   gap: 6px;
   font-size: 0.8rem;
   color: var(--text-strong);
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-200);
   padding: 8px 12px;
   border-radius: 8px;
   width: fit-content;
@@ -457,12 +457,12 @@
 .seller-roadmap-adhoc-badge {
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 3px 8px;
   border-radius: 9999px;
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .seller-roadmap-stop-link {

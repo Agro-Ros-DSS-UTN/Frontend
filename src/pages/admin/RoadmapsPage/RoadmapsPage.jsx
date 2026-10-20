@@ -536,7 +536,7 @@ export const RoadmapsPage = () => {
                 <Car size={20} />
               </div>
               <div>
-                <div className="roadmap-kpi-label">VENDEDORES EN RUTA</div>
+                <div className="roadmap-kpi-label">Vendedores en ruta</div>
                 <div className="roadmap-kpi-value">{routesToday.length} activos</div>
               </div>
             </div>
@@ -546,7 +546,7 @@ export const RoadmapsPage = () => {
                 <Navigation size={20} />
               </div>
               <div>
-                <div className="roadmap-kpi-label">DISTANCIA ESTIMADA</div>
+                <div className="roadmap-kpi-label">Distancia estimada</div>
                 <div className="roadmap-kpi-value">{totalKmToday} km</div>
               </div>
             </div>
@@ -556,7 +556,7 @@ export const RoadmapsPage = () => {
                 <CheckCircle2 size={20} />
               </div>
               <div>
-                <div className="roadmap-kpi-label">PROGRESO DE VISITAS</div>
+                <div className="roadmap-kpi-label">Progreso de visitas</div>
                 <div className="roadmap-kpi-value">
                   {completedStopsToday} de {totalStopsToday} ({totalStopsToday > 0 ? Math.round((completedStopsToday / totalStopsToday) * 100) : 0}%)
                 </div>

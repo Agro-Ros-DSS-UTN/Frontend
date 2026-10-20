@@ -82,11 +82,11 @@
   flex-shrink: 0;
 }
 
-.notif-item__icon.blue { background: #f0f9ff; color: #0ea5e9; }
+.notif-item__icon.blue { background: var(--color-info-bg); color: #0ea5e9; }
 .notif-item__icon.teal { background: var(--color-primary-50, #ecfdf5); color: var(--color-primary, #1a7d6b); }
-.notif-item__icon.amber { background: #fffbeb; color: #f59e0b; }
-.notif-item__icon.green { background: #f0fdf4; color: #16a34a; }
-.notif-item__icon.danger { background: #fef2f2; color: #dc2626; }
+.notif-item__icon.amber { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.notif-item__icon.green { background: var(--color-primary-50); color: var(--color-primary-text); }
+.notif-item__icon.danger { background: var(--color-danger-bg); color: var(--color-danger-text); }
 
 .notif-item__body {
   display: flex;

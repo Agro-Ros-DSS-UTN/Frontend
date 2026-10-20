@@ -44,8 +44,8 @@
   border: 1px solid var(--color-primary-100, #a7f3d0);
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 2px 8px;
   border-radius: var(--radius-full, 9999px);
 }
@@ -165,8 +165,8 @@
 }
 
 .so-kpi-icon--blue {
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
 
 .so-kpi-icon--green {
@@ -175,8 +175,8 @@
 }
 
 .so-kpi-icon--amber {
-  background: #fffbeb;
-  color: #d97706;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .so-kpi-info {
@@ -187,8 +187,8 @@
 .so-kpi-label {
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-muted, #64748b);
   margin-bottom: 2px;
 }
@@ -302,8 +302,8 @@
   font-weight: 700;
   color: var(--text-secondary, #64748b);
   font-size: var(--text-xs, 11px);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  text-transform: none;
+  letter-spacing: 0;
   border-bottom: 1px solid var(--border-light, #e2e8f0);
   white-space: nowrap;
   user-select: none;
@@ -343,7 +343,7 @@
 }
 
 .so-order-tag-btn:hover {
-  background: #d1fae5;
+  background: var(--color-primary-light);
   border-color: #6ee7b7;
   transform: translateY(-1px);
 }
@@ -505,15 +505,15 @@
 }
 
 .so-action-icon-btn--print:hover {
-  color: #2563eb;
-  border-color: #bfdbfe;
-  background: #eff6ff;
+  color: var(--color-info-text);
+  border-color: var(--color-info-bg);
+  background: var(--color-info-bg);
 }
 
 .so-action-icon-btn--eval:hover {
-  color: #d97706;
-  border-color: #fde68a;
-  background: #fffbeb;
+  color: var(--color-warning-text);
+  border-color: var(--color-warning-bg);
+  background: var(--color-warning-bg);
 }
 
 .so-action-icon-btn--eval-print:hover {
@@ -524,13 +524,13 @@
 
 .so-action-icon-btn--edit:hover {
   color: var(--color-primary, #1a7d6b);
-  border-color: #a7f3d0;
-  background: #ecfdf5;
+  border-color: var(--color-primary-200);
+  background: var(--color-primary-50);
 }
 
 .so-action-icon-btn--delete:hover {
   color: var(--color-danger, #ef4444);
-  border-color: #fecaca;
+  border-color: var(--color-danger-bg);
   background: var(--color-danger-bg, #fef2f2);
 }
 
@@ -586,8 +586,8 @@
 .so-form-card__title {
   font-size: 12px !important;
   font-weight: 700 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.4px !important;
+  text-transform: none !important;
+  letter-spacing: 0;
   color: var(--color-primary-text) !important;
   display: flex !important;
   align-items: center !important;
@@ -648,7 +648,7 @@
   font-family: var(--font-mono, monospace) !important;
   font-weight: 700 !important;
   color: var(--color-primary-text) !important;
-  background: #f0fdf4 !important;
+  background: var(--color-primary-50) !important;
   border-color: #86efac !important;
 }
 
@@ -925,7 +925,7 @@ button.btn-rounded-secondary:hover {
   color: var(--text-muted);
   cursor: pointer;
 }
-.so-sheet__remove:hover { background: #fef2f2; color: #ef4444; }
+.so-sheet__remove:hover { background: var(--color-danger-bg); color: var(--color-danger-text); }
 
 .so-sheet__add {
   align-self: flex-start;
@@ -951,7 +951,7 @@ select.so-sheet__input {
 
 /* Celda obligatoria sin completar en una fila cargada */
 .so-sheet__input--error {
-  background: #fef2f2;
+  background: var(--color-danger-bg);
   box-shadow: inset 0 0 0 1px #fca5a5;
 }
 
@@ -1024,8 +1024,8 @@ select.so-sheet__input {
   padding: 8px 10px 6px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--text-muted);
 }
 

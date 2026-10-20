@@ -39,3 +39,13 @@ const subscribeMedia = (fn) => {
 
 export const useIsMobile = () =>
   useSyncExternalStore(subscribeMedia, () => window.matchMedia(MOBILE_QUERY).matches, () => false);
+
+// Tablet (768–1023 px): el menú lateral se muestra contraído para dejar lugar al contenido.
+const TABLET_QUERY = '(min-width: 768px) and (max-width: 1023px)';
+const subscribeTablet = (fn) => {
+  const mq = window.matchMedia(TABLET_QUERY);
+  mq.addEventListener('change', fn);
+  return () => mq.removeEventListener('change', fn);
+};
+export const useIsTablet = () =>
+  useSyncExternalStore(subscribeTablet, () => window.matchMedia(TABLET_QUERY).matches, () => false);

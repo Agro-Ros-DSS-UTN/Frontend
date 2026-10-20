@@ -505,7 +505,7 @@ export const SellerRoadmapPage = () => {
             <div className="roadmap-stops-header" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#16a34a', letterSpacing: '0.5px' }}>ZONA DE RECORRIDO</span>
+                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#16a34a', letterSpacing: '0.5px' }}>Zona de recorrido</span>
                   <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 0 0', lineHeight: 1.2 }}>{route.zone}</h2>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

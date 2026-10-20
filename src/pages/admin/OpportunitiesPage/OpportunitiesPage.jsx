@@ -425,28 +425,28 @@ export const OpportunitiesPage = () => {
 
       <div className="deals-metrics-grid">
         <div className="deals-metric-card">
-          <span className="metric-label">OPORTUNIDADES</span>
+          <span className="metric-label">Oportunidades</span>
           <div className="metric-value-row">
             <span className="metric-number">{deals.length}</span>
             <span className="metric-tag">{openDeals.length} abiertas</span>
           </div>
         </div>
         <div className="deals-metric-card" title="Suma del volumen potencial de las oportunidades abiertas">
-          <span className="metric-label">VOLUMEN EN JUEGO</span>
+          <span className="metric-label">Volumen en juego</span>
           <div className="metric-value-row">
             <span className="metric-number text-primary">{formatCurrency(pipelineVolume)}</span>
             <TrendingUp size={16} className="text-primary" />
           </div>
         </div>
         <div className="deals-metric-card" title="Promedio facturado en oportunidades ganadas">
-          <span className="metric-label">TICKET PROMEDIO</span>
+          <span className="metric-label">Ticket promedio</span>
           <div className="metric-value-row">
             <span className="metric-number">{formatCurrency(avgTicket)}</span>
             <span className="metric-sub">por oportunidad ganada</span>
           </div>
         </div>
         <div className="deals-metric-card">
-          <span className="metric-label">GANADAS</span>
+          <span className="metric-label">Ganadas</span>
           <div className="metric-value-row">
             <span className="metric-number text-success">{wonDeals.length}</span>
             <CheckCircle2 size={16} className="text-success" />

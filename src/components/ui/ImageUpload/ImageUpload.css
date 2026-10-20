@@ -26,12 +26,12 @@
 
 .image-upload-dropzone:hover {
   border-color: var(--color-primary);
-  background: #f0fdf4;
+  background: var(--color-primary-50);
 }
 
 .image-upload-dropzone--dragging {
-  border-color: #16a34a !important;
-  background: #ecfdf5 !important;
+  border-color: var(--color-primary) !important;
+  background: var(--color-primary-50) !important;
   transform: scale(1.01);
 }
 
@@ -139,7 +139,7 @@
 }
 
 .image-upload-btn-action.delete {
-  background: #ef4444;
+  background: var(--color-danger);
   color: var(--text-inverse);
 }
 

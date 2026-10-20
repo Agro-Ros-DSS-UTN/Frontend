@@ -78,8 +78,8 @@
   display: block;
   font-size: 0.72rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-muted);
 }
 

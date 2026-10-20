@@ -27,9 +27,9 @@
   align-self: flex-start;
   font-size: 11px;
   font-weight: 700;
-  color: #15803d;
-  background: #dcfce7;
-  border: 1px solid #bbf7d0;
+  color: var(--color-primary-text);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-200);
   padding: 4px 10px;
   border-radius: 9999px;
 }
@@ -100,16 +100,16 @@
   flex-shrink: 0;
 }
 
-.tasks-board__stat-icon--green { background-color: #f0fdf4; color: #16a34a; }
-.tasks-board__stat-icon--amber { background-color: #fffbeb; color: #d97706; }
-.tasks-board__stat-icon--blue { background-color: #eff6ff; color: #2563eb; }
+.tasks-board__stat-icon--green { background-color: var(--color-primary-50); color: var(--color-primary-text); }
+.tasks-board__stat-icon--amber { background-color: var(--color-warning-bg); color: var(--color-warning-text); }
+.tasks-board__stat-icon--blue { background-color: var(--color-info-bg); color: var(--color-info-text); }
 
 .tasks-board__stat-label {
   display: block;
   font-size: 0.75rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-muted);
 }
 
@@ -204,8 +204,8 @@
   padding: 10px 16px;
   font-size: 0.75rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-light);
   background: var(--bg-subtle);
@@ -229,8 +229,8 @@
 .tasks-board__origin {
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  text-transform: none;
+  letter-spacing: 0;
   color: #6366f1;
   background: #eef2ff;
   border: 1px solid #c7d2fe;
@@ -248,18 +248,18 @@
 }
 
 .tasks-board__priority.alta {
-  background: #fef2f2;
-  color: #ef4444;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .tasks-board__priority.media {
-  background: #fffbeb;
-  color: #d97706;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .tasks-board__priority.baja {
-  background: #f0fdf4;
-  color: #16a34a;
+  background: var(--color-primary-50);
+  color: var(--color-primary-text);
 }
 
 @media (max-width: 640px) {
@@ -369,14 +369,14 @@
 
 .tasks-board__icon-btn:hover {
   color: var(--color-primary-text);
-  border-color: #a7f3d0;
-  background: #ecfdf5;
+  border-color: var(--color-primary-200);
+  background: var(--color-primary-50);
 }
 
 .tasks-board__delete-btn:hover {
-  color: #ef4444;
-  border-color: #fecaca;
-  background: #fef2f2;
+  color: var(--color-danger-text);
+  border-color: var(--color-danger-bg);
+  background: var(--color-danger-bg);
 }
 
 /* ── Formulario del drawer "Crear Tarea" ── */
@@ -427,7 +427,7 @@
 }
 
 .tasks-board__assignee-list--error {
-  border-color: #ef4444;
+  border-color: var(--color-danger);
 }
 
 .tasks-board__row-actions {
@@ -446,8 +446,8 @@
 }
 .tasks-board__finalize-btn:hover {
   color: var(--color-primary-text);
-  border-color: #a7f3d0;
-  background: #ecfdf5;
+  border-color: var(--color-primary-200);
+  background: var(--color-primary-50);
 }
 .tasks-board__finalize-btn:disabled { opacity: 0.6; cursor: default; }
 
@@ -463,8 +463,8 @@
   font-weight: 600;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
 }
-.tasks-board__notice--error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-.tasks-board__notice--success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.tasks-board__notice--error { background: var(--color-danger-bg); color: var(--color-danger-text); border: 1px solid var(--color-danger-bg); }
+.tasks-board__notice--success { background: var(--color-primary-50); color: var(--color-primary-800); border: 1px solid var(--color-primary-200); }
 
 .tasks-board__assignee-option--me {
   border: 1px solid var(--border-light);
@@ -485,7 +485,7 @@
   font-size: 0.7rem;
   font-weight: 700;
   color: var(--text-muted);
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .tasks-board__form-actions {

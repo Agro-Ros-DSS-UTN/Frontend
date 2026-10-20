@@ -234,7 +234,7 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.cs-status--pending { background: #fef3c7; color: #92400e; }
+.cs-status--pending { background: var(--color-warning-bg); color: var(--color-warning-text); }
 
 @media (max-width: 760px) {
   .cs-body { padding: 22px 18px 24px; }

@@ -86,8 +86,8 @@ const isoWeekEnd = (week) => {
 const dueLabel = (date, time) => {
   if (!date) return { text: 'Sin fecha', critical: false };
   const h = time ? ` ${time}` : '';
-  if (date < localDate()) return { text: `VENCIDA ${date}`, critical: true };
-  if (date === localDate()) return { text: `VENCE HOY${h}`, critical: true };
+  if (date < localDate()) return { text: `Vencida el ${new Date(`${date}T00:00:00`).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}`, critical: true };
+  if (date === localDate()) return { text: `Vence hoy${h}`, critical: true };
   if (date === shiftDays(1)) return { text: `Mañana${h}`, critical: false };
   const d = new Date(`${date}T00:00:00`);
   const weekday = d.toLocaleDateString('es-AR', { weekday: 'long' });

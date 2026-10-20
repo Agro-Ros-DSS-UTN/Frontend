@@ -1057,7 +1057,7 @@ export const ServiceOrdersPage = () => {
             <FileCheck2 size={22} />
           </div>
           <div className="so-kpi-info">
-            <span className="so-kpi-label">TOTAL ÓRDENES</span>
+            <span className="so-kpi-label">Total de órdenes</span>
             <div className="so-kpi-value">{kpis.total} <span className="so-kpi-sub">registradas</span></div>
           </div>
         </div>
@@ -1067,7 +1067,7 @@ export const ServiceOrdersPage = () => {
             <Clock size={22} />
           </div>
           <div className="so-kpi-info">
-            <span className="so-kpi-label">EN EJECUCIÓN</span>
+            <span className="so-kpi-label">En ejecución</span>
             <div className="so-kpi-value">{kpis.inExecution} <span className="so-kpi-sub">activas</span></div>
           </div>
         </div>
@@ -1077,7 +1077,7 @@ export const ServiceOrdersPage = () => {
             <CheckCircle2 size={22} />
           </div>
           <div className="so-kpi-info">
-            <span className="so-kpi-label">COMPLETADAS</span>
+            <span className="so-kpi-label">Completadas</span>
             <div className="so-kpi-value">{kpis.completed} <span className="so-kpi-sub">finalizadas</span></div>
           </div>
         </div>
@@ -1143,13 +1143,13 @@ export const ServiceOrdersPage = () => {
               <thead>
                 <tr>
                   <th>N.º ORDEN</th>
-                  <th>FECHA</th>
-                  <th>CLIENTE</th>
-                  <th>DIRECCIÓN</th>
-                  <th>TIPO DE TRABAJO</th>
-                  <th>ESTADO</th>
-                  <th className="so-th-eval">EVALUACIÓN</th>
-                  <th style={{ textAlign: 'right' }}>ACCIONES</th>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>Dirección</th>
+                  <th>Tipo de trabajo</th>
+                  <th>Estado</th>
+                  <th className="so-th-eval">Evaluación</th>
+                  <th style={{ textAlign: 'right' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>

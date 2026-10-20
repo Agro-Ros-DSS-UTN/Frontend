@@ -233,9 +233,9 @@ img, svg, video, canvas {
   width: 52px !important;
   height: 52px !important;
   border-radius: 14px !important;
-  background: #fef2f2 !important;
-  color: #dc2626 !important;
-  border: 1px solid #fecaca !important;
+  background: var(--color-danger-bg) !important;
+  color: var(--color-danger-text) !important;
+  border: 1px solid var(--color-danger-bg) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -303,7 +303,7 @@ img, svg, video, canvas {
   border-radius: 10px !important;
   font-size: 0.9rem !important;
   font-weight: 600 !important;
-  background: #dc2626 !important;
+  background: var(--color-danger) !important;
   color: var(--text-inverse) !important;
   border: none !important;
   cursor: pointer !important;
@@ -356,9 +356,9 @@ img, svg, video, canvas {
   width: 64px !important;
   height: 64px !important;
   border-radius: 16px !important;
-  background: #fef2f2 !important;
-  color: #dc2626 !important;
-  border: 1px solid #fecaca !important;
+  background: var(--color-danger-bg) !important;
+  color: var(--color-danger-text) !important;
+  border: 1px solid var(--color-danger-bg) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -385,7 +385,7 @@ img, svg, video, canvas {
   border-radius: 12px !important;
   font-size: 0.95rem !important;
   font-weight: 700 !important;
-  background: #dc2626 !important;
+  background: var(--color-danger) !important;
   color: var(--text-inverse) !important;
   border: none !important;
   cursor: pointer !important;
@@ -450,7 +450,7 @@ button.campaigns-page__btn-primary:hover,
 button.activities-page__add-btn:hover,
 .seller-roadmap-page button.roadmaps-btn--primary:hover,
 .seller-roadmap-page button.seller-roadmap-btn:hover {
-  background: #15803d !important;
+  background: var(--color-primary-hover) !important;
   transform: translateY(-2px) scale(1.02) !important;
   box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35) !important;
 }

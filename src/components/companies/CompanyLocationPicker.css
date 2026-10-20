@@ -77,9 +77,9 @@
   line-height: 1.4;
 }
 
-.clp__msg--ok { background: #ecfdf5; color: #065f46; }
-.clp__msg--warn { background: #fffbeb; color: #92400e; }
-.clp__msg--error { background: #fef2f2; color: #991b1b; }
+.clp__msg--ok { background: var(--color-primary-50); color: var(--color-primary-800); }
+.clp__msg--warn { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.clp__msg--error { background: var(--color-danger-bg); color: var(--color-danger-text); }
 
 .clp-pin-wrapper { background: transparent !important; border: none !important; }
 

@@ -163,7 +163,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background-color: #ef4444;
+  background-color: var(--color-danger);
   color: white;
   font-size: 10px;
   font-weight: 800;
@@ -316,9 +316,9 @@
 }
 
 .topbar__dropdown-role-badge--seller {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
+  background: var(--color-primary-50);
+  color: var(--color-primary-text);
+  border: 1px solid var(--color-primary-200);
 }
 
 .topbar__dropdown-email {
@@ -355,12 +355,12 @@
 }
 
 .topbar__dropdown-item--danger {
-  color: #dc2626;
+  color: var(--color-danger-text);
 }
 
 .topbar__dropdown-item--danger:hover {
-  background: #fef2f2;
-  color: #b91c1c;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 /* ── Botón de menú: solo en celular ── */
 .topbar__menu-btn {
@@ -433,5 +433,23 @@
     height: 40px;
     padding: 0;
     justify-content: center;
+  }
+}
+
+/* ═══ Tablet (768–1023 px): encabezado compacto ═══ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .topbar {
+    gap: var(--space-2);
+    padding: 0 var(--space-4);
+  }
+
+  .topbar__search-kbd,
+  .topbar__user-name,
+  .topbar__chevron {
+    display: none;
+  }
+
+  .topbar__quick-add-btn span {
+    display: none;
   }
 }

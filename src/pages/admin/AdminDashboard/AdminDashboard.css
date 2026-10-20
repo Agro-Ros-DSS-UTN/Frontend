@@ -199,9 +199,9 @@
 .exec-kpi-icon.blue { color: #0ea5e9; }
 .exec-kpi-icon.teal { color: var(--color-primary-text); }
 .exec-kpi-icon.orange { color: #ea580c; }
-.exec-kpi-icon.green { color: #16a34a; }
+.exec-kpi-icon.green { color: var(--color-primary-text); }
 .exec-kpi-icon.purple { color: #8b5cf6; }
-.exec-kpi-icon.amber { color: #f59e0b; }
+.exec-kpi-icon.amber { color: var(--color-warning-text); }
 
 .exec-kpi-title {
   font-size: 10px;
@@ -324,7 +324,7 @@
   font-weight: 700;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-light);
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .top-clients-table td {
@@ -362,8 +362,8 @@
   border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 600;
-  background: #ecfdf5;
-  color: #16a34a;
+  background: var(--color-primary-50);
+  color: var(--color-primary-text);
 }
 
 /* ── Sellers Grid ── */
@@ -444,7 +444,7 @@
   font: inherit;
 }
 .seller-card__stat--link:hover { background: var(--bg-hover); }
-.seller-card__stat--link:hover .seller-card__stat-label { color: #047857; text-decoration: underline; }
+.seller-card__stat--link:hover .seller-card__stat-label { color: var(--color-primary-text); text-decoration: underline; }
 
 .seller-card__stat-value {
   font-size: var(--text-lg);
@@ -494,7 +494,7 @@
   transition: width var(--transition-slow);
 }
 
-.text-amber { color: #f59e0b; }
+.text-amber { color: var(--color-warning-text); }
 .text-primary { color: var(--color-primary); }
 
 @media (max-width: 1200px) {
@@ -506,5 +506,23 @@
   }
   .sellers-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Las tarjetas de la grilla pueden achicarse: lo ancho (tablas) se desplaza adentro */
+.dashboard__exec-kpis > *,
+.dashboard__grid > *,
+.sellers-grid > * {
+  min-width: 0;
+}
+
+/* ═══ Celular ═══ */
+@media (max-width: 767px) {
+  .dashboard__exec-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+  .dashboard__filters {
+    flex-wrap: wrap;
   }
 }

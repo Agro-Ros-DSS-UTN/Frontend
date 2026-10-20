@@ -60,7 +60,7 @@
 }
 
 .company-ac__item:hover {
-  background: #f0fdf4;
+  background: var(--color-primary-50);
 }
 
 .company-ac__item-avatar {
@@ -111,7 +111,7 @@
   border: none;
   border-top: 1px solid var(--border-subtle);
   background: var(--bg-subtle);
-  color: #16a34a;
+  color: var(--color-primary-text);
   font-size: 0.8rem;
   font-weight: 700;
   text-align: left;
@@ -120,7 +120,7 @@
 }
 
 .company-ac__add-new:hover {
-  background: #f0fdf4;
+  background: var(--color-primary-50);
 }
 
 /* ── Panel inline de alta rápida ── */
@@ -144,7 +144,7 @@
 }
 
 .company-ac__create-back:hover {
-  color: #16a34a;
+  color: var(--color-primary-text);
 }
 
 .company-ac__create-form {
@@ -181,7 +181,7 @@
 .company-ac__create-field input:focus,
 .company-ac__create-field select:focus {
   outline: none;
-  border-color: #16a34a;
+  border-color: var(--color-primary);
 }
 
 .company-ac__create-row {
@@ -192,9 +192,9 @@
 .company-ac__create-error {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #dc2626;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--color-danger-text);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-bg);
   border-radius: 6px;
   padding: 6px 10px;
 }
@@ -203,7 +203,7 @@
   padding: 10px;
   border: none;
   border-radius: 9999px;
-  background: #16a34a;
+  background: var(--color-primary);
   color: var(--text-inverse);
   font-weight: 700;
   font-size: 0.85rem;
@@ -212,7 +212,7 @@
 }
 
 .company-ac__create-submit:hover {
-  background: #15803d;
+  background: var(--color-primary-hover);
 }
 
 .company-ac__create-submit:disabled {
@@ -233,8 +233,8 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .company-ac__dropdown-close {

@@ -372,8 +372,8 @@
 .ctree-form label > span {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--gray-500, #64748b);
 }
 

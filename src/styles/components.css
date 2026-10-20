@@ -261,3 +261,22 @@ html body :is(.tasks-board__table-wrapper, .companies-page__table-wrapper, .cont
   .confirm-dialog { animation: confirm-in var(--duration-base) var(--ease-out); }
   @keyframes confirm-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 }
+
+/* ═════════════ Barras de filtros y buscadores en celular ═════════════
+   Los buscadores de cada pantalla tenían un ancho mínimo fijo (320 px o más):
+   en celular ocupan el ancho disponible y la barra pasa a varias líneas. */
+@media (max-width: 767px) {
+  .admin-layout__content [class*="__search"]:not(button) {
+    min-width: 0 !important;
+    max-width: 100%;
+    width: 100%;
+  }
+  .admin-layout__content .crm-filterbar,
+  .admin-layout__content [class*="__toolbar"] {
+    flex-wrap: wrap;
+  }
+  .admin-layout__content [class*="__header"]:has(h1) {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+}

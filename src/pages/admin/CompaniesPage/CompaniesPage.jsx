@@ -1337,7 +1337,7 @@ export const CompaniesPage = () => {
                                 <span>{(selectedExistingContact.fullName || 'C').charAt(0).toUpperCase()}</span>
                               </div>
                               <div className="comp-selected-info">
-                                <span className="comp-selected-tag">CONTACTO ASOCIADO</span>
+                                <span className="comp-selected-tag">Contacto asociado</span>
                                 <strong className="comp-selected-name">{selectedExistingContact.fullName}</strong>
                                 <div className="comp-selected-sub">
                                   <span className="comp-badge-role">{selectedExistingContact.clientType || 'Contacto'}</span>

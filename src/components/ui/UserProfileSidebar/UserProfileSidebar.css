@@ -28,7 +28,7 @@
   color: var(--text-inverse);
   font-weight: 800;
   font-size: 15px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .user-profile-sidebar__info {
@@ -113,7 +113,7 @@
   padding: 10px;
   border: none;
   background: transparent;
-  color: #dc2626;
+  color: var(--color-danger-text);
   font-size: 13px;
   font-weight: 700;
   text-align: left;
@@ -123,5 +123,5 @@
 }
 
 .user-profile-sidebar__logout:hover {
-  background: #fef2f2;
+  background: var(--color-danger-bg);
 }

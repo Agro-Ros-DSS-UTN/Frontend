@@ -10,13 +10,13 @@
 .csd-actions button:disabled { opacity: 0.5; cursor: default; }
 .csd-spin { animation: csd-spin 0.9s linear infinite; }
 @keyframes csd-spin { to { transform: rotate(360deg); } }
-.csd-offline { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 10px; }
+.csd-offline { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--color-warning-text); background: var(--color-warning-bg); border: 1px solid var(--color-warning-bg); border-radius: 8px; padding: 6px 10px; }
 .csd-empty, .csd-note { margin: 0; font-size: 13px; color: var(--text-muted); }
 .csd-note { background: var(--bg-hover); border-radius: 8px; padding: 8px 10px; }
 .csd-content { display: flex; flex-direction: column; gap: 14px; }
 .csd-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .csd-kpi { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 10px; border: 1px solid var(--border-light); background: var(--bg-card); }
-.csd-kpi--green svg { color: #15803d; } .csd-kpi--blue svg { color: #0369a1; } .csd-kpi--amber svg { color: #b45309; }
+.csd-kpi--green svg { color: var(--color-primary-text); } .csd-kpi--blue svg { color: var(--color-info-text); } .csd-kpi--amber svg { color: var(--color-warning-text); }
 .csd-kpi__value { margin: 0; font-size: 22px; font-weight: 700; color: var(--text-strong); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .csd-kpi__label { margin: 2px 0 0; font-size: 12.5px; font-weight: 600; color: var(--gray-700); }
 .csd-kpi__sub { margin: 2px 0 0; font-size: 11.5px; color: var(--text-muted); }
@@ -24,12 +24,12 @@
 .csd-chart__title, .csd-box__title { margin: 0 0 10px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--gray-700); }
 .csd-bars { display: flex; align-items: flex-end; gap: 4px; height: 140px; }
 .csd-bar { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
-.csd-bar__fill { width: 100%; max-width: 28px; min-height: 2px; background: #16a34a; border-radius: 4px 4px 0 0; }
+.csd-bar__fill { width: 100%; max-width: 28px; min-height: 2px; background: var(--color-primary); border-radius: 4px 4px 0 0; }
 .csd-bar__n { font-size: 11px; color: var(--gray-700); font-variant-numeric: tabular-nums; }
 .csd-bar__label { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 .csd-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .csd-stack { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--bg-hover); }
-.csd-stack--ok { background: #16a34a; } .csd-stack--mid { background: #f59e0b; } .csd-stack--bad { background: #dc2626; }
+.csd-stack--ok { background: var(--color-primary); } .csd-stack--mid { background: var(--color-warning); } .csd-stack--bad { background: var(--color-danger); }
 .csd-legend { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--text-secondary); }
 .csd-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
 .csd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--gray-700); }
@@ -42,7 +42,7 @@
 .csd-present__card { width: min(1100px, 100%); max-height: 100%; overflow-y: auto; background: var(--bg-subtle); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
 .csd-present__head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .csd-present__head h2 { margin: 2px 0; font-size: 26px; color: var(--text-strong); }
-.csd-present__kicker { margin: 0; font-size: 12px; font-weight: 600; color: #15803d; text-transform: uppercase; letter-spacing: 0.04em; }
+.csd-present__kicker { margin: 0; font-size: 12px; font-weight: 600; color: var(--color-primary-text); text-transform: none; letter-spacing: 0; }
 .csd-present__sub { margin: 0; font-size: 13px; color: var(--text-muted); }
 .csd-present__head button { border: none; background: #e2e8f0; border-radius: 999px; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .csd-content--big .csd-kpi__value { font-size: 32px; }

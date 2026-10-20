@@ -148,9 +148,9 @@
 }
 
 .crm-toast[data-type='success'] .crm-toast__icon { color: var(--color-primary-text); }
-.crm-toast[data-type='error'] .crm-toast__icon { color: #dc2626; }
-.crm-toast[data-type='warning'] .crm-toast__icon { color: #d97706; }
-.crm-toast[data-type='info'] .crm-toast__icon { color: #2563eb; }
+.crm-toast[data-type='error'] .crm-toast__icon { color: var(--color-danger-text); }
+.crm-toast[data-type='warning'] .crm-toast__icon { color: var(--color-warning-text); }
+.crm-toast[data-type='info'] .crm-toast__icon { color: var(--color-info-text); }
 .crm-toast[data-type='loading'] .crm-toast__icon {
   color: var(--text-muted);
   opacity: 0.8;

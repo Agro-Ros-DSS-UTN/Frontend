@@ -142,9 +142,9 @@ p {
   width: 52px !important;
   height: 52px !important;
   border-radius: 14px !important;
-  background: #fef2f2 !important;
-  color: #dc2626 !important;
-  border: 1px solid #fecaca !important;
+  background: var(--color-danger-bg) !important;
+  color: var(--color-danger-text) !important;
+  border: 1px solid var(--color-danger-bg) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -212,7 +212,7 @@ p {
   border-radius: 10px !important;
   font-size: 0.9rem !important;
   font-weight: 600 !important;
-  background: #dc2626 !important;
+  background: var(--color-danger) !important;
   color: var(--text-inverse) !important;
   border: none !important;
   cursor: pointer !important;

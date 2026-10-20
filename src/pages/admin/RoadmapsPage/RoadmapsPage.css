@@ -112,20 +112,20 @@
 }
 
 .roadmap-kpi-icon.blue {
-  background: #f0f9ff;
+  background: var(--color-info-bg);
   color: #0ea5e9;
 }
 
 .roadmap-kpi-icon.green {
-  background: #f0fdf4;
-  color: #16a34a;
+  background: var(--color-primary-50);
+  color: var(--color-primary-text);
 }
 
 .roadmap-kpi-label {
   font-size: var(--text-xs);
   color: var(--text-muted);
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .roadmap-kpi-value {
@@ -487,13 +487,13 @@
 }
 
 .roadmap-status-tag.completada {
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--color-primary-light);
+  color: var(--color-primary-text);
 }
 
 .roadmap-status-tag.en-camino {
-  background: #e0f2fe;
-  color: #0284c7;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
 
 .roadmap-status-tag.pendiente {
@@ -554,8 +554,8 @@
   border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 700;
-  background: #ecfdf5;
-  color: #059669;
+  background: var(--color-primary-50);
+  color: var(--color-primary-text);
 }
 
 /* ── Create Roadmap Modal Drawer ── */
@@ -746,7 +746,7 @@
 
 .rv-card.is-active {
   border-color: var(--color-primary);
-  background: #f0fdf4;
+  background: var(--color-primary-50);
   box-shadow: 0 0 0 2px rgba(26, 125, 107, 0.25);
 }
 
@@ -801,4 +801,17 @@
   font-size: 0.74rem;
   font-weight: 700;
   color: var(--text-secondary);
+}
+
+/* Las tarjetas de las grillas pueden achicarse sin desbordar */
+.roadmaps-kpis > *,
+.roadmaps-main-grid > * {
+  min-width: 0;
+}
+
+/* ═══ Celular ═══ */
+@media (max-width: 767px) {
+  .roadmaps-kpis {
+    grid-template-columns: 1fr;
+  }
 }

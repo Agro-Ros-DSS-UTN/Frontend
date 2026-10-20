@@ -76,7 +76,7 @@
 .users-page__export-btn:hover {
   color: var(--color-primary, #1a7d6b);
   border-color: var(--color-primary, #1a7d6b);
-  background-color: #f0fdf4;
+  background-color: var(--color-primary-50);
   transform: translateY(-1px);
 }
 
@@ -150,8 +150,8 @@
   padding: 10px 16px;
   font-size: 0.75rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-light);
   background: var(--bg-subtle);
@@ -318,9 +318,9 @@
 }
 
 .users-table__action-btn--danger:hover {
-  background: #fef2f2;
-  border-color: #fca5a5;
-  color: #ef4444;
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 /* Pagination */
@@ -378,6 +378,6 @@
 
 .users-zona { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border-light); border-radius: 10px; background: var(--bg-subtle); }
 .users-zona__chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.users-zona__chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 0.8rem; }
-.users-zona__chip button { border: none; background: transparent; color: #166534; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 4px; }
+.users-zona__chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--color-primary-50); border: 1px solid var(--color-primary-200); color: var(--color-primary-800); font-size: 0.8rem; }
+.users-zona__chip button { border: none; background: transparent; color: var(--color-primary-800); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 4px; }
 .users-zona__empty { font-size: 0.8rem; color: var(--text-muted); }

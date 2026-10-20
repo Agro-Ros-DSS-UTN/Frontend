@@ -33,8 +33,8 @@
   margin: 0 0 20px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #fef2f2;
-  color: #991b1b;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
   font-size: 0.8rem;
   white-space: pre-wrap;
   word-break: break-word;

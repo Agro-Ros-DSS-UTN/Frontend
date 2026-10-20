@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import { useSidebarResize } from './useSidebarResize';
-import { useIsMobile, useMobileNav } from './mobileNav';
+import { useIsMobile, useIsTablet, useMobileNav } from './mobileNav';
 import './Sidebar.css';
 
 const sellerNavItems = [
@@ -31,8 +31,9 @@ export const SellerSidebar = () => {
   const { collapsed, toggleCollapsed, handleResizeStart } = useSidebarResize();
   // En celular el menú es un panel completo (con textos) que se abre y se cierra.
   const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const { open: mobileOpen, close: closeMobileNav } = useMobileNav();
-  const compact = collapsed && !isMobile;
+  const compact = (collapsed || isTablet) && !isMobile;
   const { logout } = useAuth();
   const location = useLocation();
 

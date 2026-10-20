@@ -211,15 +211,15 @@ export const ObjectivesPage = () => {
       <div className="objectives-kpis">
         <div className="objective-kpi-card">
           <div className="objective-kpi-icon teal"><Target size={22} /></div>
-          <div><div className="objective-kpi-label">VIGENTES</div><div className="objective-kpi-value">{active.length}</div></div>
+          <div><div className="objective-kpi-label">Vigentes</div><div className="objective-kpi-value">{active.length}</div></div>
         </div>
         <div className="objective-kpi-card">
           <div className="objective-kpi-icon green"><CheckCircle2 size={22} /></div>
-          <div><div className="objective-kpi-label">CUMPLIMIENTO PROMEDIO</div><div className="objective-kpi-value">{onTimeRate}%</div></div>
+          <div><div className="objective-kpi-label">Cumplimiento promedio</div><div className="objective-kpi-value">{onTimeRate}%</div></div>
         </div>
         <div className="objective-kpi-card">
           <div className="objective-kpi-icon blue"><Award size={22} /></div>
-          <div><div className="objective-kpi-label">VENDEDORES ACTIVOS</div><div className="objective-kpi-value">{sellers.length}</div></div>
+          <div><div className="objective-kpi-label">Vendedores activos</div><div className="objective-kpi-value">{sellers.length}</div></div>
         </div>
       </div>
 

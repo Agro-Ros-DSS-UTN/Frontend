@@ -39,7 +39,7 @@
 }
 
 .multi-image-upload__thumb button:hover {
-  background: #ef4444;
+  background: var(--color-danger);
 }
 
 .multi-image-upload__add {
@@ -62,5 +62,5 @@
 .multi-image-upload__add:hover {
   border-color: var(--color-primary);
   color: var(--color-primary-text);
-  background: #f0fdf4;
+  background: var(--color-primary-50);
 }

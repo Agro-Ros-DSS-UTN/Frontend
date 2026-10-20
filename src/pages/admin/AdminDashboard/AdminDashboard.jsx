@@ -548,7 +548,7 @@ export const AdminDashboardPage = () => {
         <div className="exec-kpi-card">
           <div className="exec-kpi-header">
             <Users size={16} className="exec-kpi-icon blue" />
-            <span className="exec-kpi-title">TOTAL CLIENTES</span>
+            <span className="exec-kpi-title">Total de clientes</span>
           </div>
           <div className="exec-kpi-value">{totalClientsCount}</div>
           <span className="exec-kpi-foot">clientes registrados</span>
@@ -557,7 +557,7 @@ export const AdminDashboardPage = () => {
         <div className="exec-kpi-card">
           <div className="exec-kpi-header">
             <DollarSign size={16} className="exec-kpi-icon teal" />
-            <span className="exec-kpi-title">VENTAS TOTALES ($)</span>
+            <span className="exec-kpi-title">Ventas totales ($)</span>
           </div>
           <div className="exec-kpi-value">{formatCurrency(historicalSalesTotal)}</div>
           <span className="exec-kpi-foot">acumulado histórico</span>
@@ -566,7 +566,7 @@ export const AdminDashboardPage = () => {
         <div className="exec-kpi-card">
           <div className="exec-kpi-header">
             <Activity size={16} className="exec-kpi-icon orange" />
-            <span className="exec-kpi-title">INTERACCIONES</span>
+            <span className="exec-kpi-title">Interacciones</span>
           </div>
           <div className="exec-kpi-value">{totalInteractions}</div>
           <span className="exec-kpi-foot">formularios registrados</span>
@@ -575,7 +575,7 @@ export const AdminDashboardPage = () => {
         <div className="exec-kpi-card">
           <div className="exec-kpi-header">
             <CheckCircle2 size={16} className="exec-kpi-icon green" />
-            <span className="exec-kpi-title">CLIENTES ACTIVOS</span>
+            <span className="exec-kpi-title">Clientes activos</span>
           </div>
           <div className="exec-kpi-value">{activeClientsCount}</div>
           <span className="exec-kpi-foot">en cartera comercial</span>
@@ -584,7 +584,7 @@ export const AdminDashboardPage = () => {
         <div className="exec-kpi-card">
           <div className="exec-kpi-header">
             <TrendingUp size={16} className="exec-kpi-icon purple" />
-            <span className="exec-kpi-title">TICKET PROMEDIO ($)</span>
+            <span className="exec-kpi-title">Ticket promedio ($)</span>
           </div>
           <div className="exec-kpi-value">{formatCurrency(avgTicket)}</div>
           <span className="exec-kpi-foot">por operación</span>
@@ -593,7 +593,7 @@ export const AdminDashboardPage = () => {
         <div className="exec-kpi-card">
           <div className="exec-kpi-header">
             <Calendar size={16} className="exec-kpi-icon amber" />
-            <span className="exec-kpi-title">PRÓX. ACCIONES (7D)</span>
+            <span className="exec-kpi-title">Próximas acciones (7 días)</span>
           </div>
           <div className="exec-kpi-value">{nextActionsCount}</div>
           <span className="exec-kpi-foot">en los próximos 7 días</span>
