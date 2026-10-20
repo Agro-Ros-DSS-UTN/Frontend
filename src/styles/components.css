@@ -10,7 +10,7 @@
 
 /* ── Botón base ── */
 .btn,
-html body :is(.crm-btn-primary, .crm-btn-export, .btn-rounded-primary, .roadmaps-btn, .cs-ghost-btn, .ctree-btn,
+html body :is(.crm-btn-primary, .crm-btn-export, .btn-rounded-primary, .roadmaps-btn, .ctree-btn,
   .tasks-board__submit-btn, .tasks-board__cancel-btn, .logout-btn-cancel, .logout-btn-confirm, .session-expired-btn,
   .promo-card__btn, .seller-roadmap-btn) {
   display: inline-flex;
@@ -57,13 +57,13 @@ html body :is(.crm-btn-primary, .btn-rounded-primary, .roadmaps-btn--primary, .t
 
 /* ── Secundario: borde, fondo blanco ── */
 .btn--secondary,
-html body :is(.crm-btn-export, .roadmaps-btn--outline, .tasks-board__cancel-btn, .logout-btn-cancel, .ctree-btn--ghost, .cs-ghost-btn) {
+html body :is(.crm-btn-export, .roadmaps-btn--outline, .tasks-board__cancel-btn, .logout-btn-cancel, .ctree-btn--ghost) {
   background-color: var(--bg-card);
   border-color: var(--border-default);
   color: var(--text-primary);
 }
 .btn--secondary:hover,
-html body :is(.crm-btn-export, .roadmaps-btn--outline, .tasks-board__cancel-btn, .logout-btn-cancel, .ctree-btn--ghost, .cs-ghost-btn):hover {
+html body :is(.crm-btn-export, .roadmaps-btn--outline, .tasks-board__cancel-btn, .logout-btn-cancel, .ctree-btn--ghost):hover {
   background-color: var(--bg-hover);
   border-color: var(--border-control);
   color: var(--text-strong);
@@ -101,7 +101,7 @@ html body .crm-btn-export.crm-btn-export--transparent {
 /* ── Deshabilitado / cargando ── */
 .btn:disabled,
 html body :is(.crm-btn-primary, .crm-btn-export, .btn-rounded-primary, .roadmaps-btn, .tasks-board__submit-btn,
-  .tasks-board__cancel-btn, .ctree-btn, .cs-ghost-btn, .promo-card__btn):disabled {
+  .tasks-board__cancel-btn, .ctree-btn, .promo-card__btn):disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -109,7 +109,7 @@ html body :is(.crm-btn-primary, .crm-btn-export, .btn-rounded-primary, .roadmaps
 /* ── Botones de ícono (acciones de fila) ── */
 .btn--icon,
 html body :is(.tasks-board__icon-btn, .tasks-board__delete-btn, .users-table__action-btn, .companies-table__action-btn,
-  .so-action-icon-btn, .stop-action-btn, .promo-card__del) {
+  .so-action-icon-btn, .stop-action-btn, .promo-card__del, .cs-ghost-btn) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -125,7 +125,7 @@ html body :is(.tasks-board__icon-btn, .tasks-board__delete-btn, .users-table__ac
   transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 .btn--icon:hover,
-html body :is(.tasks-board__icon-btn, .users-table__action-btn, .companies-table__action-btn, .so-action-icon-btn, .stop-action-btn):hover {
+html body :is(.tasks-board__icon-btn, .users-table__action-btn, .companies-table__action-btn, .so-action-icon-btn, .stop-action-btn, .cs-ghost-btn):hover {
   background-color: var(--bg-hover);
   color: var(--text-strong);
 }

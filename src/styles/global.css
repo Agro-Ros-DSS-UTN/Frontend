@@ -64,6 +64,12 @@ img, svg, video, canvas {
   max-width: 100%;
 }
 
+/* Los íconos de botones y enlaces no se achican cuando falta lugar (el texto se corta antes) */
+button svg,
+a svg {
+  flex-shrink: 0;
+}
+
 /* ── Foco de teclado visible en toda la app ──
    Solo con teclado (:focus-visible); con mouse o dedo no aparece. Tiene prioridad
    sobre los "outline: none" que quedaron en estilos de cada pantalla. */
