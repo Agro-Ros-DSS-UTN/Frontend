@@ -31,6 +31,9 @@ const ACCENTS = [
   { value: '#dc2626', label: 'Rojo' },
 ];
 
+// Fecha en formato argentino (20/10/2026) a partir de 'AAAA-MM-DD'.
+const shortDate = (s) => (s ? new Date(`${s}T12:00:00`).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
+
 const daysLeft = (endDate) => {
   if (!endDate) return null;
   const end = new Date(endDate);
@@ -297,44 +300,55 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             const d = daysLeft(p.endDate);
             const overdue = d !== null && d < 0;
             return (
-              <div key={p.id} className={`promo-card ${overdue ? 'promo-card--expired' : ''}`}>
-                <div className="promo-card__accent" style={{ background: p.color }}>
+              // El color elegido nunca va detrás de texto: es la franja de la tarjeta y
+              // el marcador del beneficio, así se lee bien con cualquier color.
+              <div key={p.id} className={`promo-card ${overdue ? 'promo-card--expired' : ''}`} style={{ '--promo': p.color || 'var(--color-primary)' }}>
+                <div className="promo-card__accent">
                   <span className="promo-card__benefit">
-                    <Tag size={13} /> {p.benefit}
+                    <Tag size={13} aria-hidden="true" /> {p.benefit}
                   </span>
-                  <button
-                    type="button"
-                    className="promo-card__del"
-                    onClick={() => handleDelete(p)}
-                    title="Eliminar promoción"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {!isSeller && (
+                    <button
+                      type="button"
+                      className="promo-card__del"
+                      onClick={() => handleDelete(p)}
+                      title="Eliminar promoción"
+                      aria-label={`Eliminar la promoción ${p.name}`}
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
 
                 <div className="promo-card__body">
                   <h2 className="promo-card__name">{p.name}</h2>
-                  <p className="promo-card__desc">{p.description}</p>
+                  {p.description && <p className="promo-card__desc">{p.description}</p>}
 
-                  {p.conditions && (
-                    <p className="promo-card__cond">
-                      <strong>Condiciones:</strong> {p.conditions}
-                    </p>
-                  )}
-                  {p.items.length > 0 && (
-                    <p className="promo-card__cond">
-                      <strong>Productos:</strong> {p.items.map((i) => i.name).join(', ')}
-                    </p>
+                  {(p.conditions || p.items.length > 0) && (
+                    <dl className="promo-card__facts">
+                      {p.conditions && (
+                        <div>
+                          <dt>Condiciones</dt>
+                          <dd>{p.conditions}</dd>
+                        </div>
+                      )}
+                      {p.items.length > 0 && (
+                        <div>
+                          <dt>Productos</dt>
+                          <dd>{p.items.map((i) => i.name).join(', ')}</dd>
+                        </div>
+                      )}
+                    </dl>
                   )}
 
                   <div className="promo-card__dates">
                     <span>
-                      <Calendar size={13} />
-                      {p.startDate || '—'} → {p.endDate || '—'}
+                      <Calendar size={13} aria-hidden="true" />
+                      {shortDate(p.startDate)} al {shortDate(p.endDate)}
                     </span>
                     {d !== null && (
-                      <span className={`promo-card__ttl ${overdue ? 'is-expired' : d <= 7 ? 'is-soon' : ''}`}>
-                        {overdue ? 'Vencida' : d === 0 ? 'Vence hoy' : `Faltan ${d} días`}
+                      <span className="status-chip" data-status={overdue ? 'Perdida' : d <= 7 ? 'Cotizado' : 'Ganada'}>
+                        {overdue ? 'Vencida' : d === 0 ? 'Vence hoy' : d === 1 ? 'Falta 1 día' : `Faltan ${d} días`}
                       </span>
                     )}
                   </div>

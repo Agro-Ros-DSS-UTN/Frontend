@@ -127,169 +127,158 @@
 /* Grid */
 .promo-board__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 18px;
 }
 
 .promo-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: 16px;
-  overflow: hidden;
+  --promo: var(--color-primary);
+  position: relative;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.promo-card:hover {
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px);
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-left: 6px solid var(--promo);
+  border-radius: var(--radius-panel);
 }
 
 .promo-card--expired {
-  opacity: 0.72;
+  border-left-color: var(--border-default);
 }
 
+.promo-card--expired .promo-card__name,
+.promo-card--expired .promo-card__desc {
+  color: var(--text-muted);
+}
+
+/* Fila superior: beneficio + eliminar (solo administración) */
 .promo-card__accent {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 10px 14px;
-  color: var(--text-inverse);
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-4) 0 var(--space-4);
 }
 
+/* Beneficio: texto oscuro sobre un tinte muy claro del color elegido (legible con cualquier color) */
 .promo-card__benefit {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  padding: 4px 10px 4px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--promo) 14%, var(--bg-card));
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
 }
 
-.promo-card__del {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  border: none;
-  background: rgba(255, 255, 255, 0.2);
-  color: var(--text-inverse);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.promo-card__del:hover {
-  background: rgba(255, 255, 255, 0.35);
+.promo-card__benefit svg {
+  color: color-mix(in srgb, var(--promo) 70%, var(--text-strong));
+  flex-shrink: 0;
 }
 
 .promo-card__body {
-  padding: 16px 18px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
   flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-3);
 }
 
 .promo-card__name {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--text-strong);
   margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--text-strong);
 }
 
 .promo-card__desc {
-  font-size: 0.86rem;
-  color: var(--text-secondary);
   margin: 0;
-  line-height: 1.5;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
 }
 
-.promo-card__cond {
-  font-size: 0.78rem;
-  color: var(--text-muted);
+/* Condiciones y productos: lista de datos, sin cajas */
+.promo-card__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   margin: 0;
-  background: var(--bg-subtle);
-  border: 1px dashed var(--border-light);
-  border-radius: 8px;
-  padding: 7px 10px;
+}
+
+.promo-card__facts div {
+  display: grid;
+  grid-template-columns: 86px 1fr;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.promo-card__facts dt {
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+}
+
+.promo-card__facts dd {
+  margin: 0;
+  color: var(--text-primary);
 }
 
 .promo-card__dates {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
   margin-top: auto;
-  padding-top: 8px;
+  padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
-  font-size: 0.76rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
-.promo-card__dates span {
+.promo-card__dates > span:first-child {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-}
-
-.promo-card__ttl {
-  font-weight: 700;
-  color: #15803d;
-}
-
-.promo-card__ttl.is-soon {
-  color: #b45309;
-}
-
-.promo-card__ttl.is-expired {
-  color: #b91c1c;
+  gap: 6px;
 }
 
 .promo-card__actions {
   display: flex;
-  gap: 8px;
-  padding: 12px 18px 16px 18px;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-4);
 }
 
-.promo-card__btn {
+html body .promo-card__btn {
   flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 9px 10px;
-  border-radius: 9px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  border: 1px solid var(--border-light);
-  text-decoration: none;
-  transition: background-color 0.15s ease;
+  min-height: 36px;
+  font-size: var(--text-sm);
 }
 
-.promo-card__btn.ghost {
-  background: var(--bg-subtle);
-  color: var(--gray-700);
+html body .promo-card__btn.ghost {
+  background: var(--bg-card);
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 
-.promo-card__btn.ghost:hover {
+html body .promo-card__btn.ghost:hover {
   background: var(--bg-hover);
 }
 
-.promo-card__btn.whatsapp {
-  background: #16a34a;
+/* WhatsApp: verde oscuro para que el texto blanco pase AA */
+html body .promo-card__btn.whatsapp {
+  background: var(--color-success-text);
+  border-color: var(--color-success-text);
   color: var(--text-inverse);
-  border-color: #16a34a;
 }
 
-.promo-card__btn.whatsapp:hover {
-  background: #15803d;
+html body .promo-card__btn.whatsapp:hover {
+  background: #0f4f2d;
 }
 
 .promo-board__empty {
