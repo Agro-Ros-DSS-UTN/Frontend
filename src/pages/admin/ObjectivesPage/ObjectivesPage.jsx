@@ -160,7 +160,7 @@ export const ObjectivesPage = () => {
     } catch (err) {
       if (err?.response?.status === 409 && !force) {
         // Ya hay un objetivo del mismo tipo en ese período: se pide confirmación.
-        if (await confirmAction(`${err.response.data.message}\n\nAceptar: crearlo igual.  Cancelar: revisar.`)) return save(null, true);
+        if (await confirmAction(err.response.data.message, { title: 'Ya hay un objetivo en ese período', confirmText: 'Crear igual', cancelText: 'Revisar' })) return save(null, true);
         return;
       }
       notify.error('No se pudo asignar el objetivo', err);

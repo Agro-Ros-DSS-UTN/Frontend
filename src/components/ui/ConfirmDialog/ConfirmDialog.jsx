@@ -46,12 +46,33 @@ const ConfirmDialog = ({ title, message, confirmText, cancelText, danger, onClos
   );
 };
 
-export const confirmAction = (message, {
-  title = 'Confirmar',
-  confirmText = 'Aceptar',
-  cancelText = 'Cancelar',
-  danger = false,
-} = {}) => new Promise((resolve) => {
+// Sin título explícito, la pregunta ("¿Eliminar la tarea X?") pasa a ser el título
+// y lo que sigue, el detalle. El botón toma el verbo de la pregunta, para que diga
+// exactamente qué pasa ("Eliminar", "Dar de baja", "Finalizar").
+const VERBS = [
+  [/^¿(estás seguro de )?eliminar/i, 'Eliminar', true],
+  [/^¿(querés )?eliminar/i, 'Eliminar', true],
+  [/^¿dar de baja/i, 'Dar de baja', true],
+  [/^¿finalizar/i, 'Finalizar', false],
+];
+const splitQuestion = (text) => {
+  const s = String(text || '').trim();
+  const end = s.startsWith('¿') ? s.indexOf('?') : -1;
+  if (end < 0) return { title: 'Confirmar', message: s };
+  return { title: s.slice(0, end + 1), message: s.slice(end + 1).trim() };
+};
+
+export const confirmAction = (text, options = {}) => new Promise((resolve) => {
+  const auto = splitQuestion(text);
+  const verb = VERBS.find(([re]) => re.test(auto.title));
+  const {
+    title = options.title ? undefined : auto.title,
+    confirmText = verb ? verb[1] : 'Aceptar',
+    cancelText = 'Cancelar',
+    danger = verb ? verb[2] : false,
+  } = options;
+  const message = options.title ? text : auto.message;
+  const finalTitle = options.title || title;
   const previousFocus = document.activeElement;
   const host = document.createElement('div');
   document.body.appendChild(host);
@@ -63,7 +84,7 @@ export const confirmAction = (message, {
     resolve(result);
   };
   root.render(
-    <ConfirmDialog title={title} message={message} confirmText={confirmText} cancelText={cancelText} danger={danger} onClose={close} />
+    <ConfirmDialog title={finalTitle} message={message} confirmText={confirmText} cancelText={cancelText} danger={danger} onClose={close} />
   );
 });
 
