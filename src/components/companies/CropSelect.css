@@ -1,0 +1,109 @@
+/* Selector de cultivos de una empresa: chips que se marcan y desmarcan */
+.crop-select {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.crop-select__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: var(--space-1);
+  padding: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+}
+
+.crop-select__hint {
+  margin-left: auto;
+  font-weight: var(--weight-regular);
+  color: var(--text-muted);
+}
+
+.crop-select__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.crop-select__chip {
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.crop-select__chip:hover {
+  border-color: var(--border-control);
+  background: var(--bg-hover);
+}
+
+.crop-select__chip--on,
+.crop-select__chip--on:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-50);
+  color: var(--color-primary-800);
+}
+
+/* Tilde en los elegidos (no solo el color indica el estado) */
+.crop-select__chip--on::before {
+  content: '✓';
+  margin-right: 6px;
+}
+
+.crop-select__msg {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.crop-select__msg--error {
+  color: var(--color-danger-text);
+}
+
+.crop-select__add {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.crop-select__add .comp-input {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .crop-select__add {
+    flex-direction: column;
+  }
+}
+
+/* Cultivos en la ficha de la empresa */
+.crop-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.crop-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-50);
+  color: var(--color-primary-800);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}

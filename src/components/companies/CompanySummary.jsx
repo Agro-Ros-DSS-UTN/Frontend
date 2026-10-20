@@ -16,8 +16,11 @@ import {
   X,
   Mail,
   Phone,
+  Sprout,
 } from 'lucide-react';
 import { tasksApi } from '../../api/operations.api';
+import { fetchCompanyById } from '../../data/api';
+import '../companies/CropSelect.css';
 import { contactTypeLabel } from '../../data/catalogs';
 import { CompanyServiceDashboard } from './CompanyServiceDashboard';
 import { useOverlayClose } from '../../hooks/useOverlayClose';
@@ -60,6 +63,17 @@ const MetaItem = ({ icon: Icon, label, children }) => (
 
 export const CompanySummary = ({ company, contacts = [], opportunities = [], activities = [], onClose, onEdit }) => {
   const [tasks, setTasks] = useState([]);
+  // Cultivos: vienen en el detalle de la empresa (null mientras se cargan)
+  const [crops, setCrops] = useState(Array.isArray(company.crops) ? company.crops : null);
+
+  useEffect(() => {
+    if (Array.isArray(company.crops)) { setCrops(company.crops); return undefined; }
+    let alive = true;
+    fetchCompanyById(company.id)
+      .then((c) => alive && setCrops(c?.crops || []))
+      .catch(() => alive && setCrops([]));
+    return () => { alive = false; };
+  }, [company]);
   const overlayHandlers = useOverlayClose(onClose);
 
   useEffect(() => {
@@ -173,6 +187,11 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
               {company.areaHa ? `${Number(company.areaHa).toLocaleString('es-AR')} ha` : '—'}
             </MetaItem>
             <MetaItem icon={Calendar} label="Fecha de registro">{formatDate(company.createdAt)}</MetaItem>
+            <MetaItem icon={Sprout} label="Cultivos">
+              {crops === null ? 'Cargando…' : crops.length ? (
+                <div className="crop-tags">{crops.map((c) => <span key={c.id} className="crop-tag">{c.name}</span>)}</div>
+              ) : '—'}
+            </MetaItem>
             {company.companyDescription && (
               <div className="cs-meta cs-meta--wide">
                 <FileText size={18} className="cs-meta__icon" />

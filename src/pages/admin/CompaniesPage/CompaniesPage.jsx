@@ -45,7 +45,9 @@ import {
   fetchClients,
   getOpportunities,
   getActivities,
+  fetchCompanyById,
 } from '../../../data/api';
+import { CropSelect } from '../../../components/companies/CropSelect';
 import { authApi } from '../../../api/auth.api';
 import { Button } from '../../../components/ui/Button/Button';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
@@ -199,8 +201,19 @@ export const CompaniesPage = () => {
     currentSupplier: '',
     companyDescription: '',
     createdById: currentUser?.idUser || '',
+    cropIds: [],
   };
   const [form, setForm] = useState(emptyCompanyForm);
+
+  // Al editar, los cultivos de la empresa vienen en su detalle (la lista no los trae).
+  useEffect(() => {
+    if (!editingCompany || form.cropIds !== null) return undefined;
+    let alive = true;
+    fetchCompanyById(editingCompany.id)
+      .then((c) => { if (alive) setForm((prev) => ({ ...prev, cropIds: (c?.crops || []).map((x) => x.id) })); })
+      .catch(() => { /* sin cultivos cargados: no se envían al guardar */ });
+    return () => { alive = false; };
+  }, [editingCompany, form.cropIds]);
 
   const openCreateModal = () => {
     setEditingCompany(null);
@@ -233,6 +246,8 @@ export const CompaniesPage = () => {
       currentSupplier: company.currentSupplier || '',
       companyDescription: company.companyDescription || '',
       createdById: company.createdById || '',
+      // La lista no trae los cultivos: se piden con el detalle de la empresa (ver efecto de abajo).
+      cropIds: Array.isArray(company.crops) ? company.crops.map((c) => c.id) : null,
     });
     setIncludeContact(false);
     setHasRegions(false);
@@ -509,6 +524,7 @@ export const CompaniesPage = () => {
         currentSupplier: form.currentSupplier,
         companyDescription: form.companyDescription,
         createdById: form.createdById || null,
+        ...(Array.isArray(form.cropIds) ? { cropIds: form.cropIds } : {}),
       };
       try {
         const response = await updateClientCompany(editingCompany.id, updatePayload);
@@ -544,6 +560,7 @@ export const CompaniesPage = () => {
       currentSupplier: form.currentSupplier,
       companyDescription: form.companyDescription,
       createdById: form.createdById || currentUser?.idUser || null,
+      cropIds: Array.isArray(form.cropIds) ? form.cropIds : [],
       existingContactId: (includeContact && contactMode === 'existing' && selectedExistingContact) ? selectedExistingContact.id : null,
       newContact: (includeContact && contactMode === 'new' && newContact.fullName.trim()) ? {
         fullName: newContact.fullName.trim(),
@@ -1047,6 +1064,15 @@ export const CompaniesPage = () => {
                     onChange={(e) => setForm(prev => ({ ...prev, currentSupplier: e.target.value }))}
                   />
                 </div>
+              </div>
+
+              {/* Cultivos de la empresa */}
+              <div className="comp-field">
+                <CropSelect
+                  value={form.cropIds}
+                  onChange={(ids) => setForm((prev) => ({ ...prev, cropIds: ids }))}
+                  canCreate={String(currentUser?.role || '').toLowerCase().includes('admin')}
+                />
               </div>
 
               {/* Descripción */}

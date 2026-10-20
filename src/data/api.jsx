@@ -14,6 +14,12 @@ export const fetchClientCompanies = async (params) => listing(await apiClient.ge
 export const getClientCompanies = fetchClientCompanies;
 export const fetchCompanyTree = async (id) => unwrap(await apiClient.get(`/companies/${id}/tree`));
 export const fetchCompanyDashboard = async (id, months = 12) => unwrap(await apiClient.get(`/companies/${id}/dashboard`, { params: { months } }));
+// Detalle de una empresa (incluye sus cultivos, que la lista no trae).
+export const fetchCompanyById = async (id) => unwrap(await apiClient.get(`/companies/${id}`));
+
+// ── Cultivos ──
+export const fetchCrops = async () => listing(await apiClient.get('/crops'));
+export const createCrop = async (name) => unwrap(await apiClient.post('/crops', { name }));
 
 export const createClientCompany = async (c) => {
   const res = await apiClient.post('/companies', {
@@ -33,6 +39,7 @@ export const createClientCompany = async (c) => {
     level: c.level ?? c.companyLevel,
     existingContactId: c.existingContactId,
     contact: c.contact ?? c.newContact,
+    cropIds: Array.isArray(c.cropIds) ? c.cropIds : undefined,
   });
   return res.data;
 };
