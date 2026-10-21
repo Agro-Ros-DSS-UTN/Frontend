@@ -13,7 +13,9 @@ const listing = (res) => {
 export const fetchClientCompanies = async (params) => listing(await apiClient.get('/companies', { params }));
 export const getClientCompanies = fetchClientCompanies;
 export const fetchCompanyTree = async (id) => unwrap(await apiClient.get(`/companies/${id}/tree`));
-export const fetchCompanyDashboard = async (id, months = 12) => unwrap(await apiClient.get(`/companies/${id}/dashboard`, { params: { months } }));
+// Período: un número (últimos N meses) o { period: 'all' } / { from, to } (AAAA-MM-DD).
+export const fetchCompanyDashboard = async (id, period = 12) =>
+  unwrap(await apiClient.get(`/companies/${id}/dashboard`, { params: typeof period === 'object' ? period : { months: period } }));
 // Detalle de una empresa (incluye sus cultivos, que la lista no trae).
 export const fetchCompanyById = async (id) => unwrap(await apiClient.get(`/companies/${id}`));
 

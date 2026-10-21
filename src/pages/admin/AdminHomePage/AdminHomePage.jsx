@@ -161,12 +161,17 @@ export const AdminHomePage = () => {
   const todaysRoadmaps = useMemo(() => roadmaps.filter((r) => r.roadmapDate === today), [roadmaps, today]);
   const routesInProgress = todaysRoadmaps.filter((r) => r.status === 'en_curso').length;
 
+  // Solo objetivos vigentes (hoy dentro de su período) que todavía no se cumplieron.
   const pendingObjectives = useMemo(
     () =>
       objectives.filter(
-        (o) => !isCompleted(o.status) && (Number(o.currentProgress) || 0) < (Number(o.targetAmount) || 0)
+        (o) =>
+          (!o.startDate || o.startDate <= today) &&
+          (!o.endDate || o.endDate >= today) &&
+          !isCompleted(o.status) &&
+          (Number(o.currentProgress) || 0) < (Number(o.targetAmount) || 0)
       ),
-    [objectives]
+    [objectives, today]
   );
   const objectivesAvgPct = useMemo(() => {
     if (pendingObjectives.length === 0) return 0;
@@ -477,7 +482,9 @@ export const AdminHomePage = () => {
               const actual = Number(mainObjective.currentProgress) || 0;
               const pct = meta > 0 ? Math.min(100, Math.round((actual / meta) * 1000) / 10) : 0;
               const week = Number(mainObjective.weekPeriod);
-              const daysLeft = week > 0 ? Math.ceil((isoWeekEnd(week) - new Date()) / 86400000) : null;
+              const daysLeft = mainObjective.endDate
+                ? Math.ceil((new Date(`${mainObjective.endDate}T23:59:59`) - new Date()) / 86400000)
+                : week > 0 ? Math.ceil((isoWeekEnd(week) - new Date()) / 86400000) : null;
               const owner = mainObjective.seller?.fullName;
               return (
                 <div className="ah-objective" onClick={() => navigate('/admin/objectives')}>

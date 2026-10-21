@@ -78,6 +78,15 @@ a svg {
   outline-offset: var(--focus-offset) !important;
 }
 
+/* Campos de texto: el navegador los marca con :focus-visible también al hacer clic,
+   y el anillo quedaba como un recuadro dentro de la caja. Su foco lo muestra el
+   borde del campo (o de la caja que lo envuelve): si el campo tiene borde propio se
+   pinta de verde; si no lo tiene, no se dibuja nada adentro de la caja. */
+:is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='button'], [type='submit']), textarea, select):focus-visible {
+  outline: none !important;
+  border-color: var(--border-focus);
+}
+
 /* Sobre el menú azul el anillo verde no se ve: se usa uno claro */
 .sidebar :focus-visible,
 .topbar :focus-visible {

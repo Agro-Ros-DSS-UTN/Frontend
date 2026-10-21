@@ -95,7 +95,12 @@ export const SellerDashboardPage = () => {
 
   const pendingObjectivesCount = useMemo(
     () =>
-      objectives.filter((o) => !isCompleted(o.status) && (Number(o.currentProgress) || 0) < (Number(o.targetAmount) || 0))
+      // Solo los vigentes (hoy dentro de su período) que todavía no se cumplieron.
+      objectives.filter((o) =>
+        (!o.startDate || o.startDate <= todayStr()) &&
+        (!o.endDate || o.endDate >= todayStr()) &&
+        !isCompleted(o.status) &&
+        (Number(o.currentProgress) || 0) < (Number(o.targetAmount) || 0))
         .length,
     [objectives]
   );

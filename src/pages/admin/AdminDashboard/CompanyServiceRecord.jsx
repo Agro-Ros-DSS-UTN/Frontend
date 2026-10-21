@@ -21,10 +21,17 @@ const SERIES = [
 ];
 
 const PERIODS = [
+  { value: 'all', label: 'Todo' },
   { value: 6, label: '6 meses' },
   { value: 12, label: '12 meses' },
-  { value: 24, label: '24 meses' },
+  { value: 'range', label: 'Fechas' },
 ];
+
+// Fecha de hoy (AAAA-MM-DD, hora local).
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const monthDate = (key) => new Date(`${key}-01T12:00:00`);
 const monthLong = (key) => monthDate(key).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
@@ -49,7 +56,8 @@ const Kpi = ({ icon: Icon, label, value, detail, tone }) => (
 
 export const CompanyServiceRecord = ({ companies = [] }) => {
   const [query, setQuery] = useState('');
-  const [months, setMonths] = useState(12);
+  const [periodKey, setPeriodKey] = useState('all');
+  const [range, setRange] = useState({ from: '', to: '' });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -68,8 +76,33 @@ export const CompanyServiceRecord = ({ companies = [] }) => {
     return companies.find((c) => norm(c.legalName) === q) || companies.find((c) => c.tradeName && norm(c.tradeName) === q) || null;
   }, [companies, query]);
 
+  // Qué se le pide al servidor según el período elegido. Con "Fechas" hace falta al
+  // menos "desde"; "hasta" vacío es hoy.
+  const rangeError = periodKey === 'range' && range.from && range.to && range.from > range.to
+    ? 'La fecha "desde" no puede ser posterior a "hasta".'
+    : null;
+  const request = useMemo(() => {
+    if (periodKey === 'all') return { period: 'all' };
+    if (periodKey === 'range') {
+      if (!range.from || rangeError) return null;
+      return { from: range.from, to: range.to || todayIso() };
+    }
+    return { months: periodKey };
+  }, [periodKey, range.from, range.to, rangeError]);
+  const requestKey = JSON.stringify(request);
+
+  // Texto del período para los indicadores y los mensajes.
+  const periodText = (() => {
+    if (periodKey === 'all') return 'todo el historial';
+    if (periodKey === 'range') {
+      if (!range.from) return 'el período elegido';
+      return `del ${dayLabel(range.from)} al ${dayLabel(range.to || todayIso())}`;
+    }
+    return `los últimos ${periodKey} meses`;
+  })();
+
   useEffect(() => {
-    if (!selected) {
+    if (!selected || !request) {
       setResult(null);
       setError(null);
       return undefined;
@@ -77,7 +110,7 @@ export const CompanyServiceRecord = ({ companies = [] }) => {
     let alive = true;
     setLoading(true);
     setError(null);
-    fetchCompanyDashboard(selected.id, months)
+    fetchCompanyDashboard(selected.id, request)
       .then((data) => alive && setResult(data))
       .catch((err) => {
         if (!alive) return;
@@ -89,7 +122,7 @@ export const CompanyServiceRecord = ({ companies = [] }) => {
     return () => {
       alive = false;
     };
-  }, [selected, months]);
+  }, [selected, requestKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // El backend devuelve datos de la zona cuando la empresa no tiene servicios propios:
   // acá solo se muestran los de la empresa.
@@ -139,9 +172,37 @@ export const CompanyServiceRecord = ({ companies = [] }) => {
               inputClassName="csr__search-input"
             />
           </label>
-          <FilterTabs items={PERIODS} value={months} onChange={setMonths} ariaLabel="Período" />
+          <FilterTabs items={PERIODS} value={periodKey} onChange={setPeriodKey} ariaLabel="Período" />
         </div>
       </div>
+
+      {periodKey === 'range' && (
+        <div className="csr__range" role="group" aria-label="Fechas del período">
+          <label className="csr__date">
+            <span>Desde</span>
+            <input
+              type="date"
+              value={range.from}
+              max={range.to || todayIso()}
+              onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+              aria-invalid={Boolean(rangeError) || undefined}
+            />
+          </label>
+          <label className="csr__date">
+            <span>Hasta</span>
+            <input
+              type="date"
+              value={range.to}
+              min={range.from || undefined}
+              onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+              aria-invalid={Boolean(rangeError) || undefined}
+            />
+          </label>
+          <p className={`csr__range-hint ${rangeError ? 'csr__range-hint--error' : ''}`} role={rangeError ? 'alert' : undefined}>
+            {rangeError || (range.from ? 'Si dejás "hasta" vacío, se toma hasta hoy.' : 'Elegí desde qué fecha querés ver los servicios.')}
+          </p>
+        </div>
+      )}
 
       {!selected && (
         <div className="csr__placeholder">
@@ -171,8 +232,8 @@ export const CompanyServiceRecord = ({ companies = [] }) => {
         <div className="csr__placeholder">
           <Wrench size={24} aria-hidden="true" />
           <p>
-            {selected.legalName} no tiene servicios realizados en los últimos {months} meses.
-            {months < 24 && ' Probá con un período más largo.'}
+            {selected.legalName} no tiene servicios realizados en {periodText}.
+            {periodKey !== 'all' && ' Probá con "Todo" para ver el historial completo.'}
           </p>
         </div>
       )}
@@ -180,7 +241,7 @@ export const CompanyServiceRecord = ({ companies = [] }) => {
       {selected && own && (
         <div className="csr__body" aria-busy={loading || undefined}>
           <div className="csr__kpis">
-            <Kpi icon={Wrench} label="Servicios realizados" value={totals.completed} detail={`Últimos ${months} meses`} />
+            <Kpi icon={Wrench} label="Servicios realizados" value={totals.completed} detail={periodText.charAt(0).toUpperCase() + periodText.slice(1)} />
             <Kpi
               icon={CheckCircle2}
               label="Exitosos"
