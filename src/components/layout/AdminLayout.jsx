@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { useMobileNav } from './mobileNav';
+import { PageLoader } from '../common/PageLoader';
 import './AdminLayout.css';
 
 export const AdminLayout = () => {
@@ -13,7 +15,9 @@ export const AdminLayout = () => {
       <div className="admin-layout__main">
         <TopBar />
         <main className="admin-layout__content">
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

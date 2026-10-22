@@ -1,34 +1,41 @@
-﻿ /* eslint-disable */
+/* eslint-disable */
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { SellerLayout } from './components/layout/SellerLayout';
-import { LoginPage } from './pages/auth/LoginPage';
+import { PageLoader } from './components/common/PageLoader';
 
-// Admin Pages (Organizadas en carpetas individuales)
-import { AdminHomePage } from './pages/admin/AdminHomePage/AdminHomePage';
-import { AdminDashboardPage } from './pages/admin/AdminDashboard/AdminDashboard';
-import { ContactsPage } from './pages/admin/ContactsPage/ContactsPage';
-import { CompaniesPage } from './pages/admin/CompaniesPage/CompaniesPage';
-import { OpportunitiesPage } from './pages/admin/OpportunitiesPage/OpportunitiesPage';
-import { TasksPage } from './pages/admin/TasksPage/TasksPage';
-import { ProductsPage } from './pages/admin/ProductsPage/ProductsPage';
-import { ObjectivesPage } from './pages/admin/ObjectivesPage/ObjectivesPage';
-import { RoadmapsPage } from './pages/admin/RoadmapsPage/RoadmapsPage';
-import { CampaignsPage } from './pages/admin/CampaignsPage/CampaignsPage';
-import { ActivitiesPage } from './pages/admin/ActivitiesPage/ActivitiesPage';
-import { UsersPage } from './pages/admin/UsersPage/UsersPage';
-import { ProfilePage } from './pages/admin/ProfilePage/ProfilePage';
-import { ServiceOrdersPage } from './pages/admin/ServiceOrdersPage/ServiceOrdersPage';
-import { EmployeesPage } from './pages/admin/EmployeesPage/EmployeesPage';
+const lazyPage = (importFn, name) =>
+  lazy(() => importFn().then((mod) => ({ default: mod[name] || mod.default })));
 
-// Seller Portal Pages (Organizadas en carpetas individuales)
-import { SellerDashboardPage } from './pages/seller/SellerDashboardPage/SellerDashboardPage';
-import { SellerRoadmapPage } from './pages/seller/SellerRoadmapPage/SellerRoadmapPage';
-import { SellerActivitiesPage } from './pages/seller/SellerActivitiesPage/SellerActivitiesPage';
-import { SellerTasksPage } from './pages/seller/SellerTasksPage/SellerTasksPage';
-import { SellerPromotionsPage } from './pages/seller/SellerPromotionsPage/SellerPromotionsPage';
+// Auth Page (Lazy loaded)
+const LoginPage = lazyPage(() => import('./pages/auth/LoginPage'), 'LoginPage');
+
+// Admin Pages (Lazy loaded por demanda con code-splitting)
+const AdminHomePage = lazyPage(() => import('./pages/admin/AdminHomePage/AdminHomePage'), 'AdminHomePage');
+const AdminDashboardPage = lazyPage(() => import('./pages/admin/AdminDashboard/AdminDashboard'), 'AdminDashboardPage');
+const ContactsPage = lazyPage(() => import('./pages/admin/ContactsPage/ContactsPage'), 'ContactsPage');
+const CompaniesPage = lazyPage(() => import('./pages/admin/CompaniesPage/CompaniesPage'), 'CompaniesPage');
+const OpportunitiesPage = lazyPage(() => import('./pages/admin/OpportunitiesPage/OpportunitiesPage'), 'OpportunitiesPage');
+const TasksPage = lazyPage(() => import('./pages/admin/TasksPage/TasksPage'), 'TasksPage');
+const ProductsPage = lazyPage(() => import('./pages/admin/ProductsPage/ProductsPage'), 'ProductsPage');
+const ObjectivesPage = lazyPage(() => import('./pages/admin/ObjectivesPage/ObjectivesPage'), 'ObjectivesPage');
+const RoadmapsPage = lazyPage(() => import('./pages/admin/RoadmapsPage/RoadmapsPage'), 'RoadmapsPage');
+const CampaignsPage = lazyPage(() => import('./pages/admin/CampaignsPage/CampaignsPage'), 'CampaignsPage');
+const ActivitiesPage = lazyPage(() => import('./pages/admin/ActivitiesPage/ActivitiesPage'), 'ActivitiesPage');
+const UsersPage = lazyPage(() => import('./pages/admin/UsersPage/UsersPage'), 'UsersPage');
+const ProfilePage = lazyPage(() => import('./pages/admin/ProfilePage/ProfilePage'), 'ProfilePage');
+const ServiceOrdersPage = lazyPage(() => import('./pages/admin/ServiceOrdersPage/ServiceOrdersPage'), 'ServiceOrdersPage');
+const EmployeesPage = lazyPage(() => import('./pages/admin/EmployeesPage/EmployeesPage'), 'EmployeesPage');
+
+// Seller Portal Pages (Lazy loaded por demanda con code-splitting)
+const SellerDashboardPage = lazyPage(() => import('./pages/seller/SellerDashboardPage/SellerDashboardPage'), 'SellerDashboardPage');
+const SellerRoadmapPage = lazyPage(() => import('./pages/seller/SellerRoadmapPage/SellerRoadmapPage'), 'SellerRoadmapPage');
+const SellerActivitiesPage = lazyPage(() => import('./pages/seller/SellerActivitiesPage/SellerActivitiesPage'), 'SellerActivitiesPage');
+const SellerTasksPage = lazyPage(() => import('./pages/seller/SellerTasksPage/SellerTasksPage'), 'SellerTasksPage');
+const SellerPromotionsPage = lazyPage(() => import('./pages/seller/SellerPromotionsPage/SellerPromotionsPage'), 'SellerPromotionsPage');
 
 import './styles/global.css';
 
@@ -45,7 +52,9 @@ const AppRoutes = () => {
           isAuthenticated ? (
             <Navigate to={userRole === 'admin' ? '/admin/home' : '/seller/dashboard'} replace />
           ) : (
-            <LoginPage onLoginSuccess={(userData, opts) => login(userData, opts)} />
+            <Suspense fallback={<PageLoader />}>
+              <LoginPage onLoginSuccess={(userData, opts) => login(userData, opts)} />
+            </Suspense>
           )
         }
       />
