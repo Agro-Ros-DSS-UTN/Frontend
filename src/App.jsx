@@ -7,8 +7,33 @@ import { AdminLayout } from './components/layout/AdminLayout';
 import { SellerLayout } from './components/layout/SellerLayout';
 import { PageLoader } from './components/common/PageLoader';
 
+// Carga perezosa con auto-recarga ante despliegues nuevos:
+// Si el navegador intenta descargar un chunk con hash obsoleto (post-deploy),
+// recarga la página una sola vez para sincronizar la versión vigente sin mostrar error.
 const lazyPage = (importFn, name) =>
-  lazy(() => importFn().then((mod) => ({ default: mod[name] || mod.default })));
+  lazy(() =>
+    importFn()
+      .then((mod) => {
+        try { sessionStorage.removeItem('agroros_chunk_reload'); } catch (_) {}
+        return { default: mod[name] || mod.default };
+      })
+      .catch((err) => {
+        const isChunkError =
+          /Failed to fetch dynamically imported module/i.test(err?.message || '') ||
+          /Loading chunk/i.test(err?.message || '') ||
+          err?.name === 'ChunkLoadError';
+
+        if (isChunkError && typeof window !== 'undefined') {
+          const reloaded = Boolean(sessionStorage.getItem('agroros_chunk_reload'));
+          if (!reloaded) {
+            sessionStorage.setItem('agroros_chunk_reload', '1');
+            window.location.reload();
+            return new Promise(() => {});
+          }
+        }
+        throw err;
+      })
+  );
 
 // Auth Page (Lazy loaded)
 const LoginPage = lazyPage(() => import('./pages/auth/LoginPage'), 'LoginPage');
