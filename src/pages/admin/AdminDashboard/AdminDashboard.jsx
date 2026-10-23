@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   TrendingUp,
   Users,
@@ -22,6 +22,8 @@ import {
   Loader2,
   Camera,
   FileText,
+  SlidersHorizontal,
+  EyeOff,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getDashboardData, OPPORTUNITY_STATES, fetchClientCompanies } from '../../../data/api';
@@ -30,6 +32,9 @@ import { activitiesApi, tasksApi } from '../../../api/operations.api';
 import { serviceOrdersApi } from '../../../api/serviceOrders.api';
 import { VoiceNotePlayer } from '../../../components/ui/VoiceRecorder/VoiceRecorder';
 import { CompanyServiceRecord } from './CompanyServiceRecord';
+import { useWidgetPreferences } from '../../../hooks/useWidgetPreferences';
+import { ADMIN_DASHBOARD_WIDGETS } from '../../../config/widgets.config';
+import { WidgetManagerDrawer } from '../../../components/ui/WidgetManagerDrawer/WidgetManagerDrawer';
 import './AdminDashboard.css';
 
 /* ── Canvas Chart Helpers ── */
@@ -265,6 +270,26 @@ export const AdminDashboardPage = () => {
   const [filterOwner, setFilterOwner] = useState('');
   const [serviceOrders, setServiceOrders] = useState([]);
 
+  const [customizerOpen, setCustomizerOpen] = useState(false);
+  const {
+    widgetStates,
+    isVisible,
+    toggleWidget,
+    moveWidget,
+    resetToDefaults,
+    setAllWidgetsVisibility,
+    activeCount,
+    totalCount,
+  } = useWidgetPreferences('admin_dashboard', ADMIN_DASHBOARD_WIDGETS);
+
+  const orderMap = useMemo(() => {
+    const map = {};
+    widgetStates.forEach((w, idx) => {
+      map[w.id] = typeof w.order === 'number' ? w.order : idx;
+    });
+    return map;
+  }, [widgetStates]);
+
   // 1. Cargar datos de la base de datos MySQL
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -484,6 +509,15 @@ export const AdminDashboardPage = () => {
           <h1 className="dashboard__title">Vista general de datos</h1>
           <p className="dashboard__subtitle">Dashboard Ejecutivo y Resumen de Actividad Comercial</p>
         </div>
+        <button
+          type="button"
+          className="dash-customize-btn"
+          onClick={() => setCustomizerOpen(true)}
+          title="Configurar qué widgets querés ver en el Dashboard"
+        >
+          <SlidersHorizontal size={15} />
+          <span>Personalizar vista ({activeCount}/{totalCount})</span>
+        </button>
       </div>
 
       {/* Filters Bar */}
@@ -506,137 +540,159 @@ export const AdminDashboardPage = () => {
       </div>
 
       {/* Resumen Ejecutivo — 6 KPI Cards */}
-      <div className="dashboard__exec-kpis">
-        <div className="exec-kpi-card">
-          <div className="exec-kpi-header">
-            <Users size={16} className="exec-kpi-icon blue" />
-            <span className="exec-kpi-title">Total de clientes</span>
+      {isVisible('dash_exec_kpis') && (
+        <div className="dashboard__exec-kpis" style={{ order: orderMap['dash_exec_kpis'] ?? 0 }}>
+          <div className="exec-kpi-card">
+            <div className="exec-kpi-header">
+              <Users size={16} className="exec-kpi-icon blue" />
+              <span className="exec-kpi-title">Total de clientes</span>
+            </div>
+            <div className="exec-kpi-value">{totalClientsCount}</div>
+            <span className="exec-kpi-foot">clientes registrados</span>
           </div>
-          <div className="exec-kpi-value">{totalClientsCount}</div>
-          <span className="exec-kpi-foot">clientes registrados</span>
-        </div>
 
-        <div className="exec-kpi-card">
-          <div className="exec-kpi-header">
-            <Activity size={16} className="exec-kpi-icon orange" />
-            <span className="exec-kpi-title">Interacciones</span>
+          <div className="exec-kpi-card">
+            <div className="exec-kpi-header">
+              <Activity size={16} className="exec-kpi-icon orange" />
+              <span className="exec-kpi-title">Interacciones</span>
+            </div>
+            <div className="exec-kpi-value">{totalInteractions}</div>
+            <span className="exec-kpi-foot">formularios registrados</span>
           </div>
-          <div className="exec-kpi-value">{totalInteractions}</div>
-          <span className="exec-kpi-foot">formularios registrados</span>
-        </div>
 
-        <div className="exec-kpi-card">
-          <div className="exec-kpi-header">
-            <CheckCircle2 size={16} className="exec-kpi-icon green" />
-            <span className="exec-kpi-title">Clientes activos</span>
+          <div className="exec-kpi-card">
+            <div className="exec-kpi-header">
+              <CheckCircle2 size={16} className="exec-kpi-icon green" />
+              <span className="exec-kpi-title">Clientes activos</span>
+            </div>
+            <div className="exec-kpi-value">{activeClientsCount}</div>
+            <span className="exec-kpi-foot">en cartera comercial</span>
           </div>
-          <div className="exec-kpi-value">{activeClientsCount}</div>
-          <span className="exec-kpi-foot">en cartera comercial</span>
-        </div>
 
-        <div className="exec-kpi-card">
-          <div className="exec-kpi-header">
-            <TrendingUp size={16} className="exec-kpi-icon purple" />
-            <span className="exec-kpi-title">Ticket promedio ($)</span>
+          <div className="exec-kpi-card">
+            <div className="exec-kpi-header">
+              <TrendingUp size={16} className="exec-kpi-icon purple" />
+              <span className="exec-kpi-title">Ticket promedio ($)</span>
+            </div>
+            <div className="exec-kpi-value">{formatCurrency(avgTicket)}</div>
+            <span className="exec-kpi-foot">por operación</span>
           </div>
-          <div className="exec-kpi-value">{formatCurrency(avgTicket)}</div>
-          <span className="exec-kpi-foot">por operación</span>
-        </div>
 
-        <div className="exec-kpi-card">
-          <div className="exec-kpi-header">
-            <Calendar size={16} className="exec-kpi-icon amber" />
-            <span className="exec-kpi-title">Próximas acciones (7 días)</span>
+          <div className="exec-kpi-card">
+            <div className="exec-kpi-header">
+              <Calendar size={16} className="exec-kpi-icon amber" />
+              <span className="exec-kpi-title">Próximas acciones (7 días)</span>
+            </div>
+            <div className="exec-kpi-value">{nextActionsCount}</div>
+            <span className="exec-kpi-foot">en los próximos 7 días</span>
           </div>
-          <div className="exec-kpi-value">{nextActionsCount}</div>
-          <span className="exec-kpi-foot">en los próximos 7 días</span>
         </div>
-      </div>
+      )}
 
       {/* Row 2: Top 5 Clientes por Ventas + Estado de Oportunidades */}
-      <div className="dashboard__grid">
-        <div className="dashboard__card">
-          <div className="dashboard__card-header">
-            <div className="dashboard__card-title-group">
-              <ClipboardList size={18} className="text-primary" aria-hidden="true" />
-              <h2 className="dashboard__card-title">Top 5 clientes por órdenes de servicio</h2>
-            </div>
-          </div>
-          <div className="top-clients-table-wrapper">
-            <table className="top-clients-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Empresa</th>
-                  <th>Tipo</th>
-                  <th>Órdenes</th>
-                  <th>Interacciones</th>
-                  <th>Estado</th>
-                  <th>Sin Contacto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {top5Clients.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>
-                      Todavía no hay órdenes de servicio cargadas.
-                    </td>
-                  </tr>
-                ) : (
-                  top5Clients.map((c) => (
-                    <tr key={c.companyId}>
-                      <td className="rank-cell">{c.rank}º</td>
-                      <td className="name-cell"><strong>{c.company}</strong></td>
-                      <td><span className="client-type-tag">{c.type}</span></td>
-                      <td className="amount-cell"><strong>{c.orders}</strong></td>
-                      <td>{c.interactions}</td>
-                      <td><span className="client-status-badge">{c.status}</span></td>
-                      <td className="text-muted">{c.daysNoContact} días</td>
+      {(isVisible('dash_top_clients') || isVisible('dash_pipeline')) && (
+        <div
+          className="dashboard__grid"
+          style={{
+            gridTemplateColumns: isVisible('dash_top_clients') && isVisible('dash_pipeline') ? '1fr 1fr' : '1fr',
+            order: Math.min(
+              isVisible('dash_top_clients') ? (orderMap['dash_top_clients'] ?? 1) : 999,
+              isVisible('dash_pipeline') ? (orderMap['dash_pipeline'] ?? 2) : 999
+            ),
+          }}
+        >
+          {isVisible('dash_top_clients') && (
+            <div className="dashboard__card" style={{ order: orderMap['dash_top_clients'] ?? 1 }}>
+              <div className="dashboard__card-header">
+                <div className="dashboard__card-title-group">
+                  <ClipboardList size={18} className="text-primary" aria-hidden="true" />
+                  <h2 className="dashboard__card-title">Top 5 clientes por órdenes de servicio</h2>
+                </div>
+              </div>
+              <div className="top-clients-table-wrapper">
+                <table className="top-clients-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Empresa</th>
+                      <th>Tipo</th>
+                      <th>Órdenes</th>
+                      <th>Interacciones</th>
+                      <th>Estado</th>
+                      <th>Sin Contacto</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="dashboard__chart-card">
-          <div className="dashboard__chart-header">
-            <div>
-              <h3 className="dashboard__chart-title">
-                <Target size={16} className="text-primary" />
-                Estado de Oportunidades
-              </h3>
-              <p className="dashboard__chart-subtitle">Desglose de cartera y etapas comerciales</p>
+                  </thead>
+                  <tbody>
+                    {top5Clients.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>
+                          Todavía no hay órdenes de servicio cargadas.
+                        </td>
+                      </tr>
+                    ) : (
+                      top5Clients.map((c) => (
+                        <tr key={c.companyId}>
+                          <td className="rank-cell">{c.rank}º</td>
+                          <td className="name-cell"><strong>{c.company}</strong></td>
+                          <td><span className="client-type-tag">{c.type}</span></td>
+                          <td className="amount-cell"><strong>{c.orders}</strong></td>
+                          <td>{c.interactions}</td>
+                          <td><span className="client-status-badge">{c.status}</span></td>
+                          <td className="text-muted">{c.daysNoContact} días</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-          <BarChart data={pipelineChartData} height={260} />
+          )}
+
+          {isVisible('dash_pipeline') && (
+            <div className="dashboard__chart-card" style={{ order: orderMap['dash_pipeline'] ?? 2 }}>
+              <div className="dashboard__chart-header">
+                <div>
+                  <h3 className="dashboard__chart-title">
+                    <Target size={16} className="text-primary" />
+                    Estado de Oportunidades
+                  </h3>
+                  <p className="dashboard__chart-subtitle">Desglose de cartera y etapas comerciales</p>
+                </div>
+              </div>
+              <BarChart data={pipelineChartData} height={260} />
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Row 3: Servicios cumplidos por cliente (respaldo para negociar con la empresa) */}
-      <div className="dashboard__row">
-        <CompanyServiceRecord companies={companies} />
-      </div>
+      {isVisible('dash_service_record') && (
+        <div className="dashboard__row" style={{ order: orderMap['dash_service_record'] ?? 3 }}>
+          <CompanyServiceRecord companies={companies} />
+        </div>
+      )}
 
       {/* Row 3b: Ventas por Mes */}
-      <div className="dashboard__row">
-        <div className="dashboard__chart-card">
-          <div className="dashboard__chart-header">
-            <div>
-              <h3 className="dashboard__chart-title">
-                <Calendar size={16} className="text-primary" />
-                Ventas por Mes — Año 2026
-              </h3>
-              <p className="dashboard__chart-subtitle">Evolución mensual de facturación comercial ($)</p>
+      {isVisible('dash_monthly_sales') && (
+        <div className="dashboard__row" style={{ order: orderMap['dash_monthly_sales'] ?? 4 }}>
+          <div className="dashboard__chart-card">
+            <div className="dashboard__chart-header">
+              <div>
+                <h3 className="dashboard__chart-title">
+                  <Calendar size={16} className="text-primary" />
+                  Ventas por Mes — Año 2026
+                </h3>
+                <p className="dashboard__chart-subtitle">Evolución mensual de facturación comercial ($)</p>
+              </div>
             </div>
+            <MonthlySalesChart data={monthlySales} height={260} />
           </div>
-          <MonthlySalesChart data={monthlySales} height={260} />
         </div>
-      </div>
+      )}
 
       {/* Row 4: Registro de Actividades en Vivo (Sincronizado entre Administradores y Vendedores) */}
-      <div className="dashboard__card" style={{ marginTop: '1rem' }}>
+      {isVisible('dash_recent_activities') && (
+        <div className="dashboard__card" style={{ marginTop: '1rem', order: orderMap['dash_recent_activities'] ?? 5 }}>
         <div className="dashboard__card-header">
           <div className="dashboard__card-title-group">
             <Activity size={18} className="text-primary" />
@@ -731,9 +787,11 @@ export const AdminDashboardPage = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* Row 5: Rendimiento del Equipo Comercial */}
-      <div className="dashboard__card" style={{ marginTop: '1rem' }}>
+      {isVisible('dash_seller_performance') && (
+        <div className="dashboard__card" style={{ marginTop: '1rem', order: orderMap['dash_seller_performance'] ?? 6 }}>
         <div className="dashboard__card-header">
           <h2 className="dashboard__card-title">Rendimiento del Equipo Comercial</h2>
         </div>
@@ -802,6 +860,37 @@ export const AdminDashboardPage = () => {
           })}
         </div>
       </div>
+      )}
+
+      {/* Estado vacío cuando el usuario ocultó todos los widgets */}
+      {activeCount === 0 && (
+        <div className="dash-empty-state-notice">
+          <EyeOff size={32} />
+          <h3>Ocultaste todos los widgets del Dashboard</h3>
+          <p>Podés volver a activar los que necesites en cualquier momento desde el panel de personalización.</p>
+          <button
+            type="button"
+            className="dash-customize-btn"
+            style={{ background: 'var(--color-primary)', color: 'white', borderColor: 'var(--color-primary)' }}
+            onClick={() => setCustomizerOpen(true)}
+          >
+            Personalizar vista
+          </button>
+        </div>
+      )}
+
+      {/* Drawer de personalización */}
+      <WidgetManagerDrawer
+        isOpen={customizerOpen}
+        onClose={() => setCustomizerOpen(false)}
+        catalog={ADMIN_DASHBOARD_WIDGETS}
+        widgetStates={widgetStates}
+        onToggle={toggleWidget}
+        onMove={moveWidget}
+        onReset={resetToDefaults}
+        onSetAll={setAllWidgetsVisibility}
+        pageTitle="el Dashboard Ejecutivo"
+      />
     </div>
   );
 };

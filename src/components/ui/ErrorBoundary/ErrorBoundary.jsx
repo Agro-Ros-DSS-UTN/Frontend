@@ -4,6 +4,8 @@ import './ErrorBoundary.css';
 /**
  * Si una pantalla falla al dibujarse, React desmonta toda la app y queda la página
  * en blanco. Esto la reemplaza por un aviso con la opción de recargar.
+ * Ante errores de chunks desactualizados (post-deploy), recarga automáticamente
+ * una vez para sincronizar el navegador sin mostrar la pantalla de error.
  */
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -17,6 +19,23 @@ export class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('Error al dibujar la pantalla:', error, info?.componentStack);
+
+    // Detección de chunks obsoletos en memoria del cliente
+    const isChunkError =
+      /Failed to fetch dynamically imported module/i.test(error?.message || '') ||
+      /Loading chunk/i.test(error?.message || '') ||
+      error?.name === 'ChunkLoadError';
+
+    if (isChunkError && typeof window !== 'undefined') {
+      try {
+        const reloaded = Boolean(sessionStorage.getItem('agroros_chunk_reload'));
+        if (!reloaded) {
+          sessionStorage.setItem('agroros_chunk_reload', '1');
+          window.location.reload();
+          return;
+        }
+      } catch (_) {}
+    }
   }
 
   render() {

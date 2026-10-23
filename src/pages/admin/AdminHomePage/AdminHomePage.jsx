@@ -18,10 +18,14 @@ import {
   User,
   Building2,
   PlusCircle,
+  EyeOff,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { tasksApi, roadmapsApi, objectivesApi, activitiesApi } from '../../../api/operations.api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
+import { useWidgetPreferences } from '../../../hooks/useWidgetPreferences';
+import { ADMIN_HOME_WIDGETS } from '../../../config/widgets.config';
+import { WidgetManagerDrawer } from '../../../components/ui/WidgetManagerDrawer/WidgetManagerDrawer';
 import './AdminHomePage.css';
 import { notify } from '../../../hooks/useNotifications';
 
@@ -113,6 +117,32 @@ export const AdminHomePage = () => {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [customizerOpen, setCustomizerOpen] = useState(false);
+
+  const {
+    widgetStates,
+    isVisible,
+    toggleWidget,
+    moveWidget,
+    resetToDefaults,
+    setAllWidgetsVisibility,
+    activeCount,
+    totalCount,
+  } = useWidgetPreferences('admin_home', ADMIN_HOME_WIDGETS);
+
+  const orderMap = useMemo(() => {
+    const map = {};
+    widgetStates.forEach((w, idx) => {
+      map[w.id] = typeof w.order === 'number' ? w.order : idx;
+    });
+    return map;
+  }, [widgetStates]);
+
+  const hasGridWidgets =
+    isVisible('ah_roadmaps') ||
+    isVisible('ah_tasks') ||
+    isVisible('ah_objectives') ||
+    isVisible('ah_activities');
 
   const fetchAll = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
@@ -240,8 +270,16 @@ export const AdminHomePage = () => {
           </p>
         </div>
         <div className="ah-banner__actions">
+          <button
+            type="button"
+            className="ah-banner__btn ah-banner__btn--ghost"
+            onClick={() => setCustomizerOpen(true)}
+            title="Configurar qué widgets querés ver"
+          >
+            <SlidersHorizontal size={16} /> Personalizar vista ({activeCount}/{totalCount})
+          </button>
           <button type="button" className="ah-banner__btn ah-banner__btn--ghost" onClick={() => navigate('/admin/roadmaps')}>
-            <SlidersHorizontal size={16} /> Asignar Hoja de Ruta
+            <Truck size={16} /> Asignar Hoja de Ruta
           </button>
           <button type="button" className="ah-banner__btn ah-banner__btn--primary" onClick={() => navigate('/admin/activities')}>
             <PlusCircle size={16} /> Nueva Actividad de Campo
@@ -250,71 +288,75 @@ export const AdminHomePage = () => {
       </section>
 
       {/* KPIs */}
-      <section className="ah-kpis">
-        <article className="ah-kpi">
-          <div className="ah-kpi__top">
-            <div>
-              <span className="ah-kpi__label">Tareas pendientes</span>
-              <div className="ah-kpi__value-row">
-                <span className="ah-kpi__value">{pendingTasks.length}</span>
-                {criticalTasksCount > 0 && (
-                  <span className="ah-chip ah-chip--indigo">{criticalTasksCount} {criticalTasksCount === 1 ? 'crítica' : 'críticas'}</span>
-                )}
+      {isVisible('ah_kpis') && (
+        <section className="ah-kpis" style={{ order: orderMap['ah_kpis'] ?? 0 }}>
+          <article className="ah-kpi">
+            <div className="ah-kpi__top">
+              <div>
+                <span className="ah-kpi__label">Tareas pendientes</span>
+                <div className="ah-kpi__value-row">
+                  <span className="ah-kpi__value">{pendingTasks.length}</span>
+                  {criticalTasksCount > 0 && (
+                    <span className="ah-chip ah-chip--indigo">{criticalTasksCount} {criticalTasksCount === 1 ? 'crítica' : 'críticas'}</span>
+                  )}
+                </div>
               </div>
+              <span className="ah-kpi__icon"><ClipboardCheck size={18} /></span>
             </div>
-            <span className="ah-kpi__icon"><ClipboardCheck size={18} /></span>
-          </div>
-          <span className="ah-kpi__foot"><CheckCircle2 size={14} /> {completedTasksCount} completadas</span>
-        </article>
+            <span className="ah-kpi__foot"><CheckCircle2 size={14} /> {completedTasksCount} completadas</span>
+          </article>
 
-        <article className="ah-kpi">
-          <div className="ah-kpi__top">
-            <div>
-              <span className="ah-kpi__label">Hojas de ruta hoy</span>
-              <div className="ah-kpi__value-row">
-                <span className="ah-kpi__value">{todaysRoadmaps.length}</span>
-                {routesInProgress > 0 && <span className="ah-chip ah-chip--sky">En campo</span>}
+          <article className="ah-kpi">
+            <div className="ah-kpi__top">
+              <div>
+                <span className="ah-kpi__label">Hojas de ruta hoy</span>
+                <div className="ah-kpi__value-row">
+                  <span className="ah-kpi__value">{todaysRoadmaps.length}</span>
+                  {routesInProgress > 0 && <span className="ah-chip ah-chip--sky">En campo</span>}
+                </div>
               </div>
+              <span className="ah-kpi__icon"><Truck size={18} /></span>
             </div>
-            <span className="ah-kpi__icon"><Truck size={18} /></span>
-          </div>
-          <span className="ah-kpi__foot"><Radio size={14} /> {routesInProgress} en curso ahora</span>
-        </article>
+            <span className="ah-kpi__foot"><Radio size={14} /> {routesInProgress} en curso ahora</span>
+          </article>
 
-        <article className="ah-kpi">
-          <div className="ah-kpi__top">
-            <div>
-              <span className="ah-kpi__label">Objetivos pendientes</span>
-              <div className="ah-kpi__value-row">
-                <span className="ah-kpi__value">{pendingObjectives.length}</span>
-                {pendingObjectives.length > 0 && <span className="ah-chip ah-chip--emerald">{objectivesAvgPct}% meta</span>}
+          <article className="ah-kpi">
+            <div className="ah-kpi__top">
+              <div>
+                <span className="ah-kpi__label">Objetivos pendientes</span>
+                <div className="ah-kpi__value-row">
+                  <span className="ah-kpi__value">{pendingObjectives.length}</span>
+                  {pendingObjectives.length > 0 && <span className="ah-chip ah-chip--emerald">{objectivesAvgPct}% meta</span>}
+                </div>
               </div>
+              <span className="ah-kpi__icon ah-kpi__icon--emerald"><Target size={18} /></span>
             </div>
-            <span className="ah-kpi__icon ah-kpi__icon--emerald"><Target size={18} /></span>
-          </div>
-          <span className="ah-kpi__foot"><TrendingUp size={14} /> Avance promedio del equipo</span>
-        </article>
+            <span className="ah-kpi__foot"><TrendingUp size={14} /> Avance promedio del equipo</span>
+          </article>
 
-        <article className="ah-kpi">
-          <div className="ah-kpi__top">
-            <div>
-              <span className="ah-kpi__label">Actividades registradas hoy</span>
-              <div className="ah-kpi__value-row">
-                <span className="ah-kpi__value">{activitiesToday.length}</span>
-                {activityDelta !== 0 && (
-                  <span className="ah-chip ah-chip--emerald">{activityDelta > 0 ? '+' : ''}{activityDelta} vs ayer</span>
-                )}
+          <article className="ah-kpi">
+            <div className="ah-kpi__top">
+              <div>
+                <span className="ah-kpi__label">Actividades registradas hoy</span>
+                <div className="ah-kpi__value-row">
+                  <span className="ah-kpi__value">{activitiesToday.length}</span>
+                  {activityDelta !== 0 && (
+                    <span className="ah-chip ah-chip--emerald">{activityDelta > 0 ? '+' : ''}{activityDelta} vs ayer</span>
+                  )}
+                </div>
               </div>
+              <span className="ah-kpi__icon"><Activity size={18} /></span>
             </div>
-            <span className="ah-kpi__icon"><Activity size={18} /></span>
-          </div>
-          <span className="ah-kpi__foot"><TrendingUp size={14} /> {activeAuthorsToday} {activeAuthorsToday === 1 ? 'asesor activo' : 'asesores activos'}</span>
-        </article>
-      </section>
+            <span className="ah-kpi__foot"><TrendingUp size={14} /> {activeAuthorsToday} {activeAuthorsToday === 1 ? 'asesor activo' : 'asesores activos'}</span>
+          </article>
+        </section>
+      )}
 
-      <section className="ah-grid">
-        {/* Hojas de ruta */}
-        <article className="ah-card">
+      {hasGridWidgets && (
+        <section className="ah-grid">
+          {/* Hojas de ruta */}
+          {isVisible('ah_roadmaps') && (
+            <article className="ah-card" style={{ order: orderMap['ah_roadmaps'] ?? 0 }}>
           <div>
             <header className="ah-card__head">
               <div className="ah-card__title-group">
@@ -393,9 +435,11 @@ export const AdminHomePage = () => {
             </button>
           </footer>
         </article>
+      )}
 
-        {/* Tareas */}
-        <article className="ah-card">
+          {/* Tareas */}
+          {isVisible('ah_tasks') && (
+            <article className="ah-card" style={{ order: orderMap['ah_tasks'] ?? 1 }}>
           <div>
             <header className="ah-card__head">
               <div className="ah-card__title-group">
@@ -455,9 +499,11 @@ export const AdminHomePage = () => {
             </button>
           </footer>
         </article>
+      )}
 
-        {/* Objetivos */}
-        <article className="ah-card">
+          {/* Objetivos */}
+          {isVisible('ah_objectives') && (
+            <article className="ah-card" style={{ order: orderMap['ah_objectives'] ?? 2 }}>
           <div>
             <header className="ah-card__head">
               <div className="ah-card__title-group">
@@ -549,9 +595,11 @@ export const AdminHomePage = () => {
             </span>
           </footer>
         </article>
+      )}
 
-        {/* Actividad reciente */}
-        <article className="ah-card">
+          {/* Actividad reciente */}
+          {isVisible('ah_activities') && (
+            <article className="ah-card" style={{ order: orderMap['ah_activities'] ?? 3 }}>
           <div>
             <header className="ah-card__head">
               <div className="ah-card__title-group">
@@ -602,21 +650,54 @@ export const AdminHomePage = () => {
             </button>
           </footer>
         </article>
-      </section>
+      )}
+        </section>
+      )}
 
       {/* Clima — pendiente de conectar una API meteorológica */}
-      <section className="ah-weather">
-        <div className="ah-weather__main">
-          <span className="ah-weather__icon"><Sun size={18} /></span>
-          <div className="ah-min0">
-            <h3 className="ah-weather__title">Condiciones Climáticas para Aplicación</h3>
-            <p className="ah-weather__sub">
-              Todavía no hay un servicio meteorológico conectado. Cuando se conecte una API, acá se va a ver el clima de la zona de trabajo.
-            </p>
+      {isVisible('ah_weather') && (
+        <section className="ah-weather" style={{ order: orderMap['ah_weather'] ?? 5 }}>
+          <div className="ah-weather__main">
+            <span className="ah-weather__icon"><Sun size={18} /></span>
+            <div className="ah-min0">
+              <h3 className="ah-weather__title">Condiciones Climáticas para Aplicación</h3>
+              <p className="ah-weather__sub">
+                Todavía no hay un servicio meteorológico conectado. Cuando se conecte una API, acá se va a ver el clima de la zona de trabajo.
+              </p>
+            </div>
           </div>
+          <span className="ah-chip ah-chip--muted">Sin conexión</span>
+        </section>
+      )}
+
+      {/* Estado vacío cuando el usuario ocultó todos los widgets */}
+      {activeCount === 0 && (
+        <div className="ah-empty-state-notice">
+          <EyeOff size={32} />
+          <h3>Ocultaste todos los widgets de la pantalla de inicio</h3>
+          <p>Podés volver a activar los que necesites en cualquier momento desde el panel de personalización.</p>
+          <button
+            type="button"
+            className="ah-banner__btn ah-banner__btn--primary"
+            onClick={() => setCustomizerOpen(true)}
+          >
+            Personalizar vista
+          </button>
         </div>
-        <span className="ah-chip ah-chip--muted">Sin conexión</span>
-      </section>
+      )}
+
+      {/* Drawer de personalización */}
+      <WidgetManagerDrawer
+        isOpen={customizerOpen}
+        onClose={() => setCustomizerOpen(false)}
+        catalog={ADMIN_HOME_WIDGETS}
+        widgetStates={widgetStates}
+        onToggle={toggleWidget}
+        onMove={moveWidget}
+        onReset={resetToDefaults}
+        onSetAll={setAllWidgetsVisibility}
+        pageTitle="la Pantalla de Inicio"
+      />
     </div>
   );
 };

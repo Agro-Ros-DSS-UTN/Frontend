@@ -531,3 +531,57 @@
 .dashboard__row {
   min-width: 0;
 }
+
+/* ── Botón Personalizar Vista ── */
+.dash-customize-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg, 10px);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms ease;
+  box-shadow: var(--shadow-xs);
+}
+
+.dash-customize-btn:hover {
+  background: var(--gray-50);
+  border-color: var(--border-default);
+  color: var(--color-primary-text);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+/* ── Estado vacío cuando se ocultan todos los widgets ── */
+.dash-empty-state-notice {
+  text-align: center;
+  padding: 60px 24px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-xl);
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.dash-empty-state-notice h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dash-empty-state-notice p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
