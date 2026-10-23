@@ -13,9 +13,7 @@ import {
   X,
   Network,
 } from 'lucide-react';
-import { fetchClients, fetchClientCompanies, fetchOpportunities } from '../../../data/api';
-import { tasksApi } from '../../../api/operations.api';
-import { serviceOrdersApi } from '../../../api/serviceOrders.api';
+import { searchApi } from '../../../api/operations.api';
 import { CompanyTreeModal } from '../../companies/CompanyTreeModal';
 import './GlobalSearch.css';
 import { SearchClearButton } from '../SearchClearButton/SearchClearButton';
@@ -45,41 +43,33 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
   const [activeFilters, setActiveFilters] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
   const [data, setData] = useState({ contacts: [], companies: [], deals: [], tasks: [], orders: [] });
   const [inspectingId, setInspectingId] = useState(null);
   const inputRef = useRef(null);
 
-  // Trae todo una sola vez cuando se abre por primera vez (después filtra en memoria)
+  // Búsqueda server-side con debounce de 250ms (evita descargar la base completa al presionar /)
   useEffect(() => {
-    if (!isOpen || loaded) return;
-    const fetchAll = async () => {
-      setLoading(true);
-      const [clientsRes, companiesRes, tasksRes, ordersRes, oppsRes] = await Promise.allSettled([
-        fetchClients(),
-        fetchClientCompanies(),
-        tasksApi.getAll(),
-        isSeller ? Promise.resolve([]) : serviceOrdersApi.getAll(),
-        isSeller ? Promise.resolve([]) : fetchOpportunities(),
-      ]);
-      const pick = (r) => {
-        if (r.status !== 'fulfilled') return [];
-        const v = r.value;
-        const arr = Array.isArray(v) ? v : v?.data || [];
-        return Array.isArray(arr) ? arr : [];
-      };
-      setData({
-        contacts: pick(clientsRes),
-        companies: pick(companiesRes),
-        deals: pick(oppsRes),
-        tasks: pick(tasksRes),
-        orders: pick(ordersRes),
-      });
+    const q = query.trim();
+    if (!isOpen || q.length < 2) {
+      setData({ contacts: [], companies: [], deals: [], tasks: [], orders: [] });
       setLoading(false);
-      setLoaded(true);
-    };
-    fetchAll();
-  }, [isOpen, loaded, isSeller]);
+      return;
+    }
+
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await searchApi.search(q, 5);
+        setData(res?.data || res || { contacts: [], companies: [], deals: [], tasks: [], orders: [] });
+      } catch {
+        setData({ contacts: [], companies: [], deals: [], tasks: [], orders: [] });
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [query, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -95,43 +85,13 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
   };
 
   const results = useMemo(() => {
-    const q = norm(query);
-    if (!q) return [];
+    if (!query.trim()) return [];
     const cats = activeFilters.length > 0 ? CATEGORIES.filter((c) => activeFilters.includes(c.key)) : CATEGORIES;
     const out = [];
 
     cats.forEach((cat) => {
       const items = data[cat.key] || [];
-      let matches = [];
-
-      if (cat.key === 'contacts') {
-        matches = items.filter(
-          (c) => norm(c.fullName).includes(q) || norm(c.email).includes(q) || norm(c.docNumber).includes(q)
-        ).map((c) => ({ id: c.id, title: c.fullName || 'Contacto', subtitle: c.email || c.docNumber || '' }));
-      } else if (cat.key === 'companies') {
-        matches = items.filter(
-          (c) => norm(c.legalName || c.companyName).includes(q) || norm(c.cuit).includes(q) || norm(c.locality).includes(q)
-        ).map((c) => ({
-          id: c.id,
-          title: c.legalName || c.companyName || 'Empresa',
-          subtitle: [c.locality, c.cuit].filter(Boolean).join(' · '),
-          companyLevel: c.companyLevel,
-        }));
-      } else if (cat.key === 'deals') {
-        matches = items.filter(
-          (o) => norm(o.title).includes(q) || norm(o.company).includes(q)
-        ).map((o) => ({ id: o.id, title: o.title || 'Oportunidad', subtitle: [o.company, o.status].filter(Boolean).join(' · ') }));
-      } else if (cat.key === 'tasks') {
-        matches = items.filter(
-          (t) => norm(t.title).includes(q) || norm(t.description).includes(q) || norm(t.company).includes(q) || norm(t.assignedTo).includes(q)
-        ).map((t) => ({ id: t.id, title: t.title || t.description || 'Tarea', subtitle: [t.company, t.assignedTo].filter(Boolean).join(' · ') }));
-      } else if (cat.key === 'orders') {
-        matches = items.filter(
-          (o) => norm(o.orderNumber).includes(q) || norm(o.customerName).includes(q) || norm(o.plantName).includes(q)
-        ).map((o) => ({ id: o.id, title: o.orderNumber || 'Orden de Servicio', subtitle: [o.customerName, o.plantName].filter(Boolean).join(' · ') }));
-      }
-
-      matches.slice(0, 5).forEach((m) => out.push({ ...m, category: cat }));
+      items.forEach((m) => out.push({ ...m, category: cat }));
     });
 
     return out;

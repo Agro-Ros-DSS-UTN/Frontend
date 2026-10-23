@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { LogOut, X, AlertTriangle } from 'lucide-react';
 import { authApi } from '../api/auth.api';
 import { useOverlayClose } from '../hooks/useOverlayClose';
@@ -57,8 +57,19 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [profileImage, setProfileImageState] = useState(() => {
-    return localStorage.getItem('agroros_profile_img') || null;
+    try {
+      return sessionStorage.getItem('agroros_profile_img') || null;
+    } catch {
+      return null;
+    }
   });
+
+  // Limpiar residuo en localStorage de versiones anteriores para liberar cuota
+  useEffect(() => {
+    try {
+      localStorage.removeItem('agroros_profile_img');
+    } catch {}
+  }, []);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const logoutModalOverlayHandlers = useOverlayClose(() => setShowLogoutModal(false));
@@ -84,7 +95,7 @@ export const AuthProvider = ({ children }) => {
       try {
         if (currentUser.profileImage) {
           setProfileImageState(currentUser.profileImage);
-          localStorage.setItem('agroros_profile_img', currentUser.profileImage);
+          try { sessionStorage.setItem('agroros_profile_img', currentUser.profileImage); } catch {}
           return;
         }
 
@@ -92,9 +103,9 @@ export const AuthProvider = ({ children }) => {
         const img = result?.data?.profileImage || null;
         setProfileImageState(img);
         if (img) {
-          localStorage.setItem('agroros_profile_img', img);
+          try { sessionStorage.setItem('agroros_profile_img', img); } catch {}
         } else {
-          localStorage.removeItem('agroros_profile_img');
+          try { sessionStorage.removeItem('agroros_profile_img'); } catch {}
         }
       } catch (err) {
         console.warn('No se pudo cargar la imagen de perfil desde la DB:', err?.message);
@@ -187,6 +198,7 @@ export const AuthProvider = ({ children }) => {
     setProfileImageState(null);
     setPersist(false);
     sessionStorage.removeItem('agroros_user');
+    sessionStorage.removeItem('agroros_profile_img');
     localStorage.removeItem('agroros_user');
     localStorage.removeItem('agroros_profile_img');
     clearAllDrafts();

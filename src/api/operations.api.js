@@ -59,8 +59,13 @@ export const notesApi = {
 
 export const notificationsApi = {
   getAll: async () => (await apiClient.get('/notifications')).data,
+  getSummary: async () => (await apiClient.get('/notifications/summary')).data,
   markRead: async (id) => (await apiClient.patch(`/notifications/${id}/read`)).data,
   markAllRead: async () => (await apiClient.patch('/notifications/read')).data,
+};
+
+export const searchApi = {
+  search: async (q, limit = 5) => (await apiClient.get('/search', { params: { q, limit } })).data,
 };
 
 export const catalogApi = {

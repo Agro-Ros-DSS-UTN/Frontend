@@ -45,7 +45,11 @@ const read = () => {
   try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
 };
 const write = (queue) => {
-  localStorage.setItem(KEY, JSON.stringify(queue)); // puede lanzar si no hay espacio
+  try {
+    localStorage.setItem(KEY, JSON.stringify(queue));
+  } catch (err) {
+    console.warn('offlineQueue: no se pudo persistir en localStorage:', err);
+  }
   listeners.forEach((fn) => fn(pending()));
 };
 const readRejected = () => {
