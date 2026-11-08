@@ -69,7 +69,20 @@ export const LoginPage = ({ onLoginSuccess }) => {
       const serverMsg = err?.response?.data?.message;
       if (status === 429) setError(serverMsg || 'Demasiados intentos. Esperá unos minutos y volvé a probar.');
       else if (serverMsg) setError(serverMsg);
-      else if (!err?.response) setError('No se pudo conectar con el servidor. Revisá tu conexión.');
+      else if (err?.isAxiosError && !err?.response) {
+        // El código entre paréntesis ayuda a saber qué pasó en ese equipo:
+        // ECONNABORTED = tardó demasiado; ERR_NETWORK = no hubo respuesta (sin señal,
+        // dirección distinta, certificado no aceptado por el equipo, etc.).
+        const slow = err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT';
+        setError(`${slow
+          ? 'El servidor tardó demasiado en responder. Revisá la señal e intentá de nuevo.'
+          : 'No se pudo conectar con el servidor. Revisá tu conexión.'} (${err.code || 'sin código'})`);
+      }
+      else if (!err?.response) {
+        // El servidor aceptó el login pero algo falló en el equipo: no es la conexión.
+        console.error('Error al iniciar la sesión en el navegador:', err);
+        setError('No se pudo iniciar la sesión en este navegador. Recargá la página e intentá de nuevo.');
+      }
       else setError('Usuario o contraseña incorrectos');
     } finally {
       setLoading(false);
@@ -121,6 +134,9 @@ export const LoginPage = ({ onLoginSuccess }) => {
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 autoFocus
                 required
               />

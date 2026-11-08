@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { triggerSessionExpired } from '../utils/sessionExpired';
+import { getToken, readStoredUser } from '../utils/authSession';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -63,24 +64,14 @@ apiClient.defaults.adapter = async (config) => {
   return copyOf(await inFlight.get(key), config);
 };
 
-// Interceptor para inyectar token de autenticación si existe
+// Interceptor para inyectar el token de la sesión. Sale de memoria; si no está
+// (por ejemplo, justo al recargar), se lee del almacenamiento sin arriesgar un
+// error del navegador.
 apiClient.interceptors.request.use((config) => {
-  const savedUser = sessionStorage.getItem('agroros_user') || localStorage.getItem('agroros_user');
-  if (savedUser) {
-    try {
-      const user = JSON.parse(savedUser);
-      const token = user.token || user.jwt;
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    } catch (e) {
-      console.error('Error parseando token de usuario', e);
-    }
-  }
+  const token = getToken() || readStoredUser()?.token || null;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
-}, (error) => {
-  return Promise.reject(error);
-});
+}, (error) => Promise.reject(error));
 
 // Si el backend rechaza el token (expiró, es inválido o no se mandó en una
 // ruta protegida), se dispara la pantalla bloqueante de "sesión expirada" en

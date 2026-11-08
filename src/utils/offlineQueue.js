@@ -3,6 +3,7 @@
 // la conexión. Cada registro lleva un clientUuid: si el envío se repite, el
 // servidor devuelve la misma actividad en vez de duplicarla.
 import { activitiesApi } from '../api/operations.api';
+import { getSessionUserId, readStoredUser } from './authSession';
 
 const KEY = 'agroros_activity_queue';
 // Las que el servidor rechazó (datos inválidos) no se borran: quedan acá para que
@@ -64,14 +65,7 @@ export const newUuid = () => (window.crypto?.randomUUID ? window.crypto.randomUU
 
 // Usuario de la sesión actual: cada actividad en cola se envía solo con la sesión
 // de quien la cargó (si otra persona usa el mismo equipo, no se le atribuye).
-const currentUser = () => {
-  try {
-    const raw = sessionStorage.getItem('agroros_user') || localStorage.getItem('agroros_user');
-    return raw ? JSON.parse(raw).idUser || null : null;
-  } catch {
-    return null;
-  }
-};
+const currentUser = () => getSessionUserId() || readStoredUser()?.idUser || null;
 
 export const pending = () => {
   const me = currentUser();

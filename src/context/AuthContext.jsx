@@ -4,6 +4,7 @@ import { authApi } from '../api/auth.api';
 import { useOverlayClose } from '../hooks/useOverlayClose';
 import { setSessionExpiredHandler } from '../utils/sessionExpired';
 import { clearAllDrafts } from '../utils/formDrafts';
+import { setSession, storageGet, storageSet, storageRemove, readStoredUser } from '../utils/authSession';
 import { AnimatedLogOutIcon } from '../components/ui/AnimatedLogOutIcon/AnimatedLogOutIcon';
 import { useHover } from '../hooks/useHover';
 import '../styles/global.css';
@@ -37,6 +38,9 @@ const normalizeUser = (user) => {
   if (role === 'administrador') {
     role = 'admin';
   }
+  // La foto de perfil no viaja dentro del usuario: pesa hasta 3 MB y, guardada en
+  // el navegador, llenaba el almacenamiento del celular y se perdía el token.
+  delete u.profileImage;
   return { ...u, role };
 };
 
@@ -44,31 +48,21 @@ export const AuthProvider = ({ children }) => {
   // La sesión vive en sessionStorage (se cierra con la pestaña) salvo que el
   // usuario elija "Mantener la sesión iniciada" (localStorage, token de 3 días).
   // Nunca se guarda la contraseña.
-  const [persist, setPersist] = useState(() => {
-    try { return Boolean(localStorage.getItem('agroros_user')); } catch { return false; }
-  });
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const stored = sessionStorage.getItem('agroros_user') || localStorage.getItem('agroros_user');
-      return stored ? normalizeUser(JSON.parse(stored)) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [persist, setPersist] = useState(() => Boolean(storageGet('localStorage', 'agroros_user')));
+  const [currentUser, setCurrentUser] = useState(() => normalizeUser(readStoredUser()));
 
-  const [profileImage, setProfileImageState] = useState(() => {
-    try {
-      return sessionStorage.getItem('agroros_profile_img') || null;
-    } catch {
-      return null;
-    }
-  });
+  // El token se toma de memoria en cada pedido (apiClient). Se actualiza acá, en
+  // el render, para que ya esté disponible cuando las pantallas pidan sus datos.
+  setSession(currentUser);
 
-  // Limpiar residuo en localStorage de versiones anteriores para liberar cuota
+  // La foto se muestra desde memoria y se pide a la base al entrar o recargar.
+  const [profileImage, setProfileImageState] = useState(null);
+
+  // Versiones anteriores guardaban la foto en el navegador (dos veces): se borra
+  // para liberar lugar.
   useEffect(() => {
-    try {
-      localStorage.removeItem('agroros_profile_img');
-    } catch {}
+    storageRemove('localStorage', 'agroros_profile_img');
+    storageRemove('sessionStorage', 'agroros_profile_img');
   }, []);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -85,52 +79,35 @@ export const AuthProvider = ({ children }) => {
     return () => setSessionExpiredHandler(null);
   }, []);
 
-  // Al iniciar sesion o recargar, cargar la foto de perfil desde la base de datos
+  // Al iniciar sesión o recargar, cargar la foto de perfil desde la base de datos
+  // (si el login ya la trajo, no se vuelve a pedir).
   useEffect(() => {
-    const loadProfileImageFromDB = async () => {
-      if (!currentUser) return;
-      const userId = currentUser.idUser || currentUser.id;
-      if (!userId) return;
-
-      try {
-        if (currentUser.profileImage) {
-          setProfileImageState(currentUser.profileImage);
-          try { sessionStorage.setItem('agroros_profile_img', currentUser.profileImage); } catch {}
-          return;
-        }
-
-        const result = await authApi.getProfileImage(userId);
-        const img = result?.data?.profileImage || null;
-        setProfileImageState(img);
-        if (img) {
-          try { sessionStorage.setItem('agroros_profile_img', img); } catch {}
-        } else {
-          try { sessionStorage.removeItem('agroros_profile_img'); } catch {}
-        }
-      } catch (err) {
-        console.warn('No se pudo cargar la imagen de perfil desde la DB:', err?.message);
-      }
-    };
-
-    loadProfileImageFromDB();
+    const userId = currentUser?.idUser || currentUser?.id;
+    if (!userId || profileImage) return;
+    let cancelled = false;
+    authApi.getProfileImage(userId)
+      .then((result) => { if (!cancelled) setProfileImageState(result?.data?.profileImage || null); })
+      .catch((err) => console.warn('No se pudo cargar la imagen de perfil desde la DB:', err?.message));
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.idUser || currentUser?.id]);
 
   useEffect(() => {
-    try {
-      if (currentUser) {
-        const data = JSON.stringify(currentUser);
-        if (persist) {
-          localStorage.setItem('agroros_user', data);
-          sessionStorage.removeItem('agroros_user');
-        } else {
-          sessionStorage.setItem('agroros_user', data);
-          localStorage.removeItem('agroros_user');
-        }
+    // Si el navegador no deja guardar, la sesión sigue en memoria mientras la
+    // pestaña esté abierta; solo se pierde al recargar.
+    if (currentUser) {
+      const data = JSON.stringify(currentUser);
+      if (persist) {
+        storageSet('localStorage', 'agroros_user', data);
+        storageRemove('sessionStorage', 'agroros_user');
       } else {
-        sessionStorage.removeItem('agroros_user');
-        localStorage.removeItem('agroros_user');
+        storageSet('sessionStorage', 'agroros_user', data);
+        storageRemove('localStorage', 'agroros_user');
       }
-    } catch { /* almacenamiento no disponible: la sesión dura lo que la pestaña */ }
+    } else {
+      storageRemove('sessionStorage', 'agroros_user');
+      storageRemove('localStorage', 'agroros_user');
+    }
   }, [currentUser, persist]);
 
   useEffect(() => {
@@ -144,12 +121,7 @@ export const AuthProvider = ({ children }) => {
   }, [showLogoutModal]);
 
   const updateProfileImage = async (imgData) => {
-    setProfileImageState(imgData);
-    if (imgData) {
-      localStorage.setItem('agroros_profile_img', imgData);
-    } else {
-      localStorage.removeItem('agroros_profile_img');
-    }
+    setProfileImageState(imgData || null);
 
     const userId = currentUser?.idUser || currentUser?.id;
     if (userId) {
@@ -171,16 +143,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData, { persist: keep = false } = {}) => {
     const normalized = normalizeUser(userData);
+    setSession(normalized);
     setPersist(Boolean(keep));
+    setProfileImageState(userData.profileImage || null);
     setCurrentUser(normalized);
-
-    if (userData.profileImage) {
-      setProfileImageState(userData.profileImage);
-      localStorage.setItem('agroros_profile_img', userData.profileImage);
-    } else {
-      setProfileImageState(null);
-      localStorage.removeItem('agroros_profile_img');
-    }
 
     return { success: true, user: normalized };
   };
@@ -194,13 +160,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const confirmLogout = () => {
+    setSession(null);
     setCurrentUser(null);
     setProfileImageState(null);
     setPersist(false);
-    sessionStorage.removeItem('agroros_user');
-    sessionStorage.removeItem('agroros_profile_img');
-    localStorage.removeItem('agroros_user');
-    localStorage.removeItem('agroros_profile_img');
+    storageRemove('sessionStorage', 'agroros_user');
+    storageRemove('localStorage', 'agroros_user');
     clearAllDrafts();
     setShowLogoutModal(false);
   };
