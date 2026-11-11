@@ -37,6 +37,7 @@ import { authApi } from '../../../api/auth.api';
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import { FilterTabs } from '../../../components/ui/FilterTabs/FilterTabs';
 import { RoadmapDetailModal } from '../../../components/roadmaps/RoadmapDetailModal';
+import { RoadmapHistory } from '../../../components/roadmaps/RoadmapHistory';
 import { CompanyAutocomplete } from '../../../components/ui/CompanyAutocomplete/CompanyAutocomplete';
 import { FlipCheckbox } from '../../../components/ui/FlipCheckbox/FlipCheckbox';
 import { MAX_ROADMAP_STOPS } from '../../../utils/timeOptions';
@@ -116,6 +117,7 @@ export const RoadmapsPage = () => {
             totalKm: r.estimatedDistanceKm || 0,
             totalVisits: r.stops?.length || 0,
             completedVisits: r.stops?.filter(p => (p.status || p.stopStatus) === 'completada').length || 0,
+            status: r.status || 'planificada',
             notes: r.notes || r.description || '',
             stops: (r.stops || []).map((p, idx) => ({
               id: p.id,
@@ -800,114 +802,15 @@ export const RoadmapsPage = () => {
       )}
 
       {activeTab === 'history' && (
-        <div className="roadmaps-history-section">
-          <div className="roadmaps-kpis">
-            <div className="roadmap-kpi-card">
-              <div className="roadmap-kpi-icon teal">
-                <Car size={20} />
-              </div>
-              <div>
-                <div className="roadmap-kpi-label">Km Totales Registrados</div>
-                <div className="roadmap-kpi-value">{totalKmToday} km</div>
-              </div>
-            </div>
-
-            <div className="roadmap-kpi-card">
-              <div className="roadmap-kpi-icon blue">
-                <CheckCircle2 size={20} />
-              </div>
-              <div>
-                <div className="roadmap-kpi-label">Visitas a Campo Realizadas</div>
-                <div className="roadmap-kpi-value">{completedStopsToday} visitas</div>
-              </div>
-            </div>
-
-            <div className="roadmap-kpi-card">
-              <div className="roadmap-kpi-icon green">
-                <TrendingUp size={20} />
-              </div>
-              <div>
-                <div className="roadmap-kpi-label">Hojas de Ruta Registradas</div>
-                <div className="roadmap-kpi-value">{apiRoadmaps.length} cargadas</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="roadmaps-table-card">
-            <div className="roadmaps-table-header">
-              <h3>Registro Histórico de Hojas de Ruta</h3>
-            </div>
-            <div className="roadmaps-table-wrapper">
-              <table className="roadmaps-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Fecha</th>
-                    <th>Vendedor</th>
-                    <th>Nombre de la Zona</th>
-                    <th>Paradas</th>
-                    <th>Km Recorridos</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {apiRoadmaps.length > 0 ? (
-                    apiRoadmaps.map(row => (
-                      <tr key={row.id}>
-                        <td><strong>#{row.id}</strong></td>
-                        <td>{row.date}</td>
-                        <td>{row.seller}</td>
-                        <td><strong>{row.zone}</strong></td>
-                        <td>{row.totalVisits} paradas</td>
-                        <td>{row.totalKm} km</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button
-                              className="roadmaps-btn roadmaps-btn--outline"
-                              style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                              onClick={() => {
-                                setSelectedRouteId(row.id);
-                                setSelectedSellerId(String(row.sellerId));
-                                setShowDetailModal(true);
-                              }}
-                            >
-                              <Eye size={12} /> Ver Detalle
-                            </button>
-                            <button
-                              style={{
-                                background: '#fef2f2',
-                                border: '1px solid #fecaca',
-                                borderRadius: '6px',
-                                padding: '4px 8px',
-                                color: '#ef4444',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: '0.75rem',
-                                fontWeight: 600
-                              }}
-                              onClick={() => handleDeleteRoadmap(row.id, row.zone)}
-                              title="Eliminar hoja de ruta"
-                            >
-                              <Trash2 size={12} /> Eliminar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#64748b' }}>
-                        No hay registros guardados en el sistema aún.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <RoadmapHistory
+          roadmaps={apiRoadmaps}
+          onView={(row) => {
+            setSelectedRouteId(row.id);
+            setSelectedSellerId(String(row.sellerId));
+            setShowDetailModal(true);
+          }}
+          onDelete={(row) => handleDeleteRoadmap(row.id, row.zone)}
+        />
       )}
 
       {/* ── Fullscreen Map Overlay Modal ── */}
