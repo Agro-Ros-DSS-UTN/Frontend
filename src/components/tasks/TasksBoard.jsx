@@ -14,7 +14,9 @@ import {
   Download,
   Pencil,
   CheckCircle2,
+  CalendarPlus,
 } from 'lucide-react';
+import { googleCalendarUrl } from '../../utils/googleCalendar';
 import { tasksApi, activitiesApi } from '../../api/operations.api';
 import { contactTypeLabel } from '../../data/catalogs';
 import { authApi } from '../../api/auth.api';
@@ -85,6 +87,20 @@ const normalizeTask = (t) => ({
   notes: t.notes || '',
   createdByRole: t.createdByRole || 'administrador',
   createdById: t.createdById || null,
+});
+
+// Evento de Google Calendar para una tarea (empresa, contacto y notas en el detalle).
+const taskCalendarUrl = (t) => googleCalendarUrl({
+  title: t.title,
+  date: t.dueDate,
+  time: t.dueTime,
+  location: t.company || '',
+  details: [
+    t.company && `Empresa: ${t.company}`,
+    t.contact && `Contacto: ${t.contact}${t.contactPhone ? ` (${t.contactPhone})` : ''}`,
+    t.notes && `Notas: ${t.notes}`,
+    `Tarea del CRM Agroquímica Rosario: ${window.location.origin}/`,
+  ].filter(Boolean).join('\n'),
 });
 
 const formatDateTime = (iso) => {
@@ -586,6 +602,19 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                         <div className="tasks-board__row-actions">
                           {!isFinalized && (
                             <>
+                              {taskCalendarUrl(t) && (
+                                <a
+                                  href={taskCalendarUrl(t)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Agregar a mi Google Calendar"
+                                  aria-label="Agregar a mi Google Calendar"
+                                  className="tasks-board__icon-btn"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <CalendarPlus size={15} />
+                                </a>
+                              )}
                               {(variant === 'admin' || t.createdById === myUserId) && (
                                 <button
                                   type="button"
