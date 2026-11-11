@@ -6,6 +6,13 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary/ErrorBoundary';
 import './styles/global.css';
 import './styles/density.css';
 
+// Si alguien abre el portal con http:// (sin la s), lo pasamos a https://.
+// Con http el servidor rechaza los pedidos y el login dice "No se pudo conectar".
+const { protocol, hostname } = window.location;
+if (import.meta.env.PROD && protocol === 'http:' && hostname !== 'localhost' && !/^\d+(\.\d+){3}$/.test(hostname)) {
+  window.location.replace(window.location.href.replace(/^http:/, 'https:'));
+}
+
 // Si se despliega una nueva versión mientras el usuario tiene la app abierta,
 // Vite dispara este evento cuando falla la descarga de un chunk previo (hash obsoleto).
 // Recargamos automáticamente para traer la versión vigente de forma transparente.
