@@ -255,12 +255,14 @@ export const CompaniesPage = () => {
   };
 
   // Filter contacts for smart search in company registration modal
+  // Solo se ofrecen contactos sin empresa: uno que ya es de otra empresa no se mueve desde el alta.
   const filteredContactsForSearch = useMemo(() => {
+    const unassigned = clients.filter((c) => !(c.companyId || c.clientCompanyId));
     if (!contactSearchQuery || !contactSearchQuery.trim()) {
-      return clients.slice(0, 8);
+      return unassigned.slice(0, 8);
     }
     const q = contactSearchQuery.toLowerCase().trim();
-    return clients.filter(c =>
+    return unassigned.filter(c =>
       (c.fullName && c.fullName.toLowerCase().includes(q)) ||
       (c.name && c.name.toLowerCase().includes(q)) ||
       (c.surname && c.surname.toLowerCase().includes(q)) ||
@@ -1267,7 +1269,7 @@ export const CompaniesPage = () => {
                             {contactDropdownOpen && (
                               <div className="comp-contact-dropdown">
                                 <div className="comp-contact-dropdown-header">
-                                  <span>Contactos encontrados ({filteredContactsForSearch.length})</span>
+                                  <span>Contactos sin empresa ({filteredContactsForSearch.length})</span>
                                   <button
                                     type="button"
                                     className="comp-dropdown-close-btn"

@@ -15,6 +15,21 @@
   </FilesMatch>
 </IfModule>
 
+# ── Cabeceras de seguridad (el API ya las envía; estas son para el sitio) ──
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  # Nadie puede mostrar el CRM dentro de otra página (clickjacking).
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  # Cámara, micrófono (audios de actividades) y ubicación solo para el propio sitio.
+  Header always set Permissions-Policy "camera=(self), microphone=(self), geolocation=(self)"
+  # Solo HTTPS durante 30 días (se puede subir a un año cuando esté probado).
+  Header always set Strict-Transport-Security "max-age=2592000" "expr=%{HTTPS} == 'on'"
+  # CSP en modo "solo informe": no bloquea nada, solo avisa en la consola del navegador.
+  # Cuando pase una semana sin avisos, se cambia a Content-Security-Policy.
+  Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+</IfModule>
+
 # ── Reescritura para Single Page Application (SPA) ──
 <IfModule mod_rewrite.c>
   RewriteEngine On

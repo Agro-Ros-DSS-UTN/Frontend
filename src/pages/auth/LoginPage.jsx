@@ -5,6 +5,8 @@ import bgFieldUrl from '../../assets/field_sunset.jpg';
 import { authApi } from '../../api/auth.api';
 import './LoginPage.css';
 
+const KEEP_SESSION_PREF_KEY = 'agroros_keep_session';
+
 // Versiones anteriores guardaban usuario y contraseña en texto plano en el
 // navegador. Se borra ese dato apenas se abre esta pantalla.
 const LEGACY_SAVED_CREDENTIALS_KEY = 'agroros_saved_credentials';
@@ -13,7 +15,10 @@ export const LoginPage = ({ onLoginSuccess }) => {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [keepSession, setKeepSession] = useState(false);
+  // Se recuerda la última elección del checkbox en este equipo (no la contraseña).
+  const [keepSession, setKeepSession] = useState(() => {
+    try { return localStorage.getItem(KEEP_SESSION_PREF_KEY) === '1'; } catch { return false; }
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -175,7 +180,10 @@ export const LoginPage = ({ onLoginSuccess }) => {
                 <input
                   type="checkbox"
                   checked={keepSession}
-                  onChange={(e) => setKeepSession(e.target.checked)}
+                  onChange={(e) => {
+                    setKeepSession(e.target.checked);
+                    try { localStorage.setItem(KEEP_SESSION_PREF_KEY, e.target.checked ? '1' : '0'); } catch { /* sin storage */ }
+                  }}
                 />
                 <span>Mantener la sesión iniciada en este equipo</span>
               </label>

@@ -45,11 +45,14 @@ if (typeof window !== 'undefined') migrateLegacy();
 const read = () => {
   try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
 };
-const write = (queue) => {
+// strict: al encolar, si el equipo no tiene lugar se relanza el error para que la
+// pantalla avise ("sin espacio") en vez de decir que quedó guardada.
+const write = (queue, { strict = false } = {}) => {
   try {
     localStorage.setItem(KEY, JSON.stringify(queue));
   } catch (err) {
     console.warn('offlineQueue: no se pudo persistir en localStorage:', err);
+    if (strict) throw err;
   }
   listeners.forEach((fn) => fn(pending()));
 };
@@ -95,7 +98,7 @@ export const discardRejected = (clientUuid) => writeRejected(readRejected().filt
 export const enqueue = (payload) => {
   const queue = read();
   if (!queue.some((x) => x.clientUuid === payload.clientUuid)) queue.push({ ...payload, queueUser: currentUser(), queuedAt: new Date().toISOString() });
-  write(queue);
+  write(queue, { strict: true });
 };
 
 let sending = false;

@@ -70,7 +70,8 @@ const formatRoadmap = (r, idx = 0) => ({
     approximateCoords: Boolean(p.approximateCoordinates),
     companyId: p.companyId || null,
     service: p.notes || 'Visita comercial',
-    contact: '',
+    contact: p.contactName || '',
+    contactPhone: p.contactPhone || '',
     estimatedTime: p.estimatedTime || '',
     url: p.url || null,
     source: p.source || 'planificada',
@@ -81,6 +82,19 @@ const formatRoadmap = (r, idx = 0) => ({
 // Algunas empresas cargadas en la base nunca tuvieron una dirección real
 // (quedó literalmente "Sin dirección" como dato) — no tiene sentido
 // autocompletar el campo con ese texto como si fuera una dirección válida.
+// Número para wa.me: solo dígitos, con código de país. Un número argentino cargado
+// como "341 456-7890" o "0341 15 456-7890" pasa a 549341…; si no parece válido, no hay botón.
+const waNumber = (phone) => {
+  let d = String(phone || '').replace(/\D/g, '');
+  if (!d) return null;
+  if (d.startsWith('54')) d = d.slice(2);
+  if (d.startsWith('9')) d = d.slice(1);
+  if (d.startsWith('0')) d = d.slice(1);
+  // El "15" del celular solo se quita si sobra (12 dígitos = 10 + 15).
+  if (d.length === 12) d = d.replace(/^(\d{2,4})15(\d{6,8})$/, '$1$2');
+  return d.length === 10 ? `549${d}` : null;
+};
+
 const isRealAddress = (addr) => !!addr && !/^sin direcci[oó]n$/i.test(addr.trim());
 
 const formatDuration = (ms) => {
@@ -618,9 +632,12 @@ export const SellerRoadmapPage = () => {
                         <a href={stop.coords ? `https://maps.google.com/?q=${stop.coords[0]},${stop.coords[1]}` : `https://maps.google.com/?q=${encodeURIComponent([stop.address, stop.locality, stop.customer].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" className="stop-action-btn waze" title="Cómo llegar en Google Maps">
                           <Navigation size={13} />
                         </a>
-                        <a href={`https://wa.me/5493414567890?text=Hola%20${encodeURIComponent(stop.contact)},%20te%20escribo%20de%20Agroqu%C3%ADmica%20Rosario%20en%20referencia%20a%20la%20visita%20de%20hoy.`} target="_blank" rel="noopener noreferrer" className="stop-action-btn whatsapp" title="Enviar WhatsApp">
-                          <MessageSquare size={13} />
-                        </a>
+                        {/* WhatsApp al teléfono del contacto de la empresa; sin teléfono no se muestra. */}
+                        {waNumber(stop.contactPhone) && (
+                          <a href={`https://wa.me/${waNumber(stop.contactPhone)}?text=${encodeURIComponent(`Hola${stop.contact ? ` ${stop.contact}` : ''}, te escribo de Agroquímica Rosario en referencia a la visita de hoy.`)}`} target="_blank" rel="noopener noreferrer" className="stop-action-btn whatsapp" title={`Enviar WhatsApp a ${stop.contact || 'el contacto'}`}>
+                            <MessageSquare size={13} />
+                          </a>
+                        )}
                         <button className="stop-action-btn register" onClick={() => navigate('/seller/activities')} title="Registrar Resultado de la Visita">
                           <CheckCircle2 size={13} />
                           <span>Registrar</span>

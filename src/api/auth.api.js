@@ -6,6 +6,12 @@ export const authApi = {
   login: async (idUser, password, { rememberMe = false } = {}) =>
     data(await apiClient.post('/auth/login', { idUser, password, rememberMe })),
   me: async () => data(await apiClient.get('/auth/me')),
+  // Token nuevo con la misma duración (renovación automática mientras se usa el CRM).
+  refresh: async () => data(await apiClient.post('/auth/refresh')),
+  // Cierra la sesión en todos los dispositivos del usuario.
+  // Recibe el token explícito: se llama justo cuando la sesión local se está borrando.
+  logoutAll: async (token) =>
+    data(await apiClient.post('/auth/logout-all', {}, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)),
   // Devuelve un token nuevo: las sesiones abiertas en otros equipos se cierran.
   changePassword: async (currentPassword, newPassword) =>
     data(await apiClient.post('/auth/change-password', { currentPassword, newPassword })),

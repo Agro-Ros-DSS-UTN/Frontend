@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { LogOut, X, AlertTriangle } from 'lucide-react';
 import { authApi } from '../api/auth.api';
 import { useOverlayClose } from '../hooks/useOverlayClose';
@@ -44,6 +44,21 @@ const normalizeUser = (user) => {
   return { ...u, role };
 };
 
+// Fechas del token (emitido y vencimiento, en ms). Solo se leen: la firma la valida el servidor.
+const tokenTimes = (token) => {
+  try {
+    const part = String(token).split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const { iat, exp } = JSON.parse(atob(part));
+    return iat && exp ? { iat: iat * 1000, exp: exp * 1000 } : null;
+  } catch {
+    return null;
+  }
+};
+
+// Cada cuánto se revisa si conviene renovar, y a partir de qué parte de la vida del token.
+const REFRESH_CHECK_MS = 10 * 60 * 1000;
+const REFRESH_AFTER_FRACTION = 0.25;
+
 export const AuthProvider = ({ children }) => {
   // La sesión vive en sessionStorage (se cierra con la pestaña) salvo que el
   // usuario elija "Mantener la sesión iniciada" (localStorage, token de 3 días).
@@ -71,6 +86,39 @@ export const AuthProvider = ({ children }) => {
   const [reloginHoverProps, isReloginHovered] = useHover();
 
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [logoutEverywhere, setLogoutEverywhere] = useState(false);
+
+  // Renovación automática: mientras el CRM se usa, el token se cambia por uno nuevo
+  // con la misma duración. Con "mantener la sesión iniciada" (3 días), quien entra
+  // al menos una vez cada 3 días no vuelve a poner la contraseña.
+  const refreshing = useRef(false);
+  const token = currentUser?.token || currentUser?.jwt || null;
+  useEffect(() => {
+    if (!token) return undefined;
+    const maybeRefresh = async () => {
+      if (refreshing.current || document.visibilityState === 'hidden') return;
+      const t = tokenTimes(token);
+      if (!t || Date.now() >= t.exp) return;
+      if (Date.now() - t.iat < (t.exp - t.iat) * REFRESH_AFTER_FRACTION) return;
+      refreshing.current = true;
+      try {
+        const res = await authApi.refresh();
+        if (res?.token) setCurrentUser((prev) => (prev ? { ...prev, token: res.token } : prev));
+      } catch {
+        // Sin red: se reintenta en el próximo control. Si la sesión ya no vale, el
+        // apiClient muestra el cartel de sesión vencida.
+      } finally {
+        refreshing.current = false;
+      }
+    };
+    maybeRefresh();
+    const id = setInterval(maybeRefresh, REFRESH_CHECK_MS);
+    document.addEventListener('visibilitychange', maybeRefresh);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', maybeRefresh);
+    };
+  }, [token]);
 
   // Registra el puente global (apiClient/data/api.jsx) que dispara esta
   // pantalla bloqueante apenas el backend rechaza el token (401/403).
@@ -160,6 +208,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const confirmLogout = () => {
+    if (logoutEverywhere) {
+      // Se cierra en el servidor; si no hay red, igual se sale de este equipo.
+      authApi.logoutAll(token).catch(() => {});
+      setLogoutEverywhere(false);
+    }
     setSession(null);
     setCurrentUser(null);
     setProfileImageState(null);
@@ -243,6 +296,14 @@ export const AuthProvider = ({ children }) => {
               <p>
                 ¿Estás seguro de que querés salir de tu cuenta en <strong>Agroquímica Rosario</strong>? Tendrás que ingresar tus credenciales nuevamente para acceder.
               </p>
+              <label className="logout-modal-everywhere">
+                <input
+                  type="checkbox"
+                  checked={logoutEverywhere}
+                  onChange={(e) => setLogoutEverywhere(e.target.checked)}
+                />
+                <span>Cerrar también en mis otros dispositivos (celular, tablet, otra PC)</span>
+              </label>
             </div>
 
             <div className="logout-modal-actions">
