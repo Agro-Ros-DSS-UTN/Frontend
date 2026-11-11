@@ -20,7 +20,7 @@ import {
   HardHat,
   Sparkles,
 } from 'lucide-react';
-import logoImg from '../../assets/logo.png';
+import logoImg from '../../assets/logo-azul.png';
 import { useSidebarResize } from './useSidebarResize';
 import { useIsMobile, useIsTablet, useMobileNav } from './mobileNav';
 import './Sidebar.css';
