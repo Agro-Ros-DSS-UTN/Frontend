@@ -5,6 +5,18 @@ import { useOverlayClose } from '../hooks/useOverlayClose';
 import { setSessionExpiredHandler } from '../utils/sessionExpired';
 import { clearAllDrafts } from '../utils/formDrafts';
 import { setSession, storageGet, storageSet, storageRemove, readStoredUser } from '../utils/authSession';
+import { clearApiCache } from '../api/apiClient';
+
+// Datos de clientes que quedan en el equipo y no deben sobrevivir al cierre de sesión
+// (la cola offline no se toca: es de cada usuario y se envía cuando vuelve a entrar).
+const clearDeviceData = () => {
+  try { clearApiCache(); } catch { /* sin caché */ }
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('agroros_company_dashboard_'))
+      .forEach((k) => localStorage.removeItem(k));
+  } catch { /* sin storage */ }
+};
 import { AnimatedLogOutIcon } from '../components/ui/AnimatedLogOutIcon/AnimatedLogOutIcon';
 import { useHover } from '../hooks/useHover';
 import '../styles/global.css';
@@ -220,6 +232,7 @@ export const AuthProvider = ({ children }) => {
     storageRemove('sessionStorage', 'agroros_user');
     storageRemove('localStorage', 'agroros_user');
     clearAllDrafts();
+    clearDeviceData();
     setShowLogoutModal(false);
   };
 
