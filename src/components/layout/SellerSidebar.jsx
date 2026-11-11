@@ -12,7 +12,7 @@ import {
   PanelLeftOpen,
   LogOut,
 } from 'lucide-react';
-import logoImg from '../../assets/logo-azul.png';
+import logoImg from '../../assets/logo.png';
 import { useSidebarResize } from './useSidebarResize';
 import { useIsMobile, useIsTablet, useMobileNav } from './mobileNav';
 import './Sidebar.css';

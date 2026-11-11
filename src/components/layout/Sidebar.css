@@ -76,12 +76,9 @@
 
 .sidebar__logo-img {
   height: 42px;
-  width: 42px;
+  width: auto;
   object-fit: contain;
   flex-shrink: 0;
-  /* El isologo es azul: fondo blanco para que se lea sobre el menú azul */
-  background: #ffffff;
-  border-radius: 8px;
 }
 
 .sidebar__logo-text {
