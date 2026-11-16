@@ -3,9 +3,16 @@ import { User, X } from 'lucide-react';
 import { fetchClients } from '../../../data/api';
 import '../CompanyAutocomplete/CompanyAutocomplete.css';
 
+// Caché en memoria a nivel de módulo para evitar solicitudes HTTP repetidas
 let _cache = null;
 let _inflight = null;
 
+/**
+ * Obtiene la lista de contactos/clientes desde la API o la devuelve desde la caché.
+ * Controla llamadas simultáneas reutilizando la promesa en curso.
+ *
+ * @returns {Promise<Array>} Lista de contactos obtenidos del backend.
+ */
 async function loadContacts() {
   if (_cache) return _cache;
   if (!_inflight) {
@@ -25,6 +32,20 @@ async function loadContacts() {
   return _inflight;
 }
 
+/**
+ * Componente ContactAutocomplete.
+ * Campo de texto predictivo (typeahead) para asociar un contacto o persona de la base de datos,
+ * con soporte para texto libre y filtrado opcional por empresa relacionada.
+ *
+ * @param {Object} props - Propiedades del componente.
+ * @param {string} [props.label='Contacto asociado'] - Etiqueta visual del campo.
+ * @param {string} [props.name='contact'] - Atributo name e id del input.
+ * @param {string} props.value - Valor de texto actual.
+ * @param {Function} props.onChange - Callback ejecutado con `(nombre, contacto|null)`.
+ * @param {string} [props.placeholder='Escribí para buscar...'] - Placeholder sugerido.
+ * @param {number|string|null} [props.companyId=null] - Filtra sugerencias por ID de empresa.
+ * @param {string} [props.freeText='como texto libre'] - Leyenda mostrada cuando no hay coincidencias.
+ */
 // onChange(nombre, contacto|null) — contacto incluye la empresa a la que pertenece, si tiene.
 export const ContactAutocomplete = ({
   label = 'Contacto asociado',
@@ -35,11 +56,16 @@ export const ContactAutocomplete = ({
   companyId = null, // si se indica, solo se sugieren contactos de esa empresa
   freeText = 'como texto libre',
 }) => {
+  // Estado con la lista de contactos cargados
   const [contacts, setContacts] = useState(_cache || []);
+  // Control de visibilidad del desplegable
   const [open, setOpen] = useState(false);
+  // Estado de carga inicial
   const [loading, setLoading] = useState(!_cache);
+  // Referencia al contenedor para detectar clics exteriores
   const wrapRef = useRef(null);
 
+  // Efecto: Carga la lista de contactos al montar el componente
   useEffect(() => {
     let alive = true;
     loadContacts().then((list) => {
@@ -52,6 +78,7 @@ export const ContactAutocomplete = ({
     };
   }, []);
 
+  // Efecto: Cierra el menú desplegable si se detecta un clic fuera del contenedor
   useEffect(() => {
     const onDocClick = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
@@ -60,6 +87,7 @@ export const ContactAutocomplete = ({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
+  // Normaliza los datos de contactos y aplica el filtro por companyId si fue especificado
   const normalized = useMemo(
     () =>
       contacts
@@ -74,7 +102,10 @@ export const ContactAutocomplete = ({
     [contacts, companyId]
   );
 
+  // Consulta de búsqueda en minúsculas y sin espacios residuales
   const query = (value || '').toLowerCase().trim();
+
+  // Filtra hasta 8 coincidencias por nombre, empresa o email
   const matches = useMemo(() => {
     if (!query) return normalized.slice(0, 8);
     return normalized
@@ -88,13 +119,16 @@ export const ContactAutocomplete = ({
   }, [normalized, query]);
 
   return (
+    // Contenedor principal del campo de autocompletado de contactos
     <div className="form-input-field company-ac" ref={wrapRef}>
+      {/* Etiqueta del campo */}
       {label && (
         <label className="form-input-label" htmlFor={name}>
           {label}
         </label>
       )}
 
+      {/* Contenedor del input con ícono y botón de limpieza */}
       <div className="form-input-wrapper">
         <span className="form-input-icon">
           <User size={16} />
@@ -113,6 +147,7 @@ export const ContactAutocomplete = ({
           }}
           onFocus={() => setOpen(true)}
         />
+        {/* Botón para limpiar el texto y la selección */}
         {value && (
           <button
             type="button"
@@ -128,14 +163,17 @@ export const ContactAutocomplete = ({
         )}
       </div>
 
+      {/* Menú desplegable con sugerencias de contactos */}
       {open && (
         <div className="company-ac__dropdown">
+          {/* Cabecera del menú desplegable */}
           <div className="company-ac__dropdown-head">
             <span>Contactos cargados</span>
             <button type="button" className="company-ac__dropdown-close" onClick={() => setOpen(false)} aria-label="Cerrar lista">
               <X size={14} />
             </button>
           </div>
+          {/* Mensaje de carga, lista de coincidencias o mensaje de texto libre */}
           {loading ? (
             <div className="company-ac__empty">Cargando contactos…</div>
           ) : matches.length > 0 ? (

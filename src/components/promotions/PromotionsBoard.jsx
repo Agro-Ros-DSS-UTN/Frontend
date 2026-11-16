@@ -1,3 +1,12 @@
+/**
+ * Componente PromotionsBoard
+ * 
+ * Tablero integral para la gestión y consulta de promociones comerciales.
+ * - Modo Admin: Permite crear, editar, eliminar, exportar a CSV y asociar productos del catálogo a promociones.
+ * - Modo Vendedor: Modo de consulta optimizado para copiar el texto promocional y compartir directamente por WhatsApp.
+ * - Proporciona cálculo automático de días restantes de vigencia, filtrado en tiempo real y estadísticas generales.
+ */
+
 import { useState, useMemo, useEffect } from 'react';
 import {
   Sparkles,
@@ -22,6 +31,9 @@ import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
 import { checkName, checkText } from '../../utils/validators';
 import { confirmAction } from '../ui/ConfirmDialog/ConfirmDialog';
 
+/**
+ * Paleta de colores temáticos para personalizar el distintivo de cada tarjeta de promoción.
+ */
 const ACCENTS = [
   { value: '#1a7d6b', label: 'Verde AgroRos' },
   { value: '#0284c7', label: 'Azul' },
@@ -31,9 +43,20 @@ const ACCENTS = [
   { value: '#dc2626', label: 'Rojo' },
 ];
 
-// Fecha en formato argentino (20/10/2026) a partir de 'AAAA-MM-DD'.
+/**
+ * Convierte una fecha en formato ISO/string ('AAAA-MM-DD') al formato regional argentino (DD/MM/AAAA).
+ * 
+ * @param {string} s - Cadena de fecha.
+ * @returns {string} Fecha formateada o '—' si es nula.
+ */
 const shortDate = (s) => (s ? new Date(`${s}T12:00:00`).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
 
+/**
+ * Calcula los días faltantes para que expire una promoción respecto de la fecha actual.
+ * 
+ * @param {string} endDate - Fecha de finalización.
+ * @returns {number|null} Diferencia en días (negativo si ya venció) o null si no hay fecha.
+ */
 const daysLeft = (endDate) => {
   if (!endDate) return null;
   const end = new Date(endDate);
@@ -42,6 +65,14 @@ const daysLeft = (endDate) => {
   return diff;
 };
 
+/**
+ * Normaliza la estructura de datos de una promoción proveniente del backend,
+ * garantizando valores predeterminados seguros para renderizado.
+ * 
+ * @param {Object} p - Objeto crudo de la promoción.
+ * @param {number} i - Índice para asignación cíclica de color en caso de no poseer uno.
+ * @returns {Object} Promoción con estructura normalizada.
+ */
 const normalize = (p, i) => ({
   id: p.id,
   name: p.name || 'Promoción',
@@ -54,6 +85,11 @@ const normalize = (p, i) => ({
   items: Array.isArray(p.items) ? p.items : [],
 });
 
+/**
+ * Genera el estado inicial vacío para el formulario de alta de promociones.
+ * 
+ * @returns {Object} Estado con valores predeterminados (vigencia de 30 días por defecto).
+ */
 const emptyForm = () => ({
   name: '',
   benefit: '',
@@ -65,9 +101,17 @@ const emptyForm = () => ({
   itemIds: [],
 });
 
+/**
+ * Componente principal del tablero de promociones.
+ * 
+ * @param {Object} props
+ * @param {'admin'|'seller'} [props.variant='admin'] - Perfil de visualización (determina permisos y botones disponibles).
+ */
 export const PromotionsBoard = ({ variant = 'admin' }) => {
+  // Determina si la vista actual corresponde al perfil de vendedor
   const isSeller = variant === 'seller';
 
+  // Estados de datos y operaciones
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -81,11 +125,14 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
   // Productos del catálogo incluidos en la promoción (reemplaza el vínculo por línea de la v1).
   const [catalog, setCatalog] = useState([]);
   const [searchItem, setSearchItem] = useState('');
+
+  // Carga los productos activos del catálogo solo para el administrador (para asociarlos en el formulario)
   useEffect(() => {
     if (isSeller) return;
     catalogApi.getItems({ active: 1 }).then(setCatalog).catch(() => setCatalog([]));
   }, [isSeller]);
 
+  // Consulta el listado de promociones al backend y actualiza el estado local normalizado
   const fetchPromos = async () => {
     setLoading(true);
     try {
@@ -100,10 +147,12 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  // Efecto inicial para cargar las promociones al montar el componente
   useEffect(() => {
     fetchPromos();
   }, []);
 
+  // Filtra las promociones según el término ingresado en el buscador (nombre, descripción o beneficio)
   const filtered = useMemo(() => {
     if (!search.trim()) return promos;
     const q = search.toLowerCase().trim();
@@ -115,11 +164,13 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     );
   }, [promos, search]);
 
+  // Cuenta la cantidad de promociones cuya fecha de vencimiento no ha caducado
   const active = promos.filter((p) => {
     const d = daysLeft(p.endDate);
     return d === null || d >= 0;
   }).length;
 
+  // Prepara y abre el drawer lateral para crear una nueva promoción
   const openCreate = () => {
     setEditingId(null);
     setErrors({});
@@ -127,6 +178,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     setShowDrawer(true);
   };
 
+  // Prepara y abre el drawer lateral precargando los datos de la promoción a editar
   const openEdit = (p) => {
     setEditingId(p.id);
     setErrors({});
@@ -143,12 +195,14 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     setShowDrawer(true);
   };
 
+  // Maneja cambios en los campos de entrada del formulario y limpia errores en tiempo real
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  // Valida y envía el formulario de creación o edición a la API correspondiente
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
@@ -187,6 +241,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  // Confirma y elimina una promoción existente
   const handleDelete = async (p) => {
     if (!await confirmAction(`¿Eliminar la promoción "${p.name}"?`)) return;
     try {
@@ -201,11 +256,13 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  // Construye el mensaje formateado en texto plano con detalles de la promoción
   const promoText = (p) =>
     `📢 Agroquímica Rosario · Promoción vigente: *${p.name}*\n✅ Beneficio: ${p.benefit}\n📝 ${p.description}${
       p.conditions ? `\n📌 Condiciones: ${p.conditions}` : ''
     }${p.endDate ? `\n📅 Válida hasta: ${p.endDate}` : ''}`;
 
+  // Exporta la lista filtrada de promociones a un archivo CSV estructurado con BOM UTF-8
   const handleExportCSV = () => {
     const headers = ['Nombre', 'Beneficio', 'Descripción', 'Condiciones', 'Fecha de Inicio', 'Fecha de Fin'];
     const rows = filtered.map((p) => [
@@ -227,6 +284,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
     document.body.removeChild(link);
   };
 
+  // Copia el texto formateado de la promoción al portapapeles y activa un indicador temporal
   const handleCopy = (p) => {
     navigator.clipboard?.writeText(promoText(p));
     setCopiedId(p.id);
@@ -235,6 +293,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
 
   return (
     <div className="promo-board">
+      {/* Encabezado principal: título, subtítulo contextual según el rol y botones de acción */}
       <div className="promo-board__header">
         <div>
           <div className="promo-board__title-row">
@@ -259,6 +318,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
         </div>
       </div>
 
+      {/* Tarjetas de estadísticas rápidas: total de promociones y promociones vigentes */}
       <div className="promo-board__stats">
         <div className="promo-board__stat">
           <span className="promo-board__stat-label">Total</span>
@@ -270,6 +330,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
         </div>
       </div>
 
+      {/* Barra de herramientas: buscador por texto con botón para limpiar */}
       <div className="promo-board__toolbar">
         <div className="promo-board__search">
           <Search size={16} color="#64748b" />
@@ -283,6 +344,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
         </div>
       </div>
 
+      {/* Contenedor principal: estado de carga, mensaje de vacío o grilla de tarjetas */}
       {loading ? (
         <LoadingState
           title="Cargando…"
@@ -303,6 +365,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
               // El color elegido nunca va detrás de texto: es la franja de la tarjeta y
               // el marcador del beneficio, así se lee bien con cualquier color.
               <div key={p.id} className={`promo-card ${overdue ? 'promo-card--expired' : ''}`} style={{ '--promo': p.color || 'var(--color-primary)' }}>
+                {/* Cabecera de la tarjeta: etiqueta de beneficio y botón de eliminación (solo admin) */}
                 <div className="promo-card__accent">
                   <span className="promo-card__benefit">
                     <Tag size={13} aria-hidden="true" /> {p.benefit}
@@ -320,6 +383,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
                   )}
                 </div>
 
+                {/* Cuerpo de la tarjeta: nombre, descripción, condiciones, productos asociados y vigencia */}
                 <div className="promo-card__body">
                   <h2 className="promo-card__name">{p.name}</h2>
                   {p.description && <p className="promo-card__desc">{p.description}</p>}
@@ -354,6 +418,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
                   </div>
                 </div>
 
+                {/* Barra de acciones: WhatsApp / Copiar (vendedor) o Editar / Copiar (admin) */}
                 <div className="promo-card__actions">
                   {isSeller ? (
                     <>
@@ -390,6 +455,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
         </div>
       )}
 
+      {/* Drawer deslizable lateral: formulario de alta y edición de promociones */}
       <SlideDrawer
         isOpen={showDrawer}
         onClose={() => setShowDrawer(false)}
@@ -397,6 +463,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
         width="520px"
       >
         <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+          {/* Nombre de la promoción */}
           <FormInput
             label="Nombre de la Promoción"
             name="name"
@@ -407,6 +474,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             error={errors.name}
           />
 
+          {/* Beneficio o etiqueta corta */}
           <FormInput
             label="Beneficio (etiqueta corta)"
             name="benefit"
@@ -415,6 +483,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             placeholder="Ej: 15% OFF · 3 cuotas sin interés"
           />
 
+          {/* Descripción detallada de la oferta */}
           <FormTextarea
             label="Descripción de la Oferta"
             name="description"
@@ -426,6 +495,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             error={errors.description}
           />
 
+          {/* Selector de color de la tarjeta */}
           <div className="promo-board__color-field">
             <label className="form-input-label">Color de la tarjeta</label>
             <div className="promo-board__swatches">
@@ -442,11 +512,13 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             </div>
           </div>
 
+          {/* Rango de fechas de vigencia */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <FormInput label="Fecha de Inicio" name="startDate" type="date" value={form.startDate} onChange={handleChange} />
             <FormInput label="Fecha de Fin" name="endDate" type="date" value={form.endDate} onChange={handleChange} />
           </div>
 
+          {/* Condiciones comerciales de la promoción */}
           <FormInput
             label="Condiciones Generales"
             name="conditions"
@@ -455,6 +527,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             placeholder="Ej: Pago a 30/60 días con eCheq"
           />
 
+          {/* Selección de productos del catálogo incluidos en la promoción */}
           <div className="promo-items">
             <p className="promo-items__label">Productos incluidos <span>{form.itemIds.length ? `${form.itemIds.length} elegidos` : 'opcional'}</span></p>
             <input className="promo-items__search" value={searchItem} onChange={(e) => setSearchItem(e.target.value)} placeholder="Buscar en el catálogo…" />
@@ -476,6 +549,7 @@ export const PromotionsBoard = ({ variant = 'admin' }) => {
             </div>
           </div>
 
+          {/* Botones de acción del formulario: guardar y cancelar */}
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
             <button type="submit" className="btn-rounded-primary" style={{ flex: 1, padding: '12px', justifyContent: 'center' }} disabled={saving}>
               {saving ? 'Guardando…' : editingId ? 'Guardar Cambios' : 'Crear Promoción'}

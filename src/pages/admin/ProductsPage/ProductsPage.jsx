@@ -1,4 +1,14 @@
-﻿import { useState, useMemo, useEffect } from 'react';
+﻿/**
+ * @file ProductsPage.jsx
+ * @description Página principal de administración del Catálogo de Productos y Servicios Agronómicos.
+ * Permite gestionar el catálogo comercial de la empresa: agroquímicos (herbicidas, fungicidas, insecticidas),
+ * fertilizantes foliares, curasemillas y servicios técnicos de campo.
+ * Proporciona listado en tabla dinámica (DataTable), filtrado por pestañas y selectores avanzados, búsqueda rápida,
+ * cálculo de rentabilidad y margen bruto, exportación en CSV, y modales laterales (SlideDrawers) para
+ * alta, edición y visualización detallada.
+ */
+
+import { useState, useMemo, useEffect } from 'react';
 import {
   Package,
   Plus,
@@ -36,23 +46,31 @@ import { SearchClearButton } from '../../../components/ui/SearchClearButton/Sear
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 export const ProductsPage = () => {
-  // ── 1. Declaración agrupada de todos los estados del componente ──
-  const [products, setProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [billingFilter, setBillingFilter] = useState('all');
-  const [loading, setLoading] = useState(true);
+  // ==========================================================================
+  // 1. DECLARACIÓN AGRUPADA DE TODOS LOS ESTADOS DEL COMPONENTE
+  // ==========================================================================
+  const [products, setProducts] = useState([]); // Catálogo completo obtenido de la base de datos
+  const [activeTab, setActiveTab] = useState('all'); // Pestaña de filtrado rápido por categoría
+  const [searchQuery, setSearchQuery] = useState(''); // Texto de búsqueda por nombre, SKU o descripción
+  const [categoryFilter, setCategoryFilter] = useState('all'); // Filtro desplegable por categoría específica
+  const [statusFilter, setStatusFilter] = useState('all'); // Filtro desplegable por estado: 'all', 'active', 'inactive'
+  const [billingFilter, setBillingFilter] = useState('all'); // Filtro desplegable por frecuencia de facturación
+  const [loading, setLoading] = useState(true); // Indicador de carga inicial
 
   // Estados de Modales / Drawers y Formulario
-  const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('create');
-  const [selectedProductDetail, setSelectedProductDetail] = useState(null);
-  const [form, setForm] = useState(INITIAL_PRODUCT_FORM);
-  const [errors, setErrors] = useState({});
+  const [showModal, setShowModal] = useState(false); // Visibilidad del drawer de creación/edición
+  const [modalMode, setModalMode] = useState('create'); // Modo del modal: 'create' o 'edit'
+  const [selectedProductDetail, setSelectedProductDetail] = useState(null); // Producto seleccionado para ver en detalle
+  const [form, setForm] = useState(INITIAL_PRODUCT_FORM); // Estado de los campos del formulario
+  const [errors, setErrors] = useState({}); // Errores de validación del formulario
 
-  // ── 2. Efectos secundarios ──
+  // ==========================================================================
+  // 2. EFECTOS SECUNDARIOS (DATA FETCHING Y ATAJOS DE TECLADO)
+  // ==========================================================================
+  
+  /**
+   * Carga inicial del catálogo de productos y servicios desde la API conectada a MySQL.
+   */
   useEffect(() => {
     const fetchDBProducts = async () => {
       setLoading(true);
@@ -69,6 +87,9 @@ export const ProductsPage = () => {
     fetchDBProducts();
   }, []);
 
+  /**
+   * Listener global de teclado para cerrar modales o paneles abiertos con la tecla Escape.
+   */
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -84,18 +105,32 @@ export const ProductsPage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showModal, selectedProductDetail]);
 
-  // ── 3. Acciones de Formulario y Drawers ──
+  // ==========================================================================
+  // 3. ACCIONES DE FORMULARIO Y CONTROL DE DRAWERS
+  // ==========================================================================
+
+  /**
+   * Resetea el formulario al estado inicial en blanco y limpia errores de validación.
+   */
   const resetForm = () => {
     setForm(INITIAL_PRODUCT_FORM);
     setErrors({});
   };
 
+  /**
+   * Abre el SlideDrawer configurado en modo creación para añadir un nuevo producto.
+   */
   const handleOpenCreateModal = () => {
     resetForm();
     setModalMode('create');
     setShowModal(true);
   };
 
+  /**
+   * Abre el SlideDrawer configurado en modo edición precargando los datos del producto seleccionado.
+   * @param {object} prod - Producto a editar.
+   * @param {Event} [e] - Evento de clic opcional para detener propagación.
+   */
   const handleOpenEditModal = (prod, e) => {
     if (e) e.stopPropagation();
     setForm({
@@ -116,12 +151,22 @@ export const ProductsPage = () => {
     setShowModal(true);
   };
 
+  /**
+   * Cierra el drawer de formulario y restablece sus valores.
+   */
   const handleCloseModal = () => {
     setShowModal(false);
     resetForm();
   };
 
-  // ── 4. Cálculos y Filtrado Memorizado ──
+  // ==========================================================================
+  // 4. CÁLCULOS Y FILTRADO MEMORIZADO
+  // ==========================================================================
+
+  /**
+   * Calcula en tiempo real el margen bruto monetario y la rentabilidad porcentual
+   * a partir del precio unitario y coste cargados en el formulario.
+   */
   const calculatedMargin = useMemo(() => {
     const price = Number(form.unitPrice) || 0;
     const cost = Number(form.costPerUnit) || 0;
@@ -131,9 +176,14 @@ export const ProductsPage = () => {
     return { amount, percent };
   }, [form.unitPrice, form.costPerUnit]);
 
+  /**
+   * Aplica la combinación de filtros sobre el catálogo:
+   * pestaña de tipo de producto, texto de búsqueda, selector de categoría, estado y facturación.
+   */
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
+    // Filtrado por pestaña temática activa
     if (activeTab === 'herbicidas') {
       result = result.filter((p) => p.productType === 'Herbicida');
     } else if (activeTab === 'fungicidas') {
@@ -144,6 +194,7 @@ export const ProductsPage = () => {
       result = result.filter((p) => p.productType === 'Servicio Agronómico');
     }
 
+    // Filtrado por texto en nombre, SKU o descripción
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -154,15 +205,18 @@ export const ProductsPage = () => {
       );
     }
 
+    // Filtrado por selector de categoría
     if (categoryFilter !== 'all') {
       result = result.filter((p) => p.productType === categoryFilter);
     }
 
+    // Filtrado por selector de estado activo/inactivo
     if (statusFilter !== 'all') {
       const isActive = statusFilter === 'active';
       result = result.filter((p) => p.active === isActive);
     }
 
+    // Filtrado por selector de frecuencia de facturación
     if (billingFilter !== 'all') {
       result = result.filter((p) => p.billingFrequency === billingFilter);
     }
@@ -170,12 +224,25 @@ export const ProductsPage = () => {
     return result;
   }, [products, activeTab, searchQuery, categoryFilter, statusFilter, billingFilter]);
 
+  /**
+   * Formatea un número como moneda argentina ($) para visualización en tablas y tarjetas.
+   * @param {number|string} val - Valor a formatear.
+   * @returns {string} Cadena en pesos argentinos.
+   */
   const formatCurrency = (val) => {
     if (!val && val !== 0) return '$0';
     return `$${Number(val).toLocaleString('es-AR')}`;
   };
 
-  // ── 5. Operaciones de Persistencia MySQL ──
+  // ==========================================================================
+  // 5. OPERACIONES DE PERSISTENCIA MYSQL (CRUD)
+  // ==========================================================================
+
+  /**
+   * Alterna el estado activo/inactivo de un producto de forma optimista, revirtiendo si la base no confirma.
+   * @param {number|string} prodId - ID del producto.
+   * @param {Event} [e] - Evento del clic.
+   */
   const toggleProductStatus = async (prodId, e) => {
     if (e) e.stopPropagation();
     const target = products.find((p) => p.id === prodId);
@@ -199,6 +266,11 @@ export const ProductsPage = () => {
     }
   };
 
+  /**
+   * Elimina un producto de la base de datos tras previa confirmación del usuario.
+   * @param {number|string} prodId - ID del producto.
+   * @param {Event} [e] - Evento del clic.
+   */
   const deleteProduct = async (prodId, e) => {
     if (e) e.stopPropagation();
     const target = products.find((p) => p.id === prodId);
@@ -219,9 +291,16 @@ export const ProductsPage = () => {
     }
   };
 
+  /**
+   * Procesa el envío del formulario de producto (creación o actualización).
+   * Valida campos, envía la petición al backend y refresca la lista.
+   * @param {Event} e - Evento de formulario.
+   * @param {boolean} [andAddAnother=false] - Si es true, deja el formulario abierto y limpio para una nueva carga.
+   */
   const handleFormSubmit = async (e, andAddAnother = false) => {
     if (e) e.preventDefault();
 
+    // Validación de campos del formulario
     const validationErrors = validateProductForm(form);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -229,6 +308,7 @@ export const ProductsPage = () => {
     }
     setErrors({});
 
+    // Construcción del payload para el backend
     const payload = {
       name: form.name,
       ref: form.ref.trim(),
@@ -272,6 +352,10 @@ export const ProductsPage = () => {
     }
   };
 
+  /**
+   * Genera un archivo CSV con la lista de productos filtrada y sus métricas de margen calculadas,
+   * descargándolo automáticamente en el navegador.
+   */
   const handleExportCSV = () => {
     const headers = ['ID', 'Nombre', 'Referencia / SKU', 'Categoría', 'Frecuencia Facturación', 'Precio Unitario ($)', 'Coste ($)', 'Margen ($)', 'Margen (%)', 'Estado'];
     const rows = filteredProducts.map((p) => {
@@ -302,7 +386,9 @@ export const ProductsPage = () => {
     document.body.removeChild(link);
   };
 
-  // ── 6. Columnas para el componente DataTable ──
+  // ==========================================================================
+  // 6. DEFINICIÓN DE COLUMNAS PARA EL COMPONENTE DATATABLE
+  // ==========================================================================
   const tableColumns = [
     {
       key: 'name',
@@ -396,9 +482,12 @@ export const ProductsPage = () => {
     },
   ];
 
+  // ==========================================================================
+  // RENDERIZADO PRINCIPAL DEL COMPONENTE
+  // ==========================================================================
   return (
     <div className="products-page">
-      {/* Encabezado */}
+      {/* ── Encabezado Principal y Acciones ── */}
       <div className="products-page__header">
         <div>
           <h1 className="products-page__title">Catálogo de Productos y Servicios</h1>
@@ -416,9 +505,11 @@ export const ProductsPage = () => {
         </PageHeaderActions>
       </div>
 
-      {/* Main Unified Card */}
+      {/* ── Tarjeta Unificada Principal: Barra de Herramientas y Tabla ── */}
       <div className="products-page__card">
+        {/* Barra de herramientas con buscador y filtros */}
         <div className="products-page__toolbar crm-filterbar">
+          {/* Campo de búsqueda rápida */}
           <div className="products-page__search">
             <Search size={16} color="#64748b" />
             <input
@@ -430,6 +521,7 @@ export const ProductsPage = () => {
             <SearchClearButton value={searchQuery} onClear={() => setSearchQuery('')} />
           </div>
 
+          {/* Pestañas de filtrado temático rápido */}
           <FilterTabs
             ariaLabel="Filtrar productos por tipo"
             value={activeTab}
@@ -450,6 +542,7 @@ export const ProductsPage = () => {
             }))}
           />
 
+          {/* Grupo de filtros desplegables secundarios (categoría y estado) */}
           <div className="products-filters-group crm-filterbar__end">
             <select
               className="products-filter-select"
@@ -474,7 +567,7 @@ export const ProductsPage = () => {
           </div>
         </div>
 
-        {/* Tabla de Productos / Estado de Carga */}
+        {/* ── Tabla de Productos / Estado de Carga ── */}
         {loading ? (
           <div className="roadmaps-loading-state-box" style={{ margin: '30px 20px' }}>
             <div className="r-spinner-icon" />
@@ -492,7 +585,7 @@ export const ProductsPage = () => {
         )}
       </div>
 
-      {/* Drawer de Creación / Edición */}
+      {/* ── Drawer Deslizable de Creación y Edición de Producto ── */}
       <ProductFormDrawer
         isOpen={showModal}
         onClose={handleCloseModal}
@@ -505,7 +598,7 @@ export const ProductsPage = () => {
         calculatedMargin={calculatedMargin}
       />
 
-      {/* Drawer de Detalle */}
+      {/* ── Drawer Deslizable de Visualización de Detalle del Producto ── */}
       <ProductDetailDrawer
         product={selectedProductDetail}
         onClose={() => setSelectedProductDetail(null)}

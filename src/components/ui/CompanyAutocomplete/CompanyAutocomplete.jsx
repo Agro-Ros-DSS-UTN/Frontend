@@ -6,8 +6,17 @@ import { LocalitySelect } from '../LocalitySelect/LocalitySelect';
 import { ComboBox } from '../ComboBox/ComboBox';
 import './CompanyAutocomplete.css';
 
+/**
+ * Opciones predefinidas de tipos de empresa disponibles para el alta rápida.
+ */
 const COMPANY_TYPE_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
 
+/**
+ * Genera el estado inicial en blanco para el subformulario de alta rápida de empresas.
+ *
+ * @param {string} [initialName=''] - Nombre sugerido a partir de lo que el usuario ya tipeó.
+ * @returns {object} Objeto con los campos limpios del formulario de creación.
+ */
 const emptyNewCompanyForm = (initialName = '') => ({
   companyName: initialName,
   cuit: '',
@@ -28,9 +37,16 @@ const emptyNewCompanyForm = (initialName = '') => ({
  *  - value: string (nombre de la empresa)
  *  - onChange: (nombreEmpresa: string) => void
  */
+// Variables a nivel de módulo para mantener una caché en memoria y no reiterar peticiones
 let _cache = null;
 let _inflight = null;
 
+/**
+ * Carga la lista de empresas desde la API o recupera la versión cacheada en memoria.
+ * Evita peticiones simultáneas idénticas reutilizando la promesa en curso (_inflight).
+ *
+ * @returns {Promise<Array>} Lista de empresas registradas.
+ */
 async function loadCompanies() {
   if (_cache) return _cache;
   if (!_inflight) {
@@ -52,6 +68,21 @@ async function loadCompanies() {
   return _inflight;
 }
 
+/**
+ * Componente CompanyAutocomplete.
+ * Ofrece un campo de búsqueda predictiva conectado a la base de clientes/empresas,
+ * permitiendo seleccionar una empresa existente, escribir un nombre libre o dar de alta
+ * una nueva empresa sin abandonar el formulario actual.
+ *
+ * @param {Object} props - Propiedades del componente.
+ * @param {string} [props.label='Empresa / Cliente Asociado'] - Etiqueta visible del campo.
+ * @param {string} [props.name='company'] - Nombre identificador del input.
+ * @param {string} props.value - Valor de texto actual de la empresa.
+ * @param {Function} props.onChange - Callback `(nombre, objetoEmpresa|null) => void`.
+ * @param {string} [props.placeholder='Escribí para buscar...'] - Texto guía del input.
+ * @param {string} [props.error=''] - Mensaje de error de validación externo.
+ * @param {boolean} [props.required=false] - Marca el campo como obligatorio visualmente.
+ */
 export const CompanyAutocomplete = ({
   label = 'Empresa / Cliente Asociado',
   name = 'company',
@@ -61,16 +92,22 @@ export const CompanyAutocomplete = ({
   error = '',
   required = false,
 }) => {
+  // Lista de empresas cargadas
   const [companies, setCompanies] = useState(_cache || []);
+  // Control de apertura del panel desplegable
   const [open, setOpen] = useState(false);
+  // Estado de carga inicial
   const [loading, setLoading] = useState(!_cache);
+  // Referencia al contenedor raíz para gestionar clics exteriores
   const wrapRef = useRef(null);
 
-  // Alta rápida de empresa sin salir del formulario actual
+  // Estados para el alta rápida de empresa sin salir del formulario actual
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCompanyForm, setNewCompanyForm] = useState(emptyNewCompanyForm());
   const [creatingCompany, setCreatingCompany] = useState(false);
   const [createError, setCreateError] = useState('');
+
+  // Efecto: Carga la lista inicial de empresas desde el servicio/caché al montar
   useEffect(() => {
     let alive = true;
     loadCompanies().then((list) => {
@@ -83,6 +120,7 @@ export const CompanyAutocomplete = ({
     };
   }, []);
 
+  // Efecto: Cierra el desplegable o subformulario si se hace clic fuera del componente
   useEffect(() => {
     const onDocClick = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) {
@@ -94,6 +132,7 @@ export const CompanyAutocomplete = ({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
+  // Memoriza y normaliza la lista de empresas asegurando propiedades homogéneas
   const normalized = useMemo(
     () =>
       companies
@@ -110,8 +149,10 @@ export const CompanyAutocomplete = ({
     [companies]
   );
 
+  // Texto de búsqueda normalizado
   const query = (value || '').toLowerCase().trim();
 
+  // Filtra hasta 8 coincidencias por nombre, tipo o localidad
   const matches = useMemo(() => {
     if (!query) return normalized.slice(0, 8);
     return normalized
@@ -130,12 +171,20 @@ export const CompanyAutocomplete = ({
     onChange(name, hit || null);
   };
 
+  /**
+   * Abre el formulario de creación rápida precargando el texto ingresado en el input
+   */
   const openCreateForm = () => {
     setCreateError('');
     setNewCompanyForm(emptyNewCompanyForm(value || ''));
     setShowCreateForm(true);
   };
 
+  /**
+   * Procesa la creación de una nueva empresa en el backend:
+   * Valida obligatoriedad de nombre y CUIT, resuelve empresa madre si es sucursal regional,
+   * envía la petición a la API, actualiza la caché global y emite el valor recién creado.
+   */
   const handleCreateCompany = async () => {
     const companyName = newCompanyForm.companyName.trim();
     if (!companyName || !newCompanyForm.cuit.trim()) {
@@ -144,6 +193,7 @@ export const CompanyAutocomplete = ({
     }
 
     let headOffice = null;
+    // Si se marcó como regional, se valida la existencia de la empresa madre
     if (newCompanyForm.isRegional) {
       const headOfficeName = newCompanyForm.headOfficeCompany.trim().toLowerCase();
       if (!headOfficeName) {
@@ -160,6 +210,7 @@ export const CompanyAutocomplete = ({
     setCreatingCompany(true);
     setCreateError('');
     try {
+      // Envío de los datos de la nueva empresa al backend
       const res = await companiesApi.create({
         legalName: companyName,
         cuit: newCompanyForm.cuit.trim(),
@@ -182,6 +233,7 @@ export const CompanyAutocomplete = ({
         }
       }
 
+      // Estructura normalizada de la empresa recién dada de alta
       const newEntry = {
         id: created.id,
         companyName: created.legalName || companyName,
@@ -198,6 +250,7 @@ export const CompanyAutocomplete = ({
       ];
       setCompanies(_cache);
 
+      // Notifica al componente padre y cierra el menú
       onChange(newEntry.companyName, newEntry);
       setShowCreateForm(false);
       setOpen(false);
@@ -220,12 +273,14 @@ export const CompanyAutocomplete = ({
 
   return (
     <div className="form-input-field company-ac" ref={wrapRef}>
+      {/* Etiqueta del campo con indicador de obligatoriedad */}
       {label && (
         <label className="form-input-label" htmlFor={name}>
           {label} {required && <span className="form-input-required">*</span>}
         </label>
       )}
 
+      {/* Contenedor del input con ícono y botón de limpieza */}
       <div className={`form-input-wrapper ${error ? 'form-input-wrapper--error' : ''}`}>
         <span className="form-input-icon">
           <Building2 size={16} />
@@ -244,6 +299,7 @@ export const CompanyAutocomplete = ({
           }}
           onFocus={() => setOpen(true)}
         />
+        {/* Botón para vaciar el contenido actual */}
         {value && (
           <button
             type="button"
@@ -259,8 +315,10 @@ export const CompanyAutocomplete = ({
         )}
       </div>
 
+      {/* Panel desplegable: Subformulario de alta rápida de nueva empresa */}
       {open && showCreateForm && (
         <div className="company-ac__dropdown company-ac__create-panel">
+          {/* Botón para volver atrás a las sugerencias de búsqueda */}
           <button
             type="button"
             className="company-ac__create-back"
@@ -269,7 +327,9 @@ export const CompanyAutocomplete = ({
             <ArrowLeft size={14} /> Volver a la búsqueda
           </button>
 
+          {/* Formulario embebido con captura de tecla Enter */}
           <div className="company-ac__create-form" onKeyDown={handleCreateKeyDown}>
+            {/* Campo: Nombre de la empresa */}
             <div className="company-ac__create-field">
               <label>Nombre de la empresa *</label>
               <input
@@ -280,6 +340,7 @@ export const CompanyAutocomplete = ({
                 autoFocus
               />
             </div>
+            {/* Fila: CUIT y Dirección */}
             <div className="company-ac__create-row">
               <div className="company-ac__create-field">
                 <label>CUIT *</label>
@@ -300,6 +361,7 @@ export const CompanyAutocomplete = ({
                 />
               </div>
             </div>
+            {/* Fila: Tipo de empresa y Localidad */}
             <div className="company-ac__create-row">
               <div className="company-ac__create-field">
                 <label>Tipo</label>
@@ -320,6 +382,7 @@ export const CompanyAutocomplete = ({
               </div>
             </div>
 
+            {/* Checkbox para indicar si es una sucursal/regional de otra empresa */}
             <label className="company-ac__create-check">
               <input
                 type="checkbox"
@@ -329,6 +392,7 @@ export const CompanyAutocomplete = ({
               <span>¿Es una regional de una empresa?</span>
             </label>
 
+            {/* Selector de empresa matriz/principal si se activó la casilla regional */}
             {newCompanyForm.isRegional && (
               <div className="company-ac__create-field">
                 <label>Ingrese el nombre de la empresa principal *</label>
@@ -344,8 +408,10 @@ export const CompanyAutocomplete = ({
               </div>
             )}
 
+            {/* Visualización de error durante la creación */}
             {createError && <div className="company-ac__create-error">{createError}</div>}
 
+            {/* Botón de envío del alta de empresa */}
             <button
               type="button"
               className="company-ac__create-submit"
@@ -358,14 +424,17 @@ export const CompanyAutocomplete = ({
         </div>
       )}
 
+      {/* Panel desplegable: Lista de sugerencias de empresas */}
       {open && !showCreateForm && (
         <div className="company-ac__dropdown">
+          {/* Cabecera del desplegable */}
           <div className="company-ac__dropdown-head">
             <span>Empresas cargadas</span>
             <button type="button" className="company-ac__dropdown-close" onClick={() => setOpen(false)} aria-label="Cerrar lista">
               <X size={14} />
             </button>
           </div>
+          {/* Contenido: spinner de carga, lista de coincidencias o mensaje de texto libre */}
           {loading ? (
             <div className="company-ac__empty">Cargando empresas…</div>
           ) : matches.length > 0 ? (
@@ -394,12 +463,14 @@ export const CompanyAutocomplete = ({
             </div>
           )}
 
+          {/* Opción para desplegar el formulario de registro de nueva empresa */}
           <button type="button" className="company-ac__add-new" onClick={openCreateForm}>
             <Plus size={14} /> Dar de alta una empresa
           </button>
         </div>
       )}
 
+      {/* Mensaje de error de validación bajo el campo */}
       {error && <span className="form-input-error">{error}</span>}
 
     </div>

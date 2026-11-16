@@ -1,4 +1,13 @@
 /* eslint-disable */
+/**
+ * @file OpportunitiesPage.jsx
+ * @description Página de administración y seguimiento del pipeline comercial de Oportunidades (Deals).
+ * Permite visualizar y gestionar oportunidades de venta a lo largo de su ciclo de vida comercial
+ * (desde Prospecto hasta Ganada o Perdida). Incluye cálculo de métricas clave (KPIs), vistas en Tabla
+ * y Tablero Kanban interactivo con soporte de Drag and Drop, exportación a CSV, y creación/edición
+ * mediante panel deslizante (SlideDrawer).
+ */
+
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -42,10 +51,17 @@ import { SearchClearButton } from '../../../components/ui/SearchClearButton/Sear
 import { checkName, checkText, LIMITS } from '../../../utils/validators';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
-// Ciclo de vida de la Oportunidad (5 estados). "bg/text" para las píldoras.
+// ============================================================================
+// CONSTANTES Y CONFIGURACIONES GLOBALES DEL CICLO DE VIDA
+// ============================================================================
+
+// Ciclo de vida de la Oportunidad (5 estados). "bg/text" para las píldoras de estado.
 const DEAL_STAGES = OPPORTUNITY_STATUSES.map((e) => ({ key: e.key, label: e.label, color: e.color, bg: e.bg, text: e.text, help: e.help }));
+
+// Lista de claves correspondientes a estados que aún se consideran abiertos o en proceso
 const OPEN_STATUSES = OPPORTUNITY_STATUSES.filter((e) => e.open).map((e) => e.key);
 
+// Opciones disponibles para la prioridad o nivel de potencialidad comercial
 const POTENTIAL_OPTIONS = [
   { value: '', label: 'Sin indicar' },
   { value: 'Alta', label: 'Alta' },
@@ -53,8 +69,22 @@ const POTENTIAL_OPTIONS = [
   { value: 'Baja', label: 'Baja' },
 ];
 
+// ============================================================================
+// FUNCIONES AUXILIARES Y DE NORMALIZACIÓN
+// ============================================================================
+
+/**
+ * Obtiene la configuración de diseño y etiquetas de una etapa a partir de su clave identificadora.
+ * @param {string} key - Clave del estado (ej: 'Prospecto', 'Ganada', etc.)
+ * @returns {object} Configuración de la etapa encontrada o la primera por defecto.
+ */
 const getStageInfo = (key) => DEAL_STAGES.find((s) => s.key === key) || DEAL_STAGES[0];
 
+/**
+ * Normaliza los datos de una oportunidad recibida desde el backend para compatibilidad uniforme en la UI.
+ * @param {object} o - Objeto crudo devuelto por la API.
+ * @returns {object} Objeto con las propiedades estandarizadas para el componente.
+ */
 const normalizeDeal = (o) => ({
   id: o.id,
   dealName: o.title || o.dealName || 'Oportunidad sin título',
@@ -75,6 +105,11 @@ const normalizeDeal = (o) => ({
   contactId: o.contactId || null,
 });
 
+/**
+ * Genera el estado inicial en blanco para el formulario de oportunidad.
+ * @param {string|number} ownerId - ID del usuario asignado por defecto (responsable).
+ * @returns {object} Estructura limpia del formulario.
+ */
 const emptyForm = (ownerId = '') => ({
   dealName: '',
   company: '',
@@ -90,30 +125,57 @@ const emptyForm = (ownerId = '') => ({
   lossReason: '',
 });
 
+/**
+ * Da formato de moneda en pesos argentinos ($) a un valor numérico.
+ * @param {number|string} val - Monto a formatear.
+ * @returns {string} Cadena formateada como moneda.
+ */
 const formatCurrency = (val) => (!val ? '$0' : `$${Number(val).toLocaleString('es-AR')}`);
 
+/**
+ * Formatea fechas a formato legible localizado para Argentina (ej: "15 nov 2026").
+ * @param {string} value - Cadena de fecha en formato ISO o YYYY-MM-DD.
+ * @returns {string} Fecha formateada o guion si no existe.
+ */
 const formatDate = (value) => {
   if (!value) return '—';
   const d = new Date(String(value).length === 10 ? `${value}T00:00:00` : value);
   return isNaN(d) ? value : d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+// Variantes de animación para framer-motion en la vista modal de resumen
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const itemVariants = {
   hidden: { y: 16, opacity: 0 },
   visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110, damping: 16 } },
 };
 
+// ============================================================================
+// COMPONENTE: DealSummary (Modal de detalle completo de oportunidad)
+// ============================================================================
+
+/**
+ * Modal flotante que muestra la ficha técnica completa y lectura rápida de una oportunidad comercial.
+ * @param {object} props
+ * @param {object} props.deal - Oportunidad seleccionada.
+ * @param {Function} props.onClose - Callback para cerrar el modal.
+ * @param {Function} props.onEdit - Callback para abrir la edición de la oportunidad.
+ */
 const DealSummary = ({ deal, onClose, onEdit }) => {
+  // Manejo de cierre al hacer click en el fondo del overlay
   const overlayHandlers = useOverlayClose(onClose);
   const stage = getStageInfo(deal.stageKey);
 
+  // Cierre accesible mediante la tecla Escape
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  /**
+   * Componente interno para mostrar un par icono, etiqueta y valor
+   */
   const Meta = ({ icon: Icon, label, children }) => (
     <div className="cs-meta">
       <Icon size={18} className="cs-meta__icon" />
@@ -127,6 +189,7 @@ const DealSummary = ({ deal, onClose, onEdit }) => {
   return (
     <div className="cs-overlay" {...overlayHandlers}>
       <motion.div className="cs-card" role="dialog" aria-modal="true" initial="hidden" animate="visible" variants={containerVariants}>
+        {/* Cabecera del modal: migas de pan y botones de acción */}
         <header className="cs-header">
           <motion.div variants={itemVariants} className="cs-header__row">
             <div className="cs-breadcrumbs">
@@ -144,6 +207,8 @@ const DealSummary = ({ deal, onClose, onEdit }) => {
             </div>
           </motion.div>
         </header>
+
+        {/* Cuerpo del modal: título e información comercial detallada */}
         <div className="cs-body">
           <motion.h1 variants={itemVariants} className="cs-title">{deal.dealName}</motion.h1>
           <motion.div variants={itemVariants} className="cs-meta-grid">
@@ -157,6 +222,7 @@ const DealSummary = ({ deal, onClose, onEdit }) => {
             <Meta icon={TrendingUp} label="Potencialidad"><span className="cs-tag">{deal.priority || '—'}</span></Meta>
             <Meta icon={Tag} label="Actividades">{deal.activityCount} {deal.daysWithoutContact !== null && deal.daysWithoutContact !== undefined ? `· último movimiento hace ${deal.daysWithoutContact} días` : ''}</Meta>
             <Meta icon={Calendar} label="Fecha de alta">{formatDate(deal.startDate)}</Meta>
+            {/* Si la oportunidad fue perdida, se exhibe el motivo especificado */}
             {deal.stageKey === 'Perdida' && <Meta icon={X} label="Motivo de pérdida">{deal.lossReason || '—'}</Meta>}
           </motion.div>
         </div>
@@ -165,29 +231,47 @@ const DealSummary = ({ deal, onClose, onEdit }) => {
   );
 };
 
+// ============================================================================
+// COMPONENTE PRINCIPAL: OpportunitiesPage
+// ============================================================================
+
 export const OpportunitiesPage = () => {
+  // Contexto de autenticación para obtener el usuario en sesión y sus permisos
   const { currentUser, isAdmin } = useAuth();
   const myUserId = currentUser?.idUser || currentUser?.id || '';
 
-  const [deals, setDeals] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
-  const [viewMode, setViewMode] = useState('table');
-  const [searchQuery, setSearchQuery] = useState('');
+  // --------------------------------------------------------------------------
+  // ESTADOS PRINCIPALES DEL COMPONENTE
+  // --------------------------------------------------------------------------
+  const [deals, setDeals] = useState([]); // Listado completo de oportunidades
+  const [users, setUsers] = useState([]); // Usuarios activos del sistema para asignar como responsables
+  const [loading, setLoading] = useState(true); // Bandera de carga de datos iniciales
+  const [activeTab, setActiveTab] = useState('all'); // Pestaña activa ('all', 'open', 'stalled', 'won')
+  const [viewMode, setViewMode] = useState('table'); // Modo de vista: 'table' (tabla) o 'kanban' (tablero)
+  const [searchQuery, setSearchQuery] = useState(''); // Texto de búsqueda rápida
   const location = useLocation();
+
+  // Prefiltrado inicial si la navegación viene con estado desde otra vista (ej: buscar una empresa o negocio)
   useEffect(() => {
     if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
   }, [location.state]);
 
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [showDrawer, setShowDrawer] = useState(false);
-  const [editingDeal, setEditingDeal] = useState(null);
-  const [selectedDeal, setSelectedDeal] = useState(null);
-  const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(emptyForm(myUserId));
+  // Estados de interacción Drag and Drop, modales y formularios
+  const [draggedItem, setDraggedItem] = useState(null); // Oportunidad que está siendo arrastrada en el Kanban
+  const [showDrawer, setShowDrawer] = useState(false); // Visibilidad del panel lateral (SlideDrawer)
+  const [editingDeal, setEditingDeal] = useState(null); // Oportunidad en proceso de edición (null si es nueva)
+  const [selectedDeal, setSelectedDeal] = useState(null); // Oportunidad para ver en modal de detalle
+  const [errors, setErrors] = useState({}); // Errores de validación del formulario
+  const [saving, setSaving] = useState(false); // Estado de guardado en API
+  const [form, setForm] = useState(emptyForm(myUserId)); // Valores de los campos del formulario
 
+  // --------------------------------------------------------------------------
+  // CONSULTAS Y EFECTOS SECUNDARIOS (API)
+  // --------------------------------------------------------------------------
+
+  /**
+   * Obtiene la lista completa de oportunidades desde la base de datos y las normaliza.
+   */
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -201,6 +285,7 @@ export const OpportunitiesPage = () => {
     }
   };
 
+  // Carga inicial de oportunidades y usuarios activos disponibles para asignación
   useEffect(() => {
     fetchData();
     authApi
@@ -213,11 +298,17 @@ export const OpportunitiesPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // --------------------------------------------------------------------------
+  // CÁLCULOS MEMORIZADOS (FILTROS Y KPIS)
+  // --------------------------------------------------------------------------
+
+  // Opciones de usuarios para el selector de responsable
   const ownerOptions = useMemo(
     () => users.map((u) => ({ value: u.idUser, label: u.fullName || u.idUser })),
     [users]
   );
 
+  // Filtra las oportunidades según la pestaña seleccionada y la búsqueda por texto
   const filteredDeals = useMemo(() => {
     let result = [...deals];
     if (activeTab === 'open') result = result.filter((d) => OPEN_STATUSES.includes(d.stageKey));
@@ -237,6 +328,7 @@ export const OpportunitiesPage = () => {
     return result;
   }, [deals, activeTab, searchQuery]);
 
+  // Cálculos de métricas e indicadores comerciales
   const openDeals = useMemo(() => deals.filter((d) => OPEN_STATUSES.includes(d.stageKey)), [deals]);
   const pipelineVolume = useMemo(() => openDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0), [openDeals]);
   const wonDeals = useMemo(() => deals.filter((d) => d.stageKey === 'Ganada'), [deals]);
@@ -245,6 +337,13 @@ export const OpportunitiesPage = () => {
     return won.length ? Math.round(won.reduce((s, v) => s + v, 0) / won.length) : 0;
   }, [wonDeals]);
 
+  // --------------------------------------------------------------------------
+  // MANEJADORES DE EVENTOS Y ACCIONES
+  // --------------------------------------------------------------------------
+
+  /**
+   * Genera y descarga un archivo CSV con el listado de oportunidades filtradas.
+   */
   const handleExportDeals = () => {
     const headers = ['ID', 'Oportunidad', 'Empresa', 'Contacto', 'Estado', 'Volumen potencial ($)', 'Cierre estimado', 'Responsable', 'Potencialidad', 'Actividades'];
     const rows = filteredDeals.map((d) => [
@@ -270,35 +369,48 @@ export const OpportunitiesPage = () => {
     document.body.removeChild(link);
   };
 
+  // --- Handlers de Drag and Drop para el Tablero Kanban ---
   const handleDragStart = (e, deal) => {
     setDraggedItem(deal);
     e.dataTransfer.effectAllowed = 'move';
   };
+
   const handleDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
+
+  /**
+   * Procesa el soltado de una tarjeta en una nueva columna de estado.
+   * Si se mueve a 'Perdida', solicita el motivo de descarte. Realiza actualización optimista y llama a la API.
+   */
   const handleDrop = async (e, newStageKey) => {
     e.preventDefault();
     if (!draggedItem) return;
     const target = draggedItem;
     setDraggedItem(null);
     if (target.stageKey === newStageKey) return;
+
     let lossReason;
     if (newStageKey === 'Perdida') {
       lossReason = window.prompt('¿Por qué se perdió la oportunidad? (precio, competencia, sin necesidad…)', '') ?? undefined;
-      if (lossReason === undefined) return; // canceló
+      if (lossReason === undefined) return; // Si canceló la ventana de aviso, no se mueve
     }
+
+    // Actualización optimista en el estado local
     setDeals((prev) => prev.map((d) => (d.id === target.id ? { ...d, stageKey: newStageKey, lossReason: lossReason ?? d.lossReason } : d)));
     try {
       await updateOpportunity(target.id, { status: newStageKey, ...(lossReason !== undefined ? { lossReason } : {}) });
     } catch (err) {
       console.error('Error al cambiar el estado de la oportunidad:', err);
       notify.error('No se pudo cambiar el estado', err);
-      fetchData();
+      fetchData(); // Revierte el estado en caso de error
     }
   };
 
+  /**
+   * Confirma y elimina de forma lógica una oportunidad mediante la API.
+   */
   const handleDeleteDeal = async (deal) => {
     if (!await confirmAction(`¿Dar de baja la oportunidad "${deal.dealName}"? Sus actividades se conservan.`)) return;
     try {
@@ -311,12 +423,18 @@ export const OpportunitiesPage = () => {
     }
   };
 
+  /**
+   * Manejador de cambios en los inputs del formulario, limpiando errores previos del campo modificado.
+   */
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  /**
+   * Abre el drawer en modo creación con el formulario en blanco.
+   */
   const openCreateDrawer = () => {
     setEditingDeal(null);
     setErrors({});
@@ -324,6 +442,9 @@ export const OpportunitiesPage = () => {
     setShowDrawer(true);
   };
 
+  /**
+   * Abre el drawer en modo edición precargando los datos de la oportunidad seleccionada.
+   */
   const openEditDrawer = (deal) => {
     setSelectedDeal(null);
     setEditingDeal(deal);
@@ -345,26 +466,36 @@ export const OpportunitiesPage = () => {
     setShowDrawer(true);
   };
 
+  /**
+   * Cierra el drawer y limpia el estado de edición.
+   */
   const closeDrawer = () => {
     setShowDrawer(false);
     setEditingDeal(null);
   };
 
+  /**
+   * Valida y envía el formulario de alta o modificación de oportunidad a la API.
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
+
+    // Validaciones de campos obligatorios y límites de caracteres
     if (!form.dealName?.trim()) newErrors.dealName = 'Poné un título para la oportunidad.';
     else if (checkName(form.dealName, { label: 'El título', ...LIMITS.title })) newErrors.dealName = checkName(form.dealName, { label: 'El título', ...LIMITS.title });
     if (!form.clientCompanyId) newErrors.company = 'Elegí la empresa de la lista.';
     if (isAdmin && !form.ownerId) newErrors.ownerId = 'Elegí el responsable.';
     if (form.stageKey === 'Perdida' && !form.lossReason?.trim()) newErrors.lossReason = 'Indicá por qué se perdió.';
     else if (checkText(form.lossReason, { label: 'El motivo', min: 3, max: 500 })) newErrors.lossReason = checkText(form.lossReason, { label: 'El motivo', min: 3, max: 500 });
+
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
       return;
     }
     setErrors({});
 
+    // Preparación del payload para enviar al backend
     const payload = {
       title: form.dealName.trim(),
       status: form.stageKey,
@@ -397,9 +528,13 @@ export const OpportunitiesPage = () => {
     }
   };
 
+  // --------------------------------------------------------------------------
+  // RENDERIZADO DEL COMPONENTE
+  // --------------------------------------------------------------------------
   return (
     <div className="deals-page">
 
+      {/* ── Encabezado de la página y botones de acción principales ── */}
       <div className="deals-page__header">
         <div className="deals-page__title-box">
           <div className="deals-page__icon-badge">
@@ -423,6 +558,7 @@ export const OpportunitiesPage = () => {
         </div>
       </div>
 
+      {/* ── Métricas y KPIs de la gestión comercial ── */}
       <div className="deals-metrics-grid">
         <div className="deals-metric-card">
           <span className="metric-label">Oportunidades</span>
@@ -454,8 +590,10 @@ export const OpportunitiesPage = () => {
         </div>
       </div>
 
+      {/* ── Tarjeta Principal: Barra de herramientas, filtros y vistas ── */}
       <div className="deals-card">
         <div className="deals-toolbar crm-filterbar">
+          {/* Campo de búsqueda rápida */}
           <div className="deals-search-box">
             <Search size={15} />
             <input
@@ -466,6 +604,8 @@ export const OpportunitiesPage = () => {
             />
             <SearchClearButton value={searchQuery} onClear={() => setSearchQuery('')} />
           </div>
+
+          {/* Pestañas de filtrado por estado de avance */}
           <FilterTabs
             ariaLabel="Filtrar oportunidades"
             value={activeTab}
@@ -478,6 +618,7 @@ export const OpportunitiesPage = () => {
             ]}
           />
 
+          {/* Alternador de visualización: Tabla vs Tablero Kanban */}
           <div className="deals-view-switcher crm-filterbar__end">
             <button type="button" className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
               <TableIcon size={15} />
@@ -490,11 +631,13 @@ export const OpportunitiesPage = () => {
           </div>
         </div>
 
+        {/* ── Contenido de la vista según el modo seleccionado ── */}
         {loading ? (
           <div style={{ padding: '20px' }}>
             <LoadingState title="Cargando…" message="Trayendo las oportunidades." />
           </div>
         ) : viewMode === 'table' ? (
+          /* VISTA EN FORMATO TABLA TRADICIONAL */
           <div className="deals-table-container">
             <table className="deals-table">
               <thead>
@@ -526,47 +669,56 @@ export const OpportunitiesPage = () => {
                     const stage = getStageInfo(deal.stageKey);
                     return (
                       <tr key={deal.id} className="deals-table-row">
+                        {/* Nombre de la oportunidad y contador de actividades vinculadas */}
                         <td>
                           <button type="button" className="deal-title-link deal-title-btn" onClick={() => setSelectedDeal(deal)}>
                             {deal.dealName}
                           </button>
                           <span className="deal-pipeline-sub">{deal.activityCount} {deal.activityCount === 1 ? 'actividad' : 'actividades'}</span>
                         </td>
+                        {/* Empresa cliente */}
                         <td>
                           <div className="deal-company-cell">
                             <Building2 size={13} className="cell-icon" />
                             <span>{deal.company || '—'}</span>
                           </div>
                         </td>
+                        {/* Contacto principal */}
                         <td>
                           <div className="deal-contact-cell">
                             <User size={13} className="cell-icon" />
                             <span>{deal.contact || '—'}</span>
                           </div>
                         </td>
+                        {/* Píldora de estado comercial con estilos dinámicos */}
                         <td>
                           <span className="deal-stage-pill" style={{ '--chip-bg': stage.bg, '--chip-text': stage.text, '--chip-mark': stage.color }}>
                             {stage.label}
                           </span>
                         </td>
+                        {/* Prioridad o potencialidad */}
                         <td>
                           {deal.priority ? <span className={`prio-chip prio-chip--${deal.priority.toLowerCase()}`}>{deal.priority}</span> : '—'}
                         </td>
+                        {/* Usuario responsable asignado */}
                         <td>
                           <div className="deal-owner-cell">
                             <div className="owner-avatar-mini">{(deal.ownerName || 'U').charAt(0)}</div>
                             <span>{deal.ownerName}</span>
                           </div>
                         </td>
+                        {/* Tiempo transcurrido desde el último contacto registrado */}
                         <td>
                           <div className="deal-date-cell">
                             <Calendar size={12} />
                             <span>{deal.daysWithoutContact === null || deal.daysWithoutContact === undefined ? '—' : deal.daysWithoutContact === 0 ? 'hoy' : `hace ${deal.daysWithoutContact} d`}</span>
                           </div>
                         </td>
+                        {/* Monto estimado de la oportunidad */}
                         <td style={{ textAlign: 'right' }}>
                           <span className="deal-value-amount">{formatCurrency(deal.value)}</span>
                         </td>
+                        {/* Botones de acción rápida por fila (editar y eliminar) */}
                         <td>
                           <div className="tasks-board__row-actions">
                             <button type="button" className="tasks-board__icon-btn" title="Editar oportunidad" onClick={() => openEditDrawer(deal)}>
@@ -584,17 +736,20 @@ export const OpportunitiesPage = () => {
               </tbody>
             </table>
 
+            {/* Pie de tabla con resumen de cantidad de registros */}
             <div className="deals-table-footer">
               <span>Mostrando <strong>{filteredDeals.length}</strong> de {deals.length} oportunidades</span>
             </div>
           </div>
         ) : (
+          /* VISTA EN FORMATO TABLERO KANBAN INTERACTIVO */
           <div className="deals-kanban">
             {DEAL_STAGES.map((stage) => {
               const stageDeals = filteredDeals.filter((d) => d.stageKey === stage.key);
               const stageTotal = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
               return (
                 <div key={stage.key} className="deals-kanban-col" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, stage.key)}>
+                  {/* Cabecera de la columna de etapa con total acumulado */}
                   <div className="kanban-col-header" style={{ borderTopColor: stage.color }}>
                     <div className="kanban-col-title-row">
                       <span className="kanban-col-title">{stage.label}</span>
@@ -605,6 +760,7 @@ export const OpportunitiesPage = () => {
                     <div className="kanban-col-total">{formatCurrency(stageTotal)}</div>
                   </div>
 
+                  {/* Lista de tarjetas arrastrables correspondientes a esta columna */}
                   <div className="kanban-col-cards">
                     {stageDeals.length === 0 ? (
                       <div className="kanban-empty-col">Sin oportunidades</div>
@@ -641,8 +797,10 @@ export const OpportunitiesPage = () => {
         )}
       </div>
 
+      {/* ── SlideDrawer: Formulario Lateral de Alta y Edición ── */}
       <SlideDrawer isOpen={showDrawer} onClose={closeDrawer} title={editingDeal ? 'Editar oportunidad' : 'Nueva oportunidad'} width="540px">
         <form onSubmit={handleSubmit} noValidate className="tasks-board__form">
+          {/* Título de la oportunidad */}
           <FormInput
             label="Título"
             name="dealName"
@@ -653,6 +811,7 @@ export const OpportunitiesPage = () => {
             error={errors.dealName}
           />
 
+          {/* Autocompletado de Empresa Cliente */}
           <CompanyAutocomplete
             label="Empresa"
             name="company"
@@ -662,6 +821,7 @@ export const OpportunitiesPage = () => {
             onChange={(name, item) => setForm((prev) => ({ ...prev, company: name, clientCompanyId: item?.id || null }))}
           />
 
+          {/* Autocompletado de Contacto vinculable */}
           <ContactAutocomplete
             label="Contacto"
             name="contact"
@@ -676,6 +836,7 @@ export const OpportunitiesPage = () => {
             }
           />
 
+          {/* Estado del ciclo de vida */}
           <FormSelect
             label="Estado"
             name="stageKey"
@@ -683,6 +844,7 @@ export const OpportunitiesPage = () => {
             onChange={handleFormChange}
             options={DEAL_STAGES.map((s) => ({ value: s.key, label: `${s.label} — ${s.help}` }))}
           />
+          {/* Campo condicional para explicar la causa si el estado es 'Perdida' */}
           {form.stageKey === 'Perdida' && (
             <FormInput
               label="Motivo de la pérdida"
@@ -695,10 +857,13 @@ export const OpportunitiesPage = () => {
             />
           )}
 
+          {/* Volúmenes monetarios: potencial y facturado */}
           <div className="tasks-board__form-row">
             <FormInput label="Volumen potencial ($)" name="value" type="number" value={form.value} onChange={handleFormChange} placeholder="Ej: 322200" />
             <FormInput label="Volumen facturado ($)" name="billedVolume" type="number" value={form.billedVolume} onChange={handleFormChange} placeholder="Al ganarla" />
           </div>
+
+          {/* Fecha estimada de cierre */}
           <FormInput
             label="Cierre estimado"
             name="closeDate"
@@ -707,6 +872,7 @@ export const OpportunitiesPage = () => {
             onChange={handleFormChange}
           />
 
+          {/* Asignación de Responsable y Nivel de Potencialidad */}
           <div className="tasks-board__form-row">
             {isAdmin ? (
               <FormSelect
@@ -724,6 +890,7 @@ export const OpportunitiesPage = () => {
             <FormSelect label="Potencialidad" name="priority" value={form.priority} onChange={handleFormChange} options={POTENTIAL_OPTIONS} />
           </div>
 
+          {/* Botones de acción del formulario */}
           <div className="tasks-board__form-actions">
             <button type="submit" className="btn-rounded-primary tasks-board__submit-btn" disabled={saving}>
               {saving ? 'Guardando…' : editingDeal ? 'Guardar cambios' : 'Crear oportunidad'}
@@ -735,6 +902,7 @@ export const OpportunitiesPage = () => {
         </form>
       </SlideDrawer>
 
+      {/* ── Modal de Resumen y Vista Rápida ── */}
       {selectedDeal && (
         <DealSummary deal={selectedDeal} onClose={() => setSelectedDeal(null)} onEdit={() => openEditDrawer(selectedDeal)} />
       )}

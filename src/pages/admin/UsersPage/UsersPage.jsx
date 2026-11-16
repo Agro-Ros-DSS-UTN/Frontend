@@ -1,4 +1,13 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+﻿/**
+ * @file UsersPage.jsx
+ * @description Módulo de administración de usuarios y accesos al sistema Agroquímica Rosario.
+ * Proporciona una interfaz completa de gestión (CRUD) para perfiles de Administradores y Vendedores:
+ * alta de usuarios con validaciones de seguridad de contraseñas, asignación de roles,
+ * re-autenticación obligatoria de administradores para cambios sensibles, asignación territorial
+ * de zonas a vendedores, filtrado, ordenamiento, paginación y exportación a formato CSV.
+ */
+
+import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Plus,
@@ -40,14 +49,17 @@ import { SearchClearButton } from '../../../components/ui/SearchClearButton/Sear
 import { checkPersonName, checkEmail } from '../../../utils/validators';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
+/** Pestañas de filtrado rápido por rol de usuario */
 const TABS = [
   { key: 'all', label: 'Todos los usuarios' },
   { key: 'admin', label: 'Administradores' },
   { key: 'vendedor', label: 'Vendedores' },
 ];
 
+/** Longitud máxima permitida para contraseñas en el sistema */
 const MAX_PASSWORD_LENGTH = 64;
 
+/** Definición de columnas de la tabla de usuarios con soporte para ordenamiento */
 const COLUMNS = [
   { key: 'fullName', label: 'Usuario', sortable: true },
   { key: 'email', label: 'Correo electrónico', sortable: true },
@@ -55,35 +67,42 @@ const COLUMNS = [
   { key: 'accountStatus', label: 'Estado', sortable: true },
 ];
 
+/** Cantidad de usuarios a mostrar por página */
 const PAGE_SIZE = 10;
 
+/**
+ * Componente principal para la administración de usuarios del sistema.
+ */
 export const UsersPage = () => {
+  // ── Contexto de autenticación ──
   const { currentUser } = useAuth();
+
+  // ── Estados de la lista de usuarios, filtros y ordenamiento ──
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('fullName');
-  const [sortDir, setSortDir] = useState('asc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedRows, setSelectedRows] = useState([]);
+  const [activeTab, setActiveTab] = useState('all'); // Pestaña de rol activa: 'all' | 'admin' | 'vendedor'
+  const [searchQuery, setSearchQuery] = useState(''); // Texto de búsqueda libre
+  const [statusFilter, setStatusFilter] = useState('all'); // Filtro de estado: 'all' | 'active' | 'inactive'
+  const [sortBy, setSortBy] = useState('fullName'); // Columna por la que se ordena
+  const [sortDir, setSortDir] = useState('asc'); // Dirección de ordenamiento: 'asc' | 'desc'
+  const [currentPage, setCurrentPage] = useState(1); // Número de página actual
+  const [selectedRows, setSelectedRows] = useState([]); // IDs de filas seleccionadas con checkbox
 
-  // Estado de "copiado"
+  // Estado temporal del ID copiado al portapapeles (para mostrar icono de confirmación)
   const [copiedId, setCopiedId] = useState(null);
 
-  // Modal (Slide-over drawer) State
+  // ── Estados del Drawer Lateral (Modal deslizante de Creación / Edición) ──
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('create');
-  const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [modalMode, setModalMode] = useState('create'); // 'create' o 'edit'
+  const [submitting, setSubmitting] = useState(false); // Bandera para prevenir envíos duplicados
+  const [showPassword, setShowPassword] = useState(false); // Alternar visibilidad de contraseña
 
   // Re-autenticación de admin al modificar la contraseña de OTRO usuario
   const [adminReauthPassword, setAdminReauthPassword] = useState('');
   const [showAdminReauth, setShowAdminReauth] = useState(false);
   const [reauthError, setReauthError] = useState('');
 
-  // Form State & Errors
+  // ── Estado del formulario y errores de validación ──
   const [form, setForm] = useState({
     idUser: '',
     fullName: '',
@@ -93,10 +112,17 @@ export const UsersPage = () => {
     accountStatus: 'Activo',
   });
   const [errors, setErrors] = useState({});
+
+  // ── Estados para la asignación territorial de zonas a vendedores ──
   const [zone, setZone] = useState([]);
   const [selectedZone, setSelectedZone] = useState(null);
   const [savingZone, setSavingZone] = useState(false);
 
+  /**
+   * Guarda de manera inmediata la nueva lista de localidades asignadas a un vendedor en el backend.
+   *
+   * @param {Array<Object>} newZone - Arreglo de localidades con sus IDs y nombres.
+   */
   const saveZone = async (newZone) => {
     setSavingZone(true);
     try {
@@ -112,7 +138,9 @@ export const UsersPage = () => {
     }
   };
 
-  // Cargar usuarios de MySQL backend
+  /**
+   * Consulta la lista completa de usuarios al backend MySQL.
+   */
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -126,10 +154,17 @@ export const UsersPage = () => {
     }
   };
 
+  // Carga inicial de usuarios al montar el componente
   useEffect(() => {
     fetchUsers();
   }, []);
 
+  /**
+   * Copia el identificador único del usuario al portapapeles del navegador.
+   *
+   * @param {string} id - Identificador del usuario.
+   * @param {React.MouseEvent} e - Evento de clic para evitar propagación a la fila.
+   */
   const handleCopyId = (id, e) => {
     e.stopPropagation();
     navigator.clipboard.writeText(id);
@@ -138,12 +173,24 @@ export const UsersPage = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  /**
+   * Normaliza la cadena de rol a uno de los dos valores canónicos del sistema: 'admin' o 'vendedor'.
+   *
+   * @param {string} roleStr - Rol original devuelto por el backend.
+   * @returns {'admin'|'vendedor'}
+   */
   const getNormalizedRole = (roleStr) => {
     const r = (roleStr || '').toLowerCase();
     if (r.includes('admin')) return 'admin';
     return 'vendedor';
   };
 
+  /**
+   * Obtiene las iniciales en mayúsculas a partir del nombre y apellido para el avatar.
+   *
+   * @param {string} name - Nombre completo del usuario.
+   * @returns {string} Iniciales (hasta 2 letras).
+   */
   const getInitials = (name) => {
     if (!name) return 'U';
     const parts = name.trim().split(' ');
@@ -151,6 +198,9 @@ export const UsersPage = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
+  /**
+   * Filtra la lista de usuarios según la pestaña de rol activa, el estado de cuenta y la búsqueda por texto.
+   */
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const normRole = getNormalizedRole(u.role);
@@ -171,6 +221,9 @@ export const UsersPage = () => {
     });
   }, [users, activeTab, statusFilter, searchQuery]);
 
+  /**
+   * Ordena los usuarios filtrados según la columna y dirección seleccionadas.
+   */
   const sortedUsers = useMemo(() => {
     return [...filteredUsers].sort((a, b) => {
       let valA = a[sortBy] ?? '';
@@ -188,12 +241,18 @@ export const UsersPage = () => {
     });
   }, [filteredUsers, sortBy, sortDir]);
 
+  // Cálculo de paginación
   const totalPages = Math.max(1, Math.ceil(sortedUsers.length / PAGE_SIZE));
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
     return sortedUsers.slice(start, start + PAGE_SIZE);
   }, [sortedUsers, currentPage]);
 
+  /**
+   * Alterna la columna o dirección de ordenamiento al hacer clic en el encabezado de tabla.
+   *
+   * @param {string} colKey - Clave de la columna a ordenar.
+   */
   const handleSort = (colKey) => {
     if (sortBy === colKey) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -203,6 +262,9 @@ export const UsersPage = () => {
     }
   };
 
+  /**
+   * Alterna la selección de todas las filas de la página actual.
+   */
   const toggleSelectAll = () => {
     if (selectedRows.length === paginatedUsers.length) {
       setSelectedRows([]);
@@ -211,6 +273,12 @@ export const UsersPage = () => {
     }
   };
 
+  /**
+   * Alterna la selección de una fila individual de la tabla.
+   *
+   * @param {string} id - Identificador del usuario.
+   * @param {React.MouseEvent} [e] - Evento de clic para detener la propagación.
+   */
   const toggleSelect = (id, e) => {
     if (e) e.stopPropagation();
     setSelectedRows(prev =>
@@ -218,6 +286,9 @@ export const UsersPage = () => {
     );
   };
 
+  /**
+   * Inicializa el formulario y abre el modal deslizante en modo creación.
+   */
   const handleOpenCreateModal = () => {
     setForm({
       idUser: '',
@@ -236,6 +307,12 @@ export const UsersPage = () => {
     setShowModal(true);
   };
 
+  /**
+   * Carga los datos del usuario seleccionado y abre el modal deslizante en modo edición.
+   *
+   * @param {Object} u - Objeto de usuario a editar.
+   * @param {React.MouseEvent} [e] - Evento de clic.
+   */
   const handleOpenEditModal = (u, e) => {
     if (e) e.stopPropagation();
     setForm({
@@ -279,6 +356,9 @@ export const UsersPage = () => {
   // propia contraseña del admin logueado (no aplica al crear un usuario nuevo).
   const isChangingExistingPassword = modalMode === 'edit' && form.password.length > 0;
 
+  /**
+   * Cierra el modal deslizante y restablece estados de error y re-autenticación.
+   */
   const handleCloseModal = () => {
     setShowModal(false);
     setErrors({});
@@ -287,6 +367,11 @@ export const UsersPage = () => {
     setReauthError('');
   };
 
+  /**
+   * Maneja cambios en los campos de entrada del formulario, limpiando errores previos del campo.
+   *
+   * @param {React.ChangeEvent<HTMLInputElement|HTMLSelectElement>} e - Evento de cambio.
+   */
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
@@ -295,6 +380,13 @@ export const UsersPage = () => {
     }
   };
 
+  /**
+   * Procesa el envío del formulario de alta o modificación de usuario:
+   * aplica validaciones estrictas de campos, evalúa reglas de contraseña,
+   * comprueba re-autenticación del administrador y sincroniza con el backend.
+   *
+   * @param {React.FormEvent} e - Evento de submit.
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -302,6 +394,7 @@ export const UsersPage = () => {
     // que antes generaban varias filas fantasma del mismo usuario en la tabla.
     if (submitting) return;
 
+    // Validación de datos del formulario del lado del cliente
     const newErrors = {};
     if (!form.idUser?.trim()) newErrors.idUser = 'Ingresá el ID único de usuario.';
     else if (!/^[A-Za-z0-9._-]{3,30}$/.test(form.idUser.trim())) newErrors.idUser = 'El ID tiene de 3 a 30 caracteres: letras, números, punto, guion o guion bajo (sin espacios).';
@@ -367,6 +460,12 @@ export const UsersPage = () => {
     }
   };
 
+  /**
+   * Elimina un usuario tras solicitar confirmación explícita mediante diálogo modal.
+   *
+   * @param {string} id - Identificador del usuario a eliminar.
+   * @param {React.MouseEvent} [e] - Evento de clic.
+   */
   const handleDeleteUser = async (id, e) => {
     if (e) e.stopPropagation();
     if (!await confirmAction(`¿Estás seguro de eliminar el usuario @${id}?`)) return;
@@ -384,6 +483,10 @@ export const UsersPage = () => {
     }
   };
 
+  /**
+   * Genera y descarga un archivo CSV con los usuarios filtrados actualmente visibles en pantalla.
+   * Incluye BOM UTF-8 para garantizar la visualización correcta de tildes y caracteres en Excel.
+   */
   const handleExportCSV = () => {
     const headers = ['ID Usuario', 'Nombre y Apellido', 'Email', 'Rol', 'Estado'];
     const rows = filteredUsers.map(u => [
@@ -407,7 +510,7 @@ export const UsersPage = () => {
 
   return (
     <div className="users-page">
-      {/* Header */}
+      {/* ── Encabezado de la Página y Botones de Acción Global ── */}
       <div className="users-page__header">
         <div>
           <h1 className="users-page__title">Gestión de Usuarios del Sistema</h1>
@@ -425,10 +528,11 @@ export const UsersPage = () => {
         </PageHeaderActions>
       </div>
 
-      {/* Main Unified Card */}
+      {/* ── Tarjeta Unificada Principal (Barra de Filtros + Tabla + Paginación) ── */}
       <div className="users-page__card">
-        {/* Toolbar */}
+        {/* Barra de herramientas y filtros */}
         <div className="users-page__toolbar crm-filterbar">
+          {/* Búsqueda por texto con botón para limpiar campo */}
           <div className="users-page__search">
             <Search size={16} color="#64748b" />
             <input
@@ -440,6 +544,7 @@ export const UsersPage = () => {
             <SearchClearButton value={searchQuery} onClear={() => { setSearchQuery(''); setCurrentPage(1); }} />
           </div>
 
+          {/* Pestañas de filtrado por rol con contadores numéricos */}
           <FilterTabs
             ariaLabel="Filtrar usuarios por rol"
             value={activeTab}
@@ -453,6 +558,7 @@ export const UsersPage = () => {
             }))}
           />
 
+          {/* Selector de estado de cuenta (Activo / Inactivo) */}
           <div className="crm-filterbar__end">
             <select
               className="crm-filter-select"
@@ -467,11 +573,12 @@ export const UsersPage = () => {
           </div>
         </div>
 
-        {/* Table */}
+        {/* ── Tabla de Datos de Usuarios ── */}
         <div className="users-page__table-wrapper">
           <table className="users-table">
             <thead>
               <tr>
+                {/* Checkbox para seleccionar todos los elementos de la página */}
                 <th className="users-table__checkbox-col">
                   <input
                     type="checkbox"
@@ -479,6 +586,7 @@ export const UsersPage = () => {
                     onChange={toggleSelectAll}
                   />
                 </th>
+                {/* Columnas ordenables */}
                 {COLUMNS.map(col => (
                   <th
                     key={col.key}
@@ -503,6 +611,7 @@ export const UsersPage = () => {
               </tr>
             </thead>
             <tbody>
+              {/* Estados de carga y lista vacía */}
               {loading ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
@@ -516,6 +625,7 @@ export const UsersPage = () => {
                   </td>
                 </tr>
               ) : (
+                /* Filas de usuarios */
                 paginatedUsers.map((u) => {
                   const userId = u.idUser || u.id;
                   const normRole = getNormalizedRole(u.role);
@@ -523,6 +633,7 @@ export const UsersPage = () => {
 
                   return (
                     <tr key={userId} className="users-table__row">
+                      {/* Checkbox de fila */}
                       <td className="users-table__checkbox-col" onClick={e => e.stopPropagation()}>
                         <input
                           type="checkbox"
@@ -530,6 +641,7 @@ export const UsersPage = () => {
                           onChange={(e) => toggleSelect(userId, e)}
                         />
                       </td>
+                      {/* Avatar, Nombre completo e ID */}
                       <td>
                         <div className="users-table__name-cell">
                           <div className={`users-table__avatar ${normRole === 'vendedor' ? 'users-table__avatar--vendedor' : ''}`}>
@@ -541,6 +653,7 @@ export const UsersPage = () => {
                           </div>
                         </div>
                       </td>
+                      {/* Correo Electrónico */}
                       <td>
                         {u.email ? (
                           <a
@@ -555,18 +668,21 @@ export const UsersPage = () => {
                           <span style={{ color: '#94a3b8' }}>-</span>
                         )}
                       </td>
+                      {/* Insignia de Rol (Administrador o Vendedor) */}
                       <td>
                         <span className={`users-table__role-pill ${normRole === 'admin' ? 'users-table__role-pill--admin' : 'users-table__role-pill--vendedor'}`}>
                           {normRole === 'admin' ? <Shield size={12} /> : <Briefcase size={12} />}
                           {normRole === 'admin' ? 'Administrador' : 'Vendedor'}
                         </span>
                       </td>
+                      {/* Insignia de Estado de Cuenta */}
                       <td>
                         <span className={`users-table__status-pill ${isUserActive ? 'users-table__status-pill--active' : 'users-table__status-pill--inactive'}`}>
                           <span className="status-dot" />
                           {isUserActive ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
+                      {/* Botones de acción: Copiar ID, Modificar y Eliminar */}
                       <td style={{ textAlign: 'center' }}>
                         <div className="users-table__actions">
                           <button
@@ -603,7 +719,7 @@ export const UsersPage = () => {
           </table>
         </div>
 
-        {/* Pagination Footer */}
+        {/* ── Pie de Paginación de la Tabla ── */}
         <div className="users-page__pagination">
           <span className="users-page__pagination-info">
             Mostrando <strong>{paginatedUsers.length}</strong> de <strong>{filteredUsers.length}</strong> usuarios
@@ -639,7 +755,7 @@ export const UsersPage = () => {
         </div>
       </div>
 
-      {/* Slide-over Drawer Modal: Nuevo / Modificar Usuario */}
+      {/* ── SlideDrawer Lateral: Formulario para Nuevo / Modificar Usuario ── */}
       <SlideDrawer
         isOpen={showModal}
         onClose={handleCloseModal}
@@ -647,6 +763,7 @@ export const UsersPage = () => {
         width="520px"
       >
         <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Identificador único (deshabilitado en modo edición) */}
           <FormInput
             label="ID de Usuario (Username)"
             name="idUser"
@@ -658,6 +775,7 @@ export const UsersPage = () => {
             error={errors.idUser}
           />
 
+          {/* Nombre y Apellido */}
           <FormInput
             label="Nombre y Apellido"
             name="fullName"
@@ -668,6 +786,7 @@ export const UsersPage = () => {
             error={errors.fullName}
           />
 
+          {/* Correo Electrónico */}
           <FormInput
             label="Correo Electrónico"
             name="email"
@@ -679,6 +798,7 @@ export const UsersPage = () => {
             error={errors.email}
           />
 
+          {/* Campo de Contraseña con Reglas de Seguridad y Barra de Fuerza */}
           <div className="form-input-field">
             <label className="form-input-label">
               Contraseña {modalMode === 'edit' ? '(Dejar en blanco para mantener actual)' : <span className="form-input-required">*</span>}
@@ -703,6 +823,7 @@ export const UsersPage = () => {
             </div>
             {errors.password && <span className="form-input-error">{errors.password}</span>}
 
+            {/* Indicador visual de seguridad y checklist de requisitos */}
             {passwordStrength && (
               <>
                 <div className="profile-password-strength">
@@ -727,6 +848,7 @@ export const UsersPage = () => {
               </>
             )}
 
+            {/* Re-autenticación obligatoria del Administrador para cambiar contraseña de usuario existente */}
             {isChangingExistingPassword && (
               <div style={{ marginTop: '12px', padding: '12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px' }}>
                 <label className="form-input-label" style={{ color: '#92400e' }}>
@@ -746,6 +868,7 @@ export const UsersPage = () => {
             )}
           </div>
 
+          {/* Selector de Rol */}
           <FormSelect
             label="Rol de Usuario"
             name="role"
@@ -757,9 +880,11 @@ export const UsersPage = () => {
             ]}
           />
 
+          {/* Asignación de Zonas de Trabajo (solo visible al editar un Vendedor) */}
           {modalMode === 'edit' && form.role === 'vendedor' && (
             <div className="users-zona">
               <span className="form-input-label">Zona de trabajo (localidades)</span>
+              {/* Chips de localidades asignadas */}
               <div className="users-zona__chips">
                 {zone.length === 0 && <span className="users-zona__empty">Sin localidades asignadas.</span>}
                 {zone.map((l) => (
@@ -769,6 +894,7 @@ export const UsersPage = () => {
                   </span>
                 ))}
               </div>
+              {/* Selector para añadir una nueva localidad a la zona */}
               <LocalitySelect
                 label="Agregar localidad"
                 value={selectedZone}
@@ -783,6 +909,7 @@ export const UsersPage = () => {
             </div>
           )}
 
+          {/* Selector de Estado de la Cuenta */}
           <FormSelect
             label="Estado de la Cuenta"
             name="accountStatus"
@@ -794,6 +921,7 @@ export const UsersPage = () => {
             ]}
           />
 
+          {/* Botones de acción del Drawer: Enviar / Cancelar */}
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
             <button
               type="submit"

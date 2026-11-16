@@ -1,5 +1,12 @@
 import styled from 'styled-components';
 
+/**
+ * Componente FlipCheckbox.
+ * Casilla de verificación (checkbox) animada con efecto de rotación tridimensional (3D flip).
+ * Funciona como un componente controlado estándar (`checked` y `onChange`) para integrarse
+ * fácilmente en formularios de React, manteniendo la estética de la marca.
+ */
+
 // Puerto directo del checkbox con animación de flip 3D que pasó el usuario
 // (styled-components real). Única adaptación respecto al original: el demo
 // posicionaba `.cbx` con `position: absolute; top: 50%; left: 50%` para
@@ -82,15 +89,30 @@ const StyledWrapper = styled.div`
   }
 `;
 
+/**
+ * Renderiza la casilla de verificación FlipCheckbox con animación 3D.
+ *
+ * @param {Object} props - Propiedades del componente.
+ * @param {string} props.id - Identificador único para asociar la etiqueta `<label>` con el `<input>`.
+ * @param {boolean} props.checked - Estado booleano de selección (marcado o desmarcado).
+ * @param {Function} props.onChange - Callback ejecutado al alternar el valor del checkbox.
+ */
 export const FlipCheckbox = ({ id, checked, onChange }) => {
   return (
+    // Contenedor con estilos y transformaciones 3D encapsuladas
     <StyledWrapper>
+      {/* Etiqueta clicable asociada al identificador del input */}
       <label htmlFor={id} className="cbx">
         <div className="checkmark">
+          {/* Input checkbox nativo oculto para gestión de accesibilidad y estado */}
           <input checked={checked} onChange={onChange} type="checkbox" id={id} />
+          {/* Contenedor 3D giratorio con caras frontal y trasera */}
           <div className="flip">
+            {/* Cara frontal: fondo blanco (estado inactivo / desmarcado) */}
             <div className="front" />
+            {/* Cara trasera: fondo verde de marca con tilde (estado activo / marcado) */}
             <div className="back">
+              {/* Ícono de confirmación vectorial SVG */}
               <svg viewBox="0 0 16 14" height={14} width={16}>
                 <path d="M2 8.5L6 12.5L14 1.5" />
               </svg>

@@ -1,4 +1,13 @@
 /* eslint-disable */
+/**
+ * @file ContactsPage.jsx
+ * @description Gestión de Contactos y Clientes individuales del CRM AgroRos.
+ * Proporciona el listado, alta, edición, baja lógica y exportación de personas referentes
+ * (Productores, Encargados de Planta, Encargados Regionales, Asesores Técnicos, etc.),
+ * su vinculación con empresas clientes, validación rigurosa de DNI y correo electrónico,
+ * y visualización de ficha resumen de actividad.
+ */
+
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
@@ -34,6 +43,7 @@ import './ContactsPage.css';
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
+// Columnas de la tabla con especificación de capacidad de ordenamiento
 const COLUMNS = [
   { key: 'fullName', label: 'Nombre',           sortable: true },
   { key: 'email',  label: 'Correo',           sortable: true },
@@ -43,8 +53,10 @@ const COLUMNS = [
   { key: 'addedAt',  label: 'Fecha de registro', sortable: true },
 ];
 
+// Cantidad de contactos mostrados por página
 const PAGE_SIZE = 20;
 
+// Formatea la fecha de registro en formato local DD/MM/AAAA
 const formatRegisterDate = (value) => {
   if (!value) return '—';
   const d = new Date(value);
@@ -52,27 +64,39 @@ const formatRegisterDate = (value) => {
   return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+/**
+ * Componente principal `ContactsPage`.
+ * Renderiza la interfaz de administración de contactos comerciales.
+ */
 export const ContactsPage = () => {
+  // Estados de almacenamiento de datos sincronizados con la API
   const [clients, setClients] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+
+  // Estados para búsqueda rápida y ordenamiento de registros
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
+
+  // Precarga el término de búsqueda si se navegó desde otra vista con prefillSearch en location.state
   useEffect(() => {
     if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
   }, [location.state]);
+
   const [sortBy, setSortBy] = useState('fullName');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
+
+  // Estados para controlar los modales y la ficha de detalle
   const [editingClient, setEditingClient] = useState(null);
   const [summaryClient, setSummaryClient] = useState(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const contactModalOverlayHandlers = useOverlayClose(() => { setShowModal(false); setEditingClient(null); });
 
-  // Carga real desde la base de datos (sin datos mock de relleno)
+  // Carga real desde la base de datos (sin datos mock de relleno) al montar el componente
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -101,6 +125,7 @@ export const ContactsPage = () => {
     fetchData();
   }, []);
 
+  // Baja lógica del contacto con confirmación previa del usuario
   const handleDelete = async (client) => {
     const id = client?.id;
     if (!id || !await confirmAction('¿Dar de baja este contacto? Deja de aparecer en las listas; su historial se conserva.')) return;
@@ -117,12 +142,14 @@ export const ContactsPage = () => {
   };
 
   // Form state: { numDoc, nombreApellido, direccionMail, tipoClient, codigoPostal, clientCompanyId }
+  // Validador de los campos del formulario de contacto según reglas de negocio
   const validateContactForm = (f, { editing }) => {
     const errs = {};
     const name = f.fullName.trim();
     if (name.length < 3) errs.fullName = 'Ingresá nombre y apellido (mínimo 3 letras).';
     else if (!/^[\p{L}][\p{L} .'-]*$/u.test(name)) errs.fullName = 'Usá solo letras y espacios.';
 
+    // El DNI solo se valida al dar de alta (al editar es de solo lectura)
     if (!editing) {
       const dni = f.docNumber.replace(/[.\s-]/g, '');
       if (!/^\d+$/.test(dni)) errs.docNumber = 'El DNI lleva solo números.';
@@ -144,6 +171,7 @@ export const ContactsPage = () => {
     return errs;
   };
 
+  // Estructura vacía inicial del formulario de contacto
   const emptyContactForm = {
     docNumber: '',
     fullName: '',
@@ -156,12 +184,14 @@ export const ContactsPage = () => {
   };
   const [form, setForm] = useState(emptyContactForm);
   const [formErrors, setFormErrors] = useState({});
+
   // Cambia un campo y borra su error
   const setField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (formErrors[field]) setFormErrors((prev) => ({ ...prev, [field]: '' }));
   };
 
+  // Abre el modal para dar de alta un nuevo contacto
   const openCreateModal = () => {
     setEditingClient(null);
     setForm(emptyContactForm);
@@ -169,6 +199,7 @@ export const ContactsPage = () => {
     setShowModal(true);
   };
 
+  // Carga los datos de un contacto y abre el modal en modo edición
   const openEditModal = (client) => {
     setEditingClient(client);
     setForm({
@@ -185,11 +216,11 @@ export const ContactsPage = () => {
     setShowModal(true);
   };
 
-  // Filter & Sort
+  // Filtrado y ordenamiento de la lista de contactos
   const filteredClients = useMemo(() => {
     let result = [...clients];
 
-    // Search
+    // Búsqueda por coincidencia en nombre, correo, documento o empresa
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(c =>
@@ -200,12 +231,12 @@ export const ContactsPage = () => {
       );
     }
 
-    // Type filter
+    // Filtro por tipo de contacto
     if (typeFilter) {
       result = result.filter(c => c.clientType === typeFilter);
     }
 
-    // Sort
+    // Ordenamiento alfabético o numérico según columna seleccionada
     result.sort((a, b) => {
       const valA = (a[sortBy] || '').toString().toLowerCase();
       const valB = (b[sortBy] || '').toString().toLowerCase();
@@ -217,13 +248,14 @@ export const ContactsPage = () => {
     return result;
   }, [clients, searchQuery, typeFilter, sortBy, sortDir]);
 
-  // Pagination
+  // Cálculo de páginas y partición de registros visibles
   const totalPages = Math.ceil(filteredClients.length / PAGE_SIZE);
   const paginatedClients = filteredClients.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   );
 
+  // Alterna o establece la columna y sentido de ordenamiento
   const handleSort = (key) => {
     if (sortBy === key) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -233,6 +265,7 @@ export const ContactsPage = () => {
     }
   };
 
+  // Selecciona o deselecciona todos los contactos de la página actual
   const toggleSelectAll = () => {
     if (selectedRows.length === paginatedClients.length) {
       setSelectedRows([]);
@@ -241,18 +274,21 @@ export const ContactsPage = () => {
     }
   };
 
+  // Alterna la selección de un contacto individual
   const toggleSelect = (id) => {
     setSelectedRows(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
+  // Formateador de fechas
   const formatDate = (dateStr) => {
     if (!dateStr) return '--';
     const d = new Date(dateStr);
     return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
+  // Genera iniciales en mayúsculas a partir del nombre completo para el avatar
   const getInitials = (name) => {
     if (!name) return '??';
     return name
@@ -263,6 +299,7 @@ export const ContactsPage = () => {
       .toUpperCase();
   };
 
+  // Maneja el guardado del formulario (creación o actualización vía API)
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validateContactForm(form, { editing: Boolean(editingClient) });
@@ -307,6 +344,7 @@ export const ContactsPage = () => {
   };
 
   // Export contacts to CSV
+  // Exporta la lista filtrada de contactos en formato CSV delimitado por comas
   const handleExportContacts = () => {
     const headers = [
       { key: 'fullName', label: 'Nombre y Apellido' },
@@ -347,7 +385,7 @@ export const ContactsPage = () => {
 
   return (
     <div className="contacts-page">
-      {/* Header */}
+      {/* Encabezado con título y botones de acción principal (Nuevo Contacto y Exportar) */}
       <div className="contacts-page__header">
         <div>
           <h1 className="contacts-page__title">Contactos</h1>
@@ -364,7 +402,7 @@ export const ContactsPage = () => {
         </div>
       </div>
 
-      {/* Main Content Card */}
+      {/* Tarjeta principal con barra de herramientas, buscador y tabla */}
       <div className="contacts-page__card">
         {/* Pestañas por tipo + búsqueda en una sola fila */}
         <div className="contacts-page__toolbar crm-filterbar">
@@ -397,12 +435,14 @@ export const ContactsPage = () => {
           />
         </div>
 
-        {/* Table */}
+        {/* Mensaje de error de carga en la base de datos si ocurre */}
         {loadError && !loading && (
           <div style={{ padding: '12px 16px', marginBottom: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', color: '#991b1b', fontSize: '0.85rem', fontWeight: 600 }}>
             {loadError}
           </div>
         )}
+
+        {/* Indicador de carga inicial */}
         {loading ? (
           <div style={{ padding: '20px' }}>
             <LoadingState
@@ -411,6 +451,7 @@ export const ContactsPage = () => {
             />
           </div>
         ) : (
+        /* Tabla de registros de contactos */
         <div className="contacts-page__table-wrapper">
           <table className="contacts-table">
             <thead>
@@ -464,6 +505,7 @@ export const ContactsPage = () => {
                       key={client.id}
                       className={isSelected ? 'contacts-table__row--selected' : ''}
                     >
+                      {/* Casilla de selección individual */}
                       <td className="contacts-table__checkbox-col">
                         <input
                           type="checkbox"
@@ -471,6 +513,7 @@ export const ContactsPage = () => {
                           onChange={() => toggleSelect(client.id)}
                         />
                       </td>
+                      {/* Avatar, Nombre con enlace a ficha resumen, DNI y Empresa vinculada */}
                       <td>
                         <div className="contacts-table__name-cell">
                           <div className="contacts-table__avatar">{initials}</div>
@@ -495,6 +538,7 @@ export const ContactsPage = () => {
                           </div>
                         </div>
                       </td>
+                      {/* Enlace directo para enviar correo */}
                       <td>
                         {client.email && client.email !== '-' ? (
                           <a href={`mailto:${client.email}`} className="contacts-table__email" title="Enviar un correo">
@@ -505,14 +549,19 @@ export const ContactsPage = () => {
                           '—'
                         )}
                       </td>
+                      {/* Teléfono */}
                       <td className="contacts-table__phone">
                         {client.phone || '—'}
                       </td>
+                      {/* Tipo o rol de contacto */}
                       <td>
                         <span className="crm-outline-pill">{client.clientType || '—'}</span>
                       </td>
+                      {/* Localidad */}
                       <td>{client.locality || '—'}</td>
+                      {/* Fecha en que se registró en la plataforma */}
                       <td className="contacts-table__date">{formatRegisterDate(client.addedAt)}</td>
+                      {/* Botones de acción: Editar y Eliminar */}
                       <td className="contacts-table__actions-col">
                         <div className="contacts-table__actions">
                           <button className="contacts-table__action-btn" title="Editar" onClick={() => openEditModal(client)}>
@@ -532,7 +581,7 @@ export const ContactsPage = () => {
         </div>
         )}
 
-      {/* Pagination */}
+      {/* Controles de paginación de la tabla */}
       {!loading && totalPages > 1 && (
         <div className="contacts-page__pagination">
           <span className="contacts-page__pagination-info">
@@ -567,7 +616,7 @@ export const ContactsPage = () => {
       )}
       </div>
 
-      {/* ── Modal: Agregar Contacto (Dominio) ── */}
+      {/* ── Modal: Registrar o Editar Contacto ── */}
       {showModal && (
         <div className="contact-modal-overlay" {...contactModalOverlayHandlers}>
           <div className="contact-modal" onClick={e => e.stopPropagation()}>
@@ -579,7 +628,7 @@ export const ContactsPage = () => {
             </div>
 
             <form className="contact-modal__form" onSubmit={handleSubmit} noValidate>
-              {/* Nombre y Apellido */}
+              {/* Campo: Nombre y Apellido */}
               <div className="contact-field">
                 <label><User size={14} /> Nombre y Apellido *</label>
                 <input
@@ -594,7 +643,7 @@ export const ContactsPage = () => {
                 {formErrors.fullName && <span className="contact-field__error">{formErrors.fullName}</span>}
               </div>
 
-              {/* DNI */}
+              {/* Campo: Documento Nacional de Identidad (DNI) */}
               <div className="contact-field">
                 <label><FileText size={14} /> DNI *</label>
                 <input
@@ -611,7 +660,7 @@ export const ContactsPage = () => {
                 {formErrors.docNumber && <span className="contact-field__error">{formErrors.docNumber}</span>}
               </div>
 
-              {/* Email */}
+              {/* Campo: Correo Electrónico */}
               <div className="contact-field">
                 <label><Mail size={14} /> Correo Electrónico *</label>
                 <input
@@ -625,7 +674,7 @@ export const ContactsPage = () => {
                 {formErrors.email && <span className="contact-field__error">{formErrors.email}</span>}
               </div>
 
-              {/* Tipo de Cliente */}
+              {/* Campo: Tipo de Cliente / Rol */}
               <div className="contact-field">
                 <label>Tipo de Cliente *</label>
                 <select
@@ -640,7 +689,7 @@ export const ContactsPage = () => {
                 </select>
               </div>
 
-              {/* Teléfono */}
+              {/* Campo: Teléfono Principal */}
               <div className="contact-field">
                 <label><Phone size={14} /> Teléfono Principal</label>
                 <input
@@ -669,7 +718,7 @@ export const ContactsPage = () => {
                 />
               </div>
 
-              {/* Notas */}
+              {/* Campo: Notas y observaciones sobre el contacto */}
               <div className="contact-field">
                 <label>Notas Iniciales</label>
                 <textarea
@@ -700,6 +749,8 @@ export const ContactsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Ficha resumen del contacto con historial de interacciones */}
       {summaryClient && (
         <ContactSummary
           contact={summaryClient}

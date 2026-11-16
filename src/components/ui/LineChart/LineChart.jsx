@@ -1,3 +1,11 @@
+/**
+ * @file LineChart.jsx
+ * @description Componente accesible de gráfico de líneas con animación cinética avanzada (framer-motion).
+ * Admite múltiples series de datos temporales, áreas bajo la curva, escalas dinámicas automáticas ("nice scales"),
+ * interpolación de splines monótonas para evitar picos irreales, interacción táctil/ratón/teclado con cursor (scrubbing),
+ * tooltip interactivo flotante y soporte completo de accesibilidad (ARIA, tabla para lectores de pantalla).
+ */
+
 import {
   useCallback,
   useEffect,
@@ -41,8 +49,15 @@ import styles from './LineChart.module.css';
  */
 
 const { spring, duration, ease } = motionTokens;
-// framer-motion pierde la velocidad heredada en resortes definidos por duración: se
-// escriben como rigidez y amortiguación para que puedan redirigirse a mitad de camino.
+
+/**
+ * Convierte duración visual y rebote en valores físicos de rigidez (stiffness) y amortiguación (damping).
+ * Permite que framer-motion preserve la inercia y velocidad al redirigir animaciones en vuelo.
+ * 
+ * @param {Object} config - Configuración con visualDuration y bounce.
+ * @param {number} [restDelta=0.001] - Umbral mínimo para considerar que el resorte se detuvo.
+ * @returns {Object} Configuración física de spring para animaciones.
+ */
 const physical = ({ visualDuration, bounce }, restDelta = 0.001) => {
   const root = (2 * Math.PI) / (visualDuration * 1.2);
   return {
@@ -53,25 +68,43 @@ const physical = ({ visualDuration, bounce }, restDelta = 0.001) => {
     restSpeed: restDelta * 2,
   };
 };
+
+// Configuraciones predefinidas de animación física
 const settle = physical(spring.smooth);
 const glide = physical(spring.snappy, 0.0001);
 const follow = { stiffness: glide.stiffness, damping: glide.damping, restDelta: 0.01 };
 const draw = { duration: duration.considered * 1.75, ease: [...ease.inOut] };
 const fadeFast = { duration: duration.instant, ease: [...ease.standard] };
 
-// Aire sobre la línea de grilla superior y separación entre la cruz y el tooltip.
+// Espaciados en píxeles: aire sobre la línea superior de la grilla y margen entre cursor y tooltip
 const TOP = 12;
 const GAP = 14;
+
+// Paleta de colores de respaldo por defecto si la serie no especifica uno
 const PALETTE = ['var(--color-primary)', 'var(--text-secondary)', 'var(--border-control)'];
+
+// Formateadores numéricos localizados para Argentina
 const grouped = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 });
 const compact = new Intl.NumberFormat('es-AR', { notation: 'compact', maximumFractionDigits: 1 });
+
+// Limita un valor numérico entre un mínimo y un máximo
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+
+// Obtiene el color de una serie o asigna uno de la paleta según su posición
 const colorOf = (series, index) => series.color ?? PALETTE[Math.min(index, PALETTE.length - 1)];
+
+// Limpia artefactos de precisión en coma flotante
 const clean = (value) => Number(value.toPrecision(12));
 
-// Grilla prolija: el menor paso de 1, 2, 2,5 o 5 que cubre los datos en cuatro filas
-// o menos, desde cero salvo que haya valores negativos. Con integer (cantidades)
-// el paso nunca es menor que 1.
+/**
+ * Calcula una escala agradable ("nice scale") dividiendo el rango en pasos limpios
+ * (1, 2, 2.5, 5 o 10 por potencia de 10) con a lo sumo 4 subdivisiones horizontales.
+ * 
+ * @param {number} low - Valor mínimo de la serie visible.
+ * @param {number} high - Valor máximo de la serie visible.
+ * @param {boolean} [integer=false] - Forzar pasos exclusivamente enteros.
+ * @returns {{ min: number, max: number, ticks: number[] }}
+ */
 function niceScale(low, high, integer = false) {
   const lo = Math.min(0, low);
   const hi = Math.max(high, lo + 1);
@@ -91,8 +124,15 @@ function niceScale(low, high, integer = false) {
   return { min: lo, max: hi, ticks: [lo, hi] };
 }
 
-// La línea que pasa por cada valor, muestreada en x de 0 a 1. Las tangentes monótonas
-// evitan que la curva suave se pase de los datos (nunca dibuja valores que no existen).
+/**
+ * Genera una muestra de puntos normalizados en X (de 0 a 1).
+ * Si `smooth` es verdadero, calcula tangentes monótonas (splines Hermite cúbicos)
+ * para garantizar que la curva no oscile ni sobrepase los datos reales medidos.
+ * 
+ * @param {number[]} values - Lista de valores numéricos de la serie.
+ * @param {boolean} smooth - Si se debe suavizar la curva con splines o mantenerla lineal.
+ * @returns {Array<[number, number]>} Pares [xNormalizado, valor].
+ */
 function curveFor(values, smooth) {
   if (values.length === 0) return [];
   if (values.length === 1) return [[0, values[0]], [1, values[0]]];
@@ -134,13 +174,20 @@ function curveFor(values, smooth) {
   return points;
 }
 
-// Valor de una línea muestreada en x (recta entre muestras).
+/**
+ * Interpola linealmente el valor de Y en una posición X dada dentro de la curva muestreada.
+ * 
+ * @param {Array<[number, number]>} shape - Puntos muestreados [x, y].
+ * @param {number} x - Posición horizontal normalizada (0 a 1).
+ * @returns {number} Valor interpolado correspondiente.
+ */
 function valueAt(shape, x) {
   if (!shape.length) return 0;
   let low = 0;
   let high = shape.length - 1;
   if (x <= shape[low][0]) return shape[low][1];
   if (x >= shape[high][0]) return shape[high][1];
+  // Búsqueda binaria para localizar el segmento que contiene a x
   while (high - low > 1) {
     const middle = (low + high) >> 1;
     if (shape[middle][0] < x) low = middle;
@@ -154,14 +201,23 @@ function valueAt(shape, x) {
 // Estado de animación de cada serie: lo lee el pintor, nunca el render.
 const update = (track, patch) => Object.assign(track, patch);
 
+// Grilla densa precalculada de 240 subdivisiones utilizada para interpolar transiciones de formas (morphing)
 const grid = Array.from({ length: 241 }, (_, index) => index / 240);
 
 const subscribeNothing = () => () => {};
+
+/**
+ * Hook para detectar si el usuario configuró preferencia por reducción de movimiento en el sistema operativo,
+ * asegurando consistencia con la hidratación inicial.
+ */
 function useReducedMotionSafe() {
   const hydrated = useSyncExternalStore(subscribeNothing, () => true, () => false);
   return !!useReducedMotion() && hydrated;
 }
 
+/**
+ * Calcula la coordenada Y en píxeles para una fila de valor dado, en base a la escala actual.
+ */
 function useRowY(value, scale, height) {
   return useTransform(() => {
     const span = scale.max.get() - scale.min.get() || 1;
@@ -169,7 +225,10 @@ function useRowY(value, scale, height) {
   });
 }
 
-// Una línea de grilla acompaña a la escala: si el rango crece, baja y aparecen filas nuevas arriba.
+/**
+ * Componente SVG para una línea de grilla horizontal animada.
+ * Acompaña a la escala: si el rango crece, baja y aparecen filas nuevas arriba.
+ */
 function Gridline({ value, scale, height }) {
   const y = useRowY(value, scale, height);
   return (
@@ -187,6 +246,9 @@ function Gridline({ value, scale, height }) {
   );
 }
 
+/**
+ * Componente que renderiza la etiqueta de valor de una marca en el eje Y.
+ */
 function TickLabel({ value, scale, height, format }) {
   const y = useRowY(value, scale, height);
   return (
@@ -213,6 +275,9 @@ function axisPicks(data, width) {
   return labeled.reverse().filter((_, rank) => rank % stride === 0).reverse();
 }
 
+/**
+ * Componente principal LineChart — Gráfico interactivo y animado de líneas.
+ */
 export function LineChart({
   data,
   series,
@@ -233,7 +298,9 @@ export function LineChart({
   integer = false,
   className,
 }) {
-  const reduced = useReducedMotionSafe();
+  const reduced = useReducedMotionSafe(); // Comprueba si el usuario tiene activado "reduced motion"
+  
+  // Referencias a elementos del DOM y SVG para actualización imperativa de alto rendimiento
   const figure = useRef(null);
   const plot = useRef(null);
   const tip = useRef(null);
@@ -243,12 +310,14 @@ export function LineChart({
   const areas = useRef(new Map());
   const dots = useRef(new Map());
   const groups = useRef(new Map());
+  
+  // Detección de visibilidad del gráfico en el viewport para iniciar la animación inicial
   const inView = useInView(figure, { once: true, amount: 0.3 });
   const uid = `line${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const last = data.length - 1;
   const empty = data.length === 0;
 
-  // Series ocultas (controladas desde afuera o no).
+  // Estado y alternancia de visibilidad de series (controlado o no controlado)
   const [ownHidden, setOwnHidden] = useState(defaultHiddenSeries ?? []);
   const hidden = hiddenSeries ?? ownHidden;
   const toggle = (key) => {
@@ -267,6 +336,8 @@ export function LineChart({
     () => new Map(series.map((line) => [line.key, curveFor(data.map((item) => item.values[line.key] ?? 0), curve === 'smooth')])),
     [signature] // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  // Búsqueda de valores mínimo y máximo de las series visibles para la escala
   let low = Infinity;
   let high = -Infinity;
   for (const line of visible) {
@@ -279,11 +350,13 @@ export function LineChart({
   const range = Number.isFinite(low) ? niceScale(low, high, integer) : null;
   const [steady, setSteady] = useState(() => range ?? niceScale(0, integer ? 4 : 100, integer));
   if (range && (range.min !== steady.min || range.max !== steady.max)) setSteady(range);
+
+  // Valores de movimiento (MotionValues) para animar suavemente los extremos de la escala Y
   const scaleMin = useMotionValue(steady.min);
   const scaleMax = useMotionValue(steady.max);
   const scale = useMemo(() => ({ min: scaleMin, max: scaleMax }), [scaleMin, scaleMax]);
 
-  // Recorrido: un rango nuevo suelta la cruz.
+  // Recorrido interactivo (scrubbing): un cambio de datos desactiva la cruz activa
   const [active, setActive] = useState(null);
   const [seenSignature, setSeenSignature] = useState(signature);
   if (seenSignature !== signature) {
@@ -293,10 +366,13 @@ export function LineChart({
   const index = active === null || empty ? null : Math.min(active, last);
   const scrubbing = index !== null;
 
+  // Seguimiento del ancho y dimensiones para renderizado preciso
   const width = useRef(0);
   const [plotWidth, setPlotWidth] = useState(0);
   const tipSize = useRef({ w: 0, h: 0 });
   const tracks = useRef(new Map());
+
+  // MotionValues para progreso de dibujo, posición del cursor y ubicación del tooltip
   const drawn = useMotionValue(0);
   const cursor = useMotionValue(1);
   const tipTargetX = useMotionValue(0);
@@ -308,8 +384,8 @@ export function LineChart({
     live.current = { series, hidden };
   });
 
-  // Un solo lugar escribe los atributos dibujados: transiciones, series que se
-  // ocultan, la escala, la cruz y el ancho medido pasan todos por acá.
+  // Función unificada que escribe los atributos dibujados en el DOM:
+  // transiciones, series ocultas, escala, cruz y tooltip se actualizan aquí sin re-renderizar React.
   const paint = useCallback(() => {
     const w = width.current;
     if (!w) return;
@@ -342,7 +418,8 @@ export function LineChart({
     const cx = Math.round(at * w) + 0.5;
     crosshair.current?.setAttribute('x1', String(cx));
     crosshair.current?.setAttribute('x2', String(cx));
-    // El tooltip va al lado de la cruz, cambia de lado antes de salirse y se centra en sus puntos.
+    
+    // Cálculo de la posición del tooltip (cambia de lado antes de salirse del borde del gráfico)
     const { w: tw, h: th } = tipSize.current;
     let x = cx + GAP;
     if (x + tw > w) x = cx - GAP - tw;
@@ -350,14 +427,15 @@ export function LineChart({
     const middle = dotYs.length ? dotYs.reduce((sum, value) => sum + value, 0) / dotYs.length : height / 2;
     tipTargetY.set(clamp(middle - th / 2, 0, Math.max(0, height - th)));
   }, [cursor, drawn, height, scaleMax, scaleMin, tipTargetX, tipTargetY]);
+
+  // Suscripción a eventos de cambio en MotionValues para repintar
   useMotionValueEvent(cursor, 'change', paint);
   useMotionValueEvent(drawn, 'change', paint);
   useMotionValueEvent(scaleMin, 'change', paint);
   useMotionValueEvent(scaleMax, 'change', paint);
   useLayoutEffect(paint);
 
-  // El trazado usa sus propios píxeles: se mide el ancho, se siguen los cambios de
-  // tamaño y se mide el tooltip para saber cuándo cambiarlo de lado.
+  // Medición de dimensiones mediante ResizeObserver para responder al tamaño del contenedor
   useLayoutEffect(() => {
     const node = plot.current;
     const bubble = tip.current;
@@ -376,7 +454,7 @@ export function LineChart({
     return () => observer.disconnect();
   }, [paint]);
 
-  // Datos nuevos: cada línea se transforma desde la forma que está en pantalla.
+  // Efecto de transición (morphing) de la curva cuando los datos cambian
   const morph = useRef(null);
   useEffect(() => {
     const moves = [];
@@ -415,7 +493,7 @@ export function LineChart({
     return () => morph.current?.stop();
   }, [paint, reduced, targets]);
 
-  // Una serie oculta se aplana contra la base mientras se desvanece.
+  // Efecto de desvanecimiento suave (fade) y aplanamiento al ocultar o mostrar una serie
   const hiddenKey = hidden.join('|');
   useEffect(() => {
     for (const [key, track] of tracks.current) {
@@ -439,6 +517,7 @@ export function LineChart({
     paint();
   }, [hiddenKey, paint, reduced]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Animación del reajuste de la escala Y
   useEffect(() => {
     if (reduced) {
       scaleMin.jump(steady.min);
@@ -449,7 +528,7 @@ export function LineChart({
     return () => controls.forEach((control) => control.stop());
   }, [reduced, scaleMax, scaleMin, steady]);
 
-  // La primera vez que el gráfico se ve con datos, las líneas se dibujan de izquierda a derecha.
+  // Efecto: La primera vez que el gráfico se ve con datos, las líneas se dibujan de izquierda a derecha.
   useEffect(() => {
     if (empty) return undefined;
     if (reduced) {
@@ -461,7 +540,7 @@ export function LineChart({
     return () => controls.stop();
   }, [drawn, empty, inView, reduced]);
 
-  // La cruz aparece en el primer punto y se desliza entre los siguientes; el tooltip la sigue.
+  // Efecto: La cruz aparece en el primer punto y se desliza entre los siguientes; el tooltip la sigue.
   const wasScrubbing = useRef(false);
   useEffect(() => {
     if (index === null) {
@@ -480,6 +559,7 @@ export function LineChart({
     return () => controls.stop();
   }, [cursor, index, last, reduced, tipSpringX, tipSpringY, tipTargetX, tipTargetY]);
 
+  // Notificación al componente padre cuando cambia el punto activo bajo la cruz
   const onActive = useRef(onActiveChange);
   useLayoutEffect(() => {
     onActive.current = onActiveChange;
@@ -488,11 +568,14 @@ export function LineChart({
     onActive.current?.(index, index === null ? null : data[index] ?? null);
   }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Determina el índice de datos correspondiente a una coordenada horizontal del cliente
   const pointAt = (clientX) => {
     const rect = plot.current?.getBoundingClientRect();
     if (!rect?.width || last < 1) return Math.max(0, last);
     return clamp(Math.round(((clientX - rect.left) / rect.width) * last), 0, last);
   };
+
+  // Manejo de eventos de navegación por teclado para accesibilidad (Escape, Flechas, Inicio, Fin)
   const onKeyDown = (event) => {
     if (event.key === 'Escape' && scrubbing) {
       event.preventDefault();
@@ -515,6 +598,8 @@ export function LineChart({
     event.preventDefault();
     setActive(clamp(next, 0, last));
   };
+
+  // Manejadores de interacción por puntero (ratón o pantalla táctil)
   const onPointerDown = (event) => {
     if (empty) return;
     if (event.pointerType !== 'mouse') event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -524,6 +609,7 @@ export function LineChart({
     if (!empty && (event.pointerType === 'mouse' || event.buttons)) setActive(pointAt(event.clientX));
   };
 
+  // Formato del valor para la etiqueta y tooltip
   const format = (value, line) => `${formatValue ? formatValue(value, line) : grouped.format(value)}${unit ? ` ${unit}` : ''}`;
   const reading = index === null ? null : data[index];
   const valueText = reading
@@ -543,6 +629,7 @@ export function LineChart({
 
   return (
     <figure ref={figure} className={[styles.figure, className].filter(Boolean).join(' ')} aria-label={label} aria-busy={loading || undefined}>
+      {/* Leyenda interactiva para alternar visibilidad de cada serie */}
       {showLegend && (
         <div className={styles.legend} role="group" aria-label={`Series de ${label}`}>
           {series.map((line, at) => (
@@ -560,7 +647,10 @@ export function LineChart({
           ))}
         </div>
       )}
+
+      {/* Contenedor principal del gráfico */}
       <div className={styles.chart} data-scrubbing={scrubbing || undefined} data-loading={loading || undefined}>
+        {/* Zona interactiva del trazado (accesible como slider horizontal) */}
         <div
           ref={plot}
           className={styles.plot}
@@ -588,19 +678,29 @@ export function LineChart({
             if (event.currentTarget.matches(':focus-visible') && !empty) setActive((current) => current ?? last);
           }}
         >
+          {/* Superficie SVG de trazado */}
           <svg className={styles.svg} width="100%" height={height} aria-hidden="true" focusable="false">
             <defs>
+              {/* Máscara de recorte que anima el dibujo progresivo de izquierda a derecha */}
               <clipPath id={`${uid}-draw`} clipPathUnits="userSpaceOnUse">
                 <rect ref={clip} x={-8} y={-16} width={0} height={height + 32} />
               </clipPath>
             </defs>
+
+            {/* Líneas horizontales de grilla */}
             <AnimatePresence initial={false}>
               {steady.ticks.slice(1).map((value) => (
                 <Gridline key={value} value={value} scale={scale} height={height} />
               ))}
             </AnimatePresence>
+
+            {/* Línea de base inferior */}
             <line className={styles.baseline} x1={0} x2="100%" y1={height - 0.5} y2={height - 0.5} />
+
+            {/* Línea vertical indicadora (crosshair) al recorrer datos */}
             <line ref={crosshair} className={styles.crosshair} y1={TOP - 4} y2={height} />
+
+            {/* Curvas y áreas rellenas de cada serie */}
             <g className={styles.series} clipPath={`url(#${uid}-draw)`}>
               {series.map((line, at) => (
                 <g
@@ -611,6 +711,7 @@ export function LineChart({
                   }}
                   style={{ '--series': colorOf(line, at) }}
                 >
+                  {/* Relleno de área bajo la curva si está habilitado */}
                   {(line.area ?? at === 0) && (
                     <path
                       ref={(node) => {
@@ -620,6 +721,7 @@ export function LineChart({
                       className={styles.area}
                     />
                   )}
+                  {/* Trazado de la línea principal de la serie */}
                   <path
                     ref={(node) => {
                       if (node) lines.current.set(line.key, node);
@@ -631,6 +733,8 @@ export function LineChart({
                 </g>
               ))}
             </g>
+
+            {/* Puntos circulares destacados en la posición activa de la cruz */}
             {series.map((line, at) => (
               <circle
                 key={line.key}
@@ -645,6 +749,8 @@ export function LineChart({
               />
             ))}
           </svg>
+
+          {/* Tooltip flotante animado con resorte que sigue al cursor */}
           <motion.div ref={tip} className={styles.tooltip} style={{ x: tipX, y: tipY }} aria-hidden="true">
             <p className={styles.tipTitle}>{(reading ?? data[last])?.label ?? ''}</p>
             {visible.map((line) => (
@@ -655,6 +761,8 @@ export function LineChart({
               </p>
             ))}
           </motion.div>
+
+          {/* Mensajes de estado vacío o todas las series ocultas */}
           <AnimatePresence initial={false}>
             {(empty || allHidden) && !loading && (
               <motion.p
@@ -667,6 +775,7 @@ export function LineChart({
                 {empty ? emptyLabel : 'Elegí una serie para mostrar'}
               </motion.p>
             )}
+            {/* Esqueleto de carga cuando no hay datos iniciales */}
             {loading && empty && (
               <motion.span
                 key="skeleton"
@@ -679,6 +788,8 @@ export function LineChart({
             )}
           </AnimatePresence>
         </div>
+
+        {/* Canaleta lateral con las etiquetas de valores del eje Y */}
         <div className={styles.gutter} aria-hidden="true">
           <AnimatePresence initial={false}>
             {steady.ticks.map((value) => (
@@ -686,6 +797,8 @@ export function LineChart({
             ))}
           </AnimatePresence>
         </div>
+
+        {/* Eje horizontal X con las etiquetas temporales o categóricas */}
         <div className={styles.axis} aria-hidden="true">
           <AnimatePresence initial={false}>
             {picks.map((at) => {
@@ -707,6 +820,8 @@ export function LineChart({
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Contenido accesible exclusivo para lectores de pantalla */}
       <p className={styles.srOnly}>{summary}</p>
       {!empty && (
         <table className={styles.srOnly}>

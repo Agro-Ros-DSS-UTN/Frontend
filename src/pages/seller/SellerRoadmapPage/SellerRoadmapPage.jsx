@@ -1,3 +1,12 @@
+/**
+ * @file SellerRoadmapPage.jsx
+ * @description Módulo de visualización, gestión y navegación de la Hoja de Ruta para el Vendedor.
+ * Integra mapas interactivos con Leaflet, dibujo de itinerarios por polilíneas, marcadores
+ * personalizados, navegación GPS asistida (Google Maps), enlace directo con clientes vía WhatsApp,
+ * control del ciclo de vida del recorrido (iniciar, registrar paradas ad-hoc, finalizar),
+ * planificación de nuevas hojas de ruta y consulta de historial de recorridos finalizados.
+ */
+
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { escapeHtml, safeColor, safeUrl } from '../../../utils/security';
 import { useNavigate } from 'react-router-dom';
@@ -42,6 +51,14 @@ import '../../admin/RoadmapsPage/RoadmapsPage.css';
 import './SellerRoadmapPage.css';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
+/**
+ * Transforma y normaliza el objeto de hoja de ruta retornado por el backend
+ * en una estructura predecible y enriquecida para el cliente.
+ *
+ * @param {Object} r - Objeto crudo de hoja de ruta del backend.
+ * @param {number} [idx=0] - Índice de posición.
+ * @returns {Object} Estructura normalizada de hoja de ruta y paradas.
+ */
 const formatRoadmap = (r, idx = 0) => ({
   id: r.id,
   sellerId: r.assignedUserId,
@@ -79,6 +96,13 @@ const formatRoadmap = (r, idx = 0) => ({
   })),
 });
 
+/**
+ * Normaliza números de teléfono para generar links válidos de WhatsApp (wa.me).
+ * Elimina caracteres no numéricos, prefijos locales (0 y 15) y antepone el prefijo internacional argentino '549'.
+ *
+ * @param {string} phone - Teléfono ingresado.
+ * @returns {string|null} Número apto para API de WhatsApp o null si no es válido.
+ */
 // Algunas empresas cargadas en la base nunca tuvieron una dirección real
 // (quedó literalmente "Sin dirección" como dato) — no tiene sentido
 // autocompletar el campo con ese texto como si fuera una dirección válida.
@@ -95,8 +119,20 @@ const waNumber = (phone) => {
   return d.length === 10 ? `549${d}` : null;
 };
 
+/**
+ * Verifica si una dirección es real y no un texto comodín de la base de datos.
+ *
+ * @param {string} addr - Dirección a comprobar.
+ * @returns {boolean}
+ */
 const isRealAddress = (addr) => !!addr && !/^sin direcci[oó]n$/i.test(addr.trim());
 
+/**
+ * Formatea una duración en milisegundos a un formato legible en horas y minutos.
+ *
+ * @param {number|null} ms - Milisegundos transcurridos.
+ * @returns {string} Duración formateada (ej: "2h 30min" o "45 min").
+ */
 const formatDuration = (ms) => {
   if (!ms || ms < 0) return '—';
   const totalMin = Math.round(ms / 60000);
@@ -105,27 +141,36 @@ const formatDuration = (ms) => {
   return h > 0 ? `${h}h ${m}min` : `${m} min`;
 };
 
+/**
+ * Componente principal para la visualización y control operativo de la hoja de ruta del vendedor.
+ */
 export const SellerRoadmapPage = () => {
+  // ── Hooks de contexto y enrutamiento ──
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+
+  // ── Referencias al DOM e instancias de mapas Leaflet ──
   const mapContainerRef = useRef(null);
   const fullscreenMapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const fullscreenMapInstanceRef = useRef(null);
 
+  // ── Estados de rutas y selección ──
   const [allRoutes, setAllRoutes] = useState([]);
-  const [route, setRoute] = useState(null);
-  const [selectedStop, setSelectedStop] = useState(null);
+  const [route, setRoute] = useState(null); // Hoja de ruta activa en pantalla
+  const [selectedStop, setSelectedStop] = useState(null); // Parada seleccionada en el mapa o lista
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('today');
+  const [activeTab, setActiveTab] = useState('today'); // 'today' | 'history'
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [historyDetailRoute, setHistoryDetailRoute] = useState(null);
-  const [acting, setActing] = useState(false);
+  const [acting, setActing] = useState(false); // Estado de bloqueo durante acciones asíncronas
 
+  // ── Estados para el modal de registrar parada adicional (ad-hoc) ──
   const [showAddStop, setShowAddStop] = useState(false);
   const [stopForm, setStopForm] = useState({ text: '', url: '' });
 
+  // ── Estados para la planificación de una nueva hoja de ruta propia ──
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const emptyStop = () => ({ placeName: '', clientCompanyId: '', address: '', estimatedTime: '09:00' });
   const emptyCreateForm = {
@@ -140,6 +185,7 @@ export const SellerRoadmapPage = () => {
   const [createForm, setCreateForm] = useState(emptyCreateForm);
   const [creating, setCreating] = useState(false);
 
+  // Funciones auxiliares para manipular las paradas dinámicas del formulario de creación
   const addStopField = () => setCreateForm((p) => (p.stops.length >= MAX_ROADMAP_STOPS ? p : { ...p, stops: [...p.stops, emptyStop()] }));
   const removeStopField = (idx) => setCreateForm((p) => ({ ...p, stops: p.stops.filter((_, i) => i !== idx) }));
   const updateStopField = (idx, field, value) => setCreateForm((p) => {
@@ -158,10 +204,15 @@ export const SellerRoadmapPage = () => {
     return { ...p, stops };
   });
 
+  // Manejador para cerrar modal al hacer clic en el overlay o presionar escape
   const addStopOverlayHandlers = useOverlayClose(() => setShowAddStop(false));
 
   const idUser = currentUser?.idUser || currentUser?.id;
 
+  /**
+   * Obtiene del backend todas las hojas de ruta asignadas al vendedor actual.
+   * Identifica y prioriza la ruta activa (en curso o planificada).
+   */
   const fetchSellerRoutes = async () => {
     try {
       setLoading(true);
@@ -200,16 +251,21 @@ export const SellerRoadmapPage = () => {
     }
   };
 
+  // Carga inicial y reactiva al cambiar de usuario
   useEffect(() => {
     fetchSellerRoutes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idUser]);
 
+  /** Lista filtrada de hojas de ruta históricas (finalizadas) */
   const pastRoutes = useMemo(
     () => allRoutes.filter((r) => r.status === 'finalizada'),
     [allRoutes]
   );
 
+  /**
+   * Genera el enlace de navegación completo para Google Maps con todas las paradas en orden de itinerario.
+   */
   // URL para Google Maps GPS — conecta todas las paradas en un solo recorrido
   const googleMapsUrl = useMemo(() => {
     if (!route || !route.stops || route.stops.length === 0) return '#';
@@ -220,6 +276,13 @@ export const SellerRoadmapPage = () => {
     return `https://www.google.com/maps/dir/?api=1&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
   }, [route]);
 
+  /**
+   * Función constructora del mapa Leaflet: crea marcadores personalizados,
+   * asigna tooltips informativos, dibuja la polilínea del itinerario y ajusta el encuadre.
+   *
+   * @param {HTMLElement} containerEl - Contenedor DOM para montar el mapa.
+   * @returns {L.Map|null} Instancia del mapa Leaflet creada.
+   */
   // Leaflet Map Rendering Helper
   const renderLeafletMap = (containerEl) => {
     if (!containerEl || !route) return null;
@@ -269,6 +332,7 @@ export const SellerRoadmapPage = () => {
     return map;
   };
 
+  // Efecto para inicializar y limpiar el mapa Leaflet en la vista estándar
   useEffect(() => {
     if (loading || !route || !mapContainerRef.current || isMapFullscreen) return;
     if (mapInstanceRef.current) {
@@ -285,6 +349,7 @@ export const SellerRoadmapPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, route, isMapFullscreen]);
 
+  // Efecto para inicializar y redimensionar el mapa Leaflet en modo pantalla completa
   useEffect(() => {
     if (!isMapFullscreen || !fullscreenMapContainerRef.current || !route) return;
     if (fullscreenMapInstanceRef.current) {
@@ -305,6 +370,10 @@ export const SellerRoadmapPage = () => {
   }, [isMapFullscreen, route]);
 
   // ── Ciclo de vida real: Iniciar / Fin de Hoja de Ruta ──
+
+  /**
+   * Marca el inicio formal de la hoja de ruta en el backend, cambiando su estado a 'en_curso'.
+   */
   const handleStartRoute = async () => {
     if (!route?.id || acting) return;
     setActing(true);
@@ -320,6 +389,9 @@ export const SellerRoadmapPage = () => {
     }
   };
 
+  /**
+   * Finaliza la hoja de ruta en curso, registrando la hora de conclusión y congelando nuevas paradas.
+   */
   const handleEndRoute = async () => {
     if (!route?.id || acting) return;
     if (!await confirmAction('¿Finalizar la hoja de ruta? No vas a poder agregar más paradas después.')) return;
@@ -336,6 +408,11 @@ export const SellerRoadmapPage = () => {
     }
   };
 
+  /**
+   * Envía una parada improvisada (ad-hoc) registrada por el vendedor durante su recorrido.
+   *
+   * @param {React.FormEvent} e - Evento de envío.
+   */
   const handleAddStopSubmit = async (e) => {
     e.preventDefault();
     if (!stopForm.text.trim() || !route?.id) return;
@@ -354,6 +431,11 @@ export const SellerRoadmapPage = () => {
     }
   };
 
+  /**
+   * Alterna el estado de una parada entre 'Completada' y 'Pendiente'.
+   *
+   * @param {Object} stop - Parada a actualizar.
+   */
   const handleToggleStopStatus = async (stop) => {
     try {
       const newStatus = stop.status === 'Completada' ? 'pendiente' : 'completada';
@@ -372,6 +454,11 @@ export const SellerRoadmapPage = () => {
 
   const [createFormError, setCreateFormError] = useState('');
 
+  /**
+   * Procesa la creación y planificación de una nueva hoja de ruta personalizada del vendedor.
+   *
+   * @param {React.FormEvent} e - Evento de formulario.
+   */
   const handleCreateRoadmap = async (e) => {
     e.preventDefault();
     setCreateFormError('');
@@ -420,6 +507,12 @@ export const SellerRoadmapPage = () => {
     }
   };
 
+  /**
+   * Elimina una hoja de ruta completa previa confirmación del usuario.
+   *
+   * @param {number|string} routeId - ID de la ruta.
+   * @param {string} zone - Nombre descriptivo de la zona.
+   */
   const handleDeleteRoadmap = async (routeId, zone) => {
     if (!routeId) return;
     if (!await confirmAction(`¿Eliminar la hoja de ruta "${zone || 'seleccionada'}"? Esta acción no se puede deshacer.`)) return;
@@ -436,13 +529,14 @@ export const SellerRoadmapPage = () => {
     }
   };
 
+  // Cálculo de duración en milisegundos para rutas finalizadas
   const durationMs = route?.actualStartDateTime && route?.actualEndDateTime
     ? new Date(route.actualEndDateTime) - new Date(route.actualStartDateTime)
     : null;
 
   return (
     <div className="seller-roadmap-page">
-      {/* Header */}
+      {/* ── Encabezado Principal y Botón de Nueva Planificación ── */}
       <div className="seller-roadmap-header">
         <div>
           <h1 className="seller-roadmap-title">Hoja de Ruta</h1>
@@ -454,7 +548,7 @@ export const SellerRoadmapPage = () => {
         </button>
       </div>
 
-      {/* Tabs */}
+      {/* ── Pestañas de Navegación: Vista de Hoy vs Historial Mensual ── */}
       <div className="crm-tabs-row">
         <FilterTabs
           ariaLabel="Vista de hoja de ruta"
@@ -467,9 +561,11 @@ export const SellerRoadmapPage = () => {
         />
       </div>
 
+      {/* ── Renderizado Condicional: Carga / Historial / Vacío / Ruta Activa ── */}
       {loading ? (
         <LoadingState title="Cargando…" message="Trayendo tu hoja de ruta." />
       ) : activeTab === 'history' ? (
+        /* Vista de Historial de Hojas de Ruta Finalizadas */
         <div className="seller-roadmap-history">
           {pastRoutes.length === 0 ? (
             <div className="seller-roadmap-empty">No tenés hojas de ruta finalizadas todavía.</div>
@@ -489,12 +585,14 @@ export const SellerRoadmapPage = () => {
           )}
         </div>
       ) : !route ? (
+        /* Vista cuando no hay ninguna hoja de ruta activa para hoy */
         <div className="seller-roadmap-empty">
           No tenés ninguna hoja de ruta para hoy. Podés planificar una con "Planificar Hoja de Ruta".
         </div>
       ) : (
+        /* Vista Principal de Hoja de Ruta Activa: Mapa Territorial y Flujo de Paradas */
         <div className="seller-roadmap-grid">
-          {/* Map Container */}
+          {/* Tarjeta del Mapa Leaflet Interactivo */}
           <div className="seller-roadmap-map-card">
             <div className="seller-roadmap-map-header">
               <div className="map-title-row">
@@ -511,10 +609,11 @@ export const SellerRoadmapPage = () => {
                 </button>
               </div>
             </div>
+            {/* Contenedor referenciado para inicialización del mapa */}
             <div className="seller-leaflet-box" ref={mapContainerRef} />
           </div>
 
-          {/* Stops Panel */}
+          {/* Panel Lateral: Detalle de Ruta, Ciclo de Vida y Paradas del Recorrido */}
           <div className="seller-stops-list-card">
             <div className="roadmap-stops-header" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -554,7 +653,7 @@ export const SellerRoadmapPage = () => {
                 </div>
               )}
 
-              {/* Botones de ciclo de vida */}
+              {/* Botones de control del ciclo de vida de la ruta */}
               {route.status !== 'finalizada' && (
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {route.status === 'planificada' && (
@@ -581,11 +680,13 @@ export const SellerRoadmapPage = () => {
               </button>
             </div>
 
+            {/* Barra de título de paradas y progreso */}
             <div className="seller-stops-toolbar">
               <h3 className="stops-list-title">Paradas del Recorrido</h3>
               <span className="seller-stops-progress">{route.completedVisits}/{route.totalVisits} completadas</span>
             </div>
 
+            {/* Flujo y tarjetas individuales de paradas */}
             <div className="seller-stops-flow">
               {route.stops.map((stop) => {
                 const isSelected = selectedStop?.order === stop.order;
@@ -594,6 +695,7 @@ export const SellerRoadmapPage = () => {
                 return (
                   <div key={stop.order} className={`seller-stop-card ${isSelected ? 'selected' : ''} ${isDone ? 'is-done' : ''}`} onClick={() => setSelectedStop(stop)}>
                     <div className="stop-card-top">
+                      {/* Botón circular con número de parada o icono de tilde para alternar estado */}
                       <button
                         type="button"
                         className={`stop-circle ${statusKey}`}
@@ -626,6 +728,7 @@ export const SellerRoadmapPage = () => {
                       </div>
                     </div>
 
+                    {/* Acciones de la parada: Navegación GPS, WhatsApp y Registro de Visita */}
                     <div className="stop-card-footer">
                       <div className="stop-contact-name">Contacto: {stop.contact}</div>
                       <div className="stop-actions-group">
@@ -675,7 +778,7 @@ export const SellerRoadmapPage = () => {
         <RoadmapDetailModal route={historyDetailRoute} googleMapsUrl="#" onClose={() => setHistoryDetailRoute(null)} />
       )}
 
-      {/* ── Modal: Registrar Parada (ad-hoc) ── */}
+      {/* ── Modal: Registrar Parada Ad-Hoc ── */}
       {showAddStop && (
         <div className="roadmaps-modal-overlay" {...addStopOverlayHandlers}>
           <div className="roadmaps-modal" style={{ maxWidth: '420px' }} onClick={(e) => e.stopPropagation()}>
@@ -715,9 +818,10 @@ export const SellerRoadmapPage = () => {
         </div>
       )}
 
-      {/* ── Drawer: Planificar Hoja de Ruta propia ── */}
+      {/* ── Drawer Deslizante: Planificar Hoja de Ruta Propia ── */}
       <SlideDrawer isOpen={showCreateDrawer} onClose={() => setShowCreateDrawer(false)} title="Planificar Hoja de Ruta" width="480px">
         <form onSubmit={handleCreateRoadmap} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+          {/* Zona o nombre del recorrido */}
           <FormInput
             label="Nombre de la Zona / Recorrido"
             name="zoneName"
@@ -726,10 +830,12 @@ export const SellerRoadmapPage = () => {
             placeholder="Ej: Zona Litoral - Rosario a Santa Fe"
             required
           />
+          {/* Fecha y hora de inicio */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <FormInput label="Fecha de Inicio" name="roadmapDate" type="date" value={createForm.roadmapDate} onChange={(e) => setCreateForm((p) => ({ ...p, roadmapDate: e.target.value }))} required />
             <FormInput label="Hora de Inicio" name="roadmapTime" type="time" value={createForm.roadmapTime} onChange={(e) => setCreateForm((p) => ({ ...p, roadmapTime: e.target.value }))} />
           </div>
+          {/* Fecha y hora de finalización estimada */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <FormInput
               label="Fecha de Fin (propuesta)"
@@ -742,6 +848,7 @@ export const SellerRoadmapPage = () => {
             <FormInput label="Hora de Fin (propuesta)" name="proposedEndTime" type="time" value={createForm.proposedEndTime} onChange={(e) => setCreateForm((p) => ({ ...p, proposedEndTime: e.target.value }))} />
           </div>
 
+          {/* Paradas dinámicas del itinerario */}
           {createForm.stops.map((stop, idx) => (
             <div key={idx}>
               {idx > 0 && (
@@ -752,6 +859,7 @@ export const SellerRoadmapPage = () => {
                   </button>
                 </div>
               )}
+              {/* Autocompletado de empresa y dirección */}
               <CompanyAutocomplete
                 label={idx === 0 ? 'Destino principal' : 'Empresa o lugar'}
                 name={`parada-${idx}`}
@@ -774,6 +882,7 @@ export const SellerRoadmapPage = () => {
             </div>
           ))}
 
+          {/* Control para agregar paradas adicionales hasta el tope máximo */}
           {createForm.stops.length < MAX_ROADMAP_STOPS && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <FlipCheckbox id="addStop" checked={false} onChange={(e) => e.target.checked && addStopField()} />
@@ -783,6 +892,7 @@ export const SellerRoadmapPage = () => {
             </div>
           )}
 
+          {/* Notas operativas de la hoja de ruta */}
           <FormTextarea
             label="Notas"
             name="notes"
@@ -797,6 +907,7 @@ export const SellerRoadmapPage = () => {
             </div>
           )}
 
+          {/* Botones de acción del Drawer: Confirmar / Cancelar */}
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
             <button type="submit" className="btn-rounded-primary" style={{ flex: 1, padding: '12px', justifyContent: 'center' }} disabled={creating}>
               {creating ? 'Guardando…' : 'Planificar Hoja de Ruta'}

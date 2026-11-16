@@ -1,4 +1,16 @@
-﻿import { useState, useRef, useEffect } from 'react';
+﻿/**
+ * @file ProfilePage.jsx
+ * @description Página de gestión del perfil de usuario y configuración de seguridad de la cuenta.
+ * Permite a los usuarios autenticados (administradores y vendedores):
+ * 1. Modificar su información personal (nombre, apellido, correo electrónico, dirección, teléfonos dinámicos,
+ *    preferencias de idioma y formato regional de fechas).
+ * 2. Cargar y recortar/optimizar su foto de perfil en el navegador mediante Canvas antes de persistirla en Base64.
+ * 3. Consultar las localidades y zonas comerciales asignadas (en caso de tener rol vendedor).
+ * 4. Actualizar su contraseña con validación de requisitos de seguridad en tiempo real (longitud, mayúsculas,
+ *    números y símbolos), bloqueo de pegado en confirmación y renovación de token de sesión.
+ */
+
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { authApi } from '../../../api/auth.api';
 import {
@@ -22,26 +34,46 @@ import { notify } from '../../../hooks/useNotifications';
 import './ProfilePage.css';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
+// ============================================================================
+// CONSTANTES DE CONFIGURACIÓN
+// ============================================================================
+
+// Pestañas disponibles en la vista de perfil
 const TABS = [
   { key: 'profile', label: 'Perfil' },
   { key: 'password', label: 'Contraseña' },
 ];
 
+// Longitud máxima permitida para contraseñas seguras
 const MAX_PASSWORD_LENGTH = 64;
 
+// ============================================================================
+// COMPONENTE PRINCIPAL: ProfilePage
+// ============================================================================
+
 export const ProfilePage = () => {
+  // Contexto de autenticación para obtener el usuario actual y actualizar imagen/datos en sesión
   const { currentUser, profileImage, updateProfileImage, updateCurrentUser } = useAuth();
   const navigate = useNavigate();
-  const fileInputRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('profile');
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef(null); // Referencia al input de tipo file oculto para la foto
+  const [activeTab, setActiveTab] = useState('profile'); // Pestaña activa: 'profile' o 'password'
+  const [saved, setSaved] = useState(false); // Indicador de éxito temporal tras guardar
+  const [saving, setSaving] = useState(false); // Bandera de petición en curso para datos personales
 
+  // Determina si el usuario logueado posee el rol de vendedor
   const isSeller = (currentUser?.role)?.toLowerCase() === 'vendedor';
 
   const seller = null;
-  // Zona asignada por la administración (localidades) y datos frescos del servidor.
+
+  // --------------------------------------------------------------------------
+  // ESTADOS Y EFECTOS DE INFORMACIÓN PERSONAL Y ZONA ASIGNADA
+  // --------------------------------------------------------------------------
+  // Zona asignada por la administración (localidades) y datos frescos del servidor
   const [zone, setZone] = useState([]);
+
+  /**
+   * Obtiene la información actualizada del usuario desde el endpoint /me
+   */
   useEffect(() => {
     authApi.me()
       .then((res) => {
@@ -53,7 +85,7 @@ export const ProfilePage = () => {
       .catch(() => {});
   }, []);
 
-  // Form state (initialize from currentUser + seller)
+  // Inicialización del formulario a partir del usuario en sesión
   const nameParts = (currentUser?.fullName || '').split(' ');
   const [form, setForm] = useState({
     name: nameParts[0] || '',
@@ -65,26 +97,34 @@ export const ProfilePage = () => {
     formatDate: 'Argentina',
   });
 
+  // Lista de números de teléfono (soporta múltiples teléfonos de contacto)
   const [phones, setPhones] = useState([currentUser?.phone || '']);
 
-  // ── Cambio de contraseña ──
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSaving, setPasswordSaving] = useState(false);
-  const [passwordSaved, setPasswordSaved] = useState(false);
+  // --------------------------------------------------------------------------
+  // ESTADOS Y REGLAS DE SEGURIDAD (CAMBIO DE CONTRASEÑA)
+  // --------------------------------------------------------------------------
+  const [currentPassword, setCurrentPassword] = useState(''); // Contraseña actual del usuario
+  const [newPassword, setNewPassword] = useState(''); // Nueva contraseña ingresada
+  const [confirmPassword, setConfirmPassword] = useState(''); // Confirmación de nueva contraseña
+  const [showCurrent, setShowCurrent] = useState(false); // Mostrar/ocultar texto de contraseña actual
+  const [showNew, setShowNew] = useState(false); // Mostrar/ocultar texto de nueva contraseña
+  const [showConfirm, setShowConfirm] = useState(false); // Mostrar/ocultar texto de confirmación
+  const [passwordError, setPasswordError] = useState(''); // Mensaje de error al cambiar contraseña
+  const [passwordSaving, setPasswordSaving] = useState(false); // Bandera de procesamiento
+  const [passwordSaved, setPasswordSaved] = useState(false); // Indicador de éxito temporal
 
+  // Reglas de validación de complejidad para la nueva contraseña
   const passwordChecks = {
     length: newPassword.length >= 8,
     upper: /[A-Z]/.test(newPassword),
     number: /[0-9]/.test(newPassword),
     symbol: /[^A-Za-z0-9]/.test(newPassword),
   };
+
+  // Puntuación de seguridad (0 a 4 requisitos cumplidos)
   const passwordScore = Object.values(passwordChecks).filter(Boolean).length;
+
+  // Nivel de fortaleza visual de la contraseña
   const passwordStrength =
     newPassword.length === 0
       ? null
@@ -94,12 +134,17 @@ export const ProfilePage = () => {
       ? { label: 'Media', color: 'orange' }
       : { label: 'Fuerte', color: 'green' };
 
+  // Condición de habilitación del botón de guardar contraseña
   const canSubmitPassword =
     currentPassword.length > 0 &&
     passwordScore === 4 &&
     confirmPassword.length > 0 &&
     newPassword === confirmPassword;
 
+  /**
+   * Envía la solicitud de actualización de contraseña al backend.
+   * Valida coincidencia y complejidad, y actualiza el token de autenticación retornado.
+   */
   const handlePasswordUpdate = async () => {
     setPasswordError('');
     if (!currentPassword) {
@@ -135,13 +180,27 @@ export const ProfilePage = () => {
     }
   };
 
+  /**
+   * Bloquea eventos de copiar, cortar y pegar para reforzar la confirmación manual de contraseña.
+   */
   const blockPaste = (e) => e.preventDefault();
 
+  /**
+   * Actualiza un campo del formulario de datos personales y restablece el indicador de guardado.
+   */
   const updateField = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
     setSaved(false);
   };
 
+  // --------------------------------------------------------------------------
+  // PROCESAMIENTO Y OPTIMIZACIÓN DE IMAGEN DE PERFIL (CANVAS)
+  // --------------------------------------------------------------------------
+
+  /**
+   * Procesa la imagen seleccionada por el usuario, redimensionándola con Canvas
+   * a un máximo de 400x400 px con compresión JPEG 0.85 para guardado liviano en Base64.
+   */
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -156,6 +215,7 @@ export const ProfilePage = () => {
         let width = img.width;
         let height = img.height;
 
+        // Ajuste proporcional manteniendo el aspect ratio
         if (width > height) {
           if (width > MAX_SIZE) {
             height *= MAX_SIZE / width;
@@ -181,6 +241,9 @@ export const ProfilePage = () => {
     reader.readAsDataURL(file);
   };
 
+  /**
+   * Solicita confirmación y elimina la imagen de perfil actual.
+   */
   const handleRemoveImage = async (e) => {
     e.stopPropagation();
     if (await confirmAction('¿Querés eliminar tu foto de perfil?')) {
@@ -188,6 +251,9 @@ export const ProfilePage = () => {
     }
   };
 
+  // --------------------------------------------------------------------------
+  // MANEJO DE LISTA DINÁMICA DE TELÉFONOS
+  // --------------------------------------------------------------------------
   const addPhone = () => {
     setPhones(prev => [...prev, '']);
     setSaved(false);
@@ -203,6 +269,12 @@ export const ProfilePage = () => {
     setSaved(false);
   };
 
+  // --------------------------------------------------------------------------
+  // PERSISTENCIA DE INFORMACIÓN PERSONAL
+  // --------------------------------------------------------------------------
+  /**
+   * Guarda los cambios de nombre, correo y teléfono en el backend y actualiza el contexto de auth.
+   */
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -234,9 +306,12 @@ export const ProfilePage = () => {
     }
   };
 
+  // ==========================================================================
+  // RENDERIZADO DEL COMPONENTE
+  // ==========================================================================
   return (
     <div className="profile-page">
-      {/* Back nav */}
+      {/* ── Botón de retorno a la vista principal según el rol ── */}
       <div className="profile-page__back">
         <button
           className="profile-page__back-btn"
@@ -247,10 +322,10 @@ export const ProfilePage = () => {
         </button>
       </div>
 
-      {/* Page Title */}
+      {/* ── Título principal de la página ── */}
       <h1 className="profile-page__title">General</h1>
 
-      {/* Tabs */}
+      {/* ── Pestañas de navegación interna: Perfil vs Contraseña ── */}
       <div className="profile-page__tabs">
         {TABS.map(tab => (
           <button
@@ -263,16 +338,16 @@ export const ProfilePage = () => {
         ))}
       </div>
 
-      {/* Hint */}
+      {/* Indicación de alcance de las configuraciones */}
       <p className="profile-page__hint">Estas preferencias solo se aplican a ti.</p>
 
+      {/* ── PESTAÑA 1: DATOS DE PERFIL Y PREFERENCIAS GENERALES ── */}
       {activeTab === 'profile' && (
         <div className="profile-page__content">
-          {/* Global Section */}
           <section className="profile-section">
             <h2 className="profile-section__title">Global</h2>
 
-            {/* Profile Image */}
+            {/* Subida y visualización de la foto de perfil */}
             <div className="profile-field">
               <label className="profile-field__label">Imagen de perfil</label>
               <div className="profile-avatar-upload" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -293,6 +368,7 @@ export const ProfilePage = () => {
                   </div>
                 </div>
 
+                {/* Input de archivo oculto activado por los botones */}
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -341,7 +417,7 @@ export const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Nombre */}
+            {/* Campo: Nombre */}
             <div className="profile-field">
               <label className="profile-field__label">
                 <User size={14} /> Nombre
@@ -354,7 +430,7 @@ export const ProfilePage = () => {
               />
             </div>
 
-            {/* Apellido */}
+            {/* Campo: Apellidos */}
             <div className="profile-field">
               <label className="profile-field__label">Apellidos</label>
               <input
@@ -365,7 +441,7 @@ export const ProfilePage = () => {
               />
             </div>
 
-            {/* Email */}
+            {/* Campo: Correo Electrónico */}
             <div className="profile-field">
               <label className="profile-field__label">
                 <Mail size={14} /> Correo electrónico
@@ -378,7 +454,7 @@ export const ProfilePage = () => {
               />
             </div>
 
-            {/* Documento / ID Usuario */}
+            {/* Campo: Identificador o Documento (Solo Lectura) */}
             <div className="profile-field">
               <label className="profile-field__label">
                 <FileText size={14} /> ID / Documento de usuario
@@ -391,7 +467,7 @@ export const ProfilePage = () => {
               />
             </div>
 
-            {/* Dirección */}
+            {/* Campo: Dirección física */}
             <div className="profile-field">
               <label className="profile-field__label">
                 <MapPin size={14} /> Dirección
@@ -404,7 +480,7 @@ export const ProfilePage = () => {
               />
             </div>
 
-            {/* Idioma */}
+            {/* Selector: Idioma de la interfaz */}
             <div className="profile-field">
               <label className="profile-field__label">
                 <Globe size={14} /> Idioma
@@ -420,7 +496,7 @@ export const ProfilePage = () => {
               </select>
             </div>
 
-            {/* Formato fecha */}
+            {/* Selector: Formato de fecha, hora y números */}
             <div className="profile-field">
               <label className="profile-field__label">
                 <Clock size={14} /> Formato de hora, fecha y número
@@ -439,7 +515,7 @@ export const ProfilePage = () => {
               </select>
             </div>
 
-            {/* Teléfonos */}
+            {/* Lista dinámica de números de teléfono */}
             <div className="profile-field">
               <label className="profile-field__label">
                 <Phone size={14} /> Números de teléfono
@@ -479,7 +555,7 @@ export const ProfilePage = () => {
             </div>
           </section>
 
-          {/* Zona del vendedor (la define la administración) */}
+          {/* ── Zona asignada para el rol vendedor (localidades de trabajo) ── */}
           {isSeller && (
             <section className="profile-section">
               <h2 className="profile-section__title">Zona asignada</h2>
@@ -496,7 +572,7 @@ export const ProfilePage = () => {
             </section>
           )}
 
-          {/* Save button */}
+          {/* ── Botón de guardado de datos personales ── */}
           <div className="profile-page__actions">
             <button className="profile-page__save-btn" onClick={handleSave} disabled={saving}>
               <Save size={16} />
@@ -509,12 +585,14 @@ export const ProfilePage = () => {
         </div>
       )}
 
+      {/* ── PESTAÑA 2: MODIFICACIÓN DE CONTRASEÑA ── */}
       {activeTab === 'password' && (
         <div className="profile-page__content">
           <section className="profile-section">
             <h2 className="profile-section__title">Contraseña</h2>
             <p className="profile-section__desc">Actualizá la contraseña de tu cuenta.</p>
 
+            {/* Input: Contraseña actual con botón para mostrar/ocultar */}
             <div className="profile-field">
               <label className="profile-field__label">Contraseña actual</label>
               <div className="profile-password-wrap">
@@ -531,6 +609,7 @@ export const ProfilePage = () => {
               </div>
             </div>
 
+            {/* Input: Nueva contraseña con medidor de fuerza */}
             <div className="profile-field">
               <label className="profile-field__label">Nueva contraseña</label>
               <div className="profile-password-wrap">
@@ -547,6 +626,7 @@ export const ProfilePage = () => {
                 </button>
               </div>
 
+              {/* Barra indicadora visual de robustez de contraseña */}
               {passwordStrength && (
                 <div className="profile-password-strength">
                   <div className="profile-password-strength__bars">
@@ -563,6 +643,7 @@ export const ProfilePage = () => {
                 </div>
               )}
 
+              {/* Lista interactiva de requisitos de seguridad */}
               <ul className="profile-password-rules">
                 <li className={passwordChecks.length ? 'ok' : ''}>Entre 8 y {MAX_PASSWORD_LENGTH} caracteres</li>
                 <li className={passwordChecks.upper ? 'ok' : ''}>Al menos una mayúscula</li>
@@ -571,6 +652,7 @@ export const ProfilePage = () => {
               </ul>
             </div>
 
+            {/* Input: Confirmación de nueva contraseña (bloquea copiar/pegar para mayor seguridad) */}
             <div className="profile-field">
               <label className="profile-field__label">Confirmar nueva contraseña</label>
               <div className="profile-password-wrap">
@@ -591,8 +673,10 @@ export const ProfilePage = () => {
               </div>
             </div>
 
+            {/* Aviso de error en caso de fallo */}
             {passwordError && <p className="profile-password-error">{passwordError}</p>}
 
+            {/* Botón de envío de actualización de contraseña */}
             <div className="profile-page__actions">
               <button
                 className="profile-page__save-btn"

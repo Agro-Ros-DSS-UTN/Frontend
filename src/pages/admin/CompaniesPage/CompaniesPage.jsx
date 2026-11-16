@@ -1,3 +1,13 @@
+/**
+ * @file CompaniesPage.jsx
+ * @description Gestión integral de Empresas Clientes del CRM AgroRos.
+ * Permite listar, registrar, editar, dar de baja lógica y exportar empresas agrícolas
+ * y agropecuarias (Productores, Distribuidores, Cooperativas, Acopiadores).
+ * Soporta estructuras jerárquicas multinivel (Empresa Madre -> Regiones -> Subsedes),
+ * georreferenciación en mapa para hojas de ruta, asignación de cultivos y vinculación
+ * de contactos referentes tanto existentes como de alta inmediata.
+ */
+
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useOverlayClose } from '../../../hooks/useOverlayClose';
@@ -60,8 +70,10 @@ import { SearchClearButton } from '../../../components/ui/SearchClearButton/Sear
 import { checkName, checkCuit } from '../../../utils/validators';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
+// Tipos de explotación o actividad comercial válidos para una empresa cliente
 const COMPANY_TYPE_OPTIONS = ['Productor', 'Distribuidor', 'Cooperativa', 'Acopiador'];
 
+// Definición de las columnas de la tabla principal con soporte de ordenamiento
 const COLUMNS = [
   { key: 'companyName',     label: 'Empresa',               sortable: true },
   { key: 'cuit',              label: 'CUIT',                  sortable: true },
@@ -75,10 +87,17 @@ const COLUMNS = [
   { key: 'areaHa',      label: 'Superficie (Ha)',       sortable: true },
 ];
 
+// Cantidad de registros por página en la tabla
 const PAGE_SIZE = 20;
 
+/**
+ * Componente principal `CompaniesPage`.
+ * Administra el catálogo de empresas clientes, su paginación, filtros avanzados y modales.
+ */
 export const CompaniesPage = () => {
   const { currentUser } = useAuth();
+
+  // Estados de datos sincronizados con la base de datos
   const [companies, setCompanies] = useState([]);
   const [clients, setClients] = useState([]);
   const [opportunities, setOpportunities] = useState([]);
@@ -87,11 +106,15 @@ export const CompaniesPage = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
+  // Estados de búsqueda, ordenamiento y navegación paginada
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
+
+  // Precarga el término de búsqueda si se navegó desde otro componente con state
   useEffect(() => {
     if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
   }, [location.state]);
+
   const [sortBy, setSortBy] = useState('companyName');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -104,7 +127,7 @@ export const CompaniesPage = () => {
   const [inspectingCompanyId, setInspectingCompanyId] = useState(null);
   const companyModalOverlayHandlers = useOverlayClose(() => { setShowModal(false); setEditingCompany(null); });
 
-  // Contact association state for "Registrar Empresa" modal
+  // Contact association state for "Registrar Empresa" modal (Asociación o alta rápida de contacto)
   const [includeContact, setIncludeContact] = useState(true); // Checkbox con tick
   const [contactMode, setContactMode] = useState('existing'); // 'existing' | 'new'
   const [contactSearchQuery, setContactSearchQuery] = useState('');
@@ -128,6 +151,7 @@ export const CompaniesPage = () => {
   const [regions, setRegions] = useState([]);
   const [creatingHierarchy, setCreatingHierarchy] = useState(false);
 
+  // Funciones auxiliares para agregar, modificar o quitar ramas de la estructura jerárquica
   const addRegion = () => setRegions((prev) => [...prev, emptyRegion()]);
   const removeRegion = (idx) => setRegions((prev) => prev.filter((_, i) => i !== idx));
   const updateRegion = (idx, field, value) => setRegions((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
@@ -215,6 +239,7 @@ export const CompaniesPage = () => {
     return () => { alive = false; };
   }, [editingCompany, form.cropIds]);
 
+  // Inicializa el formulario para registrar una empresa nueva
   const openCreateModal = () => {
     setEditingCompany(null);
     setForm(emptyCompanyForm);
@@ -227,6 +252,7 @@ export const CompaniesPage = () => {
     setShowModal(true);
   };
 
+  // Carga los datos de una empresa existente para abrir el modal de edición
   const openEditModal = (company) => {
     setEditingCompany(company);
     setForm({
@@ -282,6 +308,7 @@ export const CompaniesPage = () => {
     return companies.filter((c) => !c.parentCompanyId || !ids.has(c.parentCompanyId));
   }, [companies]);
 
+  // Filtra y ordena el listado según el texto de búsqueda, tipo y columna activa
   const filteredCompanies = useMemo(() => {
     let result = [...topLevelCompanies];
 
@@ -322,6 +349,7 @@ export const CompaniesPage = () => {
     return map;
   }, [clients]);
 
+  // Cálculo de páginas disponibles para la paginación de la tabla
   const totalPages = Math.ceil(filteredCompanies.length / PAGE_SIZE);
 
   // Si se borra la última empresa de la última página, volver a una página que exista
@@ -333,6 +361,7 @@ export const CompaniesPage = () => {
     currentPage * PAGE_SIZE
   );
 
+  // Alterna o cambia la columna y dirección de ordenamiento
   const handleSort = (key) => {
     if (sortBy === key) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -342,6 +371,7 @@ export const CompaniesPage = () => {
     }
   };
 
+  // Selecciona o deselecciona todos los registros visibles en la página actual
   const toggleSelectAll = () => {
     if (selectedRows.length === paginatedCompanies.length) {
       setSelectedRows([]);
@@ -350,24 +380,27 @@ export const CompaniesPage = () => {
     }
   };
 
+  // Alterna la selección de una empresa individual mediante su checkbox
   const toggleSelect = (id) => {
     setSelectedRows(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
+  // Formateador de fechas para presentación en la tabla
   const formatDate = (dateStr) => {
     if (!dateStr) return '--';
     const d = new Date(dateStr);
     return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
+  // Formatea el valor de superficie en hectáreas
   const formatSurface = (val) => {
     if (!val) return '-';
     return `${Number(val).toLocaleString('es-AR')} ha`;
   };
 
-
+  // Limpia los estados del modal y restaura los valores iniciales
   const resetCompanyModalState = () => {
     setShowModal(false);
     setEditingCompany(null);
@@ -482,6 +515,7 @@ export const CompaniesPage = () => {
     }
   };
 
+  // Manejo del envío del formulario (alta simple, edición o creación jerárquica)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -608,6 +642,7 @@ export const CompaniesPage = () => {
     resetCompanyModalState();
   };
 
+  // Baja lógica de la empresa con confirmación de consecuencias sobre contactos y sucursales
   const handleDeleteCompany = async (company) => {
     if (deletingId) return;
     // Baja lógica: la empresa deja de verse pero su historial (contactos, oportunidades, órdenes) se conserva.
@@ -637,6 +672,7 @@ export const CompaniesPage = () => {
     }
   };
 
+  // Exportación del listado filtrado de empresas a archivo CSV descargable
   const handleExportCompanies = () => {
     const headers = [
       { key: 'companyName', label: 'Empresa / Razón Social' },
@@ -672,6 +708,7 @@ export const CompaniesPage = () => {
   };
 
   // Helper to get related data for selected company (1:N)
+  // Recupera contactos, oportunidades y actividades asociadas a la empresa seleccionada para la ficha resumen
   const relatedContacts = useMemo(() => {
     if (!selectedCompanyForDetail) return [];
     return clients.filter(c =>
@@ -698,7 +735,7 @@ export const CompaniesPage = () => {
 
   return (
     <div className="companies-page">
-      {/* Header */}
+      {/* Encabezado con título de la vista y botones de acción principal (Alta y Exportación) */}
       <div className="companies-page__header">
         <div>
           <h1 className="companies-page__title">Empresas Clientes</h1>
@@ -719,7 +756,7 @@ export const CompaniesPage = () => {
         </div>
       </div>
 
-      {/* Card */}
+      {/* Tarjeta principal con barra de filtros, búsqueda y tabla de registros */}
       <div className="companies-page__card">
         {/* Pestañas por tipo + búsqueda en una sola fila */}
         <div className="companies-page__toolbar crm-filterbar">
@@ -752,12 +789,14 @@ export const CompaniesPage = () => {
           />
         </div>
 
-        {/* Table */}
+        {/* Mensaje de alerta si hubo error en la carga de la base de datos */}
         {loadError && !loading && (
           <div style={{ padding: '12px 16px', marginBottom: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', color: '#991b1b', fontSize: '0.85rem', fontWeight: 600 }}>
             {loadError}
           </div>
         )}
+
+        {/* Indicador de carga inicial */}
         {loading ? (
           <div style={{ padding: '20px' }}>
             <LoadingState
@@ -766,6 +805,7 @@ export const CompaniesPage = () => {
             />
           </div>
         ) : (
+        /* Tabla de empresas clientes */
         <div className="companies-page__table-wrapper">
           <table className="companies-table">
             <thead>
@@ -807,6 +847,7 @@ export const CompaniesPage = () => {
                     key={company.id}
                     className={`companies-table__row ${selectedRows.includes(company.id) ? 'selected' : ''}`}
                   >
+                    {/* Checkbox de selección individual */}
                     <td className="companies-table__checkbox-col" onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
@@ -814,6 +855,7 @@ export const CompaniesPage = () => {
                         onChange={() => toggleSelect(company.id)}
                       />
                     </td>
+                    {/* Razón social con enlace a la ficha resumen y etiqueta si tiene sedes */}
                     <td>
                       <div className="companies-table__name-cell">
                         <div className="companies-table__avatar">
@@ -839,24 +881,30 @@ export const CompaniesPage = () => {
                         </div>
                       </div>
                     </td>
+                    {/* CUIT fiscal */}
                     <td className="companies-table__cuit">{company.cuit}</td>
+                    {/* Tipo de empresa con etiqueta estilizada */}
                     <td>
                       <span className={`companies-table__badge companies-table__badge--${(company.companyType || 'productor').toLowerCase()}`}>
                         {company.companyType}
                       </span>
                     </td>
+                    {/* Localidad y Dirección */}
                     <td>{company.Locality?.localityName || company.locality || '-'}</td>
                     <td className="companies-table__address">{company.companyAddress || '-'}</td>
+                    {/* Contacto referente asociado */}
                     <td>
                       {companyContactMap.get(company.id)
                         ? companyContactMap.get(company.id).fullName
                         : <span className="companies-table__provider">Sin contacto asociado</span>}
                     </td>
+                    {/* Proveedor actual de insumos o servicios */}
                     <td>
                       <span className="companies-table__provider">
                         {company.currentSupplier || 'Sin especificar'}
                       </span>
                     </td>
+                    {/* Vendedor o administrador propietario del registro */}
                     <td>
                       {company.createdByName ? (
                         <span className="companies-table__owner">{company.createdByName}</span>
@@ -864,11 +912,14 @@ export const CompaniesPage = () => {
                         <span className="companies-table__provider">Sin especificar</span>
                       )}
                     </td>
+                    {/* Fecha de registro en el CRM */}
                     <td className="companies-table__date">{formatDate(company.createdAt)}</td>
+                    {/* Superficie productiva en hectáreas */}
                     <td className="companies-table__surface">
                       {company.areaHa ? <Ruler size={13} className="inline-icon" /> : null}
                       {formatSurface(company.areaHa)}
                     </td>
+                    {/* Botones de acción: Inspeccionar árbol jerárquico, Editar y Eliminar */}
                     <td className="companies-table__actions-col" onClick={e => e.stopPropagation()}>
                       <div className="companies-table__actions">
                         {company.companyLevel === 'madre' && (
@@ -905,7 +956,7 @@ export const CompaniesPage = () => {
         </div>
         )}
 
-        {/* Pagination */}
+        {/* Paginación de la tabla */}
         {!loading && totalPages > 1 && (
           <div className="companies-page__pagination">
             <span className="companies-page__pagination-info">
@@ -940,7 +991,7 @@ export const CompaniesPage = () => {
         )}
       </div>
 
-      {/* ── Modal: Registrar Empresa Cliente ── */}
+      {/* ── Modal: Registrar / Editar Empresa Cliente ── */}
       {showModal && (
         <div className="comp-modal-overlay" {...companyModalOverlayHandlers}>
           <div className="comp-modal" onClick={e => e.stopPropagation()}>
@@ -952,7 +1003,7 @@ export const CompaniesPage = () => {
             </div>
 
             <form className="comp-modal__form" onSubmit={handleSubmit}>
-              {/* Nombre Empresa */}
+              {/* Campo: Nombre / Razón Social */}
               <div className="comp-field">
                 <label><Building2 size={14} /> Nombre / Razón Social de la Empresa *</label>
                 <input
@@ -965,7 +1016,7 @@ export const CompaniesPage = () => {
                 />
               </div>
 
-              {/* CUIT */}
+              {/* Campo: CUIT */}
               <div className="comp-field">
                 <label><FileText size={14} /> CUIT de la Empresa *</label>
                 <input
@@ -978,7 +1029,7 @@ export const CompaniesPage = () => {
                 />
               </div>
 
-              {/* Tipo Empresa */}
+              {/* Campo: Tipo de Empresa */}
               <div className="comp-field">
                 <label>Tipo de Empresa</label>
                 <select
@@ -993,7 +1044,7 @@ export const CompaniesPage = () => {
                 </select>
               </div>
 
-              {/* Propietario del Registro */}
+              {/* Campo: Propietario del Registro (Vendedor o Admin a cargo) */}
               <div className="comp-field">
                 <label><UserCheck size={14} /> Propietario del Registro</label>
                 <select
@@ -1010,7 +1061,7 @@ export const CompaniesPage = () => {
                 </select>
               </div>
 
-              {/* Dirección & Localidad */}
+              {/* Fila: Dirección y Localidad con autocompletado */}
               <div className="comp-field-row">
                 <div className="comp-field" style={{ flex: 2 }}>
                   <label><MapPin size={14} /> Dirección</label>
@@ -1034,7 +1085,7 @@ export const CompaniesPage = () => {
                 </div>
               </div>
 
-              {/* Punto exacto para las hojas de ruta */}
+              {/* Punto exacto en mapa interactivo para las hojas de ruta operativas */}
               {!(hasRegions && !editingCompany) && (
                 <CompanyLocationPicker
                   address={form.companyAddress}
@@ -1044,7 +1095,7 @@ export const CompaniesPage = () => {
                 />
               )}
 
-              {/* Superficie Ha & Proveedor Actual */}
+              {/* Fila: Superficie en Hectáreas y Proveedor Actual */}
               <div className="comp-field-row">
                 <div className="comp-field" style={{ flex: 1 }}>
                   <label><Ruler size={14} /> Superficie (Ha)</label>
@@ -1068,7 +1119,7 @@ export const CompaniesPage = () => {
                 </div>
               </div>
 
-              {/* Cultivos de la empresa */}
+              {/* Cultivos producidos por la empresa cliente */}
               <div className="comp-field">
                 <CropSelect
                   value={form.cropIds}
@@ -1077,7 +1128,7 @@ export const CompaniesPage = () => {
                 />
               </div>
 
-              {/* Descripción */}
+              {/* Campo: Observaciones y Descripción */}
               <div className="comp-field">
                 <label>Descripción / Observaciones</label>
                 <textarea
@@ -1116,6 +1167,7 @@ export const CompaniesPage = () => {
                         />
                       </div>
 
+                      {/* Lista dinámica de regiones y subsedes de la empresa madre */}
                       <div className="company-hierarchy-form__regions">
                         {regions.map((region, rIdx) => (
                           <div key={rIdx} className="company-hierarchy-form__region-block">
@@ -1140,6 +1192,7 @@ export const CompaniesPage = () => {
                               <input type="text" className="comp-input" placeholder="Dirección de la sede regional" value={region.mainSite} onChange={(e) => updateRegion(rIdx, 'mainSite', e.target.value)} />
                             </div>
 
+                            {/* Subsedes dependientes de esta región */}
                             <div className="company-hierarchy-form__subsedes">
                               {region.branches.map((sub, sIdx) => (
                                 <div key={sIdx} className="company-hierarchy-form__subsede-block">
@@ -1174,7 +1227,6 @@ export const CompaniesPage = () => {
                 </div>
               )}
 
-              {/* Botones */}
               {/* ── Sección: Contacto Referente / Encargado de la Empresa (solo al crear, y no para empresas con regiones) ── */}
               {!editingCompany && !hasRegions && (
               <div className="comp-contact-section">
@@ -1200,7 +1252,7 @@ export const CompaniesPage = () => {
                 {/* Solo visible si el checkbox está activo (tickeado) */}
                 {includeContact && (
                   <div className="comp-contact-body-active">
-                    {/* Selector de Modo: Solo 2 opciones limpias */}
+                    {/* Selector de Modo: Buscar Existente vs Crear Nuevo */}
                     <div className="comp-contact-mode-pills">
                       <button
                         type="button"
@@ -1474,7 +1526,7 @@ export const CompaniesPage = () => {
         </div>
       )}
 
-      {/* ── Ficha resumen de la empresa ── */}
+      {/* ── Ficha resumen lateral/modal de la empresa con métricas de órdenes, contactos y visitas ── */}
       {selectedCompanyForDetail && (
         <CompanySummary
           company={selectedCompanyForDetail}
@@ -1490,7 +1542,7 @@ export const CompaniesPage = () => {
         />
       )}
 
-      {/* ── Inspeccionar: Empresa Madre -> Regiones -> Subsedes ── */}
+      {/* ── Inspeccionar: Vista en árbol de Empresa Madre -> Regiones -> Subsedes ── */}
       {inspectingCompanyId && (
         <CompanyTreeModal companyId={inspectingCompanyId} onClose={() => setInspectingCompanyId(null)} />
       )}

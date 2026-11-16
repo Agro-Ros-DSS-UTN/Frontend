@@ -1,4 +1,15 @@
-﻿import { NavLink, useLocation } from 'react-router-dom';
+﻿/**
+ * @file Sidebar.jsx
+ * @description Barra lateral de navegación principal (Sidebar) para el rol de Administrador.
+ * Contiene el menú con acceso a todos los módulos de gestión y administración del CRM:
+ * Inicio, Dashboard analítico, Usuarios, Contactos, Empresas, Oportunidades comerciales,
+ * Tareas, Órdenes de servicio, Empleados, Catálogo de productos, Objetivos de ventas,
+ * Hojas de ruta de visitas, Promociones y Registro de actividades.
+ * Soporta modos expandido, compacto (iconos con tooltip para tablets o colapso voluntario),
+ * menú desplegable en pantallas móviles y redimensionamiento manual por arrastre del borde.
+ */
+
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   Home,
@@ -25,6 +36,10 @@ import { useSidebarResize } from './useSidebarResize';
 import { useIsMobile, useIsTablet, useMobileNav } from './mobileNav';
 import './Sidebar.css';
 
+/**
+ * Lista de elementos de navegación del panel de administración.
+ * Define la ruta destino, icono gráfico, etiqueta y si debe insertarse una línea divisoria posterior.
+ */
 const adminNavItems = [
   { path: '/admin/home',        icon: Home,            label: 'Inicio', dividerAfter: true },
   { path: '/admin/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
@@ -42,16 +57,30 @@ const adminNavItems = [
   { path: '/admin/activities',   icon: ClipboardList,   label: 'Actividades' },
 ];
 
+/**
+ * Componente Sidebar para Administrador.
+ * Renderiza la barra lateral accesible con navegación, cabecera con logo, pie con acciones y redimensionamiento.
+ * 
+ * @returns {JSX.Element} Barra lateral completa del administrador.
+ */
 export const Sidebar = () => {
+  // Manejo de redimensionamiento manual por arrastre y estado colapsado/expandido
   const { collapsed, toggleCollapsed, handleResizeStart } = useSidebarResize();
   // En celular el menú es un panel completo (con textos) que se abre y se cierra.
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
+  // Estado y acciones del menú lateral en vista móvil
   const { open: mobileOpen, close: closeMobileNav } = useMobileNav();
+  // Modo compacto: activo si el usuario colapsó manualmente o si se visualiza en tablet (salvo en celulares)
   const compact = (collapsed || isTablet) && !isMobile;
+  // Función para cerrar la sesión actual
   const { logout } = useAuth();
+  // Objeto con la información de la URL activa para marcar el ítem seleccionado
   const location = useLocation();
 
+  /**
+   * Recarga la ventana de la aplicación al pulsar sobre el logo.
+   */
   const handleLogoClick = () => {
     window.location.reload();
   };
@@ -91,11 +120,12 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Sección principal de navegación */}
       <nav className="sidebar__nav">
         <ul className="sidebar__list">
           {adminNavItems.map((item) => {
             const Icon = item.icon;
+            // Determina si la ruta actual coincide con la del enlace del menú
             const isActive = location.pathname.startsWith(item.path);
             return (
               <li key={item.path} className="sidebar__item">
@@ -106,6 +136,7 @@ export const Sidebar = () => {
                   className={`sidebar__link ${isActive ? 'sidebar__link--active' : ''}`}
                 >
                   <Icon size={17} className="sidebar__link-icon" aria-hidden="true" />
+                  {/* Vista expandida: etiqueta de texto y badge opcional */}
                   {!compact && (
                     <div className="sidebar__link-text-group">
                       <span className="sidebar__link-label">{item.label}</span>
@@ -117,6 +148,7 @@ export const Sidebar = () => {
                       )}
                     </div>
                   )}
+                  {/* Vista compacta: tooltip flotante con el nombre de la sección */}
                   {compact && (
                     <span className="sidebar__nav-tooltip">
                       {item.label} {item.badge ? `(${item.badge})` : ''}
@@ -126,6 +158,7 @@ export const Sidebar = () => {
               </li>
             );
           }).reduce((acc, li, i) => {
+            // Inserta elementos y añade separadores visuales si está configurado en dividerAfter
             acc.push(li);
             if (adminNavItems[i].dividerAfter) {
               acc.push(<li key={`divider-${i}`} className="sidebar__divider" aria-hidden="true" />);
@@ -135,7 +168,7 @@ export const Sidebar = () => {
         </ul>
       </nav>
 
-      {/* Footer */}
+      {/* Pie de la barra lateral: botones de colapso y cierre de sesión */}
       <div className="sidebar__footer">
         {/* Fila del botón colapsar/expandir */}
         <div className="sidebar__collapse-row">

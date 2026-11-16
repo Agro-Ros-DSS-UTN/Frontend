@@ -1,3 +1,11 @@
+/**
+ * @file SellerDashboardPage.jsx
+ * @description Panel principal (Dashboard) para el rol de Vendedor.
+ * Centraliza la información operativa diaria más relevante para el trabajo en campo:
+ * resumen de tareas pendientes, seguimiento en tiempo real del objetivo comercial asignado,
+ * y visualización rápida de la hoja de ruta del día con su próxima parada geográfica.
+ */
+
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
@@ -15,20 +23,45 @@ import { objectivesApi, roadmapsApi, tasksApi } from '../../../api/operations.ap
 import { LoadingState } from '../../../components/ui/LoadingState/LoadingState';
 import './SellerDashboardPage.css';
 
+/**
+ * Determina si un estado corresponde a una entidad finalizada o cancelada.
+ *
+ * @param {string} status - Cadena representativa del estado.
+ * @returns {boolean} True si coincide con completado, finalizado o cancelado.
+ */
 const isCompleted = (status) => /complet|finaliz|cancel/i.test(String(status || ''));
+
+/**
+ * Genera la fecha actual en formato ISO 'YYYY-MM-DD' ajustada a la zona horaria local.
+ *
+ * @returns {string} Fecha actual formateada.
+ */
 const todayStr = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
+/**
+ * Componente principal del Dashboard del Vendedor.
+ * Coordina la carga asíncrona concurrente de objetivos, hojas de ruta y tareas,
+ * calculando resúmenes dinámicos e indicadores visuales de progreso.
+ */
 export const SellerDashboardPage = () => {
+  // ── Contexto de autenticación y navegación ──
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
+  // ── Estados locales de datos y control de carga ──
   const [objectives, setObjectives] = useState([]);
   const [roadmaps, setRoadmaps] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Identificador normalizado del vendedor autenticado
   const sellerUserId = currentUser?.idUser || currentUser?.id || null;
 
+  /**
+   * Efecto de carga inicial:
+   * Realiza peticiones concurrentes mediante `Promise.allSettled` para obtener
+   * objetivos, hojas de ruta y tareas del vendedor sin bloquearse mutuamente ante errores parciales.
+   */
   useEffect(() => {
     const fetchSellerData = async () => {
       setLoading(true);
@@ -38,6 +71,10 @@ export const SellerDashboardPage = () => {
         tasksApi.getAll({ role: 'vendedor' }),
       ]);
 
+      /**
+       * Función auxiliar para extraer datos de una promesa resuelta de manera segura.
+       * Soporta respuestas directas en forma de array o empaquetadas en un objeto con propiedad `data`.
+       */
       const pick = (r) => {
         if (r.status !== 'fulfilled') return [];
         const v = r.value;
@@ -49,6 +86,7 @@ export const SellerDashboardPage = () => {
       setRoadmaps(pick(rdmRes));
       setTasks(pick(taskRes));
 
+      // Registro de advertencias en consola para aquellas consultas que hayan fallado
       if (objRes.status === 'rejected') console.error('Objetivos:', objRes.reason);
       if (rdmRes.status === 'rejected') console.error('Hojas de ruta:', rdmRes.reason);
       if (taskRes.status === 'rejected') console.error('Tareas:', taskRes.reason);
@@ -59,11 +97,15 @@ export const SellerDashboardPage = () => {
     fetchSellerData();
   }, [sellerUserId]);
 
-  // Objetivo vigente hoy; si no hay, el próximo.
+  // ── Cálculos derivados para la Hoja de Ruta y el Objetivo Vigente ──
+
+  // Objetivo vigente hoy; si no hay uno activo para la fecha, busca el próximo cronológicamente.
   const activeObjective =
     objectives.find((o) => o.startDate <= todayStr() && o.endDate >= todayStr()) ||
     [...objectives].filter((o) => o.startDate > todayStr()).sort((a, b) => (a.startDate < b.startDate ? -1 : 1))[0] ||
     null;
+
+  // Hoja de ruta prioritaria del día y cálculo de paradas pendientes
   const activeRoute = roadmaps[0] || null;
   const stopsList = activeRoute?.stops || activeRoute?.RoadmapStops || [];
   const pendingStops = stopsList.filter(
@@ -71,10 +113,14 @@ export const SellerDashboardPage = () => {
   );
   const nextStop = pendingStops[0] || stopsList[0] || null;
 
+  // Métricas de progreso del objetivo activo (porcentaje redondeado hasta 100%)
   const meta = Number(activeObjective?.targetAmount) || 0;
   const actual = Number(activeObjective?.currentProgress) || 0;
   const objProgress = meta > 0 ? Math.min(100, Math.round((actual / meta) * 100)) : 0;
 
+  /**
+   * Lista memorizada de tareas no completadas formateadas para visualización rápida (máximo 6).
+   */
   const pendingTasks = useMemo(
     () =>
       tasks
@@ -93,6 +139,9 @@ export const SellerDashboardPage = () => {
     [tasks]
   );
 
+  /**
+   * Conteo de objetivos vigentes que aún no han alcanzado la meta requerida.
+   */
   const pendingObjectivesCount = useMemo(
     () =>
       // Solo los vigentes (hoy dentro de su período) que todavía no se cumplieron.
@@ -105,7 +154,11 @@ export const SellerDashboardPage = () => {
     [objectives]
   );
 
-  // Resumen dinámico del banner: solo menciona lo que realmente tiene pendiente.
+  /**
+   * Generación dinámica del texto descriptivo para el banner de bienvenida:
+   * evalúa qué componentes operativos tienen pendientes (paradas, objetivos, tareas)
+   * y construye una frase gramaticalmente coherente.
+   */
   const pendingSummary = useMemo(() => {
     const clauses = [];
     if (pendingStops.length > 0) {
@@ -130,6 +183,7 @@ export const SellerDashboardPage = () => {
     return { text: `Tenés ${joined}.`, bold: joined };
   }, [pendingStops.length, pendingObjectivesCount, pendingTasks.length]);
 
+  // Pantalla de carga mientras se obtienen los datos de la API
   if (loading) {
     return (
       <div className="seller-dashboard">
@@ -143,7 +197,7 @@ export const SellerDashboardPage = () => {
 
   return (
     <div className="seller-dashboard">
-      {/* Welcome Banner */}
+      {/* ── Banner Superior de Bienvenida y Resumen ── */}
       <div className="seller-banner">
         <div className="seller-banner__content">
           <div className="seller-banner__badge">
@@ -163,11 +217,11 @@ export const SellerDashboardPage = () => {
         </div>
       </div>
 
-      {/* Main Grid: 2 Columns */}
+      {/* ── Grilla Principal: Distribución en 2 Columnas ── */}
       <div className="seller-grid">
-        {/* Left Column: Weekly Objective & Route */}
+        {/* ── Columna Izquierda: Objetivo Comercial y Hoja de Ruta ── */}
         <div className="seller-column">
-          {/* Card: Objetivo Semanal Asignado */}
+          {/* Tarjeta: Objetivo Semanal / Mensual Asignado */}
           <div className="seller-card">
             <div className="seller-card__header">
               <div className="seller-card__title-group">
@@ -196,6 +250,7 @@ export const SellerDashboardPage = () => {
                   {activeObjective.description || 'Meta Semanal de Ventas y Visitas'}
                 </div>
 
+                {/* Estadísticas numéricas y etiqueta de porcentaje */}
                 <div className="seller-obj-stat-row">
                   <div>
                     <span className="seller-obj-label">Meta de Cumplimiento:</span>
@@ -206,6 +261,7 @@ export const SellerDashboardPage = () => {
                   <div className="seller-obj-pct-tag">{objProgress}% cumplido</div>
                 </div>
 
+                {/* Barra visual de progreso */}
                 <div className="seller-progress-track">
                   <div className="seller-progress-fill" style={{ width: `${objProgress}%` }} />
                 </div>
@@ -217,7 +273,7 @@ export const SellerDashboardPage = () => {
             )}
           </div>
 
-          {/* Card: Hoja de Ruta de Hoy */}
+          {/* Tarjeta: Hoja de Ruta de Hoy y Próxima Parada */}
           <div className="seller-card">
             <div className="seller-card__header">
               <div className="seller-card__title-group">
@@ -244,12 +300,14 @@ export const SellerDashboardPage = () => {
 
             {activeRoute && nextStop ? (
               <div className="seller-next-stop-box">
+                {/* Encabezado de la próxima parada */}
                 <div className="next-stop-header">
                   <span className="next-stop-badge">Próxima Parada #{nextStop.order || 1}</span>
                   <span className="next-stop-time">
                     <Clock size={12} /> {nextStop.estimatedTime || '09:00'} hs
                   </span>
                 </div>
+                {/* Datos de contacto y ubicación de la parada */}
                 <div className="next-stop-client">{nextStop.placeName || nextStop.customer}</div>
                 <div className="next-stop-addr">
                   <MapPin size={13} /> {nextStop.address}, {nextStop.locality || 'Santa Fe'}
@@ -257,6 +315,7 @@ export const SellerDashboardPage = () => {
                 <div className="next-stop-service">
                   <strong>Detalle:</strong> {nextStop.notes || nextStop.service || 'Visita comercial asignada'}
                 </div>
+                {/* Botones de acción rápida: navegación por GPS y registro de visita */}
                 <div className="next-stop-actions">
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -284,7 +343,7 @@ export const SellerDashboardPage = () => {
           </div>
         </div>
 
-        {/* Right Column: Pending Tasks */}
+        {/* ── Columna Derecha: Listado de Tareas Pendientes ── */}
         <div className="seller-column">
           <div className="seller-card">
             <div className="seller-card__header">
@@ -301,6 +360,7 @@ export const SellerDashboardPage = () => {
               </div>
             </div>
 
+            {/* Listado interactivo de tareas con acceso directo al detalle */}
             {pendingTasks.length > 0 ? (
               <div className="seller-tasks-list">
                 {pendingTasks.map((task) => (

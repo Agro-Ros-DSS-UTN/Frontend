@@ -1,3 +1,18 @@
+/**
+ * Módulo / Componente: CompanySummary
+ * 
+ * Modal de ficha técnica y resumen ejecutivo 360° de una empresa o cliente agropecuario.
+ * 
+ * Funcionalidades:
+ * - Visualización de atributos generales: razón social, CUIT, localidad, dirección,
+ *   propietario del registro, proveedor actual, superficie en hectáreas, cultivos y descripción.
+ * - Integración con el tablero de servicios (`CompanyServiceDashboard`) para métricas de plagas.
+ * - Listado de personas de contacto asociadas con teléfonos y correos electrónicos.
+ * - Tabla cronológica unificada que consolida tareas, actividades registradas y oportunidades comerciales.
+ * - Animaciones de entrada escalonadas mediante Framer Motion.
+ * - Cierre accesible mediante clic en backdrop (overlay) o pulsación de la tecla Escape.
+ */
+
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -26,16 +41,19 @@ import { CompanyServiceDashboard } from './CompanyServiceDashboard';
 import { useOverlayClose } from '../../hooks/useOverlayClose';
 import './CompanySummary.css';
 
+// Variantes de animación para el contenedor del modal (Framer Motion)
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
 };
 
+// Variantes de animación para los elementos hijos (efecto de deslizamiento suave)
 const itemVariants = {
   hidden: { y: 16, opacity: 0 },
   visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110, damping: 16 } },
 };
 
+// Formatea fechas a representación legible en español (DD mmm AAAA)
 const formatDate = (value) => {
   if (!value) return '—';
   const d = new Date(value.length === 10 ? `${value}T00:00:00` : value);
@@ -43,14 +61,20 @@ const formatDate = (value) => {
   return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+// Determina si una cadena contiene un valor informativo real o solo un texto por defecto
 const isRealValue = (v) => v && !/^sin (dirección|especificar)$/i.test(String(v).trim()) && v !== '-';
 
+// Diccionario de etiquetas legibles para los niveles de la estructura empresarial
 const LEVEL_LABEL = {
   madre: 'Empresa madre',
   region: 'Regional',
   subsede: 'Subsede',
 };
 
+/**
+ * Componente interno MetaItem
+ * Renderiza un ítem de atributo en la cuadrícula de metadatos con ícono, etiqueta y valor
+ */
 const MetaItem = ({ icon: Icon, label, children }) => (
   <div className="cs-meta">
     <Icon size={18} className="cs-meta__icon" />
@@ -61,11 +85,23 @@ const MetaItem = ({ icon: Icon, label, children }) => (
   </div>
 );
 
+/**
+ * Componente principal CompanySummary
+ * 
+ * @param {Object} props
+ * @param {Object} props.company - Objeto con los datos de la empresa
+ * @param {Array} [props.contacts] - Lista de contactos vinculados
+ * @param {Array} [props.opportunities] - Lista de oportunidades comerciales vinculadas
+ * @param {Array} [props.activities] - Lista de actividades registradas con la empresa
+ * @param {Function} props.onClose - Callback para cerrar el modal
+ * @param {Function} [props.onEdit] - Callback opcional para abrir la edición de la empresa
+ */
 export const CompanySummary = ({ company, contacts = [], opportunities = [], activities = [], onClose, onEdit }) => {
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState([]); // Tareas asociadas a esta empresa
   // Cultivos: vienen en el detalle de la empresa (null mientras se cargan)
   const [crops, setCrops] = useState(Array.isArray(company.crops) ? company.crops : null);
 
+  // Carga diferida de cultivos si no vinieron en el objeto inicial de la empresa
   useEffect(() => {
     if (Array.isArray(company.crops)) { setCrops(company.crops); return undefined; }
     let alive = true;
@@ -74,8 +110,10 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
       .catch(() => alive && setCrops([]));
     return () => { alive = false; };
   }, [company]);
+  // Manejadores para detectar clics en el backdrop y cerrar el modal
   const overlayHandlers = useOverlayClose(onClose);
 
+  // Obtiene y filtra las tareas del sistema correspondientes a esta empresa
   useEffect(() => {
     let alive = true;
     tasksApi
@@ -92,13 +130,18 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
     };
   }, [company]);
 
+  // Listener para cerrar el modal al presionar la tecla Escape
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  /**
+   * Consolida y ordena de forma cronológica descendente las tareas, actividades y oportunidades
+   */
   const rows = useMemo(() => {
+    // Normaliza tareas operativas
     const taskRows = tasks.map((t) => ({
       key: `t-${t.id}`,
       details: t.title || t.description || 'Tarea',
@@ -106,6 +149,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
       status: /finaliz|complet/i.test(t.status || '') ? 'Finalizada' : 'Pendiente',
       date: t.dueDate,
     }));
+    // Normaliza actividades de contacto
     const activityRows = activities.map((a) => ({
       key: `a-${a.formId || a.id}`,
       details: a.description || contactTypeLabel(a.contactType) || 'Actividad',
@@ -113,6 +157,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
       status: 'Registrada',
       date: a.occurredAt,
     }));
+    // Normaliza oportunidades de venta
     const dealRows = opportunities.map((o) => ({
       key: `o-${o.id}`,
       details: o.title || o.dealName || 'Oportunidad',
@@ -120,16 +165,19 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
       status: o.status || 'Prospecto',
       date: o.lastActivityAt || o.startDate,
     }));
+    // Unión y ordenamiento por fecha más reciente
     return [...taskRows, ...activityRows, ...dealRows].sort(
       (a, b) => new Date(b.date || 0) - new Date(a.date || 0)
     );
   }, [tasks, activities, opportunities]);
 
+  // Datos normalizados de ubicación y etiquetas
   const locality = company.Locality?.localityName || company.locality;
   const tags = [company.companyType, LEVEL_LABEL[company.level || company.companyLevel]].filter(Boolean);
 
   return (
     <div className="cs-overlay" {...overlayHandlers}>
+      {/* Tarjeta principal modal animada con Framer Motion */}
       <motion.div
         className="cs-card"
         role="dialog"
@@ -139,6 +187,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
         animate="visible"
         variants={containerVariants}
       >
+        {/* Cabecera del modal: breadcrumbs y botones de acción (Editar y Cerrar) */}
         <header className="cs-header">
           <motion.div variants={itemVariants} className="cs-header__row">
             <div className="cs-breadcrumbs">
@@ -159,11 +208,14 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
           </motion.div>
         </header>
 
+        {/* Contenido principal del modal */}
         <div className="cs-body">
+          {/* Nombre principal de la empresa */}
           <motion.h1 variants={itemVariants} className="cs-title">
             {company.companyName}
           </motion.h1>
 
+          {/* Cuadrícula de metadatos y datos clave de la empresa */}
           <motion.div variants={itemVariants} className="cs-meta-grid">
             <MetaItem icon={Building2} label="Tipo">
               <div className="cs-tags">
@@ -203,10 +255,12 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
             )}
           </motion.div>
 
+          {/* Sección de tablero de servicios e indicadores de control de plagas */}
           <motion.section variants={itemVariants} className="cs-section">
             <CompanyServiceDashboard companyId={company.id} companyName={company.legalName || company.companyName} />
           </motion.section>
 
+          {/* Sección de contactos vinculados a la empresa */}
           <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
               <Users size={18} className="cs-meta__icon" /> Contactos
@@ -238,6 +292,7 @@ export const CompanySummary = ({ company, contacts = [], opportunities = [], act
             )}
           </motion.section>
 
+          {/* Sección cronológica integrada de tareas, actividades y oportunidades */}
           <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
               <ListChecks size={18} className="cs-meta__icon" /> Tareas, actividades y oportunidades

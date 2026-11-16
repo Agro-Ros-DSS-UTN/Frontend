@@ -1,6 +1,22 @@
-// Catálogos de la pantalla de órdenes de servicio. Las órdenes viven solo en el
-// backend: ya no se guardan copias en el navegador (tenían firmas y datos de clientes).
+/**
+ * @file serviceOrdersData.js
+ * @description Catálogos estáticos y funciones auxiliares para la gestión de Órdenes de Servicio.
+ * Define los tipos de trabajos técnicos autorizados, los estados válidos de las órdenes con sus
+ * respectivos esquemas de color para la interfaz, y utilidades de limpieza de caché local obsoleto.
+ *
+ * NOTA DE SEGURIDAD:
+ * Las órdenes de servicio se gestionan exclusivamente en el backend y no se persisten en el
+ * almacenamiento local del navegador para proteger datos sensibles de clientes y firmas digitales.
+ */
 
+// =============================================================================
+// TIPOS DE TRABAJO / SERVICIOS
+// =============================================================================
+
+/**
+ * Listado de tipos de trabajos técnicos agronómicos e industriales disponibles
+ * para la asignación y ejecución en instalaciones de acopio, celdas y silos.
+ */
 export const WORK_TYPES = [
   'Fumigación',
   'Fumigación de Celda',
@@ -13,7 +29,15 @@ export const WORK_TYPES = [
   'Otro',
 ];
 
-// Deben coincidir con los estados que acepta el backend.
+// =============================================================================
+// ESTADOS DE LAS ÓRDENES DE SERVICIO
+// =============================================================================
+
+/**
+ * Estados del flujo de vida de una orden de servicio.
+ * Deben mantenerse en sincronía estricta con los estados permitidos por la API del backend.
+ * Incluyen estilos para componentes visuales tipo chip/badge (color principal y fondo claro).
+ */
 export const ORDER_STATUSES = [
   { key: 'Programada', label: 'Programada', color: '#0284c7', bg: '#f0f9ff' },
   { key: 'En Ejecución', label: 'En Ejecución', color: '#d97706', bg: '#fffbeb' },
@@ -21,7 +45,21 @@ export const ORDER_STATUSES = [
   { key: 'Cancelada', label: 'Cancelada', color: '#ef4444', bg: '#fef2f2' },
 ];
 
-// Borra la copia local que dejaban las versiones anteriores.
+// =============================================================================
+// UTILIDADES DE LIMPIEZA
+// =============================================================================
+
+/**
+ * Elimina la copia local de órdenes que versiones anteriores de la aplicación
+ * almacenaban en el localStorage del navegador.
+ *
+ * Se ejecuta de manera segura capturando posibles excepciones en caso de que el
+ * navegador bloquee el acceso a localStorage (ej: modo incógnito o políticas de privacidad).
+ */
 export const clearLocalOrdersCache = () => {
-  try { localStorage.removeItem('agroros_service_orders_db'); } catch { /* sin storage */ }
+  try {
+    localStorage.removeItem('agroros_service_orders_db');
+  } catch {
+    /* Manejo silencioso en caso de no contar con acceso al storage */
+  }
 };

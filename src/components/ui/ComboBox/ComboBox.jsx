@@ -3,6 +3,14 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, PenLine } from 'lucide-react';
 import './ComboBox.css';
 
+/**
+ * Normaliza un elemento de opción:
+ * Si es un string simple, genera un objeto con propiedades `value` y `label`.
+ * Si ya es un objeto, lo retorna sin alteraciones.
+ *
+ * @param {string|object} o - Opción a transformar.
+ * @returns {{ value: any, label: string }} Objeto de opción normalizado.
+ */
 const toOption = (o) => (typeof o === 'string' ? { value: o, label: o } : o);
 
 /**
@@ -17,6 +25,25 @@ const toOption = (o) => (typeof o === 'string' ? { value: o, label: o } : o);
  *
  * La lista se dibuja en un portal con posición fija, así no la recortan las
  * tablas con scroll ni los modales.
+ *
+ * @param {Object} props - Propiedades del componente ComboBox.
+ * @param {string|number} props.value - Valor actual seleccionado o escrito.
+ * @param {Function} props.onChange - Función callback ejecutada al modificar el valor.
+ * @param {Array<string|object>} [props.options=[]] - Lista de opciones a sugerir.
+ * @param {string} [props.placeholder=''] - Texto guía para el campo vacío.
+ * @param {boolean} [props.freeText=true] - Si permite escribir texto arbitrario además de elegir.
+ * @param {boolean} [props.showCustom=true] - Con freeText: muestra la opción "Escribir otro valor…".
+ * @param {string} [props.customLabel='Escribir otro valor…'] - Texto para la opción de valor personalizado.
+ * @param {string} [props.emptyLabel] - Texto para una opción de deselección / vacío.
+ * @param {{ label: string, onSelect: Function }} [props.extraAction] - Acción adicional opcional al final.
+ * @param {string} [props.inputClassName=''] - Clases CSS adicionales para el input.
+ * @param {string} [props.className=''] - Clases CSS adicionales para el contenedor.
+ * @param {string} [props.ariaLabel] - Etiqueta accesible para lectores de pantalla.
+ * @param {string} [props.id] - Identificador HTML del input.
+ * @param {string} [props.name] - Nombre del campo para formularios.
+ * @param {boolean} [props.disabled=false] - Indica si el campo está inhabilitado.
+ * @param {number} [props.maxLength] - Cantidad máxima de caracteres permitidos.
+ * @param {string} [props.inputMode] - Modo de entrada de teclado virtual móvil.
  */
 export const ComboBox = ({
   value,
@@ -37,30 +64,48 @@ export const ComboBox = ({
   maxLength,
   inputMode,
 }) => {
+  // Memoriza y normaliza las opciones recibidas como objetos { value, label }
   const opts = useMemo(() => options.map(toOption), [options]);
+
+  // Estados locales para el control de apertura, tipeo, foco en lista y posicionamiento
   const [open, setOpen] = useState(false);
   const [typing, setTyping] = useState(false); // filtrar solo mientras se escribe
   const [highlight, setHighlight] = useState(0);
   const [pos, setPos] = useState(null);
+
+  // Referencias al input principal y al menú desplegable flotante
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
+  // Búsqueda de la opción actualmente seleccionada en base al valor actual
   const current = opts.find((o) => o.value === value);
+
+  // Determina qué texto debe mostrar el input: el valor literal (si es texto libre) o la etiqueta de la opción
   const shown = freeText ? (value ?? '') : (current?.label ?? '');
 
+  // Genera la lista final de elementos a renderizar en el menú desplegable
   const items = useMemo(() => {
     const q = String(value ?? '').toLowerCase().trim();
+    // Filtra las opciones si se está tipeando y hay una consulta activa
     const filtered = freeText && typing && q
       ? opts.filter((o) => o.label.toLowerCase().includes(q) || String(o.value).toLowerCase().includes(q))
       : opts;
     const list = [];
+    // Opción vacía si fue definida explícitamente
     if (emptyLabel !== undefined) list.push({ kind: 'empty', label: emptyLabel });
+    // Opciones regulares
     filtered.forEach((o) => list.push({ kind: 'option', ...o }));
+    // Opción para habilitar escritura manual libre si está configurado
     if (freeText && showCustom) list.push({ kind: 'custom', label: customLabel });
+    // Acción personalizada extra si fue provista
     if (extraAction) list.push({ kind: 'extra', label: extraAction.label });
     return list;
   }, [opts, value, freeText, showCustom, typing, customLabel, emptyLabel, extraAction]);
 
+  /**
+   * Calcula las coordenadas de posición y dimensiones para ubicar la lista flotante
+   * en relación al input, adaptándose al zoom de la pantalla y decidiendo si abrir hacia abajo o hacia arriba.
+   */
   const place = () => {
     const r = inputRef.current?.getBoundingClientRect();
     if (!r) return;
@@ -78,6 +123,7 @@ export const ComboBox = ({
     });
   };
 
+  // Efecto de diseño: calcula la posición al abrir el desplegable y la recalcula al scrollear o redimensionar
   useLayoutEffect(() => {
     if (!open) return undefined;
     place();
@@ -90,6 +136,7 @@ export const ComboBox = ({
     };
   }, [open]);
 
+  // Efecto para cerrar el desplegable al hacer clic fuera del input o de la lista
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (e) => {
@@ -101,10 +148,16 @@ export const ComboBox = ({
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
 
+  // Efecto para inicializar el elemento resaltado en la lista cuando se abre el menú
   useEffect(() => {
     if (open) setHighlight(Math.max(0, items.findIndex((it) => it.kind === 'option' && it.value === value)));
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Procesa la selección de un ítem de la lista (opción regular, vacía, personalizada o acción extra)
+   *
+   * @param {object} it - Elemento seleccionado de la lista.
+   */
   const choose = (it) => {
     if (it.kind === 'option') onChange(it.value);
     if (it.kind === 'empty') onChange('');
@@ -120,6 +173,11 @@ export const ComboBox = ({
     setTyping(false);
   };
 
+  /**
+   * Manejador de teclado para navegación accesible (flechas, Enter, Escape, Tab, etc.)
+   *
+   * @param {React.KeyboardEvent} e - Evento del teclado.
+   */
   const onKeyDown = (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
@@ -139,8 +197,10 @@ export const ComboBox = ({
     }
   };
 
+  // Renderizado del componente ComboBox
   return (
     <span className={`crm-combo ${className}`}>
+      {/* Campo de texto principal con soporte de accesibilidad y control de apertura */}
       <input
         ref={inputRef}
         id={id}
@@ -168,7 +228,9 @@ export const ComboBox = ({
         }}
         onKeyDown={onKeyDown}
       />
+      {/* Ícono de flecha indicadora de menú desplegable */}
       <ChevronDown size={14} className="crm-combo__chevron" aria-hidden="true" />
+      {/* Renderizado flotante de la lista de opciones mediante un Portal en el body */}
       {open && pos && createPortal(
         <ul
           ref={listRef}
@@ -186,6 +248,7 @@ export const ComboBox = ({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => choose(it)}
             >
+              {/* Ícono ilustrativo si es acción para escribir otro valor o acción extra */}
               {(it.kind === 'custom' || it.kind === 'extra') && <PenLine size={13} />}
               {it.label}
             </li>

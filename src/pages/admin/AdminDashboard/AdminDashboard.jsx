@@ -1,3 +1,12 @@
+/**
+ * @file AdminDashboard.jsx
+ * @description Tablero de control ejecutivo para el rol Administrador.
+ * Proporciona una vista consolidada de métricas comerciales clave (KPIs),
+ * rendimiento del equipo de ventas, embudo de oportunidades, historial de órdenes de
+ * servicio por cliente, evolución mensual de ventas y registro de actividades en vivo.
+ * Permite filtrar por vendedor y personalizar la visibilidad y orden de los widgets.
+ */
+
 import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   TrendingUp,
@@ -39,6 +48,16 @@ import './AdminDashboard.css';
 
 /* ── Canvas Chart Helpers ── */
 
+/**
+ * Hook personalizado para manejar el ciclo de vida de un elemento <canvas>.
+ * Ajusta la resolución del canvas según la densidad de píxeles de la pantalla (devicePixelRatio)
+ * para evitar que los gráficos se vean borrosos en pantallas de alta densidad (Retina/HiDPI),
+ * limpia el área de dibujo y ejecuta la función de renderizado provista.
+ *
+ * @param {Function} draw - Función de renderizado que recibe (ctx, width, height).
+ * @param {Array} deps - Arreglo de dependencias que desencadenan el redibujado.
+ * @returns {React.RefObject} Referencia de React para asociar al elemento <canvas>.
+ */
 const useCanvas = (draw, deps = []) => {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -57,6 +76,17 @@ const useCanvas = (draw, deps = []) => {
 };
 
 /* ── Bar Chart (Vertical) ── */
+
+/**
+ * Componente de gráfico de barras verticales renderizado mediante HTML5 Canvas.
+ * Dibuja líneas de cuadrícula horizontales con valores escalados, barras proporcionales
+ * con esquinas redondeadas y etiquetas para los ejes X e Y.
+ *
+ * @param {Object} props
+ * @param {Array<{label: string, value: number, color?: string}>} props.data - Datos a graficar.
+ * @param {string|number} [props.width='100%'] - Ancho del canvas.
+ * @param {number} [props.height=260] - Altura del canvas en píxeles.
+ */
 const BarChart = ({ data, width = '100%', height = 260 }) => {
   const canvasRef = useCanvas((ctx, w, h) => {
     if (!data || data.length === 0) return;
@@ -67,7 +97,7 @@ const BarChart = ({ data, width = '100%', height = 260 }) => {
     const barWidth = Math.min(42, (chartW / data.length) * 0.55);
     const gap = (chartW - barWidth * data.length) / (data.length + 1);
 
-    // Grid lines
+    // Grid lines (Líneas de guía horizontales con etiquetas numéricas de referencia)
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 0.5;
     ctx.font = '11px "Plus Jakarta Sans", Inter, sans-serif';
@@ -84,7 +114,7 @@ const BarChart = ({ data, width = '100%', height = 260 }) => {
       ctx.fillText(label.toLocaleString('es-AR'), padding.left - 8, y + 4);
     }
 
-    // Bars
+    // Bars (Dibujo de cada una de las columnas con su valor superior y etiqueta inferior)
     data.forEach((d, i) => {
       const x = padding.left + gap + i * (barWidth + gap);
       const barH = (d.value / maxVal) * chartH;
@@ -95,7 +125,7 @@ const BarChart = ({ data, width = '100%', height = 260 }) => {
       ctx.fillStyle = d.color || '#1a7d6b';
       ctx.fill();
 
-      // Value label on top
+      // Value label on top (Muestra el número sobre la barra si es mayor a cero)
       if (d.value > 0) {
         ctx.fillStyle = '#334155';
         ctx.font = 'bold 11px "Plus Jakarta Sans", Inter, sans-serif';
@@ -103,7 +133,7 @@ const BarChart = ({ data, width = '100%', height = 260 }) => {
         ctx.fillText(d.value.toString(), x + barWidth / 2, y - 6);
       }
 
-      // X Axis Label
+      // X Axis Label (Nombre de la categoría truncado si excede la longitud visual)
       ctx.fillStyle = '#64748b';
       ctx.font = '11px "Plus Jakarta Sans", Inter, sans-serif';
       ctx.textAlign = 'center';
@@ -116,6 +146,17 @@ const BarChart = ({ data, width = '100%', height = 260 }) => {
 };
 
 /* ── Line / Area Chart (Monthly Sales) ── */
+
+/**
+ * Componente de gráfico de línea y área sombreada para ventas mensuales.
+ * Traza una curva de evolución con relleno de gradiente translúcido, puntos de control
+ * en cada mes y etiquetas de valor en escala abreviada ($k o $M).
+ *
+ * @param {Object} props
+ * @param {Array<{month: string, sales: number}>} props.data - Lista de ventas por mes.
+ * @param {string|number} [props.width='100%'] - Ancho del canvas.
+ * @param {number} [props.height=260] - Altura del canvas en píxeles.
+ */
 const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
   const canvasRef = useCanvas((ctx, w, h) => {
     if (!data || data.length === 0) return;
@@ -124,7 +165,7 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
     const chartH = h - padding.top - padding.bottom;
     const maxVal = Math.max(...data.map((d) => d.sales), 1000);
 
-    // Y Axis Grid
+    // Y Axis Grid (Escala y cuadrícula del eje vertical de montos de facturación)
     ctx.strokeStyle = '#f1f5f9';
     ctx.lineWidth = 1;
     ctx.font = '10px "Plus Jakarta Sans", Inter, sans-serif';
@@ -142,13 +183,14 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
       ctx.fillText(label, padding.left - 8, y + 3);
     }
 
+    // Coordenadas calculadas para cada punto de venta en el gráfico
     const points = data.map((d, i) => ({
       x: padding.left + (i / (data.length - 1 || 1)) * chartW,
       y: padding.top + chartH - (d.sales / maxVal) * chartH,
       val: d.sales,
     }));
 
-    // Area fill
+    // Area fill (Relleno inferior sombreado con gradiente lineal suave)
     ctx.beginPath();
     ctx.moveTo(points[0].x, padding.top + chartH);
     points.forEach((p) => ctx.lineTo(p.x, p.y));
@@ -160,7 +202,7 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Line
+    // Line (Trazo principal de la línea de ventas continuas)
     ctx.beginPath();
     points.forEach((p, i) => {
       if (i === 0) ctx.moveTo(p.x, p.y);
@@ -170,7 +212,7 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Dots & Labels
+    // Dots & Labels (Puntos circulares en cada coordenada y abreviatura del mes en el eje X)
     points.forEach((p, i) => {
       ctx.beginPath();
       ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
@@ -193,10 +235,24 @@ const MonthlySalesChart = ({ data, width = '100%', height = 260 }) => {
 
 
 /* ── Filter Dropdown Component ── */
+
+/**
+ * Componente de menú desplegable para aplicar filtros rápidos (ej. filtrar por vendedor).
+ * Incluye accesibilidad ARIA y cierra automáticamente el menú al hacer clic fuera del control.
+ *
+ * @param {Object} props
+ * @param {string} props.label - Etiqueta descriptiva del filtro.
+ * @param {string} [props.hint] - Texto de ayuda contextual (tooltip).
+ * @param {React.ComponentType} props.icon - Ícono de Lucide para ilustrar el filtro.
+ * @param {string[]} props.options - Opciones seleccionables en el menú.
+ * @param {string} props.value - Valor actualmente seleccionado (cadena vacía = todos).
+ * @param {Function} props.onChange - Callback invocado al seleccionar una opción.
+ */
 const FilterDropdown = ({ label, hint, icon: Icon, options, value, onChange }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
+  // Cierra el menú desplegable si se detecta un clic fuera de su contenedor
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
@@ -207,6 +263,7 @@ const FilterDropdown = ({ label, hint, icon: Icon, options, value, onChange }) =
 
   return (
     <div className="dash-filter" ref={ref}>
+      {/* Botón principal que dispara la apertura del menú */}
       <button
         type="button"
         className={`dash-filter__btn ${value ? 'dash-filter__btn--active' : ''}`}
@@ -218,6 +275,8 @@ const FilterDropdown = ({ label, hint, icon: Icon, options, value, onChange }) =
         <span>{value ? `${label}: ${value}` : `${label}: todos`}</span>
         <ChevronDown size={12} aria-hidden="true" className={`dash-filter__chevron ${open ? 'dash-filter__chevron--open' : ''}`} />
       </button>
+
+      {/* Menú flotante con las opciones del filtro */}
       {open && (
         <div className="dash-filter__dropdown">
           <button
@@ -253,8 +312,15 @@ const FilterDropdown = ({ label, hint, icon: Icon, options, value, onChange }) =
 
 /* ── Admin Dashboard Page (Real DB Integration) ── */
 
+/**
+ * Página principal del Dashboard Administrativo.
+ * Coordina la carga de métricas de negocio, filtros interactivos y renderizado
+ * de widgets configurables mediante el hook `useWidgetPreferences`.
+ */
 export const AdminDashboardPage = () => {
   const navigate = useNavigate();
+
+  // Estados de datos principales cargados desde los distintos endpoints de la API
   const [companies, setCompanies] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [clients, setClients] = useState([]);
@@ -264,12 +330,15 @@ export const AdminDashboardPage = () => {
   const [objectives, setObjectives] = useState([]);
   const [monthlySales, setMonthlySales] = useState([]);
 
+  // Estados de carga y error en la comunicación con el backend
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Filtros aplicados a los datos y órdenes de servicio asociadas
   const [filterOwner, setFilterOwner] = useState('');
   const [serviceOrders, setServiceOrders] = useState([]);
 
+  // Control del drawer lateral de personalización de widgets
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const {
     widgetStates,
@@ -282,6 +351,7 @@ export const AdminDashboardPage = () => {
     totalCount,
   } = useWidgetPreferences('admin_dashboard', ADMIN_DASHBOARD_WIDGETS);
 
+  // Mapeo memorizado para definir el orden CSS flex/grid de cada widget según preferencias
   const orderMap = useMemo(() => {
     const map = {};
     widgetStates.forEach((w, idx) => {
@@ -290,13 +360,14 @@ export const AdminDashboardPage = () => {
     return map;
   }, [widgetStates]);
 
-  // 1. Cargar datos de la base de datos MySQL
+  // 1. Cargar datos de la base de datos MySQL al montar el componente
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         setError(null);
 
+        // Obtener datos consolidados del dashboard ejecutivo
         const data = await getDashboardData();
         setClients(data.clients || []);
         setOpportunities(data.opportunities || []);
@@ -313,7 +384,7 @@ export const AdminDashboardPage = () => {
           setTasks(Array.isArray(rawTasks) ? rawTasks : rawTasks?.data || []);
         }
 
-        // Cargar actividades sincronizadas de MySQL
+        // Cargar actividades sincronizadas de MySQL y normalizar archivos adjuntos / notas de audio
         try {
           const acts = await activitiesApi.getAll();
           const rawActs = Array.isArray(acts) ? acts : acts?.data || [];
@@ -358,10 +429,12 @@ export const AdminDashboardPage = () => {
     fetchDashboardData();
   }, []);
 
+  // Opciones únicas de nombres de vendedores para poblar el dropdown de filtrado
   const ownerOptions = useMemo(() => [
     ...new Set(sellers.map((s) => s.fullName || s.user?.fullName).filter(Boolean)),
   ], [sellers]);
 
+  // Filtra las oportunidades comerciales en base al vendedor seleccionado en el filtro
   const filteredOpps = useMemo(() => {
     let opps = opportunities;
     if (filterOwner) {
@@ -370,6 +443,7 @@ export const AdminDashboardPage = () => {
     return opps;
   }, [opportunities, filterOwner]);
 
+  // Filtra las actividades de campo en base al vendedor seleccionado en el filtro
   const filteredActivities = useMemo(() => {
     let acts = activities;
     if (filterOwner) {
@@ -378,15 +452,17 @@ export const AdminDashboardPage = () => {
     return acts;
   }, [activities, filterOwner]);
 
-  // KPIs
+  // KPIs calculados sobre los datos filtrados
   const totalClientsCount = clients.length;
   const historicalSalesTotal = filteredOpps.reduce((sum, o) => sum + (Number(o.billedVolume) || 0), 0);
   const totalInteractions = filteredActivities.length;
   const activeClientsCount = clients.filter((c) => c.status === 'Activo' || c.customerType !== 'Inactivo').length;
 
+  // Promedio de facturación por oportunidad comercial cerrada con venta
   const oppsWithSales = filteredOpps.filter((o) => Number(o.billedVolume) > 0);
   const avgTicket = oppsWithSales.length > 0 ? historicalSalesTotal / oppsWithSales.length : 0;
 
+  // Cálculo de acciones y visitas planificadas para los próximos 7 días
   const nextActionsCount = useMemo(() => {
     const now = new Date();
     const nextWeek = new Date();
@@ -397,11 +473,13 @@ export const AdminDashboardPage = () => {
     }).length;
   }, [filteredActivities]);
 
+  // Formateador estándar de moneda argentina ($ con separador de miles)
   const formatCurrency = (val) => {
     const num = Number(val) || 0;
     return `$${num.toLocaleString('es-AR')}`;
   };
 
+  // Agrupamiento de oportunidades por etapa para alimentar el gráfico de barras
   const pipelineChartData = useMemo(() => {
     const counts = {};
     OPPORTUNITY_STATES.forEach((st) => (counts[st.key] = 0));
@@ -445,6 +523,7 @@ export const AdminDashboardPage = () => {
   }, [clients, serviceOrders, filteredActivities]);
 
 
+  // Vista de pantalla de carga mientras se obtienen los datos de la API
   if (loading) {
     return (
       <div
@@ -465,6 +544,7 @@ export const AdminDashboardPage = () => {
     );
   }
 
+  // Vista de error si falló la comunicación con el servidor
   if (error) {
     return (
       <div
@@ -503,7 +583,7 @@ export const AdminDashboardPage = () => {
 
   return (
     <div className="dashboard">
-      {/* Page Header */}
+      {/* Encabezado principal de la página con título y botón de personalización */}
       <div className="dashboard__header">
         <div>
           <h1 className="dashboard__title">Vista general de datos</h1>
@@ -520,7 +600,7 @@ export const AdminDashboardPage = () => {
         </button>
       </div>
 
-      {/* Filters Bar */}
+      {/* Barra de filtros: selector de vendedor y botón para resetear filtro */}
       <div className="dashboard__filters">
         <div className="dashboard__filters-left">
           <FilterDropdown
@@ -539,9 +619,10 @@ export const AdminDashboardPage = () => {
         )}
       </div>
 
-      {/* Resumen Ejecutivo — 6 KPI Cards */}
+      {/* Resumen Ejecutivo — Tarjetas de indicadores numéricos (KPIs) */}
       {isVisible('dash_exec_kpis') && (
         <div className="dashboard__exec-kpis" style={{ order: orderMap['dash_exec_kpis'] ?? 0 }}>
+          {/* KPI: Clientes totales registrados */}
           <div className="exec-kpi-card">
             <div className="exec-kpi-header">
               <Users size={16} className="exec-kpi-icon blue" />
@@ -551,6 +632,7 @@ export const AdminDashboardPage = () => {
             <span className="exec-kpi-foot">clientes registrados</span>
           </div>
 
+          {/* KPI: Cantidad de interacciones y formularios completados */}
           <div className="exec-kpi-card">
             <div className="exec-kpi-header">
               <Activity size={16} className="exec-kpi-icon orange" />
@@ -560,6 +642,7 @@ export const AdminDashboardPage = () => {
             <span className="exec-kpi-foot">formularios registrados</span>
           </div>
 
+          {/* KPI: Clientes en estado activo en cartera */}
           <div className="exec-kpi-card">
             <div className="exec-kpi-header">
               <CheckCircle2 size={16} className="exec-kpi-icon green" />
@@ -569,6 +652,7 @@ export const AdminDashboardPage = () => {
             <span className="exec-kpi-foot">en cartera comercial</span>
           </div>
 
+          {/* KPI: Ticket promedio de operaciones cerradas */}
           <div className="exec-kpi-card">
             <div className="exec-kpi-header">
               <TrendingUp size={16} className="exec-kpi-icon purple" />
@@ -578,6 +662,7 @@ export const AdminDashboardPage = () => {
             <span className="exec-kpi-foot">por operación</span>
           </div>
 
+          {/* KPI: Actividades y tareas programadas para la próxima semana */}
           <div className="exec-kpi-card">
             <div className="exec-kpi-header">
               <Calendar size={16} className="exec-kpi-icon amber" />
@@ -589,7 +674,7 @@ export const AdminDashboardPage = () => {
         </div>
       )}
 
-      {/* Row 2: Top 5 Clientes por Ventas + Estado de Oportunidades */}
+      {/* Fila 2: Tabla de Top 5 Clientes por Ventas + Gráfico de Estado de Oportunidades */}
       {(isVisible('dash_top_clients') || isVisible('dash_pipeline')) && (
         <div
           className="dashboard__grid"
@@ -601,6 +686,7 @@ export const AdminDashboardPage = () => {
             ),
           }}
         >
+          {/* Widget: Top 5 empresas con más órdenes de servicio concretadas */}
           {isVisible('dash_top_clients') && (
             <div className="dashboard__card" style={{ order: orderMap['dash_top_clients'] ?? 1 }}>
               <div className="dashboard__card-header">
@@ -648,6 +734,7 @@ export const AdminDashboardPage = () => {
             </div>
           )}
 
+          {/* Widget: Gráfico de embudo de etapas de oportunidades */}
           {isVisible('dash_pipeline') && (
             <div className="dashboard__chart-card" style={{ order: orderMap['dash_pipeline'] ?? 2 }}>
               <div className="dashboard__chart-header">
@@ -665,14 +752,14 @@ export const AdminDashboardPage = () => {
         </div>
       )}
 
-      {/* Row 3: Servicios cumplidos por cliente (respaldo para negociar con la empresa) */}
+      {/* Fila 3: Servicios cumplidos por cliente (respaldo para negociar con la empresa) */}
       {isVisible('dash_service_record') && (
         <div className="dashboard__row" style={{ order: orderMap['dash_service_record'] ?? 3 }}>
           <CompanyServiceRecord companies={companies} />
         </div>
       )}
 
-      {/* Row 3b: Ventas por Mes */}
+      {/* Fila 3b: Evolución de facturación mensual en el año */}
       {isVisible('dash_monthly_sales') && (
         <div className="dashboard__row" style={{ order: orderMap['dash_monthly_sales'] ?? 4 }}>
           <div className="dashboard__chart-card">
@@ -690,7 +777,7 @@ export const AdminDashboardPage = () => {
         </div>
       )}
 
-      {/* Row 4: Registro de Actividades en Vivo (Sincronizado entre Administradores y Vendedores) */}
+      {/* Fila 4: Registro de Actividades en Vivo (Sincronizado entre Administradores y Vendedores) */}
       {isVisible('dash_recent_activities') && (
         <div className="dashboard__card" style={{ marginTop: '1rem', order: orderMap['dash_recent_activities'] ?? 5 }}>
         <div className="dashboard__card-header">
@@ -722,6 +809,7 @@ export const AdminDashboardPage = () => {
                   flexWrap: 'wrap',
                 }}
               >
+                {/* Detalle de autor, tipo de contacto, notas y reproductor de audio si existe */}
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flex: 1, minWidth: '280px' }}>
                   <div
                     style={{
@@ -762,6 +850,7 @@ export const AdminDashboardPage = () => {
                       {a.description}
                     </p>
 
+                    {/* Reproductor de nota de voz grabada en el campo si está disponible */}
                     {a.audioData?.url && (
                       <div style={{ marginTop: '4px' }}>
                         <VoiceNotePlayer audioUrl={a.audioData.url} audioName={a.audioData.name} compact />
@@ -770,6 +859,7 @@ export const AdminDashboardPage = () => {
                   </div>
                 </div>
 
+                {/* Fecha/hora de la actividad y monto de venta si aplicó */}
                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                   <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
                     {new Date(a.occurredAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -789,7 +879,7 @@ export const AdminDashboardPage = () => {
       </div>
       )}
 
-      {/* Row 5: Rendimiento del Equipo Comercial */}
+      {/* Fila 5: Rendimiento y cumplimiento de metas del equipo comercial */}
       {isVisible('dash_seller_performance') && (
         <div className="dashboard__card" style={{ marginTop: '1rem', order: orderMap['dash_seller_performance'] ?? 6 }}>
         <div className="dashboard__card-header">
@@ -799,6 +889,7 @@ export const AdminDashboardPage = () => {
           {sellers.map((seller) => {
             const name = seller.fullName || seller.user?.fullName || 'Sin nombre';
             const sellerUserId = seller.idUser || seller.user?.idUser;
+            // Métricas asociadas específicamente a este vendedor
             const sellerOpps = filteredOpps.filter((o) => o.ownerId === sellerUserId || o.seller === name);
             const sellerCompanies = companies.filter((c) => !c.parentCompanyId && c.createdById === sellerUserId).length;
             const sellerFinishedTasks = tasks.filter(
@@ -806,6 +897,7 @@ export const AdminDashboardPage = () => {
             ).length;
             const sellerObj = objectives.find((o) => o.idUser === sellerUserId || o.seller === name);
 
+            // Porcentaje de progreso respecto al objetivo asignado
             const progress = sellerObj && sellerObj.targetAmount > 0
               ? Math.min(100, (sellerObj.met / sellerObj.targetAmount) * 100)
               : 0;
@@ -820,6 +912,7 @@ export const AdminDashboardPage = () => {
                     <div className="seller-card__name">{name}</div>
                   </div>
                 </div>
+                {/* Indicadores numéricos del vendedor con enlaces de navegación rápida */}
                 <div className="seller-card__stats">
                   <div className="seller-card__stat">
                     <span className="seller-card__stat-value">{sellerOpps.length}</span>
@@ -844,6 +937,7 @@ export const AdminDashboardPage = () => {
                     <span className="seller-card__stat-label">Tareas concretadas</span>
                   </button>
                 </div>
+                {/* Barra de progreso si el vendedor tiene un objetivo vigente */}
                 {sellerObj && (
                   <div className="seller-card__objective">
                     <div className="seller-card__obj-header">
@@ -879,7 +973,7 @@ export const AdminDashboardPage = () => {
         </div>
       )}
 
-      {/* Drawer de personalización */}
+      {/* Drawer lateral de personalización de widgets (mostrar/ocultar y reordenar) */}
       <WidgetManagerDrawer
         isOpen={customizerOpen}
         onClose={() => setCustomizerOpen(false)}

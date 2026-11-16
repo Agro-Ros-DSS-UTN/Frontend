@@ -1,3 +1,12 @@
+/**
+ * @file EmployeesPage.jsx
+ * @description Gestión de Empleados del personal operativo en el CRM AgroRos.
+ * Administra el personal de campo que no cuenta con acceso directo al sistema
+ * (técnicos aplicadores, operarios, ayudantes, supervisores de campo, choferes),
+ * permitiendo su registro, edición, validación de matrícula habilitante profesional,
+ * control de estado activo/inactivo y asignación a órdenes de servicio.
+ */
+
 import { useState, useMemo, useEffect } from 'react';
 import {
   Users,
@@ -29,6 +38,7 @@ import { LIMITS, checkDni, checkEmail, checkPersonName, checkPhone, checkText, c
 import { SearchClearButton } from '../../../components/ui/SearchClearButton/SearchClearButton';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
+// Expresión regular para validar el formato estándar de una dirección de correo electrónico
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Sugerencias para el puesto; se puede escribir cualquier otro. El rol interno se
@@ -46,11 +56,16 @@ const JOB_TITLE_SUGGESTIONS = [
   'Vendedor',
 ];
 
+// Determina si el puesto corresponde a un técnico aplicador (requiere matrícula obligatoria)
 const isApplicator = (jobTitle = '') => /t[eé]cnic|aplicador|fumig/i.test(jobTitle);
+
+// Determina si el empleado tiene autorización técnica para firmar órdenes de servicio
 const canSignOrders = (jobTitle = '') => isApplicator(jobTitle) || /jefe de operaci|supervis/i.test(jobTitle);
 
+// Cantidad de empleados por página
 const PAGE_SIZE = 10;
 
+// Definición de las columnas de la tabla con soporte de ordenamiento
 const COLUMNS = [
   { key: 'fullName', label: 'Empleado', sortable: true },
   { key: 'licenseNumber', label: 'Matrícula', sortable: true },
@@ -60,6 +75,7 @@ const COLUMNS = [
   { key: 'active', label: 'Estado', sortable: true },
 ];
 
+// Genera un objeto de formulario en blanco con valores por defecto
 const emptyForm = () => ({
   fullName: '',
   nationalId: '',
@@ -73,6 +89,7 @@ const emptyForm = () => ({
   profileImage: null,
 });
 
+// Obtiene hasta dos iniciales en mayúsculas para el avatar por defecto
 const initials = (name) =>
   (name || '?')
     .split(' ')
@@ -82,12 +99,14 @@ const initials = (name) =>
     .join('')
     .toUpperCase();
 
+// Formatea una fecha ISO a formato local DD/MM/AAAA
 const formatDate = (value) => {
   if (!value) return '—';
   const d = new Date(`${String(value).slice(0, 10)}T00:00:00`);
   return isNaN(d) ? value : d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+// Valida todos los campos del formulario de empleado antes de enviar
 const validate = (form) => collectErrors({
   fullName: checkPersonName(form.fullName, { label: 'El nombre y apellido' }),
   nationalId: checkDni(form.nationalId),
@@ -100,20 +119,30 @@ const validate = (form) => collectErrors({
   notes: checkText(form.notes, { label: 'Las observaciones', max: 1000 }),
 });
 
+/**
+ * Componente de página `EmployeesPage`.
+ * Renderiza el catálogo del personal operativo y el formulario deslizante de alta/edición.
+ */
 export const EmployeesPage = () => {
+  // Estados para almacenamiento de la lista de empleados y control de carga
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Estados de búsqueda, filtros de estado y ordenamiento
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('fullName');
   const [sortDir, setSortDir] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Estados para el panel lateral (SlideDrawer), errores y datos del formulario
   const [showDrawer, setShowDrawer] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState(emptyForm());
 
+  // Consulta la lista completa de empleados desde el backend
   const fetchEmployees = async () => {
     setLoading(true);
     try {
@@ -127,13 +156,16 @@ export const EmployeesPage = () => {
     }
   };
 
+  // Carga inicial al montar la página
   useEffect(() => {
     fetchEmployees();
   }, []);
 
+  // Conteos calculados para las tarjetas estadísticas superiores
   const active = employees.filter((e) => e.active !== false).length;
   const applicators = employees.filter((e) => canSignOrders(e.jobTitle) && e.active !== false).length;
 
+  // Filtrado y ordenamiento memorizado de los empleados visibles
   const filtered = useMemo(() => {
     let result = employees;
     if (statusFilter === 'active') result = result.filter((e) => e.active !== false);
@@ -160,9 +192,11 @@ export const EmployeesPage = () => {
     });
   }, [employees, statusFilter, searchQuery, sortBy, sortDir]);
 
+  // Paginación de resultados
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+  // Alterna o cambia la columna de orden
   const handleSort = (key) => {
     if (sortBy === key) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -172,6 +206,7 @@ export const EmployeesPage = () => {
     }
   };
 
+  // Abre el drawer para registrar un nuevo empleado
   const openCreate = () => {
     setEditingId(null);
     setErrors({});
@@ -179,6 +214,7 @@ export const EmployeesPage = () => {
     setShowDrawer(true);
   };
 
+  // Carga los datos de un empleado y abre el drawer para edición
   const openEdit = (emp) => {
     setEditingId(emp.id);
     setErrors({});
@@ -197,12 +233,14 @@ export const EmployeesPage = () => {
     setShowDrawer(true);
   };
 
+  // Actualiza los campos del formulario y limpia el error del campo editado
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  // Envía el formulario para crear o actualizar un empleado
   const handleSubmit = async (e) => {
     e.preventDefault();
     const found = validate(form);
@@ -237,6 +275,7 @@ export const EmployeesPage = () => {
     }
   };
 
+  // Exporta la lista filtrada de empleados a formato CSV
   const handleExportCSV = () => {
     const headers = ['Nombre y Apellido', 'DNI', 'Matrícula', 'Puesto', 'Teléfono', 'Email', 'Fecha de Ingreso', 'Estado'];
     const rows = filtered.map((e) => [
@@ -260,6 +299,7 @@ export const EmployeesPage = () => {
     document.body.removeChild(link);
   };
 
+  // Elimina un empleado tras solicitar confirmación
   const handleDelete = async (emp) => {
     if (!await confirmAction(`¿Eliminar al empleado "${emp.fullName}"?`)) return;
     try {
@@ -276,6 +316,7 @@ export const EmployeesPage = () => {
 
   return (
     <div className="emp-page">
+      {/* Encabezado con título, descripción y botones de acción principal */}
       <div className="emp-page__header">
         <div>
           <div className="emp-page__title-row">
@@ -296,6 +337,7 @@ export const EmployeesPage = () => {
         </PageHeaderActions>
       </div>
 
+      {/* Tarjetas con estadísticas rápidas: Total, Activos y Técnicos habilitados */}
       <div className="emp-stats">
         <div className="emp-stat">
           <span className="emp-stat__label">Total</span>
@@ -311,7 +353,9 @@ export const EmployeesPage = () => {
         </div>
       </div>
 
+      {/* Tarjeta principal con barra de herramientas, buscador y tabla */}
       <div className="users-page__card">
+        {/* Barra de filtros: buscador con botón de limpieza y pestañas por estado */}
         <div className="users-page__toolbar crm-filterbar">
           <div className="users-page__search">
             <Search size={16} color="#64748b" />
@@ -336,6 +380,7 @@ export const EmployeesPage = () => {
           />
         </div>
 
+        {/* Tabla de empleados */}
         <div className="users-page__table-wrapper">
           <table className="users-table">
             <thead>
@@ -364,6 +409,7 @@ export const EmployeesPage = () => {
               </tr>
             </thead>
             <tbody>
+              {/* Mensaje mientras carga o si no hay registros */}
               {loading ? (
                 <tr>
                   <td colSpan={COLUMNS.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
@@ -379,10 +425,12 @@ export const EmployeesPage = () => {
                   </td>
                 </tr>
               ) : (
+                /* Filas de empleados con avatar, puesto, contactos y estado */
                 paginated.map((emp) => {
                   const isActive = emp.active !== false;
                   return (
                     <tr key={emp.id} className="users-table__row">
+                      {/* Avatar con foto o iniciales, Nombre y DNI */}
                       <td>
                         <div className="users-table__name-cell">
                           <div className="users-table__avatar users-table__avatar--vendedor emp-avatar">
@@ -394,7 +442,9 @@ export const EmployeesPage = () => {
                           </div>
                         </div>
                       </td>
+                      {/* Número de matrícula profesional */}
                       <td>{emp.licenseNumber || <span style={{ color: '#94a3b8' }}>-</span>}</td>
+                      {/* Pastilla con el puesto desempeñado y destaque si puede firmar órdenes */}
                       <td>
                         {emp.jobTitle ? (
                           <span
@@ -408,6 +458,7 @@ export const EmployeesPage = () => {
                           <span style={{ color: '#94a3b8' }}>-</span>
                         )}
                       </td>
+                      {/* Datos de contacto (teléfono y correo) */}
                       <td>
                         <div className="emp-contact-cell">
                           {/* Teléfono y email del empleado. El email solo es enlace si es una dirección válida
@@ -432,13 +483,16 @@ export const EmployeesPage = () => {
                           {!emp.email && !emp.phone && <span style={{ color: '#94a3b8' }}>-</span>}
                         </div>
                       </td>
+                      {/* Fecha de ingreso en la empresa */}
                       <td>{formatDate(emp.hireDate)}</td>
+                      {/* Indicador de estado activo o inactivo */}
                       <td>
                         <span className={`users-table__status-pill ${isActive ? 'users-table__status-pill--active' : 'users-table__status-pill--inactive'}`}>
                           <span className="status-dot" />
                           {isActive ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
+                      {/* Botones de acción: Editar y Eliminar */}
                       <td style={{ textAlign: 'center' }}>
                         <div className="users-table__actions">
                           <button type="button" className="users-table__action-btn" onClick={() => openEdit(emp)} title="Modificar empleado">
@@ -462,6 +516,7 @@ export const EmployeesPage = () => {
           </table>
         </div>
 
+        {/* Controles de paginación */}
         <div className="users-page__pagination">
           <span className="users-page__pagination-info">
             Mostrando <strong>{paginated.length}</strong> de <strong>{filtered.length}</strong> empleados
@@ -497,6 +552,7 @@ export const EmployeesPage = () => {
         </div>
       </div>
 
+      {/* Drawer lateral deslizable para Registrar o Editar Empleado */}
       <SlideDrawer
         isOpen={showDrawer}
         onClose={() => setShowDrawer(false)}
@@ -504,6 +560,7 @@ export const EmployeesPage = () => {
         width="520px"
       >
         <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+          {/* Subida y vista previa de foto de perfil */}
           <ImageUpload
             label="Foto de Perfil"
             value={form.profileImage}
@@ -512,6 +569,7 @@ export const EmployeesPage = () => {
             maxSizeMB={5}
           />
 
+          {/* Nombre y apellido */}
           <FormInput
             label="Nombre y Apellido"
             name="fullName"
@@ -523,11 +581,13 @@ export const EmployeesPage = () => {
             error={errors.fullName}
           />
 
+          {/* DNI y Matrícula técnica */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <FormInput label="DNI" name="nationalId" value={form.nationalId} onChange={handleChange} placeholder="24891432" inputMode="numeric" maxLength={10} required error={errors.nationalId} />
             <FormInput label="Matrícula" name="licenseNumber" value={form.licenseNumber} onChange={handleChange} placeholder="Mat. 4812" maxLength={50} required={isApplicator(form.jobTitle)} error={errors.licenseNumber} />
           </div>
 
+          {/* Selector con sugerencias y escritura libre para el puesto */}
           <div className="form-input-field">
             <label className="form-input-label" htmlFor="jobTitle">
               Puesto <span className="form-input-required">*</span>
@@ -551,11 +611,13 @@ export const EmployeesPage = () => {
             {errors.jobTitle && <span className="form-input-error">{errors.jobTitle}</span>}
           </div>
 
+          {/* Datos de contacto: Teléfono y Correo Electrónico */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <FormInput label="Teléfono" name="phone" type="tel" value={form.phone} onChange={handleChange} placeholder="+54 341 555-0123" maxLength={25} error={errors.phone} />
             <FormInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="empleado@correo.com" maxLength={150} error={errors.email} />
           </div>
 
+          {/* Fecha de ingreso y casilla de verificación de estado activo */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'end' }}>
             <FormInput label="Fecha de Ingreso" name="hireDate" type="date" value={form.hireDate} onChange={handleChange} />
             <label className="emp-check">
@@ -564,6 +626,7 @@ export const EmployeesPage = () => {
             </label>
           </div>
 
+          {/* Campo de notas y observaciones */}
           <FormTextarea
             label="Observaciones"
             name="notes"
@@ -573,6 +636,7 @@ export const EmployeesPage = () => {
             rows={2}
           />
 
+          {/* Botones de acción del drawer */}
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
             <button type="submit" className="btn-rounded-primary" style={{ flex: 1, padding: '12px', justifyContent: 'center' }} disabled={saving}>
               {saving ? 'Guardando…' : editingId ? 'Guardar Cambios' : 'Registrar Empleado'}

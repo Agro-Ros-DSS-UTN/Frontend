@@ -1,3 +1,12 @@
+/**
+ * @file AdminHomePage.jsx
+ * @description Pantalla de inicio para el panel de administración.
+ * Ofrece un resumen operativo en tiempo real del día: tareas pendientes con vencimientos,
+ * monitoreo de hojas de ruta de técnicos y vendedores en territorio, estado de objetivos
+ * comerciales del equipo, registro reciente de actividades de campo y estado del clima.
+ * Cuenta con widgets reordenables y personalizables.
+ */
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -29,8 +38,10 @@ import { WidgetManagerDrawer } from '../../../components/ui/WidgetManagerDrawer/
 import './AdminHomePage.css';
 import { notify } from '../../../hooks/useNotifications';
 
+// Determina si una tarea, parada u objetivo se considera completado según su estado textual
 const isCompleted = (status) => /complet|cumplid|finaliz/i.test(String(status || ''));
 
+// Devuelve una fecha en formato AAAA-MM-DD en hora local
 const localDate = (date = new Date()) => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -38,18 +49,21 @@ const localDate = (date = new Date()) => {
   return `${y}-${m}-${d}`;
 };
 
+// Suma o resta una cantidad de días a la fecha de hoy y la retorna en formato AAAA-MM-DD
 const shiftDays = (n) => {
   const d = new Date();
   d.setDate(d.getDate() + n);
   return localDate(d);
 };
 
+// Extrae la parte de fecha AAAA-MM-DD de una cadena ISO válida
 const dayOf = (iso) => {
   if (!iso) return null;
   const d = new Date(iso);
   return isNaN(d) ? null : localDate(d);
 };
 
+// Genera hasta dos iniciales en mayúsculas a partir de un nombre completo
 const initialsOf = (name = '') =>
   name
     .split(' ')
@@ -59,11 +73,13 @@ const initialsOf = (name = '') =>
     .slice(0, 2)
     .toUpperCase() || '?';
 
+// Retorna el primer nombre y la inicial del apellido (ej: "Juan P.")
 const shortName = (name = '') => {
   const [first, last] = name.split(' ').filter(Boolean);
   return last ? `${first} ${last[0]}.` : first || '';
 };
 
+// Formatea el tiempo transcurrido en lenguaje natural relativo en español
 const ago = (iso) => {
   const d = new Date(iso);
   if (isNaN(d)) return '';
@@ -87,6 +103,7 @@ const isoWeekEnd = (week) => {
   return sunday;
 };
 
+// Determina el texto descriptivo del vencimiento de una tarea y si requiere alerta crítica
 const dueLabel = (date, time) => {
   if (!date) return { text: 'Sin fecha', critical: false };
   const h = time ? ` ${time}` : '';
@@ -98,6 +115,7 @@ const dueLabel = (date, time) => {
   return { text: `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${date.slice(8)}/${date.slice(5, 7)}${h}`, critical: false };
 };
 
+// Desempaqueta de forma segura los arreglos devueltos por Promise.allSettled
 const pick = (r) => {
   if (r.status !== 'fulfilled') return [];
   const v = r.value;
@@ -105,20 +123,31 @@ const pick = (r) => {
   return Array.isArray(arr) ? arr : [];
 };
 
+// Variaciones de color para asignar de forma rotativa a los avatares
 const AVATAR_TONES = ['navy', 'emerald', 'sky', 'slate'];
 
+/**
+ * Componente principal `AdminHomePage`.
+ * Renderiza la pantalla de inicio del administrador con sus widgets y tarjetas de control.
+ */
 export const AdminHomePage = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
+  // Estados de datos principales recuperados de las APIs de operaciones
   const [tasks, setTasks] = useState([]);
   const [roadmaps, setRoadmaps] = useState([]);
   const [objectives, setObjectives] = useState([]);
   const [activities, setActivities] = useState([]);
+
+  // Estados de carga general y refresco silencioso en segundo plano
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Control del drawer de personalización de widgets de la pantalla de inicio
   const [customizerOpen, setCustomizerOpen] = useState(false);
 
+  // Hook para gestionar qué widgets se muestran y en qué orden según las preferencias del usuario
   const {
     widgetStates,
     isVisible,
@@ -130,6 +159,7 @@ export const AdminHomePage = () => {
     totalCount,
   } = useWidgetPreferences('admin_home', ADMIN_HOME_WIDGETS);
 
+  // Mapa de orden CSS para posicionar los widgets en la grilla
   const orderMap = useMemo(() => {
     const map = {};
     widgetStates.forEach((w, idx) => {
@@ -138,12 +168,14 @@ export const AdminHomePage = () => {
     return map;
   }, [widgetStates]);
 
+  // Verifica si al menos uno de los widgets que integran la grilla está habilitado
   const hasGridWidgets =
     isVisible('ah_roadmaps') ||
     isVisible('ah_tasks') ||
     isVisible('ah_objectives') ||
     isVisible('ah_activities');
 
+  // Función memoizada para cargar todos los datos en paralelo sin bloquear ante fallas parciales
   const fetchAll = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else setLoading(true);
@@ -168,12 +200,14 @@ export const AdminHomePage = () => {
     setRefreshing(false);
   }, []);
 
+  // Carga inicial al montar el componente
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
   const today = localDate();
 
+  // Procesamiento y ordenamiento de tareas (pendientes, completadas, vencidas)
   const pendingTasks = useMemo(() => tasks.filter((t) => !isCompleted(t.status)), [tasks]);
   const completedTasksCount = tasks.length - pendingTasks.length;
   const criticalTasksCount = useMemo(
@@ -188,6 +222,7 @@ export const AdminHomePage = () => {
     [pendingTasks]
   );
 
+  // Filtrado de hojas de ruta asignadas para el día de hoy
   const todaysRoadmaps = useMemo(() => roadmaps.filter((r) => r.roadmapDate === today), [roadmaps, today]);
   const routesInProgress = todaysRoadmaps.filter((r) => r.status === 'en_curso').length;
 
@@ -203,6 +238,8 @@ export const AdminHomePage = () => {
       ),
     [objectives, today]
   );
+
+  // Porcentaje promedio de cumplimiento entre los objetivos vigentes
   const objectivesAvgPct = useMemo(() => {
     if (pendingObjectives.length === 0) return 0;
     const sum = pendingObjectives.reduce((acc, o) => {
@@ -212,11 +249,14 @@ export const AdminHomePage = () => {
     }, 0);
     return Math.round((sum / pendingObjectives.length) * 10) / 10;
   }, [pendingObjectives]);
+
+  // Vendedores únicos con objetivos pendientes asignados
   const objectiveOwners = useMemo(
     () => [...new Set(pendingObjectives.map((o) => o.seller?.fullName).filter(Boolean))],
     [pendingObjectives]
   );
 
+  // Métricas de actividades de campo (hoy vs ayer y asesores activos)
   const activitiesToday = useMemo(() => activities.filter((a) => dayOf(a.occurredAt) === today), [activities, today]);
   const activitiesYesterday = useMemo(
     () => activities.filter((a) => dayOf(a.occurredAt) === shiftDays(-1)).length,
@@ -232,6 +272,7 @@ export const AdminHomePage = () => {
     [activities]
   );
 
+  // Actualización optimista y persistencia al finalizar una tarea desde la lista rápida
   const handleCompleteTask = async (task) => {
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: 'Finalizada' } : t)));
     try {
@@ -244,6 +285,7 @@ export const AdminHomePage = () => {
     }
   };
 
+  // Pantalla de carga mientras se obtienen los datos de inicio
   if (loading) {
     return (
       <div className="admin-home">
@@ -260,7 +302,7 @@ export const AdminHomePage = () => {
 
   return (
     <div className="admin-home">
-      {/* Banner de bienvenida */}
+      {/* Banner de bienvenida y accesos rápidos de acción */}
       <section className="ah-banner">
         <div className="ah-banner__text">
           <span className="ah-banner__badge"><span className="ah-banner__badge-dot" /> Resumen del equipo</span>
@@ -270,6 +312,7 @@ export const AdminHomePage = () => {
           </p>
         </div>
         <div className="ah-banner__actions">
+          {/* Botón para abrir el drawer de personalización de widgets */}
           <button
             type="button"
             className="ah-banner__btn ah-banner__btn--ghost"
@@ -278,18 +321,21 @@ export const AdminHomePage = () => {
           >
             <SlidersHorizontal size={16} /> Personalizar vista ({activeCount}/{totalCount})
           </button>
+          {/* Acceso rápido a asignación de hojas de ruta */}
           <button type="button" className="ah-banner__btn ah-banner__btn--ghost" onClick={() => navigate('/admin/roadmaps')}>
             <Truck size={16} /> Asignar Hoja de Ruta
           </button>
+          {/* Acceso rápido para registrar una nueva actividad comercial o agronómica */}
           <button type="button" className="ah-banner__btn ah-banner__btn--primary" onClick={() => navigate('/admin/activities')}>
             <PlusCircle size={16} /> Nueva Actividad de Campo
           </button>
         </div>
       </section>
 
-      {/* KPIs */}
+      {/* Sección de 4 tarjetas KPI principales del día */}
       {isVisible('ah_kpis') && (
         <section className="ah-kpis" style={{ order: orderMap['ah_kpis'] ?? 0 }}>
+          {/* KPI: Tareas pendientes con alerta de críticas */}
           <article className="ah-kpi">
             <div className="ah-kpi__top">
               <div>
@@ -306,6 +352,7 @@ export const AdminHomePage = () => {
             <span className="ah-kpi__foot"><CheckCircle2 size={14} /> {completedTasksCount} completadas</span>
           </article>
 
+          {/* KPI: Hojas de ruta para hoy y conteo en curso */}
           <article className="ah-kpi">
             <div className="ah-kpi__top">
               <div>
@@ -320,6 +367,7 @@ export const AdminHomePage = () => {
             <span className="ah-kpi__foot"><Radio size={14} /> {routesInProgress} en curso ahora</span>
           </article>
 
+          {/* KPI: Objetivos comerciales pendientes y porcentaje medio */}
           <article className="ah-kpi">
             <div className="ah-kpi__top">
               <div>
@@ -334,6 +382,7 @@ export const AdminHomePage = () => {
             <span className="ah-kpi__foot"><TrendingUp size={14} /> Avance promedio del equipo</span>
           </article>
 
+          {/* KPI: Actividades de campo registradas hoy y comparación vs ayer */}
           <article className="ah-kpi">
             <div className="ah-kpi__top">
               <div>
@@ -352,9 +401,10 @@ export const AdminHomePage = () => {
         </section>
       )}
 
+      {/* Grilla principal con widgets de detalle operativo */}
       {hasGridWidgets && (
         <section className="ah-grid">
-          {/* Hojas de ruta */}
+          {/* Widget: Hojas de ruta del día y avance de paradas */}
           {isVisible('ah_roadmaps') && (
             <article className="ah-card" style={{ order: orderMap['ah_roadmaps'] ?? 0 }}>
           <div>
@@ -399,6 +449,7 @@ export const AdminHomePage = () => {
                         </span>
                       </div>
 
+                      {/* Barra de progreso de paradas completadas */}
                       <div className="ah-progress">
                         <div className="ah-progress__label">
                           <span>Avance: {done} de {stops.length} paradas completadas</span>
@@ -409,6 +460,7 @@ export const AdminHomePage = () => {
                         </div>
                       </div>
 
+                      {/* Información de la próxima parada programada */}
                       <div className="ah-route__foot">
                         <span className="ah-route__next">
                           <MapPin size={12} />
@@ -437,7 +489,7 @@ export const AdminHomePage = () => {
         </article>
       )}
 
-          {/* Tareas */}
+          {/* Widget: Tareas pendientes con opción de marcar como completada */}
           {isVisible('ah_tasks') && (
             <article className="ah-card" style={{ order: orderMap['ah_tasks'] ?? 1 }}>
           <div>
@@ -466,6 +518,7 @@ export const AdminHomePage = () => {
                   const priority = (t.priority || 'Media').toLowerCase();
                   return (
                     <div key={t.id} className="ah-task">
+                      {/* Checkbox circular para completar la tarea directamente */}
                       <button
                         type="button"
                         className="ah-task__check"
@@ -501,7 +554,7 @@ export const AdminHomePage = () => {
         </article>
       )}
 
-          {/* Objetivos */}
+          {/* Widget: Objetivos comerciales y avance hacia la meta */}
           {isVisible('ah_objectives') && (
             <article className="ah-card" style={{ order: orderMap['ah_objectives'] ?? 2 }}>
           <div>
@@ -548,6 +601,7 @@ export const AdminHomePage = () => {
                     </div>
                   </div>
 
+                  {/* Barra de progreso de la meta */}
                   <div className="ah-progress">
                     <div className="ah-progress__label">
                       <span>Progreso del ciclo</span>
@@ -558,6 +612,7 @@ export const AdminHomePage = () => {
                     </div>
                   </div>
 
+                  {/* Estadísticas de días restantes y brecha pendiente */}
                   <div className="ah-objective__stats">
                     <div>
                       <span>Días restantes</span>
@@ -597,7 +652,7 @@ export const AdminHomePage = () => {
         </article>
       )}
 
-          {/* Actividad reciente */}
+          {/* Widget: Actividad reciente (línea de tiempo de visitas, llamadas y gestiones) */}
           {isVisible('ah_activities') && (
             <article className="ah-card" style={{ order: orderMap['ah_activities'] ?? 3 }}>
           <div>
@@ -654,7 +709,7 @@ export const AdminHomePage = () => {
         </section>
       )}
 
-      {/* Clima — pendiente de conectar una API meteorológica */}
+      {/* Widget de Clima — Marcador de posición preparado para conectar una API meteorológica */}
       {isVisible('ah_weather') && (
         <section className="ah-weather" style={{ order: orderMap['ah_weather'] ?? 5 }}>
           <div className="ah-weather__main">
@@ -670,7 +725,7 @@ export const AdminHomePage = () => {
         </section>
       )}
 
-      {/* Estado vacío cuando el usuario ocultó todos los widgets */}
+      {/* Aviso de estado vacío si el usuario ocultó todos los widgets */}
       {activeCount === 0 && (
         <div className="ah-empty-state-notice">
           <EyeOff size={32} />
@@ -686,7 +741,7 @@ export const AdminHomePage = () => {
         </div>
       )}
 
-      {/* Drawer de personalización */}
+      {/* Drawer lateral para configurar y reordenar widgets de la pantalla de inicio */}
       <WidgetManagerDrawer
         isOpen={customizerOpen}
         onClose={() => setCustomizerOpen(false)}

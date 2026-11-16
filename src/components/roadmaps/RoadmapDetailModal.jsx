@@ -1,3 +1,13 @@
+/**
+ * Componente RoadmapDetailModal
+ * 
+ * Modal flotante para visualizar el detalle completo de una hoja de ruta comercial.
+ * - Muestra la información de la zona, vendedor asignado, fecha, kilometraje estimado y progreso de paradas.
+ * - Presenta una tabla detallada con cada una de las paradas programadas (cliente, dirección, horario y estado).
+ * - Ofrece un enlace directo para abrir el itinerario completo en Google Maps.
+ * - Soporta animaciones fluidas con Framer Motion y cierre mediante tecla Escape o clic en el fondo oscuro.
+ */
+
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Compass, MapPin, User, CalendarDays, Route as RouteIcon, Flag, FileText, ListChecks } from 'lucide-react';
@@ -6,16 +16,32 @@ import '../companies/CompanySummary.css';
 import '../serviceOrders/ServiceOrderSummary.css';
 import './RoadmapDetailModal.css';
 
+/**
+ * Variantes de animación de Framer Motion para el contenedor del modal.
+ * Implementa una aparición con transición escalonada (stagger) para los hijos.
+ */
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
 };
 
+/**
+ * Variantes de animación para los elementos individuales dentro del modal.
+ */
 const itemVariants = {
   hidden: { y: 16, opacity: 0 },
   visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110, damping: 16 } },
 };
 
+/**
+ * Componente auxiliar para renderizar un dato clave o metadato con icono, etiqueta y valor.
+ * 
+ * @param {Object} props
+ * @param {React.ElementType} props.icon - Componente de icono de Lucide.
+ * @param {string} props.label - Etiqueta descriptiva del metadato.
+ * @param {React.ReactNode} props.children - Contenido o valor a mostrar.
+ * @param {boolean} [props.wide=false] - Indica si el campo debe ocupar el ancho completo en la grilla.
+ */
 const MetaItem = ({ icon: Icon, label, children, wide = false }) => (
   <div className={`cs-meta ${wide ? 'cs-meta--wide' : ''}`}>
     <Icon size={18} className="cs-meta__icon" />
@@ -26,6 +52,12 @@ const MetaItem = ({ icon: Icon, label, children, wide = false }) => (
   </div>
 );
 
+/**
+ * Determina la etiqueta legible y el indicador de completitud de una parada según su estado.
+ * 
+ * @param {string} status - Estado de la parada registrado en la base de datos.
+ * @returns {{ label: string, ok: boolean }} Objeto con la etiqueta legible y si está completada.
+ */
 const stopStatus = (status) => {
   const st = String(status || 'Pendiente');
   if (/complet/i.test(st)) return { label: 'Completada', ok: true };
@@ -46,16 +78,20 @@ const stopStatus = (status) => {
  *  - onClose: () => void
  */
 export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
+  // Manejador para cerrar el modal al hacer clic en el backdrop/overlay
   const overlayHandlers = useOverlayClose(onClose);
 
+  // Efecto para escuchar la tecla Escape y cerrar el modal
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Si no hay datos de ruta cargados, no se renderiza nada
   if (!route) return null;
 
+  // Extracción y cálculos de visitas y porcentaje de cumplimiento
   const stops = route.stops || [];
   const total = route.totalVisits || stops.length || 0;
   const done = route.completedVisits || 0;
@@ -64,6 +100,7 @@ export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
 
   return (
     <div className="cs-overlay" {...overlayHandlers}>
+      {/* Tarjeta modal con animación de entrada */}
       <motion.div
         className="cs-card"
         role="dialog"
@@ -73,6 +110,7 @@ export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
         animate="visible"
         variants={containerVariants}
       >
+        {/* Encabezado del modal: ruta de navegación y acciones rápidas (Maps y cerrar) */}
         <header className="cs-header">
           <motion.div variants={itemVariants} className="cs-header__row">
             <div className="cs-breadcrumbs">
@@ -93,12 +131,15 @@ export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
           </motion.div>
         </header>
 
+        {/* Cuerpo del modal: títulos, datos principales y lista de paradas */}
         <div className="cs-body">
+          {/* Título de la hoja de ruta */}
           <motion.div variants={itemVariants}>
             <p className="sos-number">Hoja de ruta</p>
             <h1 className="cs-title">{route.zone || 'Recorrido comercial'}</h1>
           </motion.div>
 
+          {/* Grilla de metadatos: vendedor, fecha, kilómetros, paradas y barra de avance */}
           <motion.div variants={itemVariants} className="cs-meta-grid">
             <MetaItem icon={User} label="Vendedor">{route.seller || '—'}</MetaItem>
             <MetaItem icon={CalendarDays} label="Fecha">{route.date || 'Sin fecha'}</MetaItem>
@@ -119,6 +160,7 @@ export const RoadmapDetailModal = ({ route, googleMapsUrl, onClose }) => {
             )}
           </motion.div>
 
+          {/* Sección con la tabla de paradas programadas */}
           <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
               <ListChecks size={18} className="cs-meta__icon" /> Paradas programadas

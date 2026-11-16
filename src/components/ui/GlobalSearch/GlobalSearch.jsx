@@ -1,3 +1,11 @@
+/**
+ * @file GlobalSearch.jsx
+ * @description Componente modal de búsqueda global rápida (Command Palette).
+ * Permite buscar entidades del sistema (contactos, empresas, tareas, oportunidades y órdenes de servicio)
+ * con búsqueda server-side con debounce, navegación por teclado, filtrado por categorías e inspección
+ * de la jerarquía de empresas madre.
+ */
+
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -18,20 +26,32 @@ import { CompanyTreeModal } from '../../companies/CompanyTreeModal';
 import './GlobalSearch.css';
 import { SearchClearButton } from '../SearchClearButton/SearchClearButton';
 
+// Función auxiliar para normalizar valores de texto a minúsculas seguras
 const norm = (v) => String(v || '').toLowerCase();
 
+/**
+ * Componente modal de búsqueda global.
+ * 
+ * @param {Object} props - Propiedades del componente.
+ * @param {boolean} props.isOpen - Determina si el modal está visible o no.
+ * @param {Function} props.onClose - Función callback para cerrar el modal de búsqueda.
+ */
 export const GlobalSearch = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Determina si el usuario navega en la vista de vendedor o administrador para ajustar rutas y permisos
   const isSeller = location.pathname.startsWith('/seller');
   const base = isSeller ? '/seller' : '/admin';
 
+  // Configuración dinámica de categorías según el rol actual
   const CATEGORIES = useMemo(() => {
     const cats = [
       { key: 'contacts', label: 'Contactos', icon: Users, path: `${base}/contacts` },
       { key: 'companies', label: 'Empresas', icon: Building2, path: `${base}/companies` },
       { key: 'tasks', label: 'Tareas', icon: CheckSquare, path: `${base}/tasks` },
     ];
+    // Los administradores tienen acceso adicional a oportunidades y órdenes de servicio
     if (!isSeller) {
       cats.splice(2, 0, { key: 'deals', label: 'Oportunidades', icon: Handshake, path: '/admin/deals' });
       cats.push({ key: 'orders', label: 'Órdenes de Servicio', icon: FileCheck2, path: '/admin/service-orders' });
@@ -39,15 +59,16 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
     return cats;
   }, [isSeller, base]);
 
-  const [query, setQuery] = useState('');
-  const [activeFilters, setActiveFilters] = useState([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState({ contacts: [], companies: [], deals: [], tasks: [], orders: [] });
-  const [inspectingId, setInspectingId] = useState(null);
-  const inputRef = useRef(null);
+  // Estados del componente
+  const [query, setQuery] = useState(''); // Texto ingresado por el usuario
+  const [activeFilters, setActiveFilters] = useState([]); // Filtros de categorías seleccionados
+  const [selectedIndex, setSelectedIndex] = useState(0); // Índice del resultado seleccionado con el teclado
+  const [loading, setLoading] = useState(false); // Estado de carga durante la consulta a la API
+  const [data, setData] = useState({ contacts: [], companies: [], deals: [], tasks: [], orders: [] }); // Resultados agrupados devueltos por el backend
+  const [inspectingId, setInspectingId] = useState(null); // ID de empresa madre para visualizar su árbol jerárquico
+  const inputRef = useRef(null); // Referencia al input para enfocarlo automáticamente
 
-  // Búsqueda server-side con debounce de 250ms (evita descargar la base completa al presionar /)
+  // Efecto: Búsqueda server-side con debounce de 250ms (evita peticiones innecesarias mientras el usuario escribe)
   useEffect(() => {
     const q = query.trim();
     if (!isOpen || q.length < 2) {
@@ -71,6 +92,7 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
     return () => clearTimeout(timer);
   }, [query, isOpen]);
 
+  // Efecto: Enfoca automáticamente el campo de texto al abrir el modal y limpia el estado al cerrarlo
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 30);
@@ -80,10 +102,12 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
+  // Alterna la selección de filtros por categoría
   const toggleFilter = (key) => {
     setActiveFilters((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   };
 
+  // Transforma y aplana los datos devueltos por la API según las categorías activas
   const results = useMemo(() => {
     if (!query.trim()) return [];
     const cats = activeFilters.length > 0 ? CATEGORIES.filter((c) => activeFilters.includes(c.key)) : CATEGORIES;
@@ -97,11 +121,13 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
     return out;
   }, [query, activeFilters, data, CATEGORIES]);
 
+  // Redirige a la vista correspondiente con el término de búsqueda pre-cargado
   const handleSelect = (result) => {
     navigate(result.category.path, { state: { prefillSearch: result.title } });
     onClose();
   };
 
+  // Efecto: Manejo de atajos de teclado (Escape, Flechas arriba/abajo, Enter)
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -123,15 +149,19 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, results, selectedIndex]);
 
+  // Si el modal no está abierto y no se está inspeccionando una empresa, no renderiza nada
   if (!isOpen && !inspectingId) return null;
 
+  // Si el modal principal se cerró para abrir la inspección de empresa, muestra el modal jerárquico
   if (!isOpen) {
     return <CompanyTreeModal companyId={inspectingId} onClose={() => setInspectingId(null)} />;
   }
 
   return (
+    /* Capa de fondo con detector de clic exterior para cerrar */
     <div className="gsearch-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="gsearch-modal">
+        {/* Barra superior de entrada de búsqueda con iconos y botón de limpiar */}
         <div className="gsearch-input-row">
           <Search size={18} className="gsearch-input-icon" />
           <input
@@ -148,6 +178,7 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
           </button>
         </div>
 
+        {/* Barra de etiquetas/píldoras de filtro por categoría */}
         <div className="gsearch-filters">
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon;
@@ -170,21 +201,26 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
           )}
         </div>
 
+        {/* Área de visualización de resultados o estados vacíos */}
         <div className="gsearch-results">
           {!query ? (
+            /* Estado inicial: ninguna búsqueda ingresada */
             <div className="gsearch-empty">
               <Search size={32} className="gsearch-empty-icon" />
               <p>Empezá a escribir para encontrar lo que necesitás.</p>
             </div>
           ) : loading ? (
+            /* Estado de carga mientras se obtienen datos del backend */
             <div className="gsearch-empty">
               <p>Cargando datos…</p>
             </div>
           ) : results.length === 0 ? (
+            /* Estado de sin resultados encontrados */
             <div className="gsearch-empty">
               <p>No encontramos resultados para "{query}".</p>
             </div>
           ) : (
+            /* Lista de resultados coincidentes */
             results.map((r, i) => {
               const Icon = r.category.icon;
               return (
@@ -199,6 +235,7 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
                     <span className="gsearch-result-title">{r.title}</span>
                     {r.subtitle && <span className="gsearch-result-subtitle">{r.subtitle}</span>}
                   </div>
+                  {/* Botón para inspeccionar el árbol jerárquico en caso de empresas matrices */}
                   {r.category.key === 'companies' && r.companyLevel === 'madre' && (
                     <button
                       type="button"
@@ -216,6 +253,7 @@ export const GlobalSearch = ({ isOpen, onClose }) => {
           )}
         </div>
 
+        {/* Pie del modal con leyenda de atajos de teclado */}
         <div className="gsearch-footer">
           <span><ArrowUp size={11} /><ArrowDown size={11} /> Seleccionar</span>
           <span><CornerDownLeft size={11} /> Abrir</span>

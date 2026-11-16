@@ -1,3 +1,12 @@
+/**
+ * @file RoadmapsPage.jsx
+ * @description Página de administración y monitoreo territorial de Hojas de Ruta comerciales y técnicas.
+ * Permite planificar itinerarios de visitas a campo para vendedores y técnicos, visualizar en tiempo real
+ * los recorridos mediante un mapa interactivo con Leaflet (con soporte para pantalla completa), calcular
+ * indicadores de progreso (distancia en km, visitas completadas), generar enlaces de navegación para GPS
+ * en Google Maps móvil, y consultar el historial mensual de recorridos.
+ */
+
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { escapeHtml, safeColor, safeUrl } from '../../../utils/security';
 import { useNavigate } from 'react-router-dom';
@@ -46,25 +55,31 @@ import { notify } from '../../../hooks/useNotifications';
 import { checkName } from '../../../utils/validators';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
-// Base de datos de ejemplo amplia de empresas y localidades agrícolas
-
 export const RoadmapsPage = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('today'); // 'hoy' | 'historial'
-  const [selectedSellerId, setSelectedSellerId] = useState('all');
-  const [selectedStop, setSelectedStop] = useState(null);
-  const [selectedRouteId, setSelectedRouteId] = useState(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // ==========================================================================
+  // ESTADOS PRINCIPALES DE VISTA Y SELECCIÓN
+  // ==========================================================================
+  const [activeTab, setActiveTab] = useState('today'); // Pestaña activa: 'today' (Rutas del Día) | 'history' (Registro Mensual)
+  const [selectedSellerId, setSelectedSellerId] = useState('all'); // Filtro de vendedor seleccionado ('all' para todos)
+  const [selectedStop, setSelectedStop] = useState(null); // Parada individual seleccionada en el mapa o lista
+  const [selectedRouteId, setSelectedRouteId] = useState(null); // ID de la ruta activa en visualización
+  const [showCreateModal, setShowCreateModal] = useState(false); // Modal para planificar nueva hoja de ruta
   const createModalOverlayHandlers = useOverlayClose(() => setShowCreateModal(false));
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [showDetailModal, setShowDetailModal] = useState(false); // Modal de detalle extendido de ruta
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false); // Alternar mapa en modo pantalla completa
+  const [loading, setLoading] = useState(true); // Indicador de carga de datos desde el backend
 
-  // DB State
-  const [apiRoadmaps, setApiRoadmaps] = useState([]);
-  const [sellersList, setSellersList] = useState([]);
+  // ==========================================================================
+  // ESTADOS DE DATOS PERSISTIDOS EN BASE DE DATOS
+  // ==========================================================================
+  const [apiRoadmaps, setApiRoadmaps] = useState([]); // Hojas de ruta obtenidas del backend
+  const [sellersList, setSellersList] = useState([]); // Usuarios activos asignables (vendedores y administradores)
 
-  // Form State for creating Roadmap with Zone Name
+  // ==========================================================================
+  // ESTADO DEL FORMULARIO DE ALTA DE HOJA DE RUTA
+  // ==========================================================================
   const [formData, setFormData] = useState({
     zoneName: '',
     sellerId: '',
@@ -80,7 +95,7 @@ export const RoadmapsPage = () => {
         placeName: '',
         address: '',
         locality: '',
-        latitude: '', // vacío: el servidor usa la ubicación de la empresa elegida
+        latitude: '', // Si queda vacío, el servidor infiere la ubicación de la empresa elegida
         longitude: '',
         estimatedTime: '09:00',
         notes: ''
@@ -88,12 +103,19 @@ export const RoadmapsPage = () => {
     ]
   });
 
+  // Referencias DOM y de instancias de Leaflet para mapa estándar y mapa pantalla completa
   const mapContainerRef = useRef(null);
   const fullscreenMapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const fullscreenMapInstanceRef = useRef(null);
 
-  // Fetch Roadmaps, Sellers and Companies directly from Database API
+  // ==========================================================================
+  // CARGA DE DATOS INICIALES (API)
+  // ==========================================================================
+  /**
+   * Carga concurrentemente las hojas de ruta y la lista de usuarios activos asignables.
+   * Procesa las paradas y clasifica coordenadas reales vs aproximadas.
+   */
   const fetchInitialData = async () => {
     try {
       setLoading(true);
@@ -102,7 +124,7 @@ export const RoadmapsPage = () => {
         authApi.getAllUsers()
       ]);
 
-      // 1. Process Roadmaps from DB
+      // 1. Procesamiento de Hojas de Ruta devueltas por la base de datos
       if (roadmapsRes.status === 'fulfilled') {
         const rawRoadmaps = roadmapsRes.value?.data || roadmapsRes.value || [];
         if (Array.isArray(rawRoadmaps) && rawRoadmaps.length > 0) {
@@ -125,9 +147,9 @@ export const RoadmapsPage = () => {
               customer: p.placeName,
               address: p.address || '',
               locality: p.locality || '',
-              // Sin coordenadas reales la parada no se dibuja (no se inventa una ubicación).
+              // Sin coordenadas reales la parada no se dibuja (no se inventa una ubicación arbitraria).
               coords: p.latitude !== null && p.latitude !== undefined && p.longitude !== null && p.longitude !== undefined ? [Number(p.latitude), Number(p.longitude)] : null,
-              // Centro de la localidad (la empresa todavía no tiene su punto): se dibuja distinto.
+              // Centro de la localidad (la empresa todavía no tiene su punto exacto cargado): se dibuja con estilo distintivo.
               approximate: Boolean(p.approximateCoordinates),
               service: p.notes || 'Visita comercial',
               contact: '',
@@ -144,12 +166,11 @@ export const RoadmapsPage = () => {
         }
       }
 
-      // 2. Process Sellers from DB Users
+      // 2. Procesamiento de Usuarios activos para asignación
       if (usersRes.status === 'fulfilled') {
         const rawUsers = usersRes.value?.data || usersRes.value || [];
         if (Array.isArray(rawUsers)) {
-          // Cualquier usuario activo puede recibir una hoja de ruta: un vendedor
-          // (el caso más común) o un administrador organizando su propio viaje.
+          // Cualquier usuario activo puede recibir una hoja de ruta: un vendedor o un administrador
           const assignableUsers = rawUsers.filter(
             (u) => String(u.accountStatus || 'Activo') === 'Activo'
           );
@@ -171,25 +192,32 @@ export const RoadmapsPage = () => {
     fetchInitialData();
   }, []);
 
-  // Filtered routes for today
+  // ==========================================================================
+  // CÁLCULOS MEMORIZADOS (FILTROS, KPIS Y ENLACES GPS)
+  // ==========================================================================
+
+  // Rutas activas del día filtradas por el vendedor seleccionado
   const routesToday = useMemo(() => {
     if (selectedSellerId === 'all') return apiRoadmaps;
     return apiRoadmaps.filter(r => String(r.sellerId) === String(selectedSellerId));
   }, [selectedSellerId, apiRoadmaps]);
 
-  // Selected route object — null mientras esté seleccionado "Todos los
-  // vendedores" (no tiene sentido navegar por Maps sin una ruta puntual).
+  // Ruta seleccionada puntualmente para inspección y timeline.
+  // Es null mientras esté seleccionado "Todos los vendedores" para evitar ambigüedades.
   const currentRoute = useMemo(() => {
     if (selectedSellerId === 'all' || apiRoadmaps.length === 0) return null;
     return apiRoadmaps.find(r => r.id === selectedRouteId) || null;
   }, [selectedRouteId, selectedSellerId, apiRoadmaps]);
 
-  // KPI Calculations
+  // Indicadores de rendimiento del día (KPIs)
   const totalKmToday = routesToday.reduce((sum, r) => sum + (r.totalKm || 0), 0);
   const totalStopsToday = routesToday.reduce((sum, r) => sum + (r.totalVisits || 0), 0);
   const completedStopsToday = routesToday.reduce((sum, r) => sum + (r.completedVisits || 0), 0);
 
-  // Generate Google Maps Deep Link URL for mobile GPS navigation
+  /**
+   * Genera una URL con Deep Link para Google Maps con el origen, paradas intermedias
+   * (waypoints) y destino final de la ruta seleccionada para navegación GPS móvil.
+   */
   const googleMapsUrl = useMemo(() => {
     if (!currentRoute || !currentRoute.stops || currentRoute.stops.length === 0) {
       return 'https://www.google.com/maps';
@@ -202,7 +230,16 @@ export const RoadmapsPage = () => {
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}`;
   }, [currentRoute]);
 
-  // Helper to render Leaflet Map Instance with Clean Cartelito (No Emojis!)
+  // ==========================================================================
+  // RENDERIZADO DEL MAPA LEAFLET Y DIBUJO DE RUTAS
+  // ==========================================================================
+  /**
+   * Inicializa y dibuja la instancia de mapa Leaflet, colocando marcadores interactivos
+   * personalizados por cada parada y trazando polilíneas de ruteo territorial.
+   * @param {HTMLElement} containerEl - Contenedor DOM para montar el mapa.
+   * @param {boolean} isFullscreenMode - Bandera para indicar si es el contenedor a pantalla completa.
+   * @returns {L.Map|null} Instancia del mapa Leaflet creada.
+   */
   const renderLeafletMap = (containerEl, isFullscreenMode = false) => {
     if (!containerEl) return null;
 
@@ -212,10 +249,12 @@ export const RoadmapsPage = () => {
       zoomControl: true,
     });
 
+    // Añade la capa base de teselas (tiles) sanitizadas
     addBaseLayer(map);
 
     const allMarkers = [];
 
+    // Itera las rutas del día para agregar sus marcadores y recorridos
     routesToday.forEach((route) => {
       if (!route.stops || route.stops.length === 0) return;
 
@@ -228,6 +267,7 @@ export const RoadmapsPage = () => {
         const isCurrent = stop.status === 'En camino';
         const markerBg = isCompleted ? '#16a34a' : (route.color || '#1a7d6b');
 
+        // Marcador con ícono personalizado y número de orden de visita
         const customIcon = L.divIcon({
           className: 'leaflet-custom-marker-wrapper',
           html: `
@@ -243,8 +283,7 @@ export const RoadmapsPage = () => {
         const marker = L.marker(stop.coords, { icon: customIcon }).addTo(map);
         allMarkers.push(marker);
 
-        // CLEAN POPUP CARTELITO (WITHOUT ANY EMOJIS)
-        // Todo dato cargado por usuarios se escapa antes de armar el HTML del popup.
+        // Ventana emergente (Popup) con información de la parada y sanitización XSS
         marker.bindPopup(`
           <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width: 220px; padding: 4px;">
             <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: ${safeColor(route.color)}; margin-bottom: 2px;">
@@ -266,6 +305,7 @@ export const RoadmapsPage = () => {
           </div>
         `);
 
+        // Al hacer clic en un marcador, selecciona la parada y la ruta asociada
         marker.on('click', () => {
           setSelectedStop(stop);
           setSelectedRouteId(route.id);
@@ -277,6 +317,7 @@ export const RoadmapsPage = () => {
       drawRoute(map, polylineCoords, { color: route.color || '#1a7d6b', weight: 4 });
     });
 
+    // Auto-ajuste de encuadre (bounds) para englobar todas las paradas en pantalla
     if (allMarkers.length > 0) {
       const group = L.featureGroup(allMarkers);
       map.fitBounds(group.getBounds().pad(0.15));
@@ -285,7 +326,9 @@ export const RoadmapsPage = () => {
     return map;
   };
 
-  // Initialize and update standard Leaflet Interactive Map
+  /**
+   * Efecto para montar y desmontar el mapa interactivo estándar cuando está activa la pestaña 'today'.
+   */
   useEffect(() => {
     if (activeTab !== 'today' || !mapContainerRef.current || isMapFullscreen) return;
 
@@ -304,7 +347,9 @@ export const RoadmapsPage = () => {
     };
   }, [activeTab, routesToday, isMapFullscreen]);
 
-  // Initialize and update Fullscreen Leaflet Map
+  /**
+   * Efecto para montar y refrescar el mapa en modo Pantalla Completa.
+   */
   useEffect(() => {
     if (!isMapFullscreen || !fullscreenMapContainerRef.current) return;
 
@@ -329,7 +374,15 @@ export const RoadmapsPage = () => {
     };
   }, [isMapFullscreen, routesToday]);
 
-  // Delete Roadmap Handler
+  // ==========================================================================
+  // MANEJADORES DE ACCIONES Y FORMULARIO
+  // ==========================================================================
+
+  /**
+   * Elimina una hoja de ruta mediante la API tras confirmación del usuario.
+   * @param {number|string} routeId - ID de la hoja de ruta.
+   * @param {string} routeZone - Nombre de la zona para mostrar en mensajes.
+   */
   const handleDeleteRoadmap = async (routeId, routeZone) => {
     if (!await confirmAction(`¿Estás seguro de eliminar la hoja de ruta "${routeZone || 'seleccionada'}"?`)) {
       return;
@@ -345,14 +398,15 @@ export const RoadmapsPage = () => {
       notify.success('Hoja de ruta eliminada', `Se eliminó «${routeZone}».`);
     } catch (err) {
       console.error('Error deleting roadmap:', err);
-      // No se saca de la pantalla: la base no confirmó el borrado
       notify.error('No se pudo eliminar la hoja de ruta', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Modal Handlers
+  /**
+   * Agrega un nuevo campo de parada al formulario de creación (hasta el límite permitido).
+   */
   const handleAddStopField = () => {
     setFormData(prev => {
       if (prev.stops.length >= MAX_ROADMAP_STOPS) return prev;
@@ -365,7 +419,7 @@ export const RoadmapsPage = () => {
             placeName: '',
             address: '',
             locality: '',
-            latitude: '', // vacío: el servidor usa la ubicación de la empresa elegida
+            latitude: '',
             longitude: '',
             estimatedTime: '10:00',
             notes: ''
@@ -375,6 +429,10 @@ export const RoadmapsPage = () => {
     });
   };
 
+  /**
+   * Quita una parada específica del formulario de creación.
+   * @param {number} index - Índice de la parada a quitar.
+   */
   const handleRemoveStopField = (index) => {
     setFormData(prev => ({
       ...prev,
@@ -382,6 +440,9 @@ export const RoadmapsPage = () => {
     }));
   };
 
+  /**
+   * Actualiza un atributo puntual de una parada en el formulario.
+   */
   const handleStopChange = (index, field, value) => {
     setFormData(prev => {
       const newStops = [...prev.stops];
@@ -390,8 +451,10 @@ export const RoadmapsPage = () => {
     });
   };
 
-  // Al elegir (o tipear) una empresa en el autocompletado de una parada —
-  // autocompleta dirección y localidad si matchea una empresa real de la base.
+  /**
+   * Manejador de selección con autocompletado de empresa en una parada.
+   * Autocompleta automáticamente la dirección y localidad si coinciden con una empresa registrada.
+   */
   const handleStopCompanySelect = (index, name, company) => {
     setFormData(prev => {
       const newStops = [...prev.stops];
@@ -406,7 +469,9 @@ export const RoadmapsPage = () => {
     });
   };
 
-  // Submit Roadmap Creation
+  /**
+   * Valida y persiste la nueva hoja de ruta en el servidor.
+   */
   const handleCreateRoadmapSubmit = async (e) => {
     e.preventDefault();
     const zoneError = checkName(formData.zoneName, { label: 'El nombre de la zona', min: 3, max: 100 });
@@ -444,7 +509,7 @@ export const RoadmapsPage = () => {
       await roadmapsApi.create(payload);
       setShowCreateModal(false);
       
-      // Reset form
+      // Restablece el formulario a su estado en blanco
       setFormData({
         zoneName: '',
         sellerId: sellersList[0]?.idUser || sellersList[0]?.id || '',
@@ -460,7 +525,7 @@ export const RoadmapsPage = () => {
             placeName: '',
             address: '',
             locality: '',
-            latitude: '', // vacío: el servidor usa la ubicación de la empresa elegida
+            latitude: '',
             longitude: '',
             estimatedTime: '09:00',
             notes: ''
@@ -478,9 +543,12 @@ export const RoadmapsPage = () => {
     }
   };
 
+  // ==========================================================================
+  // RENDERIZADO DEL COMPONENTE
+  // ==========================================================================
   return (
     <div className="roadmaps-page">
-      {/* Header */}
+      {/* ── Encabezado principal y botones de acción ── */}
       <div className="roadmaps-page__header">
         <div>
           <h1 className="roadmaps-page__title">Hojas de Ruta y Monitoreo Territorial</h1>
@@ -489,6 +557,7 @@ export const RoadmapsPage = () => {
           </p>
         </div>
         <div className="roadmaps-page__header-actions">
+          {/* Botón para abrir el recorrido activo directamente en la aplicación móvil de Google Maps */}
           {currentRoute && (
             <a
               href={googleMapsUrl}
@@ -511,7 +580,7 @@ export const RoadmapsPage = () => {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* ── Pestañas de Navegación: Rutas del Día vs Registro Mensual ── */}
       <div className="crm-tabs-row">
         <FilterTabs
           ariaLabel="Vista de hojas de ruta"
@@ -524,6 +593,7 @@ export const RoadmapsPage = () => {
         />
       </div>
 
+      {/* ── Estado de Carga / Vista Principal ── */}
       {loading ? (
         <LoadingState
           title="Cargando…"
@@ -531,7 +601,7 @@ export const RoadmapsPage = () => {
         />
       ) : activeTab === 'today' && (
         <>
-          {/* KPI Cards */}
+          {/* ── Indicadores de Desempeño (KPIs) ── */}
           <div className="roadmaps-kpis">
             <div className="roadmap-kpi-card">
               <div className="roadmap-kpi-icon teal">
@@ -566,7 +636,7 @@ export const RoadmapsPage = () => {
             </div>
           </div>
 
-          {/* Vendedores en ruta — nombre, zona y progreso de visitas por cada uno */}
+          {/* ── Tira Horizontal de Vendedores: Nombre, zona y barra de progreso ── */}
           {apiRoadmaps.length > 0 && (
             <div className="roadmaps-vendor-strip">
               <button
@@ -613,7 +683,7 @@ export const RoadmapsPage = () => {
             </div>
           )}
 
-          {/* Empty State Banner if no Roadmaps exist in DB */}
+          {/* ── Banner de Estado Vacío si no hay hojas de ruta cargadas ── */}
           {apiRoadmaps.length === 0 && !loading && (
             <div style={{
               background: '#ffffff',
@@ -638,9 +708,10 @@ export const RoadmapsPage = () => {
             </div>
           )}
 
-          {/* Main Grid: Leaflet Map + Side Panel */}
+          {/* ── Grilla Principal: Mapa Leaflet + Panel Lateral de Paradas ── */}
           {apiRoadmaps.length > 0 && (
             <div className="roadmaps-main-grid">
+              {/* Contenedor del Mapa Interactivo Leaflet */}
               <div className="roadmap-map-container">
                 <div className="roadmap-map-header">
                   <div className="roadmap-map-title">
@@ -648,6 +719,7 @@ export const RoadmapsPage = () => {
                     <span>Mapa de Rutas Territoriales</span>
                   </div>
                   <div className="roadmap-map-legend">
+                    {/* Botón para agrandar mapa a pantalla completa */}
                     <button
                       type="button"
                       className="roadmaps-btn roadmaps-btn--outline"
@@ -659,6 +731,7 @@ export const RoadmapsPage = () => {
                       <span>Agrandar Mapa</span>
                     </button>
 
+                    {/* Leyenda de colores por cada vendedor en ruta */}
                     {routesToday.map(r => (
                       <span key={r.id} className="map-legend-item">
                         <span className="map-legend-dot" style={{ backgroundColor: r.color || '#1a7d6b' }} />
@@ -671,7 +744,7 @@ export const RoadmapsPage = () => {
                 <div className="roadmap-leaflet-container" ref={mapContainerRef} />
               </div>
 
-              {/* Side Timeline Details with RED TRASH CAN TO DELETE ROADMAP */}
+              {/* Panel Lateral: Detalle de Paradas y Línea de Tiempo */}
               {!currentRoute && (
                 <div className="roadmap-stops-panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '2.5rem 1.5rem', color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>
                   Seleccioná un vendedor arriba para ver el detalle de su hoja de ruta y navegar por Maps.
@@ -679,6 +752,7 @@ export const RoadmapsPage = () => {
               )}
               {currentRoute && (
                 <div className="roadmap-stops-panel">
+                  {/* Cabecera del panel de paradas con nombre de zona y botón de eliminación */}
                   <div className="roadmap-stops-header" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
@@ -693,6 +767,7 @@ export const RoadmapsPage = () => {
                         <span className="roadmap-status-badge">
                           {currentRoute.completedVisits === currentRoute.totalVisits && currentRoute.totalVisits > 0 ? 'Completada' : 'En curso'}
                         </span>
+                        {/* Botón rojo para eliminar la hoja de ruta */}
                         <button
                           type="button"
                           onClick={() => handleDeleteRoadmap(currentRoute.id, currentRoute.zone)}
@@ -722,13 +797,14 @@ export const RoadmapsPage = () => {
                       Vendedor: <strong style={{ color: '#0f172a' }}>{currentRoute.seller}</strong> · Fecha: {currentRoute.date}
                     </div>
 
-                    {/* Observaciones del Recorrido */}
+                    {/* Observaciones e instrucciones del recorrido */}
                     {currentRoute.notes && (
                       <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', fontSize: '0.8rem', color: '#334155', marginTop: '2px' }}>
                         <strong style={{ color: '#0f172a' }}>Notas del Recorrido:</strong> {currentRoute.notes}
                       </div>
                     )}
 
+                    {/* Botón para abrir modal de detalle técnico completo */}
                     <button
                       type="button"
                       className="roadmaps-btn roadmaps-btn--outline"
@@ -739,6 +815,7 @@ export const RoadmapsPage = () => {
                     </button>
                   </div>
 
+                  {/* Selector rápido de ruta entre las del día */}
                   <div className="roadmap-seller-selector">
                     {routesToday.map(r => (
                       <button
@@ -753,6 +830,7 @@ export const RoadmapsPage = () => {
                     ))}
                   </div>
 
+                  {/* Timeline vertical con las paradas programadas */}
                   <div className="roadmap-timeline">
                     {currentRoute.stops && currentRoute.stops.map((stop) => {
                       const isSelected = selectedStop?.customer === stop.customer;
@@ -762,6 +840,7 @@ export const RoadmapsPage = () => {
                           className={`roadmap-timeline-item ${isSelected ? 'roadmap-timeline-item--selected' : ''}`}
                           onClick={() => setSelectedStop(stop)}
                         >
+                          {/* Nodo circular numerado del timeline */}
                           <div className="timeline-node">
                             <span
                               className={`node-circle ${stop.status.toLowerCase().replace(' ', '-')}`}
@@ -774,6 +853,7 @@ export const RoadmapsPage = () => {
                             </span>
                           </div>
 
+                          {/* Contenido descriptivo de la parada */}
                           <div className="timeline-content">
                             <div className="timeline-title-row">
                               <span className="timeline-client">{stop.customer}</span>
@@ -801,6 +881,7 @@ export const RoadmapsPage = () => {
         </>
       )}
 
+      {/* ── PESTAÑA: HISTORIAL MENSUAL DE HOJAS DE RUTA ── */}
       {activeTab === 'history' && (
         <RoadmapHistory
           roadmaps={apiRoadmaps}
@@ -813,7 +894,7 @@ export const RoadmapsPage = () => {
         />
       )}
 
-      {/* ── Fullscreen Map Overlay Modal ── */}
+      {/* ── Modal Overlay de Mapa a Pantalla Completa ── */}
       {isMapFullscreen && (
         <div style={{
           position: 'fixed',
@@ -847,10 +928,11 @@ export const RoadmapsPage = () => {
         </div>
       )}
 
-      {/* ── Modal: Planificar Nueva Hoja de Ruta (Drawer Scrollable con Sticky Footer) ── */}
+      {/* ── Modal: Planificar Nueva Hoja de Ruta (Drawer con Sticky Footer) ── */}
       {showCreateModal && (
         <div className="roadmaps-modal-overlay" {...createModalOverlayHandlers}>
           <div className="roadmaps-modal" onClick={e => e.stopPropagation()}>
+            {/* Cabecera del modal */}
             <div className="roadmaps-modal__header">
               <h2>Planificar Nueva Hoja de Ruta</h2>
               <button className="roadmaps-modal__close" onClick={() => setShowCreateModal(false)}>
@@ -858,7 +940,9 @@ export const RoadmapsPage = () => {
               </button>
             </div>
 
+            {/* Formulario de creación */}
             <form className="roadmaps-modal__form" onSubmit={handleCreateRoadmapSubmit}>
+              {/* Nombre de la zona o recorrido */}
               <div className="roadmaps-form-field">
                 <label>Nombre de la Zona o Recorrido *</label>
                 <input
@@ -872,6 +956,7 @@ export const RoadmapsPage = () => {
                 />
               </div>
 
+              {/* Asignación a usuario y fecha de inicio */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div className="roadmaps-form-field">
                   <label>Asignar a *</label>
@@ -902,6 +987,7 @@ export const RoadmapsPage = () => {
                 </div>
               </div>
 
+              {/* Horas y fechas estimadas */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                 <div className="roadmaps-form-field">
                   <label>Hora de Inicio</label>
@@ -932,7 +1018,7 @@ export const RoadmapsPage = () => {
                 </div>
               </div>
 
-              {/* Dynamic Paradas List */}
+              {/* Lista dinámica de paradas programadas */}
               <div className="roadmaps-form-field" style={{ marginTop: '0.5rem' }}>
                 {formData.stops.map((stop, idx) => (
                   <div key={idx} style={{ marginBottom: '0.75rem' }}>
@@ -948,6 +1034,7 @@ export const RoadmapsPage = () => {
                         </button>
                       </div>
                     )}
+                    {/* Autocompletado de empresa y dirección vinculada */}
                     <CompanyAutocomplete
                       label={idx === 0 ? 'Destino principal' : 'Empresa o lugar'}
                       name={`parada-${idx}`}
@@ -968,6 +1055,7 @@ export const RoadmapsPage = () => {
                   </div>
                 ))}
 
+                {/* Opción para añadir otra parada si no se alcanzó el máximo */}
                 {formData.stops.length < MAX_ROADMAP_STOPS && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <FlipCheckbox id="addStopAdmin" checked={false} onChange={e => e.target.checked && handleAddStopField()} />
@@ -978,6 +1066,7 @@ export const RoadmapsPage = () => {
                 )}
               </div>
 
+              {/* Notas u observaciones especiales */}
               <div className="roadmaps-form-field">
                 <label>Notas u Observaciones del Recorrido</label>
                 <textarea
@@ -989,7 +1078,7 @@ export const RoadmapsPage = () => {
                 />
               </div>
 
-              {/* Sticky Action Footer */}
+              {/* Botones de acción del modal */}
               <div className="roadmaps-modal__actions">
                 <button type="submit" className="roadmaps-btn roadmaps-btn--primary" disabled={loading}>
                   {loading ? 'Guardando...' : 'Guardar y Asignar Ruta'}

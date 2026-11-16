@@ -1,3 +1,21 @@
+/**
+ * Módulo / Componente: CompanyTreeModal
+ * 
+ * Modal para inspeccionar y administrar la estructura organizacional completa de empresas
+ * con múltiples establecimientos, cooperativas o grupos agropecuarios.
+ * 
+ * Jerarquía soportada:
+ * 1. Empresa Madre / Matriz (raíz del árbol).
+ * 2. Regiones operativas (zonas intermedias o divisiones geográficas).
+ * 3. Sedes / Plantas / Sucursales (puntos de acopio, atención o producción).
+ * 
+ * Capacidades:
+ * - Visualización jerárquica con estadísticas (cantidad de regiones, sedes y encargados asignados).
+ * - Buscador en vivo por nombre, localidad, dirección o encargado.
+ * - Edición rápida en línea (in-place) de nombre, notas y persona de contacto/encargado en cualquier nivel.
+ * - Alta interactiva de nuevas regiones y nuevas sedes vinculadas a su nodo padre correspondiente.
+ */
+
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Building2, X, User, MapPin, ChevronRight, ChevronDown, Pencil, Plus, Search, Network, Store, Users } from 'lucide-react';
 import { companiesApi } from '../../api/companies.api';
@@ -13,7 +31,10 @@ import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
 // A partir de esta cantidad de sedes aparece el buscador dentro de la estructura.
 const SEARCH_FROM = 6;
 
+// Normaliza cadenas para comparaciones de búsqueda insensibles a mayúsculas y tildes
 const normalize = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// Verifica si la cadena contiene una dirección real informada
 const hasAddress = (a) => Boolean(a && !/^sin direcci[oó]n$/i.test(a.trim()));
 
 // "AFA Región Centro" → "Región Centro" dentro del árbol de "AFA SCL": el nombre de
@@ -37,6 +58,7 @@ const placeOf = (node) => {
   return [address, place].filter(Boolean).join(' · ');
 };
 
+// Extrae el arreglo de contactos o clientes vinculados a un nodo específico
 const contactsOf = (node) => node.Clients || node.contacts || [];
 
 // Encargado de un nodo (madre, región o sede): es un contacto común vinculado a ese
@@ -61,6 +83,10 @@ const cutText = (text, limit) => {
   return `${(lastSpace > limit * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s.,;:·-]+$/, '')}…`;
 };
 
+/**
+ * Componente interno Note
+ * Renderiza textos descriptivos con opción de colapsar/expandir cuando superan el límite de caracteres
+ */
 const Note = ({ text, limit = NOTE_LIMIT.region }) => {
   const [open, setOpen] = useState(false);
   if (!text || !text.trim()) return null;
@@ -78,6 +104,10 @@ const Note = ({ text, limit = NOTE_LIMIT.region }) => {
   );
 };
 
+/**
+ * Componente interno EditButton
+ * Botón compacto con ícono de lápiz para disparar el modo de edición
+ */
 const EditButton = ({ onClick, label }) => (
   <button type="button" className="ctree-icon-btn" title={label} aria-label={label} onClick={(e) => { e.stopPropagation(); onClick(); }}>
     <Pencil size={13} />
@@ -89,19 +119,23 @@ const EditButton = ({ onClick, label }) => (
 // Se abre con cualquier id del árbol: el backend devuelve siempre el árbol entero.
 // Permite editar el encargado y la nota de cada nivel y agregar regiones o sedes.
 export const CompanyTreeModal = ({ companyId, onClose }) => {
-  const [tree, setTree] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const overlayHandlers = useOverlayClose(onClose);
+  // --- Estados de carga y estructura del árbol ---
+  const [tree, setTree] = useState(null); // Estructura jerárquica devuelta por la API
+  const [loading, setLoading] = useState(true); // Indicador de carga inicial
+  const [error, setError] = useState(''); // Mensaje de error si falla la consulta
+  const overlayHandlers = useOverlayClose(onClose); // Manejador de cierre por clic exterior
 
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', note: '', manager: '' });
-  const [addingRegion, setAddingRegion] = useState(false);
-  const [newRegionForm, setNewRegionForm] = useState({ name: '', manager: '', mainSite: '' });
-  const [addingBranchFor, setAddingBranchFor] = useState(null);
-  const [newBranchForm, setNewBranchForm] = useState({ name: '', manager: '', address: '' });
-  const [saving, setSaving] = useState(false);
-  const [query, setQuery] = useState('');
+  // --- Estados para formularios de edición y alta inline ---
+  const [editingId, setEditingId] = useState(null); // ID del nodo actualmente en edición
+  const [editForm, setEditForm] = useState({ name: '', note: '', manager: '' }); // Formulario de edición
+  const [addingRegion, setAddingRegion] = useState(false); // Flag para mostrar formulario de nueva región
+  const [newRegionForm, setNewRegionForm] = useState({ name: '', manager: '', mainSite: '' }); // Datos de la nueva región
+  const [addingBranchFor, setAddingBranchFor] = useState(null); // ID de la región o matriz donde se agregará una sede
+  const [newBranchForm, setNewBranchForm] = useState({ name: '', manager: '', address: '' }); // Datos de la nueva sede
+  const [saving, setSaving] = useState(false); // Indicador de guardado en proceso
+  const [query, setQuery] = useState(''); // Texto de búsqueda para filtrar la estructura
+  
+  // Referencias para transferir el foco al primer input del formulario activo
   const focusRequest = useRef(null);
   const requestFocus = (key) => { focusRequest.current = key; };
   const focusIfRequested = (key) => (el) => {
@@ -111,6 +145,9 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
     }
   };
 
+  /**
+   * Carga la estructura jerárquica completa de la empresa desde la API
+   */
   const loadTree = useCallback(() => {
     setLoading(true);
     setError('');
@@ -123,6 +160,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
       .finally(() => setLoading(false));
   }, [companyId]);
 
+  // Carga inicial al montar o cambiar el companyId
   useEffect(() => { loadTree(); }, [loadTree]);
 
   // Los hijos directos de la madre que no son regiones (una sede suelta) se
@@ -153,12 +191,18 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
     };
   }, [tree]);
 
+  /**
+   * Determina si un nodo coincide con la búsqueda activa
+   */
   const matches = useCallback((node) => {
     const q = normalize(query.trim());
     if (!q) return true;
     return [node.companyName, node.locality, node.companyAddress, contactsOf(node)[0]?.fullName].some((v) => normalize(v).includes(q));
   }, [query]);
 
+  /**
+   * Abre el formulario de edición para el nodo especificado
+   */
   const startEdit = (node) => {
     setEditingId(node.id);
     setEditForm({ name: node.companyName || '', note: node.companyDescription || '', manager: contactsOf(node)[0]?.fullName || '' });
@@ -167,6 +211,9 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
     setAddingBranchFor(null);
   };
 
+  /**
+   * Guarda las modificaciones de un nodo (nombre, descripción y encargado)
+   */
   const saveEdit = async (node) => {
     const name = editForm.name.trim();
     if (!name) {
@@ -175,10 +222,12 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
     }
     setSaving(true);
     try {
+      // Actualiza los datos de la empresa cliente
       await updateClientCompany(node.id, {
         ...(name !== node.companyName ? { companyName: name } : {}),
         companyDescription: editForm.note,
       });
+      // Actualiza o crea el contacto del encargado vinculado al nodo
       const existingContact = contactsOf(node)[0];
       const manager = editForm.manager.trim();
       if (existingContact && manager && manager !== existingContact.fullName) {
@@ -201,6 +250,9 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
     }
   };
 
+  /**
+   * Da de alta una nueva región vinculada a la empresa matriz
+   */
   const saveNewRegion = async () => {
     if (!newRegionForm.name.trim()) return;
     setSaving(true);
@@ -227,6 +279,9 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
     }
   };
 
+  /**
+   * Da de alta una nueva sede vinculada a una región o directamente a la matriz
+   */
   const saveNewBranch = async (region) => {
     if (!newBranchForm.name.trim()) return;
     setSaving(true);
@@ -253,6 +308,9 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
     }
   };
 
+  /**
+   * Renderiza el formulario de edición inline para un nodo seleccionado
+   */
   const renderEditForm = (node) => (
     <div className="ctree-form" onClick={(e) => e.stopPropagation()}>
       <label>
@@ -292,11 +350,13 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
     </div>
   );
 
+  // Propiedades compartidas pasadas hacia los componentes hijos de sedes
   const branchProps = {
     prefix, editingId, onStartEdit: startEdit, renderEditForm, requestFocus, focusIfRequested,
     addingBranchFor, setAddingBranchFor, newBranchForm, setNewBranchForm, onSaveNewBranch: saveNewBranch, saving,
   };
 
+  // Variables calculadas de filtrado
   const filtering = query.trim().length > 0;
   const visibleRegions = regions.filter((r) => matches(r) || (r.branches || []).some(matches));
   const visibleLoose = looseBranches.filter(matches);
@@ -304,7 +364,9 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
 
   return (
     <div className="comp-modal-overlay" {...overlayHandlers}>
+      {/* Contenedor del diálogo modal de estructura */}
       <div className="comp-modal comp-modal--wide ctree" onClick={(e) => e.stopPropagation()}>
+        {/* Cabecera del modal: título, tipo de empresa, CUIT y botón de cierre */}
         <div className="comp-modal__header">
           <div className="comp-detail-header-box">
             <div className="ctree-avatar"><Building2 size={20} /></div>
@@ -320,6 +382,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
           </button>
         </div>
 
+        {/* Cuerpo del modal con indicadores, empresa matriz y lista jerárquica */}
         <div className="ctree__body">
           {loading ? (
             <LoadingState title="Cargando estructura…" message="Trayendo regiones y sedes." />
@@ -327,6 +390,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
             <div className="ctree-empty">{error}</div>
           ) : (
             <>
+              {/* Barra de métricas resumen de la estructura */}
               <div className="ctree-stats">
                 {stats.regions > 0 && <span><Network size={14} /> <strong>{stats.regions}</strong> {stats.regions === 1 ? 'región' : 'regiones'}</span>}
                 <span><Store size={14} /> <strong>{stats.branches}</strong> {stats.branches === 1 ? 'sede' : 'sedes'}</span>
@@ -335,6 +399,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
                 </span>
               </div>
 
+              {/* Ficha principal de la Empresa Madre (nodo raíz) */}
               <section className="ctree-root">
                 <div className="ctree-root__top">
                   <div className="ctree-root__title">
@@ -355,6 +420,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
                 {editingId === tree.id && renderEditForm(tree)}
               </section>
 
+              {/* Campo de búsqueda dentro de la jerarquía (visible a partir de 6 sedes) */}
               {stats.branches >= SEARCH_FROM && (
                 <div className="ctree-search">
                   <Search size={15} />
@@ -368,11 +434,14 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
                 </div>
               )}
 
+              {/* Contenedor de regiones y sedes dependientes */}
               <div className="ctree-regions">
+                {/* Mensaje de ausencia de coincidencias de búsqueda */}
                 {filtering && visibleRegions.length === 0 && visibleLoose.length === 0 && (
                   <div className="ctree-empty">Ninguna sede coincide con «{query.trim()}».</div>
                 )}
 
+                {/* Renderizado de las regiones registradas */}
                 {visibleRegions.map((region) => (
                   <RegionCard
                     key={region.id}
@@ -383,6 +452,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
                   />
                 ))}
 
+                {/* Sección para sedes sueltas que dependen directo de la matriz sin pertenecer a una región */}
                 {(visibleLoose.length > 0 || (!filtering && regions.length === 0)) && (
                   <section className="ctree-region ctree-region--loose">
                     <div className="ctree-region__header is-static">
@@ -401,6 +471,7 @@ export const CompanyTreeModal = ({ companyId, onClose }) => {
                   </section>
                 )}
 
+                {/* Formulario o botón para agregar una nueva región a la estructura */}
                 {!filtering && (addingRegion ? (
                   <div className="ctree-form">
                     <label>
@@ -463,6 +534,7 @@ const RegionCard = ({ region, branches, forceOpen, ...props }) => {
 
   return (
     <section className="ctree-region">
+      {/* Cabecera interactiva plegable de la región */}
       <div
         className="ctree-region__header"
         onClick={() => setExpanded((e) => !e)}
@@ -480,9 +552,12 @@ const RegionCard = ({ region, branches, forceOpen, ...props }) => {
         <ManagerChip node={region} />
         <EditButton label="Editar región" onClick={() => onStartEdit(region)} />
       </div>
+
+      {/* Nota descriptiva de la región */}
       {open && <div className="ctree-region__note"><Note text={region.companyDescription} limit={NOTE_LIMIT.region} /></div>}
       {editingId === region.id && renderEditForm(region)}
 
+      {/* Lista de sedes y botón para agregar sede cuando la región está desplegada */}
       {open && (
         <>
           {branches.length === 0 ? (
@@ -515,6 +590,7 @@ const AddBranch = ({ target, addingBranchFor, setAddingBranchFor, newBranchForm,
     );
   }
   return (
+    // Formulario anidado para dar de alta una nueva sede
     <div className="ctree-form ctree-form--nested">
       <label>
         <span>Nombre de la sede</span>
@@ -540,6 +616,10 @@ const AddBranch = ({ target, addingBranchFor, setAddingBranchFor, newBranchForm,
   );
 };
 
+/**
+ * Componente interno BranchRow
+ * Fila individual que exhibe una sede con su nombre recortado, dirección, nota y encargado
+ */
 const BranchRow = ({ branch, prefix, editingId, onStartEdit, renderEditForm }) => (
   <li className="ctree-branch">
     <div className="ctree-branch__main">
@@ -554,6 +634,7 @@ const BranchRow = ({ branch, prefix, editingId, onStartEdit, renderEditForm }) =
       <ManagerChip node={branch} />
       <EditButton label="Editar sede" onClick={() => onStartEdit(branch)} />
     </div>
+    {/* Formulario inline de edición si esta sede es la seleccionada */}
     {editingId === branch.id && renderEditForm(branch)}
   </li>
 );

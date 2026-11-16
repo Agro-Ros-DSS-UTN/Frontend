@@ -1,3 +1,16 @@
+/**
+ * Componente EvaluationSummary
+ * 
+ * Modal de resumen detallado para una evaluación técnica de servicio (control de plagas / fumigación).
+ * - Muestra la información general del servicio: fecha, orden vinculada, niveles de fosfuro de hidrógeno (PPM PH3),
+ *   resultado general de presencia de insectos, satisfacción del cliente, observaciones y recomendaciones.
+ * - Renderiza la planilla tabular con el relevamiento de cada instalación (silos, celdas, galpones, granos y toma de muestras).
+ * - Exhibe la galería de fotografías tomadas en campo durante la inspección.
+ * - Muestra la imagen de la orden física original en papel escaneada.
+ * - Presenta las firmas digitales capturadas del técnico actuante y del responsable del cliente.
+ * - Permite imprimir/exportar la evaluación, editarla o saltar directamente a la orden de servicio asociada.
+ */
+
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -22,18 +35,33 @@ import { evaluationCode } from './evaluationCode';
 import '../companies/CompanySummary.css';
 import './ServiceOrderSummary.css';
 
+/**
+ * Variantes de animación de Framer Motion para el contenedor principal del modal.
+ */
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
 };
 
+/**
+ * Variantes de animación tipo spring para los bloques y secciones internas del modal.
+ */
 const itemVariants = {
   hidden: { y: 16, opacity: 0 },
   visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110, damping: 16 } },
 };
 
+/**
+ * Mapeo de escalas numéricas (1 a 5) a descripciones cualitativas de satisfacción del cliente.
+ */
 const SATISFACTION = { 5: 'Muy satisfecho', 4: 'Satisfecho', 3: 'Neutral', 2: 'Insatisfecho', 1: 'Muy insatisfecho' };
 
+/**
+ * Convierte una fecha a formato legible regional argentino (ej: "15 oct. 2026").
+ * 
+ * @param {string} value - Cadena de fecha en formato ISO o string.
+ * @returns {string} Fecha formateada o '—' si es nula.
+ */
 const formatDate = (value) => {
   if (!value) return '—';
   const s = String(value).slice(0, 10);
@@ -41,6 +69,13 @@ const formatDate = (value) => {
   return isNaN(d) ? value : d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+/**
+ * Parsea con tolerancia a fallos un valor que puede ser un array o un JSON stringificado.
+ * Si ocurre un error de parsing o el formato no es válido, retorna un array vacío.
+ * 
+ * @param {Array|string} value - Cadena JSON o array nativo.
+ * @returns {Array} Array resultante.
+ */
 const parseList = (value) => {
   if (Array.isArray(value)) return value;
   try {
@@ -51,6 +86,15 @@ const parseList = (value) => {
   }
 };
 
+/**
+ * Componente auxiliar para renderizar un dato con icono, etiqueta y valor.
+ * 
+ * @param {Object} props
+ * @param {React.ElementType} props.icon - Icono de Lucide.
+ * @param {string} props.label - Título del metadato.
+ * @param {React.ReactNode} props.children - Valor o contenido del metadato.
+ * @param {boolean} [props.wide=false] - Indica si debe ocupar el ancho completo en la grilla.
+ */
 const MetaItem = ({ icon: Icon, label, children, wide = false }) => (
   <div className={`cs-meta ${wide ? 'cs-meta--wide' : ''}`}>
     <Icon size={18} className="cs-meta__icon" />
@@ -64,16 +108,28 @@ const MetaItem = ({ icon: Icon, label, children, wide = false }) => (
 /**
  * Resumen de la evaluación de servicio de una orden: mismo formato que el
  * resumen de la orden (encabezado, datos, planilla, fotos, imagen original y firmas).
+ * 
+ * @param {Object} props
+ * @param {Object} props.order - Orden de servicio completa con sus datos de evaluación.
+ * @param {Function} props.onClose - Función para cerrar el modal.
+ * @param {Function} props.onEdit - Función para abrir el editor de la evaluación.
+ * @param {Function} props.onPrint - Función para abrir la vista de impresión/PDF.
+ * @param {Function} [props.onOpenOrder] - Función para abrir el detalle de la orden de servicio padre.
  */
 export const EvaluationSummary = ({ order, onClose, onEdit, onPrint, onOpenOrder }) => {
+  // Manejador para cerrar el modal al hacer clic en el backdrop
   const overlayHandlers = useOverlayClose(onClose);
+
+  // Extracción y normalización de la información técnica de la evaluación
   const ev = order.evaluation || {};
   const rows = parseList(ev.details);
   const photos = parseList(ev.photos);
   const code = evaluationCode(order);
   const place = [order.locality, order.province].filter(Boolean).join(', ');
+  // Determina si se detectaron insectos vivos (para aplicar estilos de advertencia visual)
   const liveInsects = /con insectos/i.test(ev.result || '');
 
+  // Cierre del modal mediante la tecla Escape
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -82,6 +138,7 @@ export const EvaluationSummary = ({ order, onClose, onEdit, onPrint, onOpenOrder
 
   return (
     <div className="cs-overlay" {...overlayHandlers}>
+      {/* Tarjeta animada del modal */}
       <motion.div
         className="cs-card"
         role="dialog"
@@ -91,6 +148,7 @@ export const EvaluationSummary = ({ order, onClose, onEdit, onPrint, onOpenOrder
         animate="visible"
         variants={containerVariants}
       >
+        {/* Encabezado del modal: migas de pan y botones de acción rápida */}
         <header className="cs-header">
           <motion.div variants={itemVariants} className="cs-header__row">
             <div className="cs-breadcrumbs">
@@ -112,12 +170,15 @@ export const EvaluationSummary = ({ order, onClose, onEdit, onPrint, onOpenOrder
           </motion.div>
         </header>
 
+        {/* Cuerpo del modal */}
         <div className="cs-body">
+          {/* Identificador y título con el nombre del cliente */}
           <motion.div variants={itemVariants}>
             <p className="sos-number">{code}</p>
             <h1 className="cs-title">{order.customerName || 'Evaluación de servicio'}</h1>
           </motion.div>
 
+          {/* Grilla con los metadatos principales del servicio */}
           <motion.div variants={itemVariants} className="cs-meta-grid">
             <MetaItem icon={Calendar} label="Fecha de evaluación">{formatDate(ev.evaluationDate)}</MetaItem>
             <MetaItem icon={ClipboardList} label="Orden de servicio">
@@ -153,6 +214,7 @@ export const EvaluationSummary = ({ order, onClose, onEdit, onPrint, onOpenOrder
             )}
           </motion.div>
 
+          {/* Sección de planilla técnica: tabla con el relevamiento detallado por instalación */}
           <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
               <ShieldCheck size={18} className="cs-meta__icon" /> Detalle del servicio
@@ -196,6 +258,7 @@ export const EvaluationSummary = ({ order, onClose, onEdit, onPrint, onOpenOrder
             )}
           </motion.section>
 
+          {/* Galería de fotos tomadas en el lugar de trabajo */}
           {photos.length > 0 && (
             <motion.section variants={itemVariants} className="cs-section">
               <h3 className="cs-section__title">
@@ -212,6 +275,7 @@ export const EvaluationSummary = ({ order, onClose, onEdit, onPrint, onOpenOrder
             </motion.section>
           )}
 
+          {/* Imagen de la orden de servicio original en papel */}
           {order.originalOrderImage && (
             <motion.section variants={itemVariants} className="cs-section">
               <h3 className="cs-section__title">
@@ -223,6 +287,7 @@ export const EvaluationSummary = ({ order, onClose, onEdit, onPrint, onOpenOrder
             </motion.section>
           )}
 
+          {/* Firmas digitales del técnico y del cliente */}
           {(ev.technicianSignature || ev.customerSignature) && (
             <motion.section variants={itemVariants} className="cs-section">
               <h3 className="cs-section__title">

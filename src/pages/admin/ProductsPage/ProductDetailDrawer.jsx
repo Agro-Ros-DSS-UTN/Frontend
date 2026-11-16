@@ -1,4 +1,12 @@
-﻿import {
+﻿/**
+ * @file ProductDetailDrawer.jsx
+ * @description Panel lateral deslizable (SlideDrawer) para visualizar la ficha técnica completa
+ * de un producto o servicio agronómico del catálogo. Muestra imagen o marcador de posición,
+ * clasificación técnica, SKU, desglose financiero (precio de lista, coste estimado y margen de rentabilidad),
+ * especificaciones agronómicas y accesos directos para cambiar estado (activo/inactivo), editar o eliminar.
+ */
+
+import {
   Package,
   Edit2,
   Trash2,
@@ -13,6 +21,16 @@
 import { SlideDrawer } from '../../../components/ui/SlideDrawer/SlideDrawer';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
+/**
+ * Componente que renderiza el panel de detalle de producto.
+ * @param {object} props
+ * @param {object|null} props.product - Objeto del producto seleccionado a visualizar.
+ * @param {Function} props.onClose - Callback para cerrar el panel.
+ * @param {Function} props.onEdit - Callback para abrir el formulario de edición con este producto.
+ * @param {Function} props.onDelete - Callback para eliminar el producto por su ID.
+ * @param {Function} props.onToggleStatus - Callback para alternar entre activo e inactivo.
+ * @param {Function} props.formatCurrency - Función auxiliar para dar formato de moneda ($).
+ */
 export const ProductDetailDrawer = ({
   product,
   onClose,
@@ -21,8 +39,12 @@ export const ProductDetailDrawer = ({
   onToggleStatus,
   formatCurrency,
 }) => {
+  // Si no hay ningún producto seleccionado, no se renderiza nada
   if (!product) return null;
 
+  // --------------------------------------------------------------------------
+  // CÁLCULO DE MARGEN Y RENTABILIDAD COMERCIAL
+  // --------------------------------------------------------------------------
   const marginAmt = (product.unitPrice || 0) - (product.costPerUnit || 0);
   const marginPct = product.unitPrice
     ? Math.round((marginAmt / product.unitPrice) * 100)
@@ -36,7 +58,7 @@ export const ProductDetailDrawer = ({
       width="540px"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {/* Imagen o Placeholder */}
+        {/* ── 1. Imagen del Producto o Marcador de Posición (Placeholder) ── */}
         {product.imageUrl ? (
           <div style={{ width: '100%', height: '220px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
             <img
@@ -66,7 +88,7 @@ export const ProductDetailDrawer = ({
           </div>
         )}
 
-        {/* Encabezado y Estado */}
+        {/* ── 2. Encabezado: Categoría, Nombre, SKU y Píldora de Estado ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <span
@@ -90,6 +112,7 @@ export const ProductDetailDrawer = ({
             </span>
           </div>
 
+          {/* Píldora de estado interactiva: clic para alternar Activo/Inactivo */}
           <span
             className={`status-pill ${product.active ? 'status-pill--active' : 'status-pill--inactive'}`}
             style={{ cursor: 'pointer' }}
@@ -101,8 +124,9 @@ export const ProductDetailDrawer = ({
           </span>
         </div>
 
-        {/* Tarjetas de Precios y Margen */}
+        {/* ── 3. Tarjetas Financieras: Precios de Lista, Coste y Margen de Rentabilidad ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+          {/* Precio de venta unitario */}
           <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px' }}>
             <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>
               Precio Lista
@@ -112,6 +136,7 @@ export const ProductDetailDrawer = ({
             </div>
           </div>
 
+          {/* Coste por unidad */}
           <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px' }}>
             <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>
               Coste Unidad
@@ -121,6 +146,7 @@ export const ProductDetailDrawer = ({
             </div>
           </div>
 
+          {/* Margen porcentual calculado */}
           <div style={{ background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px' }}>
             <span style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>
               Margen / Rent.
@@ -131,7 +157,7 @@ export const ProductDetailDrawer = ({
           </div>
         </div>
 
-        {/* Descripción */}
+        {/* ── 4. Descripción agronómica e indicaciones de uso ── */}
         <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px' }}>
           <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase' }}>
             Descripción e Indicaciones
@@ -141,7 +167,7 @@ export const ProductDetailDrawer = ({
           </p>
         </div>
 
-        {/* Acciones de Edición / Eliminación */}
+        {/* ── 5. Botones de acción: Editar y Eliminar ── */}
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
           <button
             type="button"

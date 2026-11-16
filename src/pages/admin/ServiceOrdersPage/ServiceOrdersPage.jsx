@@ -1,3 +1,21 @@
+/**
+ * @file ServiceOrdersPage.jsx
+ * @description Página de administración integral de Órdenes de Servicio y Evaluaciones Técnicas de Campo.
+ * Permite gestionar servicios fitosanitarios y de sanidad vegetal (fumigación en silos y celdas,
+ * desinsectación de plantas de acopio, tratamientos de granos almacenados y desinfecciones).
+ * 
+ * Funcionalidades clave:
+ * 1. Indicadores de gestión (KPIs) en tiempo real: órdenes totales, en ejecución, completadas y porcentaje libre de plagas.
+ * 2. Visualización tabular con filtros por estado, búsqueda de texto libre y selector por tipo de trabajo agronómico.
+ * 3. Menús contextuales flotantes en Portales DOM para cambio rápido de estado y edición selectiva de orden o evaluación.
+ * 4. Formularios dinámicos deslizables (SlideDrawers) con plantillas tabulares editables (hojas de trabajo) para registrar
+ *    instalaciones, toneladas, granos tratados, insecticidas, dosificación y muestreo de plagas.
+ * 5. Sistema de guardado y recuperación automática de borradores en almacenamiento local para prevenir pérdidas accidentales.
+ * 6. Captura de firmas digitales del técnico y del cliente, y subida de fotografías de campo o remito escaneado.
+ * 7. Generación y previsualización de documentos PDF oficiales listos para imprimir mediante PdfPreviewModal.
+ * 8. Exportación completa de los registros a formato CSV.
+ */
+
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -55,16 +73,28 @@ import { SearchClearButton } from '../../../components/ui/SearchClearButton/Sear
 import { checkText } from '../../../utils/validators';
 import { confirmAction } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
+// ============================================================================
+// CONSTANTES Y CONFIGURACIONES DE MUESTREO Y FITOSANITARIOS
+// ============================================================================
+
+// Puntos físicos de extracción de muestras de cereal
 const SAMPLING_POINTS = ['Superficie', 'Medio', 'Fondo', 'Boca de carga', 'Ducto de descarga'];
+
+// Tipos de estructuras o instalaciones de almacenamiento
 const FACILITY_TYPES = ['Silo', 'Celda', 'Galpón', 'Silo bolsa', 'Bodega', 'Planta'];
+
+// Tipos de granos o cereales tratados habitualmente
 const GRAINS = ['Trigo', 'Maíz', 'Soja', 'Girasol', 'Sorgo', 'Cebada', 'Arroz'];
+
+// Productos agroquímicos e insecticidas autorizados
 const PRODUCTS = ['Fosfuro de Aluminio (Pastillas)', 'Fosfuro de Magnesio', 'Deltametrina', 'Pirimifós metil'];
 
-// Referencias del dorso de la planilla "Evaluación de Servicio"
+// Referencias del dorso de la planilla oficial de "Evaluación de Servicio"
 const EVAL_GRAIN_CONDITIONS = [
   { value: 'GP', label: 'GP · Grano picado' },
   { value: 'SP', label: 'SP · Sin picado' },
 ];
+
 const EVAL_SAMPLE_RESULTS = [
   { value: 'IM', label: 'IM · Insectos muertos' },
   { value: 'AIV', label: 'AIV · Alta infestación vivos' },
@@ -72,11 +102,15 @@ const EVAL_SAMPLE_RESULTS = [
   { value: 'BIV', label: 'BIV · Baja infestación vivos' },
   { value: 'SI', label: 'SI · No se observan insectos' },
 ];
+
+// Claves de resultados que evidencian presencia de insectos vivos
 const RESULTS_WITH_LIVE_INSECTS = ['AIV', 'MIV', 'BIV'];
 
+// Recomendación agronómica sugerida por defecto para la liberación del cereal tratado
 const DEFAULT_RECOMMENDATION =
   'Se recomienda prender los aireadores y proceder al retiro del cereal luego de las 96 hs de la liberación del servicio.';
 
+// Configuración de las columnas de la grilla tabular de evaluación
 const EVAL_COLUMNS = [
   { key: 'facilityType', label: 'Tipo instalación', options: FACILITY_TYPES, width: 130 },
   { key: 'number', label: 'Nº', width: 64 },
@@ -88,6 +122,9 @@ const EVAL_COLUMNS = [
   { key: 'result', label: 'Resultado', group: true, options: EVAL_SAMPLE_RESULTS, required: true, width: 130 },
 ];
 
+/**
+ * Genera una fila en blanco para la grilla de evaluación de servicio.
+ */
 const emptyEvalRow = () => ({
   facilityType: '',
   number: '',
@@ -99,9 +136,15 @@ const emptyEvalRow = () => ({
   result: '',
 });
 
+/**
+ * Determina si una fila de la grilla contiene datos cargados en alguno de sus campos.
+ */
 const rowHasData = (row) => Object.values(row || {}).some((v) => String(v ?? '').trim() !== '');
 
-// Las instalaciones de la orden se copian a la evaluación: solo falta completar el estado de la muestra.
+/**
+ * Copia las instalaciones registradas en una orden de servicio a las filas de la evaluación
+ * para evitar la recarga manual de datos idénticos.
+ */
 const evalRowsFromOrder = (orderRows = []) => {
   const rows = orderRows
     .filter((r) => r && (r.facilityType || r.number || r.grain || r.capacityTn || r.quantityTn))
@@ -116,6 +159,9 @@ const evalRowsFromOrder = (orderRows = []) => {
   return rows.length > 0 ? rows : [emptyEvalRow()];
 };
 
+/**
+ * Parsea un array JSON de forma segura, retornando un arreglo vacío en caso de error.
+ */
 const parseJsonArray = (value) => {
   if (Array.isArray(value)) return value;
   try {
@@ -126,6 +172,9 @@ const parseJsonArray = (value) => {
   }
 };
 
+/**
+ * Genera el estado inicial del formulario de evaluación de servicio.
+ */
 const emptyEvalForm = (orderRows) => ({
   evaluationNumber: '',
   evaluationDate: '',
@@ -140,8 +189,10 @@ const emptyEvalForm = (orderRows) => ({
   technicianSignature: null,
 });
 
-// Arma lo que se envía al backend. Los campos generales (estado del cereal, lugar
-// de toma y resultado) se derivan de la planilla para el listado y los indicadores.
+/**
+ * Prepara el payload de la evaluación para enviar a la API backend.
+ * Deriva los campos consolidados (estado del cereal, lugar de toma y resultado global) para métricas y filtros.
+ */
 const buildEvalPayload = (form) => {
   const details = (form.details || []).filter(rowHasData);
   const withLiveInsects = details.some((r) => RESULTS_WITH_LIVE_INSECTS.includes(r.result));
@@ -154,6 +205,9 @@ const buildEvalPayload = (form) => {
   };
 };
 
+/**
+ * Genera una fila limpia para el detalle de instalaciones y productos aplicados de la orden.
+ */
 const emptyDetailRow = () => ({
   facilityType: '',
   number: '',
@@ -167,6 +221,7 @@ const emptyDetailRow = () => ({
   dose: ''
 });
 
+// Configuración de las columnas de la grilla de detalle de la orden de servicio
 const DETAIL_COLUMNS = [
   { key: 'facilityType', label: 'Tipo instalación', options: FACILITY_TYPES, width: 130 },
   { key: 'number', label: 'Nº', width: 64 },
@@ -180,8 +235,14 @@ const DETAIL_COLUMNS = [
   { key: 'dose', label: 'Dosis', width: 120 }
 ];
 
+/**
+ * Comprueba si una cadena de dirección es válida y no un texto genérico de relleno.
+ */
 const isRealAddress = (v) => Boolean(v) && !/^sin direcci[oó]n$/i.test(String(v).trim());
 
+/**
+ * Genera la estructura en blanco del formulario de orden de servicio.
+ */
 const buildEmptyOrderForm = (orderNumber = '') => ({
   orderNumber,
   date: new Date().toISOString().split('T')[0],
@@ -207,6 +268,9 @@ const buildEmptyOrderForm = (orderNumber = '') => ({
   appliedProducts: [emptyDetailRow()]
 });
 
+/**
+ * Valida los datos requeridos del formulario de evaluación de servicio.
+ */
 const validateEvalForm = (form) => {
   const errors = {};
   const evaluationNumber = String(form.evaluationNumber || '').trim();
@@ -222,32 +286,51 @@ const validateEvalForm = (form) => {
   return errors;
 };
 
+// ============================================================================
+// COMPONENTE PRINCIPAL: ServiceOrdersPage
+// ============================================================================
+
 export const ServiceOrdersPage = () => {
   const { currentUser } = useAuth();
+  // Clave única para guardar borradores en localStorage según el usuario actual
   const orderDraftKey = draftKey('orden-servicio', currentUser?.idUser || currentUser?.id);
-  const [orders, setOrders] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // --------------------------------------------------------------------------
+  // ESTADOS PRINCIPALES DE LISTADO, FILTROS Y NAVEGACIÓN
+  // --------------------------------------------------------------------------
+  const [orders, setOrders] = useState([]); // Listado de órdenes de servicio obtenidas de la base de datos
+  const [isLoading, setIsLoading] = useState(false); // Bandera de carga de datos
+  const [searchQuery, setSearchQuery] = useState(''); // Búsqueda rápida por cliente, N.º o localidad
   const location = useLocation();
+
+  // Prefiltrado si se navega con estado de búsqueda previo
   useEffect(() => {
     if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
   }, [location.state]);
-  const [workTypeFilter, setWorkTypeFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'ejecucion' | 'completadas' | 'sin-evaluar'
 
-  // Drawer & Modal States
-  const [showOrderDrawer, setShowOrderDrawer] = useState(false);
-  const [editingOrderId, setEditingOrderId] = useState(null);
-  const [showEvalDrawer, setShowEvalDrawer] = useState(false);
-  const [evalTargetOrder, setEvalTargetOrder] = useState(null);
-  const [summaryOrder, setSummaryOrder] = useState(null);
-  const [editMenuOrderId, setEditMenuOrderId] = useState(null);
-  const [editMenuPos, setEditMenuPos] = useState(null);
-  const [summaryEvaluation, setSummaryEvaluation] = useState(null);
-  const [statusMenu, setStatusMenu] = useState(null); // { orderId, pos }
-  const [changingStatusId, setChangingStatusId] = useState(null);
+  const [workTypeFilter, setWorkTypeFilter] = useState('all'); // Filtro por tipo de trabajo agronómico
+  const [activeTab, setActiveTab] = useState('all'); // Pestaña de estado: 'all' | 'execution' | 'completed' | 'sin-evaluar'
 
-  // Posición fija debajo (o arriba) de un botón, en coordenadas del documento con zoom.
+  // --------------------------------------------------------------------------
+  // ESTADOS DE MODALES, DRAWERS Y MENÚS FLOTANTES
+  // --------------------------------------------------------------------------
+  const [showOrderDrawer, setShowOrderDrawer] = useState(false); // Drawer de creación/edición de orden
+  const [editingOrderId, setEditingOrderId] = useState(null); // ID de la orden en edición (null si es nueva)
+  const [showEvalDrawer, setShowEvalDrawer] = useState(false); // Drawer para cargar evaluación individual
+  const [evalTargetOrder, setEvalTargetOrder] = useState(null); // Orden asociada a la evaluación que se edita
+  const [summaryOrder, setSummaryOrder] = useState(null); // Orden para ver en modal de resumen
+  const [editMenuOrderId, setEditMenuOrderId] = useState(null); // Orden sobre la que se abrió el menú flotante de edición
+  const [editMenuPos, setEditMenuPos] = useState(null); // Coordenadas fijas para el menú de edición
+  const [summaryEvaluation, setSummaryEvaluation] = useState(null); // Evaluación para ver en modal de resumen
+  const [statusMenu, setStatusMenu] = useState(null); // Menú de cambio rápido de estado: { orderId, pos }
+  const [changingStatusId, setChangingStatusId] = useState(null); // ID de orden mientras se persiste el cambio de estado
+
+  // --------------------------------------------------------------------------
+  // POSICIONAMIENTO DINÁMICO DE MENÚS FLOTANTES (PORTALES)
+  // --------------------------------------------------------------------------
+  /**
+   * Calcula la posición fija debajo (o arriba) de un botón de referencia, ajustada a la escala de zoom.
+   */
   const menuPositionFor = (button, height = 190) => {
     const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
     const r = button.getBoundingClientRect();
@@ -259,6 +342,9 @@ export const ServiceOrdersPage = () => {
     };
   };
 
+  /**
+   * Abre o cierra el menú flotante de selección de estado de la orden.
+   */
   const toggleStatusMenu = (order, button) => {
     if (statusMenu?.orderId === order.id) {
       setStatusMenu(null);
@@ -268,6 +354,9 @@ export const ServiceOrdersPage = () => {
     setStatusMenu({ orderId: order.id, pos: menuPositionFor(button) });
   };
 
+  /**
+   * Cambia el estado de una orden de servicio mediante la API backend.
+   */
   const handleChangeStatus = async (order, status) => {
     setStatusMenu(null);
     if (status === order.status) return;
@@ -284,6 +373,9 @@ export const ServiceOrdersPage = () => {
     }
   };
 
+  /**
+   * Cierra el menú de estado flotante al hacer clic afuera, redimensionar, scrollear o presionar Escape.
+   */
   useEffect(() => {
     if (!statusMenu) return undefined;
     const close = (e) => {
@@ -302,8 +394,10 @@ export const ServiceOrdersPage = () => {
       window.removeEventListener('keydown', onKey);
     };
   }, [statusMenu]);
-  // El menú se dibuja en un portal (por encima de la tabla, que tiene scroll):
-  // se ubica debajo del lápiz, alineado a su borde derecho.
+
+  /**
+   * Abre o cierra el menú flotante del lápiz para elegir entre editar la orden o su evaluación.
+   */
   const toggleEditMenu = (order, button) => {
     if (editMenuOrderId === order.id) {
       setEditMenuOrderId(null);
@@ -320,6 +414,9 @@ export const ServiceOrdersPage = () => {
     setEditMenuOrderId(order.id);
   };
 
+  /**
+   * Cierra el menú de edición al hacer clic fuera o presionar Escape.
+   */
   useEffect(() => {
     if (editMenuOrderId === null) return undefined;
     const close = (e) => {
@@ -338,9 +435,13 @@ export const ServiceOrdersPage = () => {
       window.removeEventListener('keydown', onKey);
     };
   }, [editMenuOrderId]);
-  // Vista previa del PDF a imprimir: { tipo: 'orden' | 'evaluacion', order }
-  const [pdfPreview, setPdfPreview] = useState(null);
-  // Provincia de cada empresa, para completar "localidad, provincia" en órdenes que no la guardaron
+
+  // --------------------------------------------------------------------------
+  // PREVISUALIZACIÓN Y GENERACIÓN DE REPORTES PDF
+  // --------------------------------------------------------------------------
+  const [pdfPreview, setPdfPreview] = useState(null); // Estado de previsualización: { type: 'order' | 'evaluation', order }
+
+  // Diccionario de provincias por ID y nombre de empresa para completar localidades incompletas
   const [companyProvinces, setCompanyProvinces] = useState({ byId: {}, byName: {} });
   useEffect(() => {
     fetchClientCompanies()
@@ -357,17 +458,28 @@ export const ServiceOrdersPage = () => {
       })
       .catch(() => {});
   }, []);
+
+  /**
+   * Asegura que el objeto de orden tenga la provincia correspondiente cargada.
+   */
   const withProvince = useCallback((order) => {
     if (!order || order.province) return order;
     const province = companyProvinces.byId[order.companyId]
       || companyProvinces.byName[String(order.customerName || '').toLowerCase().trim()] || '';
     return province ? { ...order, province } : order;
   }, [companyProvinces]);
+
+  /**
+   * Retorna una etiqueta legible de localidad y provincia combinadas.
+   */
   const localityLabel = (order) => {
     const o = withProvince(order) || {};
     return [o.locality, o.province].filter(Boolean).join(', ');
   };
 
+  /**
+   * Abre el modal de previsualización e impresión del documento PDF.
+   */
   const openPdfPreview = (type, order) => {
     if (type === 'evaluation' && !order?.evaluation) {
       notify.warning('No se puede imprimir la evaluación', 'Esta orden todavía no tiene evaluación. Cargala con «Cargar evaluación» y después imprimila.');
@@ -375,22 +487,28 @@ export const ServiceOrdersPage = () => {
     }
     setPdfPreview({ type, order: withProvince(order) });
   };
+
   const closePdfPreview = useCallback(() => setPdfPreview(null), []);
+
+  /**
+   * Generador dinámico de contenido PDF según el tipo seleccionado (orden o evaluación).
+   */
   const pdfGenerator = useMemo(() => {
     if (!pdfPreview) return null;
     const { type, order } = pdfPreview;
     return () => (type === 'order' ? generateServiceOrderPdf(order) : generateServiceEvaluationPdf(order));
   }, [pdfPreview]);
-  const orderModalOverlayHandlers = useOverlayClose(() => setShowOrderDrawer(false));
 
+  // Manejo de eventos de cierre de modales por backdrop y tecla Escape
+  const orderModalOverlayHandlers = useOverlayClose(() => setShowOrderDrawer(false));
   useEffect(() => {
     if (!showOrderDrawer) return undefined;
     const onKey = (e) => e.key === 'Escape' && setShowOrderDrawer(false);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [showOrderDrawer]);
-  const evalModalOverlayHandlers = useOverlayClose(() => setShowEvalDrawer(false));
 
+  const evalModalOverlayHandlers = useOverlayClose(() => setShowEvalDrawer(false));
   useEffect(() => {
     if (!showEvalDrawer) return undefined;
     const onKey = (e) => e.key === 'Escape' && setShowEvalDrawer(false);
@@ -398,7 +516,12 @@ export const ServiceOrdersPage = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [showEvalDrawer]);
 
-  // Fetch orders from backend database
+  // --------------------------------------------------------------------------
+  // CARGA DE DATOS DESDE EL BACKEND
+  // --------------------------------------------------------------------------
+  /**
+   * Obtiene la lista completa de órdenes de servicio y limpia la caché local.
+   */
   const loadOrders = async () => {
     setIsLoading(true);
     try {
@@ -418,32 +541,36 @@ export const ServiceOrdersPage = () => {
     loadOrders();
   }, []);
 
-  // Order Form State (matching Documento 3.1 & HubSpot design)
+  // --------------------------------------------------------------------------
+  // ESTADOS DE FORMULARIO DE ORDEN Y EVALUACIÓN
+  // --------------------------------------------------------------------------
   const [orderForm, setOrderForm] = useState(() => buildEmptyOrderForm());
   const [orderErrors, setOrderErrors] = useState({});
-  const [includeEval, setIncludeEval] = useState(false);
+  const [includeEval, setIncludeEval] = useState(false); // Flag para incluir evaluación adjunta en el alta
   const draftBaselineRef = useRef(null);
 
-  // Evaluation Form State (Evaluación de Servicio digital)
   const [evalForm, setEvalForm] = useState(emptyEvalForm());
   const [evalErrors, setEvalErrors] = useState({});
 
-  // Calculate Next Correlative Order Number
+  /**
+   * Genera el siguiente número correlativo sugerido para una nueva orden.
+   */
   const generateNextOrderNumber = () => {
     const year = new Date().getFullYear();
     const count = orders.length + 1;
     return `OS-${year}-${String(count).padStart(4, '0')}`;
   };
 
-  // Open Create Order Drawer — si había un borrador sin guardar, lo recupera
+  /**
+   * Abre el drawer de creación recuperando borradores automáticos no guardados si existieran.
+   */
   const handleOpenCreateDrawer = () => {
     setEditingOrderId(null);
     setOrderErrors({});
     setEvalErrors({});
     const draft = loadDraft(orderDraftKey);
     if (draft?.orderForm) {
-      // Un borrador guardado con una versión anterior del formulario puede no tener
-      // todos los campos actuales: se completa con la forma vigente para no romper la página.
+      // Un borrador guardado con una versión previa se completa con los valores vigentes
       const draftRows = Array.isArray(draft.orderForm.appliedProducts) ? draft.orderForm.appliedProducts : [];
       setOrderForm({
         ...buildEmptyOrderForm(),
@@ -471,21 +598,24 @@ export const ServiceOrdersPage = () => {
     setShowOrderDrawer(true);
   };
 
-  // "Cancelar" es una decisión explícita: descarta el borrador. Cerrar con clic
-  // afuera o Esc (lo que suele pasar sin querer) lo conserva.
+  /**
+   * Cancela la creación de la orden y descarta explícitamente el borrador en localStorage.
+   */
   const handleCancelOrder = () => {
     if (!editingOrderId) clearDraft(orderDraftKey);
     setShowOrderDrawer(false);
   };
 
-  // Mientras se carga una orden NUEVA, lo escrito se guarda como borrador de la sesión.
+  /**
+   * Guarda de forma automática el borrador de la orden nueva en localStorage durante la edición.
+   */
   useEffect(() => {
     if (!showOrderDrawer || editingOrderId) return;
     const snapshot = JSON.stringify({ orderForm, includeEval, evalForm });
     if (snapshot === draftBaselineRef.current) return;
     const ok = saveDraft(orderDraftKey, { orderForm, includeEval, evalForm });
     if (!ok) {
-      // Las fotos y firmas pueden no entrar en el storage: se guarda el resto.
+      // Si las fotos o firmas exceden el almacenamiento local, se guarda el resto del contenido textual
       saveDraft(orderDraftKey, {
         orderForm: { ...orderForm, technicianSignature: null, customerSignature: null, originalOrderImage: null },
         includeEval,
@@ -494,7 +624,9 @@ export const ServiceOrdersPage = () => {
     }
   }, [orderForm, includeEval, evalForm, showOrderDrawer, editingOrderId, orderDraftKey]);
 
-  // Open Edit Order Drawer
+  /**
+   * Abre el drawer de edición precargando todos los campos de una orden de servicio existente.
+   */
   const handleOpenEditDrawer = (order) => {
     setEditingOrderId(order.id);
     setOrderErrors({});
@@ -532,12 +664,16 @@ export const ServiceOrdersPage = () => {
     setShowOrderDrawer(true);
   };
 
-  // Setter genérico para los campos del formulario de orden
+  /**
+   * Setter genérico para campos simples del formulario de orden.
+   */
   const setOrderField = (field, value) => {
     setOrderForm(prev => ({ ...prev, [field]: value }));
   };
 
-  // Products line items management
+  // --------------------------------------------------------------------------
+  // MANIPULACIÓN DE FILAS EN LA PLANILLA DE PRODUCTOS E INSTALACIONES
+  // --------------------------------------------------------------------------
   const handleAddProductRow = () => {
     setOrderForm(prev => ({
       ...prev,
@@ -560,7 +696,9 @@ export const ServiceOrdersPage = () => {
     });
   };
 
-  // Planilla de la evaluación de servicio
+  // --------------------------------------------------------------------------
+  // MANIPULACIÓN DE FILAS EN LA PLANILLA DE EVALUACIÓN
+  // --------------------------------------------------------------------------
   const handleEvalRowChange = (index, field, value) => {
     setEvalForm((prev) => {
       const details = [...prev.details];
@@ -578,7 +716,10 @@ export const ServiceOrdersPage = () => {
     setEvalForm((prev) => ({ ...prev, details: prev.details.filter((_, i) => i !== index) }));
   };
 
-  // Al tildar "cargar la evaluación", si la planilla está vacía se traen las instalaciones de la orden
+  /**
+   * Alterna la inclusión de evaluación en el formulario de la orden,
+   * copiando instalaciones de la orden si la evaluación aún no tenía filas.
+   */
   const handleToggleEval = (checked) => {
     setIncludeEval(checked);
     if (checked) {
@@ -588,7 +729,12 @@ export const ServiceOrdersPage = () => {
     }
   };
 
-  // Submit Order Form (Create or Update) connected to Backend
+  // --------------------------------------------------------------------------
+  // PERSISTENCIA DE LA ORDEN DE SERVICIO (ALTA / MODIFICACIÓN)
+  // --------------------------------------------------------------------------
+  /**
+   * Valida y guarda la orden de servicio en la base de datos (y su evaluación si fue tildada).
+   */
   const handleSaveOrder = async (e) => {
     e.preventDefault();
 
@@ -624,10 +770,10 @@ export const ServiceOrdersPage = () => {
     } catch (err) {
       console.error('Error al guardar la orden de servicio:', err);
       notify.error('No se pudo guardar la orden de servicio', err);
-      return; // el formulario queda abierto para reintentar
+      return; // El formulario queda abierto para reintentar
     }
 
-    // Evaluación de servicio cargada en el mismo formulario
+    // Si se activó la evaluación en el mismo formulario, se persiste vinculada a la orden guardada
     let evalFailed = false;
     if (includeEval && savedOrder?.id) {
       try {
@@ -653,7 +799,12 @@ export const ServiceOrdersPage = () => {
     setShowOrderDrawer(false);
   };
 
-  // Open Evaluation Drawer — la evaluación queda vinculada a esta Orden de Servicio
+  // --------------------------------------------------------------------------
+  // PERSISTENCIA DE LA EVALUACIÓN DE SERVICIO (DRAWER INDIVIDUAL)
+  // --------------------------------------------------------------------------
+  /**
+   * Abre el drawer individual de evaluación para una orden existente.
+   */
   const handleOpenEvalDrawer = (order) => {
     setEvalTargetOrder(order);
     setEvalErrors({});
@@ -663,7 +814,6 @@ export const ServiceOrdersPage = () => {
       setEvalForm({
         evaluationNumber: ev.evaluationNumber || '',
         evaluationDate: ev.evaluationDate ? String(ev.evaluationDate).slice(0, 10) : '',
-        // Evaluaciones viejas (sin planilla): se arma con las instalaciones de la orden
         details: savedDetail.length > 0
           ? savedDetail.map((r) => ({ ...emptyEvalRow(), ...r }))
           : evalRowsFromOrder(order.appliedProducts),
@@ -682,7 +832,9 @@ export const ServiceOrdersPage = () => {
     setShowEvalDrawer(true);
   };
 
-  // Submit Evaluation Form connected to Backend
+  /**
+   * Guarda los datos de evaluación vinculados a la orden seleccionada.
+   */
   const handleSaveEvaluation = async (e) => {
     e.preventDefault();
     if (!evalTargetOrder) return;
@@ -711,7 +863,6 @@ export const ServiceOrdersPage = () => {
       setEvalTargetOrder(null);
     } catch (err) {
       console.error('Error al guardar evaluación:', err);
-      // Número repetido u obligatorio: se marca el campo además del aviso.
       if (err?.response?.data?.fields?.evaluationNumber) {
         setEvalErrors((prev) => ({ ...prev, evaluationNumber: err.message }));
       }
@@ -719,7 +870,9 @@ export const ServiceOrdersPage = () => {
     }
   };
 
-  // Delete Order connected to Backend
+  /**
+   * Elimina una orden de servicio mediante la API tras confirmación.
+   */
   const handleDeleteOrder = async (orderId, num) => {
     if (!await confirmAction(`¿Estás seguro de eliminar la Orden de Servicio "${num}"?`)) return;
     try {
@@ -734,7 +887,9 @@ export const ServiceOrdersPage = () => {
     }
   };
 
-  // Export CSV
+  /**
+   * Genera un archivo CSV con la lista de órdenes registradas y sus datos clave.
+   */
   const handleExportCSV = () => {
     if (orders.length === 0) {
       notify.info('No hay órdenes para exportar');
@@ -771,11 +926,13 @@ export const ServiceOrdersPage = () => {
     document.body.removeChild(link);
   };
 
-  // Filtered Orders Calculation
+  // --------------------------------------------------------------------------
+  // CÁLCULOS MEMORIZADOS: FILTRADO DE ÓRDENES Y KPIS
+  // --------------------------------------------------------------------------
   const filteredOrders = useMemo(() => {
     let result = [...orders];
 
-    // Quick tab filter
+    // Filtrado por pestaña de estado
     if (activeTab === 'execution') {
       result = result.filter(o => o.status === 'En Ejecución');
     } else if (activeTab === 'completed') {
@@ -784,12 +941,12 @@ export const ServiceOrdersPage = () => {
       result = result.filter(o => !o.evaluation);
     }
 
-    // Work type filter
+    // Filtrado por tipo de trabajo
     if (workTypeFilter !== 'all') {
       result = result.filter(o => o.workType === workTypeFilter);
     }
 
-    // Search query
+    // Búsqueda por texto libre
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(o =>
@@ -806,7 +963,7 @@ export const ServiceOrdersPage = () => {
     return result;
   }, [orders, activeTab, workTypeFilter, searchQuery]);
 
-  // KPIs
+  // Cálculo de indicadores generales (KPIs)
   const kpis = useMemo(() => {
     const total = orders.length;
     const inExecution = orders.filter(o => o.status === 'En Ejecución').length;
@@ -818,14 +975,19 @@ export const ServiceOrdersPage = () => {
     return { total, inExecution, completed, totalEvaluated: evaluated.length, pctWithoutInsects };
   }, [orders]);
 
-  // Formulario de la evaluación, igual a la planilla en papel. `orden` aporta los
-  // datos del encabezado (se completan solos) y las instalaciones para copiar.
+  // --------------------------------------------------------------------------
+  // SUB-RENDERER: CAMPOS DE LA EVALUACIÓN DE SERVICIO
+  // --------------------------------------------------------------------------
+  /**
+   * Renderiza las secciones del formulario de evaluación (planilla tabular, PPM, firmas y fotos).
+   */
   const renderEvalFields = (order = {}) => {
     const missingInRow = (row, col) =>
       Boolean(evalErrors.details) && col.required && rowHasData(row) && !String(row[col.key] || '').trim();
 
     return (
       <>
+        {/* Cabecera de la evaluación */}
         <section className="so-form-section">
           <div className="so-form-grid so-form-grid--3">
             <FormInput
@@ -862,6 +1024,7 @@ export const ServiceOrdersPage = () => {
           </div>
         </section>
 
+        {/* Planilla de detalle del servicio y muestreo */}
         <section className="so-form-section">
           <div className="so-form-section__head">
             <h3 className="so-form-section__title">Detalle del servicio</h3>
@@ -954,6 +1117,7 @@ export const ServiceOrdersPage = () => {
           </p>
         </section>
 
+        {/* Mediciones de gas, satisfacción del cliente y comentarios */}
         <section className="so-form-section">
           <div className="so-form-grid so-form-grid--4">
             <FormInput
@@ -1019,6 +1183,7 @@ export const ServiceOrdersPage = () => {
           </div>
         </section>
 
+        {/* Adjuntos fotográficos */}
         <section className="so-form-section">
           <MultiImageUpload
             label="Fotos"
@@ -1028,6 +1193,7 @@ export const ServiceOrdersPage = () => {
           />
         </section>
 
+        {/* Firmas digitales del técnico y del cliente */}
         <section className="so-form-section">
           <h3 className="so-form-section__title">Firmas</h3>
           <div className="so-form-grid so-form-grid--2">
@@ -1050,9 +1216,12 @@ export const ServiceOrdersPage = () => {
   const selectedWorkType = orderForm.workType;
   const canAttachEval = !editingOrderId || !orders.find((o) => o.id === editingOrderId)?.evaluation;
 
+  // ==========================================================================
+  // RENDERIZADO DEL COMPONENTE
+  // ==========================================================================
   return (
     <div className="so-page">
-      {/* ── Encabezado Principal (Estilo TasksPage & CompaniesPage) ── */}
+      {/* ── Encabezado Principal y Acciones ── */}
       <div className="so-page__header">
         <div>
           <div className="so-page__title-row">
@@ -1075,7 +1244,7 @@ export const ServiceOrdersPage = () => {
         </div>
       </div>
 
-      {/* ── Tarjetas KPIs Superiores (Grid Horizontal de 4) ── */}
+      {/* ── Tarjetas KPIs Superiores ── */}
       <div className="so-kpis-grid">
         <div className="so-kpi-card">
           <div className="so-kpi-icon so-kpi-icon--teal">
@@ -1106,12 +1275,11 @@ export const ServiceOrdersPage = () => {
             <div className="so-kpi-value">{kpis.completed} <span className="so-kpi-sub">finalizadas</span></div>
           </div>
         </div>
-
       </div>
 
-      {/* ── Tarjeta Contenedora Principal: Pestañas, Búsqueda y Tabla ── */}
+      {/* ── Tarjeta Contenedora Principal: Barra de Herramientas y Tabla ── */}
       <div className="so-card">
-        {/* Barra única: pestañas de estado + búsqueda a la izquierda, tipo de trabajo a la derecha */}
+        {/* Barra de herramientas con buscador y filtros */}
         <div className="so-toolbar crm-filterbar">
           <div className="so-search">
             <Search size={16} />
@@ -1124,6 +1292,7 @@ export const ServiceOrdersPage = () => {
             <SearchClearButton value={searchQuery} onClear={() => setSearchQuery('')} />
           </div>
 
+          {/* Pestañas de estado rápido */}
           <FilterTabs
             ariaLabel="Filtrar órdenes por estado"
             value={activeTab}
@@ -1136,6 +1305,7 @@ export const ServiceOrdersPage = () => {
             ]}
           />
 
+          {/* Selector de tipo de trabajo fitosanitario */}
           <div className="crm-filterbar__end">
             <select
               className="so-select-filter"
@@ -1150,8 +1320,7 @@ export const ServiceOrdersPage = () => {
           </div>
         </div>
 
-        
-{/* Tabla Principal */}
+        {/* ── Tabla Principal de Órdenes de Servicio ── */}
         {filteredOrders.length === 0 ? (
           <div className="so-empty-state">
             <FileCheck2 size={40} className="so-empty-icon" />
@@ -1186,7 +1355,7 @@ export const ServiceOrdersPage = () => {
 
                   return (
                     <tr key={order.id}>
-                      {/* N.º Orden */}
+                      {/* N.º de Orden con enlace al resumen */}
                       <td>
                         <button
                           type="button"
@@ -1203,7 +1372,7 @@ export const ServiceOrdersPage = () => {
                         {order.date}
                       </td>
 
-                      {/* Cliente */}
+                      {/* Cliente y sucursal */}
                       <td>
                         <div className="so-client-cell">
                           <span className="so-client-name">{order.customerName}</span>
@@ -1211,7 +1380,7 @@ export const ServiceOrdersPage = () => {
                         </div>
                       </td>
 
-                      {/* Planta & Localidad */}
+                      {/* Planta y Localidad */}
                       <td>
                         <div className="so-plant-cell">
                           <span className="so-plant-name">{order.address || '—'}</span>
@@ -1228,7 +1397,7 @@ export const ServiceOrdersPage = () => {
                         <span className="so-work-badge">{order.workType}</span>
                       </td>
 
-                      {/* Estado */}
+                      {/* Estado con menú desplegable para cambio rápido */}
                       <td>
                         <button
                           type="button"
@@ -1244,7 +1413,7 @@ export const ServiceOrdersPage = () => {
                         </button>
                       </td>
 
-                      {/* Evaluación de Servicio */}
+                      {/* Evaluación de Servicio vinculada */}
                       <td>
                         {order.evaluation ? (
                           <div className="so-eval-box">
@@ -1273,9 +1442,10 @@ export const ServiceOrdersPage = () => {
                         )}
                       </td>
 
-                      {/* Acciones */}
+                      {/* Acciones: Imprimir orden, Imprimir evaluación, Menú de edición y Eliminar */}
                       <td>
                         <div className="so-actions-group">
+                          {/* Imprimir Orden de Servicio en PDF */}
                           <button
                             type="button"
                             className="so-action-icon-btn so-action-icon-btn--print"
@@ -1285,18 +1455,20 @@ export const ServiceOrdersPage = () => {
                           >
                             <Printer size={15} />
                           </button>
+
+                          {/* Imprimir Evaluación en PDF */}
                           <button
                             type="button"
                             className={`so-action-icon-btn so-action-icon-btn--print ${order.evaluation ? '' : 'is-disabled'}`}
                             title={order.evaluation ? 'Imprimir evaluación de servicio' : 'Sin evaluación: primero hay que cargarla'}
                             aria-label={`Imprimir evaluación de servicio ${order.orderNumber}`}
-                            /* Sin "disabled": así el click avisa por qué no se puede, en vez de no hacer nada */
                             aria-disabled={!order.evaluation}
                             onClick={() => openPdfPreview('evaluation', order)}
                           >
                             <ClipboardCheck size={15} />
                           </button>
 
+                          {/* Menú contextual de Edición */}
                           <div className="so-edit-menu-wrap">
                             <button
                               type="button"
@@ -1310,6 +1482,7 @@ export const ServiceOrdersPage = () => {
                             </button>
                           </div>
 
+                          {/* Eliminar Orden */}
                           <button
                             type="button"
                             className="so-action-icon-btn so-action-icon-btn--delete"
@@ -1329,9 +1502,7 @@ export const ServiceOrdersPage = () => {
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          SLIDE DRAWER: Nueva / Editar Orden de Servicio (Estilo Imagen 1)
-          ═══════════════════════════════════════════════════════════════ */}
+      {/* ── SLIDE DRAWER: Creación / Edición de Orden de Servicio ── */}
       {showOrderDrawer && (
         <div className="so-form-overlay" {...orderModalOverlayHandlers}>
           <div className="so-form-modal" role="dialog" aria-modal="true" aria-labelledby="so-form-title">
@@ -1344,7 +1515,7 @@ export const ServiceOrdersPage = () => {
 
             <form onSubmit={handleSaveOrder} noValidate className="so-form-modal__form">
               <div className="so-form-modal__body">
-                {/* Encabezado de la orden */}
+                {/* Encabezado: Número, Fecha, Estado y Tipo de Trabajo */}
                 <section className="so-form-section">
                   <div className="so-form-grid so-form-grid--4">
                     <FormInput
@@ -1394,7 +1565,7 @@ export const ServiceOrdersPage = () => {
                   )}
                 </section>
 
-                {/* Cliente y técnico */}
+                {/* Cliente, técnico y datos de ubicación */}
                 <section className="so-form-section">
                   <div className="so-form-grid so-form-grid--2">
                     <CompanyAutocomplete
@@ -1406,9 +1577,7 @@ export const ServiceOrdersPage = () => {
                           ...prev,
                           customerName: name,
                           customerCode: item?.id ? String(item.id) : '',
-                          // Vínculo real con la empresa (para el tablero de servicios del cliente)
                           companyId: item?.id || null,
-                          // Dirección, localidad y provincia salen de la empresa elegida
                           address: item && isRealAddress(item.address) ? item.address : '',
                           locality: item?.loc || '',
                           province: item?.province || '',
@@ -1430,7 +1599,7 @@ export const ServiceOrdersPage = () => {
                   </div>
                 </section>
 
-                {/* Detalle del servicio: planilla editable */}
+                {/* Planilla de detalle del servicio: instalaciones, granos y productos */}
                 <section className="so-form-section">
                   <h3 className="so-form-section__title">Detalle del servicio</h3>
                   <div className="so-sheet-wrap">
@@ -1502,7 +1671,7 @@ export const ServiceOrdersPage = () => {
                   </button>
                 </section>
 
-                {/* Observaciones y recomendaciones */}
+                {/* Observaciones y recomendaciones al cliente */}
                 <section className="so-form-section">
                   <div className="so-form-grid so-form-grid--2">
                     <FormTextarea
@@ -1524,9 +1693,8 @@ export const ServiceOrdersPage = () => {
                   </div>
                 </section>
 
-                {/* Imagen de la orden en papel */}
+                {/* Imagen escaneada de la orden física en papel */}
                 <section className="so-form-section">
-                  {/* Mismo cargador chico que las fotos de la evaluación (una sola imagen) */}
                   <MultiImageUpload
                     label="Imagen de la orden de servicio original"
                     value={orderForm.originalOrderImage ? [orderForm.originalOrderImage] : []}
@@ -1535,7 +1703,7 @@ export const ServiceOrdersPage = () => {
                   />
                 </section>
 
-                {/* Firmas */}
+                {/* Firmas digitales del técnico y del cliente */}
                 <section className="so-form-section">
                   <h3 className="so-form-section__title">Firmas</h3>
                   <div className="so-form-grid so-form-grid--2">
@@ -1552,6 +1720,7 @@ export const ServiceOrdersPage = () => {
                   </div>
                 </section>
 
+                {/* Sección opcional para cargar también la evaluación de servicio de forma conjunta */}
                 {canAttachEval && (
                   <ToggleSection
                     checked={includeEval}
@@ -1564,6 +1733,7 @@ export const ServiceOrdersPage = () => {
                 )}
               </div>
 
+              {/* Pie con botones de acción */}
               <footer className="so-form-modal__footer">
                 <button type="button" className="btn-rounded-secondary" onClick={handleCancelOrder}>
                   Cancelar
@@ -1577,10 +1747,7 @@ export const ServiceOrdersPage = () => {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════
-          SLIDE DRAWER: Evaluación de Servicio digital
-          (siempre vinculada a la Orden de Servicio desde la que se abrió)
-          ═══════════════════════════════════════════════════════════════ */}
+      {/* ── SLIDE DRAWER: Evaluación de Servicio Digital Individual ── */}
       {showEvalDrawer && evalTargetOrder && (
         <div className="so-form-overlay" {...evalModalOverlayHandlers}>
           <div className="so-form-modal" role="dialog" aria-modal="true" aria-labelledby="so-eval-title">
@@ -1607,8 +1774,7 @@ export const ServiceOrdersPage = () => {
         </div>
       )}
 
-
-      {/* Impresión: los datos se estampan sobre las plantillas PDF originales */}
+      {/* ── Modal de Previsualización e Impresión de PDF ── */}
       {pdfPreview && pdfGenerator && (
         <PdfPreviewModal
           title={pdfPreview.type === 'order' ? 'Orden de Servicio' : 'Evaluación de Servicio'}
@@ -1619,6 +1785,7 @@ export const ServiceOrdersPage = () => {
         />
       )}
 
+      {/* ── Portal DOM para el Menú Flotante de Edición ── */}
       {editMenuOrderId !== null && editMenuPos && (() => {
         const order = orders.find((o) => o.id === editMenuOrderId);
         if (!order) return null;
@@ -1650,6 +1817,7 @@ export const ServiceOrdersPage = () => {
         );
       })()}
 
+      {/* ── Portal DOM para el Menú Flotante de Cambio Rápido de Estado ── */}
       {statusMenu && (() => {
         const order = orders.find((o) => o.id === statusMenu.orderId);
         if (!order) return null;
@@ -1678,6 +1846,7 @@ export const ServiceOrdersPage = () => {
         );
       })()}
 
+      {/* ── Modal de Resumen de Evaluación de Servicio ── */}
       {summaryEvaluation && (
         <EvaluationSummary
           order={withProvince(orders.find((o) => o.id === summaryEvaluation.id) || summaryEvaluation)}
@@ -1700,6 +1869,7 @@ export const ServiceOrdersPage = () => {
         />
       )}
 
+      {/* ── Modal de Resumen de Orden de Servicio ── */}
       {summaryOrder && (
         <ServiceOrderSummary
           order={withProvince(summaryOrder)}

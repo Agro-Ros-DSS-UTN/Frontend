@@ -1,3 +1,12 @@
+/**
+ * Componente modal de resumen de Orden de Servicio y Evaluación asociada.
+ *
+ * Muestra una vista detallada tipo ficha con información completa de la orden:
+ * datos de cabecera, cliente, técnico, productos aplicados, imagen escaneada original
+ * y el informe de evaluación de servicio (si ya fue cargado).
+ * Permite imprimir o editar tanto la orden como su evaluación.
+ */
+
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -22,16 +31,24 @@ import { useOverlayClose } from '../../hooks/useOverlayClose';
 import '../companies/CompanySummary.css';
 import './ServiceOrderSummary.css';
 
+// Variantes de animación para el contenedor modal (efecto de aparición en cascada)
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
 };
 
+// Variantes de animación para cada elemento hijo dentro del modal
 const itemVariants = {
   hidden: { y: 16, opacity: 0 },
   visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110, damping: 16 } },
 };
 
+/**
+ * Formatea una fecha ISO o string al formato legible estándar argentino (DD mes AAAA).
+ *
+ * @param {string|Date} value - Valor de fecha a formatear
+ * @returns {string} Fecha formateada o guion si no está definida
+ */
 const formatDate = (value) => {
   if (!value) return '—';
   const s = String(value).slice(0, 10);
@@ -39,6 +56,15 @@ const formatDate = (value) => {
   return isNaN(d) ? value : d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+/**
+ * Componente atómico para renderizar una celda o ítem de metadatos con icono, etiqueta y valor.
+ *
+ * @param {Object} props
+ * @param {React.Component} props.icon - Icono de Lucide
+ * @param {string} props.label - Título o etiqueta del dato
+ * @param {React.ReactNode} props.children - Valor o contenido a mostrar
+ * @param {boolean} [props.wide=false] - Indica si el ítem debe ocupar el ancho completo
+ */
 const MetaItem = ({ icon: Icon, label, children, wide = false }) => (
   <div className={`cs-meta ${wide ? 'cs-meta--wide' : ''}`}>
     <Icon size={18} className="cs-meta__icon" />
@@ -49,10 +75,28 @@ const MetaItem = ({ icon: Icon, label, children, wide = false }) => (
   </div>
 );
 
+/**
+ * Componente principal `ServiceOrderSummary`.
+ *
+ * @param {Object} props
+ * @param {Object} props.order - Objeto con los datos completos de la orden de servicio
+ * @param {Function} props.onClose - Callback para cerrar el modal
+ * @param {Function} props.onEditOrder - Callback para abrir la edición de la orden
+ * @param {Function} props.onEditEval - Callback para abrir la carga o edición de la evaluación
+ * @param {Function} props.onPrintOrder - Callback para generar/imprimir el PDF de la orden
+ * @param {Function} props.onPrintEval - Callback para generar/imprimir el PDF de la evaluación
+ */
 export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, onPrintOrder, onPrintEval }) => {
+  // Hook personalizado para detectar clics fuera de la tarjeta y cerrar el modal
   const overlayHandlers = useOverlayClose(onClose);
+  // Extracción de la evaluación vinculada a la orden (si existe)
   const ev = order.evaluation;
+  // Lista de productos/instalaciones aplicadas en la orden de servicio
   const products = order.appliedProducts || [];
+
+  /**
+   * Parsea valores serializados en JSON o arreglos directos garantizando siempre un array.
+   */
   const parseList = (value) => {
     if (Array.isArray(value)) return value;
     try {
@@ -62,19 +106,25 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
       return [];
     }
   };
+
+  // Fotos adjuntas a la evaluación y detalle de muestreo por instalación
   const photos = parseList(ev?.photos);
   const rowsEval = parseList(ev?.details);
 
+  // Cierre accesible mediante la tecla Escape
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Construcción de la cadena de ubicación combinando domicilio, localidad y provincia
   const location = [order.address, order.locality, order.province].filter(Boolean).join(', ');
 
   return (
+    /* Contenedor overlay oscurecido con manejadores de cierre al hacer clic fuera */
     <div className="cs-overlay" {...overlayHandlers}>
+      {/* Tarjeta animada principal con accesibilidad de diálogo modal */}
       <motion.div
         className="cs-card"
         role="dialog"
@@ -84,13 +134,16 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
         animate="visible"
         variants={containerVariants}
       >
+        {/* Cabecera del modal: migas de pan y botones de acción rápida */}
         <header className="cs-header">
           <motion.div variants={itemVariants} className="cs-header__row">
+            {/* Migas de pan identificando el número de orden */}
             <div className="cs-breadcrumbs">
               <span>Órdenes de Servicio</span>
               <span className="cs-breadcrumbs__sep">/</span>
               <span className="cs-breadcrumbs__current">{order.orderNumber}</span>
             </div>
+            {/* Acciones principales: imprimir orden, editar orden y cerrar modal */}
             <div className="cs-header__actions">
               <button type="button" className="cs-ghost-btn" onClick={onPrintOrder} title="Ver / imprimir la orden">
                 <Printer size={16} />
@@ -105,12 +158,15 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
           </motion.div>
         </header>
 
+        {/* Cuerpo del resumen con información detallada */}
         <div className="cs-body">
+          {/* Título de la orden y nombre del cliente */}
           <motion.div variants={itemVariants}>
             <p className="sos-number">{order.orderNumber}</p>
             <h1 className="cs-title">{order.customerName || 'Orden de servicio'}</h1>
           </motion.div>
 
+          {/* Grilla de metadatos generales de la orden de servicio */}
           <motion.div variants={itemVariants} className="cs-meta-grid">
             <MetaItem icon={Calendar} label="Fecha">{formatDate(order.date)}</MetaItem>
             <MetaItem icon={Flag} label="Estado">
@@ -141,6 +197,7 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
             )}
           </motion.div>
 
+          {/* Sección: Detalle de instalaciones tratadas y productos aplicados */}
           <motion.section variants={itemVariants} className="cs-section">
             <h3 className="cs-section__title">
               <FlaskConical size={18} className="cs-meta__icon" /> Detalle del servicio
@@ -182,6 +239,7 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
             )}
           </motion.section>
 
+          {/* Sección: Vista previa de la foto o escaneo de la orden física original */}
           {order.originalOrderImage && (
             <motion.section variants={itemVariants} className="cs-section">
               <h3 className="cs-section__title">
@@ -193,11 +251,13 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
             </motion.section>
           )}
 
+          {/* Sección: Evaluación técnica del servicio posterior a la aplicación */}
           <motion.section variants={itemVariants} className="cs-section">
             <div className="sos-section-head">
               <h3 className="cs-section__title">
                 <ShieldCheck size={18} className="cs-meta__icon" /> Evaluación de servicio
               </h3>
+              {/* Acciones de la evaluación: imprimir o editar/cargar */}
               <div className="sos-section-actions">
                 {ev && (
                   <button type="button" className="sos-text-btn" onClick={onPrintEval}>
@@ -210,8 +270,10 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
               </div>
             </div>
 
+            {/* Muestra los datos de la evaluación si existe, o el aviso si aún no fue cargada */}
             {ev ? (
               <>
+                {/* Metadatos de la evaluación: resultado, fecha, ppm, observaciones */}
                 <div className="cs-meta-grid">
                   <MetaItem icon={ShieldCheck} label="Resultado">
                     <strong>{ev.result || '—'}</strong>
@@ -235,6 +297,7 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
                     </MetaItem>
                   )}
                 </div>
+                {/* Tabla de detalle de muestreo por instalación en la evaluación */}
                 {rowsEval.length > 0 && (
                   <div className="cs-table-wrap">
                     <table className="cs-table">
@@ -267,6 +330,7 @@ export const ServiceOrderSummary = ({ order, onClose, onEditOrder, onEditEval, o
                     </table>
                   </div>
                 )}
+                {/* Galería de fotografías tomadas durante la evaluación */}
                 {photos.length > 0 && (
                   <div className="sos-photos">
                     {photos.map((src, i) => (

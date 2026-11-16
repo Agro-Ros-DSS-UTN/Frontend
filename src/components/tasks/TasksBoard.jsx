@@ -1,3 +1,12 @@
+/**
+ * Tablero general de Tareas y Seguimiento Comercial / Operativo.
+ *
+ * Permite a administradores y vendedores visualizar, crear, editar, filtrar,
+ * finalizar y exportar tareas asociadas a clientes, contactos y actividades del CRM.
+ * Incluye sincronización con Google Calendar, control de permisos según rol
+ * y un panel lateral deslizable (SlideDrawer) para la creación y edición.
+ */
+
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
@@ -32,6 +41,7 @@ import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
 import { checkName, LIMITS } from '../../utils/validators';
 import { confirmAction } from '../ui/ConfirmDialog/ConfirmDialog';
 
+// Opciones disponibles para tipificar las tareas
 const TYPE_OPTIONS = [
   { value: 'llamada', label: 'Llamada' },
   { value: 'visita', label: 'Visita a Campo' },
@@ -57,8 +67,21 @@ const VARIANTS = {
   },
 };
 
+/**
+ * Determina si un estado textual corresponde a una tarea ya concretada o finalizada.
+ *
+ * @param {string} status - Estado a evaluar
+ * @returns {boolean} True si coincide con expresiones de finalizado o completado
+ */
 const isFinalizedStatus = (status) => /finaliz|complet/i.test(String(status || ''));
 
+/**
+ * Normaliza y homogeneiza la estructura de datos de una tarea proveniente del backend
+ * para su consumo consistente en el estado local de la interfaz.
+ *
+ * @param {Object} t - Tarea cruda recibida de la API
+ * @returns {Object} Tarea normalizada con campos predecibles y valores por defecto
+ */
 const normalizeTask = (t) => ({
   id: t.id,
   title: t.title || t.description || 'Tarea sin título',
@@ -90,6 +113,12 @@ const normalizeTask = (t) => ({
 });
 
 // Evento de Google Calendar para una tarea (empresa, contacto y notas en el detalle).
+/**
+ * Construye el enlace de adición rápida a Google Calendar con fecha, hora, ubicación y notas.
+ *
+ * @param {Object} t - Tarea normalizada
+ * @returns {string} URL formateada para crear el evento en Google Calendar
+ */
 const taskCalendarUrl = (t) => googleCalendarUrl({
   title: t.title,
   date: t.dueDate,
@@ -103,12 +132,23 @@ const taskCalendarUrl = (t) => googleCalendarUrl({
   ].filter(Boolean).join('\n'),
 });
 
+/**
+ * Formatea una marca de tiempo ISO a fecha y hora con formato local 'es-AR'.
+ *
+ * @param {string} iso - Fecha/hora ISO
+ * @returns {string} Fecha y hora legible
+ */
 const formatDateTime = (iso) => {
   const d = new Date(iso);
   if (isNaN(d)) return '';
   return d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+/**
+ * Genera el estado inicial en blanco para el formulario de creación de tareas.
+ *
+ * @returns {Object} Objeto con valores predeterminados para los campos del formulario
+ */
 const emptyForm = () => ({
   title: '',
   type: 'llamada',
@@ -124,19 +164,33 @@ const emptyForm = () => ({
   notes: '',
 });
 
+/**
+ * Componente principal del tablero de tareas `TasksBoard`.
+ *
+ * @param {Object} props
+ * @param {'admin'|'seller'} [props.variant='admin'] - Perfil de visualización y comportamiento
+ */
 export const TasksBoard = ({ variant = 'admin' }) => {
+  // Configuración de roles y parámetros según la variante
   const cfg = VARIANTS[variant] || VARIANTS.admin;
+  // Usuario autenticado actual en la sesión
   const { currentUser } = useAuth();
 
+  // Estados de datos y filtros de la vista
   const [tasks, setTasks] = useState([]);
   const [activeTab, setActiveTab] = useState('todo');
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
+
+  // Efecto para precargar el filtro de búsqueda si proviene de navegación con estado (ej. desde detalle de empresa)
   useEffect(() => {
     if (location.state?.prefillSearch) setSearchQuery(location.state.prefillSearch);
   }, [location.state]);
+
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+
+  // Estados para el modal lateral (SlideDrawer) de creación / edición de tareas
   const [showDrawer, setShowDrawer] = useState(false);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState(emptyForm());
@@ -147,6 +201,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
   const [finalizingId, setFinalizingId] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
 
+  // Efecto para cargar los usuarios asignables (solo relevante en modo administrador)
   useEffect(() => {
     if (variant !== 'admin') return;
     const fetchAssignableUsers = async () => {
@@ -163,6 +218,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     fetchAssignableUsers();
   }, [variant]);
 
+  // Efecto para cargar las actividades del CRM para asociarlas opcionalmente a la tarea
   const [activityOptions, setActivityOptions] = useState([]);
   useEffect(() => {
     activitiesApi
@@ -182,12 +238,20 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       .catch((err) => console.error('No se pudieron cargar las actividades:', err));
   }, [variant]);
 
+  /**
+   * Conmuta la selección de un usuario asignado en la lista de asignación.
+   *
+   * @param {number|string} idUser - Identificador del usuario
+   */
   const toggleAssignee = (idUser) => {
     setSelectedAssignees((prev) =>
       prev.includes(idUser) ? prev.filter((id) => id !== idUser) : [...prev, idUser]
     );
   };
 
+  /**
+   * Obtiene la lista actualizada de tareas desde la API según la configuración de la variante.
+   */
   const fetchTasks = async () => {
     try {
       setLoading(true);
@@ -202,16 +266,22 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  // Efecto inicial de carga de tareas al montar o cambiar la variante
   useEffect(() => {
     fetchTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant]);
 
+  // Cadena con la fecha de hoy en formato YYYY-MM-DD para filtrado rápido
   const todayStr = new Date().toISOString().slice(0, 10);
 
+  /**
+   * Lista memorizada de tareas filtradas según la solapa activa, búsqueda de texto y prioridad.
+   */
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
 
+    // Filtrado por estado / pestaña
     if (activeTab === 'todo') {
       result = result.filter((t) => t.status !== 'Finalizada');
     } else if (activeTab === 'completed') {
@@ -222,6 +292,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       result = result.filter((t) => t.dueDate === todayStr && t.status !== 'Finalizada');
     }
 
+    // Filtrado por texto en título, empresa o responsable asignado
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -232,6 +303,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       );
     }
 
+    // Filtrado por nivel de prioridad
     if (priorityFilter !== 'all') {
       result = result.filter((t) => t.priority === priorityFilter);
     }
@@ -239,6 +311,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     return result;
   }, [tasks, activeTab, searchQuery, priorityFilter, todayStr]);
 
+  // Contadores para las tarjetas de estadísticas superiores
   const pendingCount = tasks.filter((t) => t.status !== 'Finalizada').length;
   const completedCount = tasks.filter((t) => t.status === 'Finalizada').length;
   const todayCount = tasks.filter(
@@ -247,9 +320,17 @@ export const TasksBoard = ({ variant = 'admin' }) => {
 
   // Un vendedor solo finaliza tareas asociadas a él; un administrador puede finalizar cualquiera.
   // El backend vuelve a validar esto: acá solo se evita el viaje y se avisa antes.
+  /**
+   * Valida si el usuario actual posee permisos suficientes para finalizar una tarea.
+   */
   const canFinalize = (task) =>
     isAdmin || task.assigneeIds.includes(myUserId);
 
+  /**
+   * Marca una tarea como finalizada previa validación de permisos.
+   *
+   * @param {Object} task - Tarea a finalizar
+   */
   const handleFinalizeTask = async (task) => {
     if (!canFinalize(task)) {
       notify.warning('No tiene acceso a finalizar dicha tarea');
@@ -267,6 +348,12 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  /**
+   * Solicita confirmación y elimina una tarea del sistema.
+   *
+   * @param {number|string} taskId - Identificador de la tarea
+   * @param {string} title - Título de la tarea para la confirmación
+   */
   const handleDeleteTask = async (taskId, title) => {
     if (!await confirmAction(`¿Eliminar la tarea "${title}"?`)) return;
     try {
@@ -281,15 +368,22 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  /**
+   * Actualiza los valores de los inputs del formulario y limpia posibles errores previos.
+   */
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  /**
+   * Envía el formulario para crear una nueva tarea o actualizar una existente tras validar campos requeridos.
+   */
   const handleCreateTaskSubmit = async (e) => {
     e.preventDefault();
 
+    // Validaciones de formulario
     const newErrors = {};
     if (!form.title?.trim()) newErrors.title = 'El título de la tarea es obligatorio.';
     else if (checkName(form.title, { label: 'El título', ...LIMITS.title })) newErrors.title = checkName(form.title, { label: 'El título', ...LIMITS.title });
@@ -303,6 +397,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     }
     setErrors({});
 
+    // Mapeo de campos editables a enviar a la API
     const editableFields = {
       title: form.title.trim(),
       description: form.title.trim(),
@@ -343,6 +438,9 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  /**
+   * Abre el panel deslizable en modo creación con el formulario limpio.
+   */
   const openCreateDrawer = () => {
     setEditingTask(null);
     setErrors({});
@@ -351,6 +449,11 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     setShowDrawer(true);
   };
 
+  /**
+   * Abre el panel deslizable en modo edición cargando los valores de la tarea seleccionada.
+   *
+   * @param {Object} task - Tarea a editar
+   */
   const openEditDrawer = (task) => {
     setEditingTask(task);
     setErrors({});
@@ -372,6 +475,9 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     setShowDrawer(true);
   };
 
+  /**
+   * Cierra el panel lateral y restablece el estado de edición.
+   */
   const closeDrawer = () => {
     setShowDrawer(false);
     setEditingTask(null);
@@ -379,6 +485,9 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     setSelectedAssignees([]);
   };
 
+  /**
+   * Exporta las tareas actualmente filtradas en formato CSV descargable.
+   */
   const handleExportCSV = () => {
     const headers = ['Título', 'Tipo', 'Fecha Límite', 'Hora', 'Prioridad', 'Estado', 'Asignado a', 'Empresa', 'Notas'];
     const rows = filteredTasks.map((t) => [
@@ -392,7 +501,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
       `"${(t.company || '').replace(/"/g, '""')}"`,
       `"${(t.notes || '').replace(/"/g, '""')}"`,
     ]);
-    const csvContent = '﻿' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -403,6 +512,12 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     document.body.removeChild(link);
   };
 
+  /**
+   * Retorna el icono visual adecuado para cada tipo de actividad/tarea.
+   *
+   * @param {string} type - Tipo de tarea
+   * @returns {JSX.Element} Icono de Lucide correspondiente
+   */
   const getTypeIcon = (type) => {
     switch (type?.toLowerCase()) {
       case 'llamada':
@@ -419,13 +534,13 @@ export const TasksBoard = ({ variant = 'admin' }) => {
     }
   };
 
-
+  // Indicador de si se está visualizando la pestaña de tareas finalizadas
   const showingFinalized = activeTab === 'completed';
 
   return (
     <div className="tasks-board">
 
-      {/* Banner */}
+      {/* Banner superior con título y botones de acción principal (Crear y Exportar) */}
       <div className="tasks-board__banner">
         <div className="tasks-board__banner-left">
           <h1 className="tasks-board__title">Tareas</h1>
@@ -442,7 +557,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Tarjetas de estadísticas de conteo: Pendientes, Para Hoy y Finalizadas */}
       <div className="tasks-board__stats">
         <div className="tasks-board__stat">
           <div className="tasks-board__stat-icon tasks-board__stat-icon--green">
@@ -478,8 +593,9 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         </div>
       </div>
 
-      {/* Card */}
+      {/* Tarjeta principal contenedora de la barra de herramientas y la tabla */}
       <div className="tasks-board__card">
+        {/* Barra de herramientas: Búsqueda, Filtro por solapa (Pendientes/Hoy/Finalizadas) y Filtro de Prioridad */}
         <div className="tasks-board__toolbar crm-filterbar">
           <div className="tasks-board__search">
             <Search size={16} color="#64748b" />
@@ -513,6 +629,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
           </select>
         </div>
 
+        {/* Contenedor responsivo de la tabla de tareas */}
         <div className="tasks-board__table-wrapper">
           <table className="tasks-board__table">
             <thead>
@@ -528,6 +645,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
               </tr>
             </thead>
             <tbody>
+              {/* Renderizado condicional: mensaje de lista vacía o listado de filas de tareas */}
               {filteredTasks.length === 0 ? (
                 <tr>
                   <td colSpan={showingFinalized ? 8 : 7} className="tasks-board__empty-cell">
@@ -543,6 +661,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                   const isFinalized = t.status === 'Finalizada';
                   return (
                     <tr key={t.id} className={isFinalized ? 'tasks-board__row--done' : ''}>
+                      {/* Título de la tarea y tipo de actividad */}
                       <td>
                         <div className={`tasks-board__task-title ${isFinalized ? 'tasks-board__task-title--done' : ''}`}>
                           {t.title}
@@ -551,6 +670,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                           {getTypeIcon(t.type)} <span className="tasks-board__task-type-label">{t.type}</span>
                         </div>
                       </td>
+                      {/* Empresa y contacto asociado con enlace directo para llamadas telefónicas */}
                       <td>
                         <div className="tasks-board__empresa-name">{t.company || '—'}</div>
                         {t.contact && (
@@ -565,6 +685,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                           </div>
                         )}
                       </td>
+                      {/* Actividad del CRM asociada (si la tiene) */}
                       <td>
                         {t.activity ? (
                           <>
@@ -577,19 +698,23 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                           <span className="tasks-board__empresa-name">—</span>
                         )}
                       </td>
+                      {/* Fecha y hora límite */}
                       <td>
                         <span className="tasks-board__fecha-text">
                           {t.dueDate || '—'} {t.dueTime ? `(${t.dueTime} hs)` : ''}
                         </span>
                       </td>
+                      {/* Insignia de prioridad */}
                       <td>
                         <span className={`tasks-board__priority ${t.priority?.toLowerCase() || 'media'}`}>
                           {t.priority}
                         </span>
                       </td>
+                      {/* Usuario asignado */}
                       <td>
                         <span className="tasks-board__asignado-text">{t.assignedTo}</span>
                       </td>
+                      {/* Información de finalización (solo visible en pestaña de completadas) */}
                       {showingFinalized && (
                         <td>
                           <div className="tasks-board__empresa-name">{t.completedBy || '—'}</div>
@@ -598,10 +723,12 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                           )}
                         </td>
                       )}
+                      {/* Botones de acción por fila */}
                       <td>
                         <div className="tasks-board__row-actions">
                           {!isFinalized && (
                             <>
+                              {/* Enlace para agendar en Google Calendar */}
                               {taskCalendarUrl(t) && (
                                 <a
                                   href={taskCalendarUrl(t)}
@@ -615,6 +742,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                                   <CalendarPlus size={15} />
                                 </a>
                               )}
+                              {/* Botón de edición (solo admin o el creador de la tarea) */}
                               {(variant === 'admin' || t.createdById === myUserId) && (
                                 <button
                                   type="button"
@@ -625,6 +753,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
                                   <Pencil size={15} />
                                 </button>
                               )}
+                              {/* Botón de finalizar tarea */}
                               <button
                                 type="button"
                                 onClick={() => handleFinalizeTask(t)}
@@ -665,7 +794,9 @@ export const TasksBoard = ({ variant = 'admin' }) => {
         title={editingTask ? 'Editar Tarea' : 'Crear Nueva Tarea'}
         width="520px"
       >
+        {/* Formulario de creación y modificación de tareas */}
         <form onSubmit={handleCreateTaskSubmit} noValidate className="tasks-board__form">
+          {/* Título de la tarea */}
           <FormInput
             label="Título de la Tarea"
             name="title"
@@ -676,6 +807,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             error={errors.title}
           />
 
+          {/* Fila: Tipo de actividad y Prioridad */}
           <div className="tasks-board__form-row">
             <FormSelect
               label="Tipo de Actividad"
@@ -697,6 +829,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             />
           </div>
 
+          {/* Fila: Fecha límite y Hora estimada */}
           <div className="tasks-board__form-row">
             <FormInput
               label="Fecha Límite"
@@ -716,6 +849,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             />
           </div>
 
+          {/* Fila: Empresa y Contacto asociados con autocompletado */}
           <div className="tasks-board__form-row">
             <CompanyAutocomplete
               label="Empresa"
@@ -754,6 +888,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             />
           </div>
 
+          {/* Selección múltiple de usuarios asignados (solo disponible para administradores) */}
           {variant === 'admin' && (
             <div className="tasks-board__assignee-field">
               <label>
@@ -797,6 +932,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             </div>
           )}
 
+          {/* Actividad previa del CRM a la cual se vincula el seguimiento */}
           <FormSelect
             label="Actividad asociada"
             name="activityId"
@@ -805,6 +941,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             options={[{ value: '', label: 'Sin actividad asociada' }, ...activityOptions]}
           />
 
+          {/* Notas adicionales y observaciones */}
           <FormTextarea
             label="Notas Adicionales"
             name="notes"
@@ -814,6 +951,7 @@ export const TasksBoard = ({ variant = 'admin' }) => {
             rows={2}
           />
 
+          {/* Botones de acción del formulario */}
           <div className="tasks-board__form-actions">
             <button
               type="submit"

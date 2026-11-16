@@ -1,3 +1,18 @@
+/**
+ * Componente: ActivitiesBoard
+ * 
+ * Tablero integral para la gestión y registro de actividades comerciales y operativas
+ * (visitas a campo, llamadas telefónicas, reuniones, mensajes de WhatsApp y correos).
+ * 
+ * Características principales:
+ * - Registro y edición de actividades con soporte de adjuntos multimedia (audio y fotos).
+ * - Creación automática de tareas de seguimiento vinculadas (hasta 8 tareas).
+ * - Asociación con empresas y oportunidades comerciales existentes o nuevas.
+ * - Modo offline: encola actividades localmente si se pierde la conexión a internet.
+ * - Filtros por texto, tipo de interacción y presencia de adjuntos.
+ * - Exportación de los datos filtrados en formato CSV.
+ */
+
 import { useState, useMemo, useEffect } from 'react';
 import {
   ClipboardList,
@@ -39,10 +54,16 @@ import { SearchClearButton } from '../ui/SearchClearButton/SearchClearButton';
 import { checkText } from '../../utils/validators';
 import { confirmAction } from '../ui/ConfirmDialog/ConfirmDialog';
 
+// Mapeo de íconos representativos según el tipo de contacto/interacción
 const CONTACT_ICONS = { visita: MapPin, llamada: Phone, whatsapp: MessageSquare, email: Mail, reunion: Building2 };
+
+// Opciones de tipo de contacto enriquecidas con su ícono para los selectores y pestañas
 const CONTACT_TYPE_OPTIONS = ACTIVITY_CONTACT_TYPES.map((t) => ({ value: t.value, label: t.label, icon: CONTACT_ICONS[t.value] }));
+
+// Identificador constante utilizado cuando el usuario elige crear una nueva oportunidad
 const NEW = 'new';
 
+// Opciones disponibles para clasificar las tareas de seguimiento asociadas
 const TASK_TYPE_OPTIONS = [
   { value: 'llamada', label: 'Llamada' },
   { value: 'visita', label: 'Visita a Campo' },
@@ -51,18 +72,23 @@ const TASK_TYPE_OPTIONS = [
   { value: 'tarea', label: 'Para hacer / Seguimiento' },
 ];
 
+// Variantes de configuración visual y de autor según el rol de la vista
 const VARIANTS = {
   admin: { authorFallback: 'Administración', createdByRole: 'administrador' },
   seller: { authorFallback: 'Vendedor', createdByRole: 'vendedor' },
 };
 
+// Funciones auxiliares para formateo y manejo de fechas locales
 const pad = (n) => String(n).padStart(2, '0');
 const localDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
+// Obtiene la fecha y hora actuales en formato apto para inputs type="date" y "time"
 const localNow = () => {
   const d = new Date();
   return { date: localDateStr(d), time: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
 };
+
+// Calcula la fecha correspondiente a 'n' días en el futuro (usado para vencimiento de tareas)
 const inDays = (n) => {
   const d = new Date();
   d.setDate(d.getDate() + n);
@@ -71,6 +97,7 @@ const inDays = (n) => {
 
 // CUU01: la fecha y hora arrancan en "ahora" y el seguimiento viene activado
 // (si no hace falta, se destilda y queda registrado como "sin seguimiento").
+// Genera el estado inicial en blanco para el formulario de actividad
 const emptyForm = (myUserId) => ({
   contactType: 'visita',
   company: '',
@@ -86,8 +113,10 @@ const emptyForm = (myUserId) => ({
   tasks: [emptyFollowupTask(myUserId)],
 });
 
+// Cantidad máxima permitida de tareas de seguimiento por actividad
 const MAX_FOLLOWUP_TASKS = 8;
 
+// Genera un objeto de tarea de seguimiento con valores por defecto asignados al usuario actual
 function emptyFollowupTask(myUserId) {
   return {
     title: '',
@@ -100,51 +129,68 @@ function emptyFollowupTask(myUserId) {
   };
 }
 
+// Devuelve el componente de ícono correspondiente al tipo de contacto indicado
 const getContactIcon = (type, size = 13) => {
   const Icon = CONTACT_ICONS[String(type || '').toLowerCase()] || ClipboardList;
   return <Icon size={size} />;
 };
 
+/**
+ * Componente principal ActivitiesBoard
+ * @param {string} variant - Variante de visualización ('admin' o 'seller')
+ */
 export const ActivitiesBoard = ({ variant = 'admin' }) => {
+  // Configuración de visualización y autor según la variante activa
   const cfg = VARIANTS[variant] || VARIANTS.admin;
   const { currentUser } = useAuth();
   const authorName = currentUser?.fullName || cfg.authorFallback;
   const myUserId = currentUser?.idUser || currentUser?.id || null;
 
-  const [activities, setActivities] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [attachmentFilter, setAttachmentFilter] = useState('all');
-  const [showDrawer, setShowDrawer] = useState(false);
-  const [editingActivity, setEditingActivity] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-  const [lightboxImage, setLightboxImage] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [form, setForm] = useState(() => emptyForm(myUserId));
-  const [assignableUsers, setAssignableUsers] = useState([]);
-  const [opportunities, setOpportunities] = useState([]);
-  const [loadingOpps, setLoadingOpps] = useState(false);
-  const [attachmentsCache, setAttachmentsCache] = useState({});
-  const [queued, setQueued] = useState(() => pending());
+  // --- Estados de datos y filtros de la tabla ---
+  const [activities, setActivities] = useState([]); // Lista completa de actividades cargadas
+  const [searchQuery, setSearchQuery] = useState(''); // Texto ingresado en el buscador
+  const [typeFilter, setTypeFilter] = useState(''); // Filtro por tipo de contacto ('visita', 'llamada', etc.)
+  const [attachmentFilter, setAttachmentFilter] = useState('all'); // Filtro por tipo de adjunto ('all', 'audios', 'photos')
+  
+  // --- Estados de interacción y modales ---
+  const [showDrawer, setShowDrawer] = useState(false); // Visibilidad del panel lateral para alta/edición
+  const [editingActivity, setEditingActivity] = useState(null); // Objeto de la actividad en edición (null en modo alta)
+  const [expandedId, setExpandedId] = useState(null); // ID de la fila cuyos adjuntos están expandidos
+  const [lightboxImage, setLightboxImage] = useState(null); // URL de la foto abierta en visor de imagen
+  const [loading, setLoading] = useState(true); // Indicador de carga de actividades inicial
+  const [saving, setSaving] = useState(false); // Indicador de guardado en proceso
+  const [errors, setErrors] = useState({}); // Mapa de errores de validación del formulario
+  
+  // --- Estados del formulario y datos auxiliares ---
+  const [form, setForm] = useState(() => emptyForm(myUserId)); // Valores actuales de los campos del formulario
+  const [assignableUsers, setAssignableUsers] = useState([]); // Lista de usuarios activos para asignar tareas
+  const [opportunities, setOpportunities] = useState([]); // Oportunidades abiertas para la empresa elegida
+  const [loadingOpps, setLoadingOpps] = useState(false); // Indicador de carga de oportunidades
+  const [attachmentsCache, setAttachmentsCache] = useState({}); // Caché local en memoria de adjuntos ya descargados
+  
+  // --- Estados para soporte offline ---
+  const [queued, setQueued] = useState(() => pending()); // Cantidad de actividades encoladas localmente
+  const [unsaved, setUnsaved] = useState(() => rejected()); // Actividades que no pudieron guardarse y fueron rechazadas
 
-  const [unsaved, setUnsaved] = useState(() => rejected());
+  // Suscripción al evento de cambio en la cola offline para actualizar contadores en tiempo real
   useEffect(() => onQueueChange((n) => { setQueued(n); setUnsaved(rejected()); }), []);
 
   // Oportunidades abiertas de la empresa elegida (incluye las de otros vendedores
   // para no duplicar: la actividad se suma a la que ya existe).
   useEffect(() => {
+    // Si el drawer está cerrado, estamos editando o no hay empresa seleccionada, limpiamos las oportunidades
     if (!showDrawer || editingActivity || !form.companyId) {
       setOpportunities([]);
       return undefined;
     }
     let alive = true;
     setLoadingOpps(true);
+    // Consulta al backend por oportunidades abiertas de la empresa para asociar la actividad
     fetchOpportunities({ companyId: form.companyId, open: 1, forActivity: 1 })
       .then((listing) => {
         if (!alive) return;
         setOpportunities(listing);
+        // Asigna por defecto la primera oportunidad existente o la opción de crear una nueva
         setForm((prev) => ({
           ...prev,
           opportunityId: listing.length ? String(listing[0].id) : NEW,
@@ -156,6 +202,10 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     return () => { alive = false; };
   }, [form.companyId, showDrawer, editingActivity]);
 
+  /**
+   * Carga bajo demanda (lazy-load) el contenido binario/base64 de los adjuntos de una actividad.
+   * Evita transferir datos pesados hasta que el usuario expande la fila correspondiente.
+   */
   const loadAttachments = async (act) => {
     const missing = (act.attachments || []).filter((x) => !attachmentsCache[x.id]);
     if (!missing.length) return;
@@ -167,6 +217,9 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     });
   };
 
+  /**
+   * Obtiene la lista completa de actividades desde el backend y las normaliza para la tabla
+   */
   const fetchActivities = async () => {
     try {
       setLoading(true);
@@ -196,8 +249,10 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  // Efecto inicial: carga actividades, usuarios activos para asignación y sincroniza pendientes offline
   useEffect(() => {
     fetchActivities();
+    // Obtiene los usuarios del sistema filtrando los que tienen cuenta activa
     authApi
       .getAllUsers()
       .then((res) => {
@@ -214,8 +269,12 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     }
   }, []);
 
+  /**
+   * Filtrado en memoria de las actividades según texto de búsqueda, tipo de interacción y adjuntos
+   */
   const filteredActivities = useMemo(() => {
     let result = [...activities];
+    // Filtro por texto libre
     if (searchQuery) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
@@ -227,45 +286,68 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
           contactTypeLabel(a.contactType).toLowerCase().includes(q)
       );
     }
+    // Filtro por tipo de contacto
     if (typeFilter) {
       result = result.filter((a) => (a.contactType || '').toLowerCase() === typeFilter.toLowerCase());
     }
+    // Filtro por presencia de adjuntos específicos
     if (attachmentFilter === 'audios') result = result.filter((a) => a.hasAudio);
     else if (attachmentFilter === 'photos') result = result.filter((a) => a.hasPhoto);
     return result;
   }, [activities, searchQuery, typeFilter, attachmentFilter]);
 
+  // Cálculos estadísticos para las tarjetas del encabezado
   const totalAudios = activities.filter((a) => a.hasAudio).length;
   const totalPhotos = activities.filter((a) => a.hasPhoto).length;
   const totalToday = activities.filter((a) => a.occurredAt && localDateStr(new Date(a.occurredAt)) === localDateStr(new Date())).length;
 
+  /**
+   * Formatea una fecha ISO o string a formato legible argentino (DD/MM/AAAA)
+   */
   const formatDate = (dateStr) => {
     if (!dateStr) return '—';
     const d = new Date(dateStr);
     if (isNaN(d)) return dateStr;
     return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
+
+  /**
+   * Extrae y formatea la hora en formato HH:MM hs
+   */
   const formatTime = (dateStr) => {
     const d = new Date(dateStr);
     return isNaN(d) ? '' : `${pad(d.getHours())}:${pad(d.getMinutes())} hs`;
   };
 
+  /**
+   * Manejador genérico de cambios en los inputs del formulario principal
+   */
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    // Si el campo modificado tenía un error previo, lo limpia
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  /**
+   * Activa o desactiva la creación de tareas de seguimiento vinculadas
+   */
   const setCreateTask = (checked) => {
     setForm((prev) => ({ ...prev, createTask: checked, tasks: checked ? [emptyFollowupTask(myUserId)] : [] }));
     setErrors((prev) => ({ ...prev, tasks: undefined }));
   };
 
+  /**
+   * Agrega una nueva tarea de seguimiento vacía al formulario (hasta el límite permitido)
+   */
   const addFollowupTask = () =>
     setForm((prev) =>
       prev.tasks.length >= MAX_FOLLOWUP_TASKS ? prev : { ...prev, tasks: [...prev.tasks, emptyFollowupTask(myUserId)] }
     );
 
+  /**
+   * Elimina una tarea de seguimiento según su índice y actualiza el flag de seguimiento
+   */
   const removeFollowupTask = (idx) => {
     setForm((prev) => {
       const tasks = prev.tasks.filter((_, i) => i !== idx);
@@ -274,17 +356,24 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     setErrors((prev) => ({ ...prev, tasks: undefined }));
   };
 
+  /**
+   * Actualiza una propiedad específica de una de las tareas de seguimiento
+   */
   const updateFollowupTask = (idx, field, value) => {
     setForm((prev) => ({
       ...prev,
       tasks: prev.tasks.map((t, i) => (i === idx ? { ...t, [field]: value } : t)),
     }));
+    // Limpia el error del campo modificado si existía
     setErrors((prev) => {
       if (!prev.tasks?.[idx]?.[field]) return prev;
       return { ...prev, tasks: { ...prev.tasks, [idx]: { ...prev.tasks[idx], [field]: '' } } };
     });
   };
 
+  /**
+   * Alterna la asignación de un usuario a una tarea de seguimiento
+   */
   const toggleFollowupAssignee = (idx, idUser) => {
     const current = form.tasks[idx]?.assignees || [];
     updateFollowupTask(
@@ -294,6 +383,9 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     );
   };
 
+  /**
+   * Abre el drawer lateral en modo creación con el formulario en blanco
+   */
   const openCreateDrawer = () => {
     setEditingActivity(null);
     setErrors({});
@@ -301,6 +393,9 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     setShowDrawer(true);
   };
 
+  /**
+   * Abre el drawer lateral en modo edición precargando los datos de la actividad seleccionada
+   */
   const openEditDrawer = (act) => {
     const d = act.occurredAt ? new Date(act.occurredAt) : null;
     setEditingActivity(act);
@@ -321,28 +416,39 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     setShowDrawer(true);
   };
 
+  /**
+   * Cierra el drawer lateral y restablece el estado del formulario
+   */
   const closeDrawer = () => {
     setShowDrawer(false);
     setEditingActivity(null);
     setForm(emptyForm(myUserId));
   };
 
+  /**
+   * Valida y procesa el envío del formulario para crear o actualizar una actividad
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // --- Validaciones de campos requeridos y coherencia lógica ---
     const newErrors = {};
     if (!form.date) newErrors.date = 'Seleccioná la fecha.';
     if (!form.time) newErrors.time = 'Seleccioná la hora.';
+    // Comprueba que no se intente registrar una actividad a futuro (margen de 15 min)
     if (form.date && form.time && new Date(`${form.date}T${form.time}`) > new Date(Date.now() + 15 * 60000)) {
       newErrors.date = 'La actividad registra algo que ya pasó. Para algo pendiente, creá una tarea.';
     }
     if (!form.description?.trim()) newErrors.description = 'La descripción de la actividad es obligatoria.';
     else if (checkText(form.description, { label: 'La descripción', min: 5, max: 2000 })) newErrors.description = checkText(form.description, { label: 'La descripción', min: 5, max: 2000 });
+    
+    // Validaciones exclusivas del modo creación
     if (!editingActivity) {
       if (!form.companyId) newErrors.company = 'Elegí la empresa de la lista (o registrala con "Nueva empresa").';
       else if (form.opportunityId === NEW && !form.newOpportunityTitle.trim()) newErrors.opportunity = 'Poné un título para la nueva oportunidad.';
       else if (!form.opportunityId) newErrors.opportunity = 'Elegí la oportunidad.';
     }
+    // Validaciones de tareas de seguimiento vinculadas
     if (!editingActivity && form.createTask) {
       const taskErrors = {};
       form.tasks.forEach((t, idx) => {
@@ -354,12 +460,14 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
       });
       if (Object.keys(taskErrors).length > 0) newErrors.tasks = taskErrors;
     }
+    // Si existen errores, se asignan al estado y se interrumpe el guardado
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
     setErrors({});
 
+    // Preparación de adjuntos (imágenes y notas de voz)
     // Hora local sin zona: el servidor la interpreta como hora de Argentina.
     const attachments = [
       form.photoUrl && { type: 'foto', content: form.photoUrl },
@@ -375,6 +483,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     try {
       setSaving(true);
 
+      // Si estamos editando, enviamos actualización directa de la actividad base
       if (editingActivity) {
         await activitiesApi.update(editingActivity.formId, base);
         notify.success('Actividad actualizada');
@@ -383,6 +492,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
         return;
       }
 
+      // Payload para la creación de una nueva actividad junto con oportunidades y tareas
       const payload = {
         ...base,
         clientUuid: newUuid(),
@@ -430,6 +540,9 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  /**
+   * Elimina una actividad tras pedir confirmación al usuario (las tareas asociadas se conservan)
+   */
   const handleDeleteActivity = async (act) => {
     const ok = await confirmAction(
       '¿Eliminar esta actividad?\n\nSus tareas de seguimiento se conservan (quedan sin actividad de origen).'
@@ -444,6 +557,9 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
     }
   };
 
+  /**
+   * Exporta a formato CSV la lista actual de actividades filtradas
+   */
   const handleExportCSV = () => {
     const headers = ['Fecha', 'Hora', 'Tipo de Contacto', 'Empresa', 'Oportunidad', 'Descripción', 'Responsable'];
     const rows = filteredActivities.map((a) => [
@@ -469,6 +585,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
   return (
     <div className="tasks-board">
 
+      {/* Barra superior con título y botones de acción principal (Registrar y Exportar) */}
       <div className="tasks-board__banner">
         <div className="tasks-board__banner-left">
           <h1 className="tasks-board__title">Actividades</h1>
@@ -483,6 +600,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
         </PageHeaderActions>
       </div>
 
+      {/* Alerta de actividades cargadas sin conexión que fueron rechazadas por el servidor */}
       {unsaved.length > 0 && (
         <div className="act-board__queue act-board__queue--error" role="alert">
           <strong>{unsaved.length === 1 ? 'Una actividad cargada sin conexión no se pudo guardar' : `${unsaved.length} actividades cargadas sin conexión no se pudieron guardar`}:</strong>
@@ -500,6 +618,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
         </div>
       )}
 
+      {/* Barra informativa de actividades almacenadas localmente pendientes de sincronización */}
       {queued > 0 && (
         <div className="act-board__queue" role="status">
           <span>{queued} {queued === 1 ? 'actividad guardada' : 'actividades guardadas'} sin conexión, pendiente{queued === 1 ? '' : 's'} de envío.</span>
@@ -507,6 +626,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
         </div>
       )}
 
+      {/* Tarjetas de métricas y estadísticas rápidas */}
       <div className="tasks-board__stats">
         <div className="tasks-board__stat">
           <div className="tasks-board__stat-icon tasks-board__stat-icon--green">
@@ -540,7 +660,9 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
         </div>
       </div>
 
+      {/* Contenedor principal de la tabla con barra de filtros */}
       <div className="tasks-board__card">
+        {/* Barra de herramientas: buscador por texto, pestañas por tipo y selector de adjuntos */}
         <div className="tasks-board__toolbar crm-filterbar">
           <div className="tasks-board__search">
             <Search size={16} color="#64748b" />
@@ -572,6 +694,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
           </select>
         </div>
 
+        {/* Tabla de actividades con soporte de carga y filas expandibles */}
         <div className="tasks-board__table-wrapper">
           {loading ? (
             <LoadingState title="Cargando…" message="Cargando las actividades registradas." />
@@ -600,6 +723,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                     const hasAttachments = act.attachments.length > 0;
                     const expanded = expandedId === act.formId;
                     return [
+                      /* Fila principal con los datos resumidos de la actividad */
                       <tr key={act.formId}>
                         <td>
                           <div className="tasks-board__empresa-name">{formatDate(act.occurredAt)}</div>
@@ -624,6 +748,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                           <span className="tasks-board__asignado-text">{act.authorName}</span>
                         </td>
                         <td>
+                          {/* Botón para expandir y visualizar adjuntos (audio / foto) */}
                           {hasAttachments ? (
                             <button
                               type="button"
@@ -643,6 +768,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                           )}
                         </td>
                         <td>
+                          {/* Acciones de edición y eliminación */}
                           <div className="tasks-board__row-actions">
                             <button
                               type="button"
@@ -663,6 +789,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                           </div>
                         </td>
                       </tr>,
+                      /* Fila expandida con el reproductor de audios y miniaturas de fotos */
                       expanded && (
                         <tr key={`${act.formId}-adjuntos`} className="act-table__detail-row">
                           <td colSpan={7}>
@@ -699,6 +826,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
         </div>
       </div>
 
+      {/* Drawer deslizante lateral para alta o edición de actividades */}
       <SlideDrawer
         isOpen={showDrawer}
         onClose={closeDrawer}
@@ -706,6 +834,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
         width="560px"
       >
         <form onSubmit={handleSubmit} noValidate className="tasks-board__form">
+          {/* Selector de canal o tipo de interacción */}
           <FormSelect
             label="Tipo de Interacción"
             name="contactType"
@@ -720,6 +849,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             ]}
           />
 
+          {/* En edición la empresa es de solo lectura; en creación se selecciona con autocompletado */}
           {editingActivity ? (
             <div className="act-board__readonly">
               <span className="form-input-label">Empresa y oportunidad</span>
@@ -727,6 +857,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             </div>
           ) : (
             <>
+              {/* Autocompletado de empresas clientes */}
               <CompanyAutocomplete
                 label="Empresa / Cliente"
                 name="company"
@@ -739,6 +870,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                 }}
               />
 
+              {/* Selección o creación de oportunidad asociada una vez elegida la empresa */}
               {form.companyId && (
                 <div className="act-board__opp">
                   <FormSelect
@@ -780,6 +912,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             </>
           )}
 
+          {/* Fecha y hora en que ocurrió la interacción */}
           <div className="tasks-board__form-row">
             <FormInput
               label="Fecha de la Interacción"
@@ -801,6 +934,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             />
           </div>
 
+          {/* Descripción técnica y detalles de la actividad */}
           <FormTextarea
             label="Descripción / Relevamiento Técnico"
             name="description"
@@ -812,6 +946,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             error={errors.description}
           />
 
+          {/* Sección de adjunto: Grabación o reproducción de nota de voz */}
           <div className="form-input-field">
             <label className="form-input-label">Nota de voz</label>
             {form.audioData ? (
@@ -829,6 +964,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             )}
           </div>
 
+          {/* Sección de adjunto: Carga de fotografía a campo */}
           <ImageUpload
             label="Imagen a adjuntar"
             value={form.photoUrl}
@@ -837,6 +973,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             maxSizeMB={5}
           />
 
+          {/* Sección colapsable para creación de tareas de seguimiento asociadas */}
           {!editingActivity && (
             <ToggleSection
               checked={form.createTask}
@@ -904,6 +1041,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                         />
                       </div>
 
+                      {/* Asignación de responsables a la tarea de seguimiento */}
                       <div className="tasks-board__assignee-field">
                         <label>
                           Asignar la tarea a <span className="form-input-required">*</span>
@@ -953,6 +1091,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
                   );
                 })}
 
+              {/* Botón para añadir tareas de seguimiento adicionales hasta el tope */}
               {form.createTask && form.tasks.length < MAX_FOLLOWUP_TASKS && (
                 <div className="act-board__task-add">
                   <FlipCheckbox
@@ -968,6 +1107,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
             </ToggleSection>
           )}
 
+          {/* Botones de acción del formulario (Guardar y Cancelar) */}
           <div className="tasks-board__form-actions">
             <button type="submit" className="btn-rounded-primary tasks-board__submit-btn" disabled={saving}>
               {saving ? 'Guardando…' : editingActivity ? 'Guardar Cambios' : 'Guardar Actividad'}
@@ -979,6 +1119,7 @@ export const ActivitiesBoard = ({ variant = 'admin' }) => {
         </form>
       </SlideDrawer>
 
+      {/* Modal Lightbox para visualización ampliada de fotografías adjuntas */}
       {lightboxImage && (
         <div className="act-board__lightbox" onClick={() => setLightboxImage(null)}>
           <div className="act-board__lightbox-inner">
